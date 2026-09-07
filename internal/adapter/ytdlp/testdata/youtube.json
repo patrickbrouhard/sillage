@@ -1,0 +1,24 @@
+{
+  "_type": "video",
+  "extractor": "youtube",
+  "extractor_key": "Youtube",
+  "id": "BaW_jenozKc",
+  "webpage_url": "https://www.youtube.com/watch?v=BaW_jenozKc&list=ignored",
+  "title": "  Vidéo de test – Sillage  ",
+  "description": "Première ligne.\nDeuxième ligne : été.",
+  "channel": "  Chaîne de test  ",
+  "uploader": "Autre nom",
+  "duration": 10.1236,
+  "thumbnail": "https://i.ytimg.com/vi/BaW_jenozKc/hqdefault.jpg",
+  "upload_date": "20121002",
+  "tags": [
+    "test"
+  ],
+  "formats": [
+    {
+      "format_id": "18",
+      "ext": "mp4"
+    }
+  ],
+  "automatic_captions": {}
+}

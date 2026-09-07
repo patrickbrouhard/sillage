@@ -159,6 +159,13 @@ Une éventuelle version desktop pourra être étudiée plus tard (Wails ?).
 
 La documentation de conception se trouve dans [`docs/`](docs/).
 
+* [`00-project-brief.md`](docs/00-project-brief.md) — vision et périmètre
+* [`01-product-and-ux.md`](docs/01-product-and-ux.md) — workflows et UX
+* [`02-domain-model.md`](docs/02-domain-model.md) — modèle métier
+* [`03-architecture.md`](docs/03-architecture.md) — architecture
+* [`04-tech-stack-and-decisions.md`](docs/04-tech-stack-and-decisions.md) — choix techniques
+* [`05-roadmap-and-open-questions.md`](docs/05-roadmap-and-open-questions.md) — roadmap et questions ouvertes
+
 ## Roadmap initiale
 
 Le développement doit avancer par incréments verticaux simples :

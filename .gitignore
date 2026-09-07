@@ -1,0 +1,23 @@
+# Build outputs
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# Runtime data
+/data/
+
+# Local environment
+.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# personal files
+*.bak
+docs/*
+!/docs/00-project-brief.md
