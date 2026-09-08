@@ -57,7 +57,7 @@ func parseMetadata(data []byte) (video.VideoSource, error) {
 	return video.VideoSource{
 		Provider:     "youtube",
 		ExternalID:   id,
-		URL:          "https://www.youtube.com/watch?v=" + url.QueryEscape(id),
+		CanonicalURL: "https://www.youtube.com/watch?v=" + url.QueryEscape(id),
 		Title:        title,
 		Description:  raw.Description,
 		Creator:      creator,

@@ -5,6 +5,10 @@ L’objectif est de transformer le visionnage d’une vidéo en connaissance dur
 
 > Le projet est actuellement en phase initiale de conception et de développement.
 
+La première tranche persistante est fonctionnelle : Sillage peut extraire les
+métadonnées d’une vidéo YouTube avec `yt-dlp`, les normaliser, puis créer ou
+retrouver la vidéo dans une base SQLite.
+
 ## Vision
 
 Une vidéo est un flux temporel continu. Pendant son visionnage, certaines idées, explications, images ou passages méritent d’être conservés.
@@ -124,7 +128,7 @@ Choix actuels ou privilégiés :
 * **Go**
 * `net/http`
 * **Chi**
-* **SQLite**
+* **SQLite** via `database/sql` et `modernc.org/sqlite`
 * SQLite **FTS5** à terme
 * **yt-dlp**
 * **ffmpeg**
@@ -134,6 +138,62 @@ Choix actuels ou privilégiés :
 
 Le frontend n’est pas encore choisi (React ?)
 Une éventuelle version desktop pourra être étudiée plus tard (Wails ?).
+
+## État actuel
+
+Le flux suivant est implémenté :
+
+```text
+URL YouTube
+    ↓
+AddVideo
+    ↓
+adapter yt-dlp
+    ↓
+Video + VideoSource
+    ↓
+SQLite
+    ↓
+relecture persistante
+```
+
+Une `Video` et ses `VideoSource` possèdent des identifiants internes Sillage.
+L’identité externe d’une source YouTube repose sur le couple
+`(provider, external_id)` : ajouter plusieurs formes d’URL correspondant à la
+même vidéo retourne donc la même `Video`, sans rafraîchir implicitement ses
+métadonnées.
+
+La base est initialisée par des migrations SQL embarquées et versionnées avec
+`PRAGMA user_version`. Les clés étrangères sont activées et la création d’une
+vidéo avec ses sources est transactionnelle.
+
+L’API HTTP, l’interface Web, les transcriptions, les notes et les tags ne sont
+pas encore implémentés.
+
+## Exécution
+
+Prérequis :
+
+* Go 1.27.1 ;
+* `yt-dlp` accessible dans le `PATH`.
+
+Le programme dans `cmd/server` est une interface temporaire permettant de
+tester le flux persistant :
+
+```bash
+go run ./cmd/server "https://www.youtube.com/watch?v=IgKU8xCgbjc" ./sillage.db
+```
+
+Il affiche la `Video` normalisée en JSON. Relancer la commande avec une autre
+URL de la même vidéo réutilise l’enregistrement existant dans `sillage.db`.
+
+Pour valider le projet :
+
+```bash
+go test ./...
+go vet ./...
+go build ./...
+```
 
 ## Structure du projet
 
@@ -146,11 +206,10 @@ Une éventuelle version desktop pourra être étudiée plus tard (Wails ?).
 │   ├── transcript/
 │   ├── adapter/
 │   │   ├── sqlite/
+│   │   │   └── migrations/
 │   │   └── ytdlp/
 │   └── http/
-├── migrations/
 ├── docs/
-├── testdata/
 └── deployments/
     └── docker/
 ```
@@ -196,17 +255,17 @@ MCP
 IA intégrée
 ```
 
-Le premier objectif est de disposer d’un backend capable :
+La tranche actuelle permet déjà :
 
 1. de recevoir une URL vidéo ;
 2. d’interroger `yt-dlp` ;
 3. de normaliser les métadonnées ;
 4. de persister la vidéo ;
-5. de la restituer via l’API.
+5. de retrouver une vidéo existante à partir de l’identité de sa source.
 
-## État du projet
+La prochaine interface programmable prévue est l’API REST.
 
-Sillage n'est pas fonctionnel
+## Principes de développement
 
 Le projet privilégie :
 

@@ -21,10 +21,10 @@ func TestParseMetadata(t *testing.T) {
 	duration := int64(10124)
 	want := video.VideoSource{
 		Provider: "youtube", ExternalID: "BaW_jenozKc",
-		URL:         "https://www.youtube.com/watch?v=BaW_jenozKc",
-		Title:       "Vidéo de test – Sillage",
-		Description: "Première ligne.\nDeuxième ligne : été.",
-		Creator:     "Chaîne de test", DurationMS: &duration,
+		CanonicalURL: "https://www.youtube.com/watch?v=BaW_jenozKc",
+		Title:        "Vidéo de test – Sillage",
+		Description:  "Première ligne.\nDeuxième ligne : été.",
+		Creator:      "Chaîne de test", DurationMS: &duration,
 		ThumbnailURL: "https://i.ytimg.com/vi/BaW_jenozKc/hqdefault.jpg",
 	}
 	if !reflect.DeepEqual(got, want) {
