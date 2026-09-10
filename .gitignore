@@ -21,3 +21,6 @@ Thumbs.db
 *.bak
 docs/*
 !/docs/00-project-brief.md
+
+# database
+*.db
