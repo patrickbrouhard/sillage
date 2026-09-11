@@ -1,0 +1,46 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/videos"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: '{"url":"{{youtubeUrl}}"}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("JSON response", () => {
+          pm.expect(pm.response.headers.get("Content-Type")).to.match(/^application\/json(?:;|$)/i);
+      });
+
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+
+      const video = pm.response.json();
+      pm.test("Video representation", () => {
+          pm.expect(video).to.have.all.keys("id", "created_at", "sources");
+          pm.expect(Number.isSafeInteger(video.id) && video.id > 0).to.eql(true);
+          pm.expect(video.created_at).to.match(/^\d{4}-\d{2}-\d{2}T.*Z$/);
+          pm.expect(Number.isNaN(Date.parse(video.created_at))).to.eql(false);
+          pm.expect(video.sources).to.be.an("array").and.not.empty;
+          let previous = 0;
+          for (const source of video.sources) {
+              pm.expect(source).to.have.all.keys("id", "provider", "external_id", "canonical_url", "title", "description", "creator", "duration_ms", "thumbnail_url");
+              pm.expect(Number.isSafeInteger(source.id) && source.id > previous).to.eql(true);
+              previous = source.id;
+              pm.expect(source.provider).to.eql("youtube");
+              pm.expect(source.external_id).to.be.a("string").and.not.empty;
+              pm.expect(source.canonical_url).to.match(/^https:\/\/www\.youtube\.com\/watch\?v=/);
+              pm.expect(source.title).to.be.a("string").and.not.empty;
+              for (const key of ["description", "creator", "thumbnail_url"]) {
+                  pm.expect(source[key] === null || typeof source[key] === "string").to.eql(true);
+              }
+              pm.expect(source.duration_ms === null || (Number.isSafeInteger(source.duration_ms) && source.duration_ms >= 0)).to.eql(true);
+          }
+      });
+
+      pm.test("Same stored video without refresh", () => {
+          pm.expect(video).to.deep.eql(JSON.parse(pm.collectionVariables.get("createdVideo")));
+      });
+      pm.test("No creation location", () => pm.expect(pm.response.headers.has("Location")).to.eql(false));
+    language: text/javascript
+order: 3000

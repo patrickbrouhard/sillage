@@ -1,0 +1,4 @@
+$kind: collection
+name: Sillage API - deterministic
+variables:
+  baseUrl: http://127.0.0.1:18080

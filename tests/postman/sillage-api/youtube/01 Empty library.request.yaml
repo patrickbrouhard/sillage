@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/videos"
+method: GET
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Chaque parcours complet doit commencer sur une base dédiée vide.
+      pm.collectionVariables.unset("videoId");
+      pm.collectionVariables.unset("createdVideo");
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test("JSON response", () => {
+          pm.expect(pm.response.headers.get("Content-Type")).to.match(/^application\/json(?:;|$)/i);
+      });
+
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("Empty library", () => pm.expect(pm.response.json()).to.deep.eql({videos: []}));
+    language: text/javascript
+order: 1000
