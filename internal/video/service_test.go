@@ -56,7 +56,7 @@ func TestAddVideoCreatesThenReturnsExistingWithoutRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(first, second) || creates != 1 || len(urls) != 2 {
+	if !reflect.DeepEqual(first.Video, second.Video) || creates != 1 || len(urls) != 2 || !first.Created || second.Created {
 		t.Fatalf("idempotence failed: %#v / %#v, creates=%d urls=%v", first, second, creates, urls)
 	}
 }
@@ -142,3 +142,5 @@ func (r stubRepository) FindBySource(ctx context.Context, provider, externalID s
 }
 func (r stubRepository) Create(ctx context.Context, v Video) (Video, error) { return r.create(ctx, v) }
 func (r stubRepository) Get(context.Context, VideoID) (Video, error)        { panic("unexpected Get") }
+
+func (r stubRepository) List(context.Context) ([]Video, error) { panic("unexpected List") }

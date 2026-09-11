@@ -4,6 +4,7 @@ package ytdlp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os/exec"
@@ -25,13 +26,13 @@ func (c Client) Extract(ctx context.Context, inputURL string) (video.VideoSource
 	inputURL = strings.TrimSpace(inputURL)
 	u, err := url.Parse(inputURL)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil {
-		return video.VideoSource{}, fmt.Errorf("expected a YouTube HTTP(S) URL")
+		return video.VideoSource{}, fmt.Errorf("%w: expected a YouTube HTTP(S) URL", video.ErrInvalidInput)
 	}
 
 	switch strings.ToLower(u.Hostname()) {
 	case "youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be":
 	default:
-		return video.VideoSource{}, fmt.Errorf("unsupported YouTube host %q", u.Hostname())
+		return video.VideoSource{}, fmt.Errorf("%w: unsupported YouTube host %q", video.ErrInvalidInput, u.Hostname())
 	}
 
 	binary := c.Binary
@@ -49,7 +50,15 @@ func (c Client) Extract(ctx context.Context, inputURL string) (video.VideoSource
 		if ctx.Err() != nil {
 			return video.VideoSource{}, fmt.Errorf("extract video metadata: %w", ctx.Err())
 		}
-		return video.VideoSource{}, fmt.Errorf("execute yt-dlp: %w: %s", err, strings.TrimSpace(stderr.String()))
+		var exitError *exec.ExitError
+		if !errors.As(err, &exitError) {
+			return video.VideoSource{}, fmt.Errorf("%w: execute yt-dlp: %w", video.ErrMetadataProviderUnavailable, err)
+		}
+		return video.VideoSource{}, fmt.Errorf("%w: execute yt-dlp: %w: %s", video.ErrMetadataFetchFailed, err, strings.TrimSpace(stderr.String()))
 	}
-	return parseMetadata(data)
+	source, err := parseMetadata(data)
+	if err != nil {
+		return video.VideoSource{}, fmt.Errorf("%w: %w", video.ErrMetadataFetchFailed, err)
+	}
+	return source, nil
 }

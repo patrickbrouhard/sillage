@@ -160,7 +160,7 @@ func TestAddVideoConcurrentCreation(t *testing.T) {
 	db2 := openTestDB(t, path)
 	arrived := make(chan struct{}, 2)
 	release := make(chan struct{})
-	results := make(chan video.Video, 2)
+	results := make(chan video.AddVideoResult, 2)
 	failures := make(chan error, 2)
 	for _, db := range []*sql.DB{db1, db2} {
 		repo := &racingRepository{VideoRepository: NewVideoRepository(db), arrived: arrived, release: release}
@@ -187,7 +187,7 @@ func TestAddVideoConcurrentCreation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if a.ID == 0 || !reflect.DeepEqual(a, b) {
+	if a.Video.ID == 0 || !reflect.DeepEqual(a.Video, b.Video) || a.Created == b.Created {
 		t.Fatalf("different results: %#v / %#v", a, b)
 	}
 	assertCounts(t, db1, 1, 1)
@@ -267,8 +267,45 @@ func TestAddVideoAfterReopenDoesNotRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(first, second) {
+	if !reflect.DeepEqual(first.Video, second.Video) || !first.Created || second.Created {
 		t.Fatalf("implicit refresh after reopen: %#v / %#v", first, second)
 	}
 	assertCounts(t, db, 1, 1)
+}
+
+func TestRepositoryListOrderingAndSources(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t, filepath.Join(t.TempDir(), "list.db"))
+	repo := NewVideoRepository(db)
+	empty, err := repo.List(ctx)
+	if err != nil || len(empty) != 0 {
+		t.Fatalf("%v %v", empty, err)
+	}
+	var created []video.Video
+	for i, ms := range []int64{2000, 1000, 2000} {
+		v := sampleVideo(fmt.Sprint(i))
+		v.CreatedAt = time.UnixMilli(ms)
+		v.Sources = append(v.Sources, video.VideoSource{Provider: "test", ExternalID: fmt.Sprint(i), Title: "second source"})
+		got, err := repo.Create(ctx, v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		created = append(created, got)
+	}
+	got, err := repo.List(ctx)
+	want := []video.Video{created[2], created[0], created[1]}
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v: %v", got, want, err)
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := repo.List(canceled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("lost cancellation: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.List(ctx); err == nil {
+		t.Fatal("closed database accepted")
+	}
 }

@@ -99,50 +99,117 @@ func (r *VideoRepository) FindBySource(ctx context.Context, provider, externalID
 		provider, externalID)
 }
 
-// read utilise une seule requête pour obtenir une vue cohérente de l'agrégat.
-// predicate est exclusivement fourni par les méthodes du repository.
+// List charge la bibliothèque et ses sources en une seule requête.
+func (r *VideoRepository) List(ctx context.Context) ([]video.Video, error) {
+	return r.query(ctx, "1 = 1")
+}
+
+// read retrouve un agrégat avec le même décodage que la bibliothèque.
 func (r *VideoRepository) read(ctx context.Context, predicate string, args ...any) (video.Video, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT v.id, v.created_at_ms,
-		s.id, s.provider, s.external_id, s.canonical_url, s.title,
-		s.description, s.creator, s.duration_ms, s.thumbnail_url
-		FROM videos v LEFT JOIN video_sources s ON s.video_id = v.id
-		WHERE `+predicate+" ORDER BY s.id", args...)
+	videos, err := r.query(ctx, predicate, args...)
 	if err != nil {
-		return video.Video{}, fmt.Errorf("query video: %w", err)
+		return video.Video{}, err
+	}
+	if len(videos) == 0 {
+		return video.Video{}, video.ErrVideoNotFound
+	}
+	return videos[0], nil
+}
+
+// query regroupe les lignes jointes dans l'ordre du contrat de bibliothèque.
+// predicate est exclusivement fourni par les méthodes du repository.
+func (r *VideoRepository) query(ctx context.Context, predicate string, args ...any) ([]video.Video, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT
+			v.id,
+			v.created_at_ms,
+			s.id,
+			s.provider,
+			s.external_id,
+			s.canonical_url,
+			s.title,
+			s.description,
+			s.creator,
+			s.duration_ms,
+			s.thumbnail_url
+		FROM videos v
+		LEFT JOIN video_sources s
+			ON s.video_id = v.id
+		WHERE `+predicate+`
+		ORDER BY
+			v.created_at_ms DESC,
+			v.id DESC,
+			s.id ASC
+	`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query videos: %w", err)
 	}
 	defer rows.Close()
-	var v video.Video
-	found := false
+
+	videos := make([]video.Video, 0)
+
+	// Une vidéo peut apparaître sur plusieurs lignes, une par source jointe.
 	for rows.Next() {
+		var id video.VideoID
 		var createdAtMS int64
 		var sourceID, duration sql.NullInt64
 		var provider, externalID, canonicalURL, title, description, creator, thumbnail sql.NullString
-		if err := rows.Scan(&v.ID, &createdAtMS, &sourceID, &provider, &externalID, &canonicalURL,
-			&title, &description, &creator, &duration, &thumbnail); err != nil {
-			return video.Video{}, fmt.Errorf("scan video: %w", err)
+
+		if err := rows.Scan(
+			&id,
+			&createdAtMS,
+			&sourceID,
+			&provider,
+			&externalID,
+			&canonicalURL,
+			&title,
+			&description,
+			&creator,
+			&duration,
+			&thumbnail,
+		); err != nil {
+			return nil, fmt.Errorf("scan video: %w", err)
 		}
-		found = true
-		v.CreatedAt = time.UnixMilli(createdAtMS).UTC()
+
+		// L'ordre SQL garantit que toutes les sources d'une vidéo sont contiguës.
+		if len(videos) == 0 || videos[len(videos)-1].ID != id {
+			videos = append(videos, video.Video{
+				ID:        id,
+				CreatedAt: time.UnixMilli(createdAtMS).UTC(),
+				Sources:   make([]video.VideoSource, 0),
+			})
+		}
+
+		// Le LEFT JOIN peut produire une ligne sans source associée.
 		if sourceID.Valid {
 			source := video.VideoSource{
-				ID: video.VideoSourceID(sourceID.Int64), VideoID: v.ID,
-				Provider: provider.String, ExternalID: externalID.String, CanonicalURL: canonicalURL.String,
-				Title: title.String, Description: description.String, Creator: creator.String,
+				ID:           video.VideoSourceID(sourceID.Int64),
+				VideoID:      id,
+				Provider:     provider.String,
+				ExternalID:   externalID.String,
+				CanonicalURL: canonicalURL.String,
+				Title:        title.String,
+				Description:  description.String,
+				Creator:      creator.String,
 				ThumbnailURL: thumbnail.String,
 			}
+
+			// La durée est optionnelle en base.
 			if duration.Valid {
 				source.DurationMS = &duration.Int64
 			}
+
+			v := &videos[len(videos)-1]
 			v.Sources = append(v.Sources, source)
 		}
 	}
+
+	// rows.Err couvre les erreurs survenues pendant l'itération.
 	if err := rows.Err(); err != nil {
-		return video.Video{}, fmt.Errorf("read video rows: %w", err)
+		return nil, fmt.Errorf("read video rows: %w", err)
 	}
-	if !found {
-		return video.Video{}, video.ErrVideoNotFound
-	}
-	return v, nil
+
+	return videos, nil
 }
 
 // nullableText traduit la convention métier « chaîne vide = absente » en NULL.

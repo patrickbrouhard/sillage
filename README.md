@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les premières tranches — extraction des métadonnées YouTube et persistance SQLite — sont fonctionnelles.
+> Le projet est en développement actif. Les tranches extraction des métadonnées YouTube, persistance SQLite et API HTTP sont fonctionnelles.
 
 ## Vision
 
@@ -77,59 +77,24 @@ Les métadonnées d'une source déjà enregistrée ne sont pas rafraîchies impl
 
 ### Flux actuel d'ajout d'une vidéo
 
-```mermaid
-flowchart TD
-    URL["URL YouTube"] --> AddVideo["Service.AddVideo"]
+Le handler appelle `video.Service.AddVideo`, qui extrait une source normalisée,
+cherche son identité externe en base puis crée ou retrouve la vidéo.
+Le résultat applicatif `AddVideoResult` contient `Video` et `Created`.
 
-    AddVideo --> Extract["MetadataProvider.Extract"]
-    Extract --> Normalize["VideoSource normalisée"]
-
-    Normalize --> Find["VideoRepository.FindBySource"]
-
-    Find -->|trouvée| Existing["Retourner la Video existante"]
-
-    Find -->|absente| Create["VideoRepository.Create"]
-    Create --> Transaction["Transaction SQLite"]
-    Transaction --> InsertVideo["INSERT videos"]
-    InsertVideo --> InsertSource["INSERT video_sources"]
-    InsertSource --> Commit["COMMIT"]
-    Commit --> Created["Retourner la Video créée"]
-
-    Existing --> JSON["Encodage JSON"]
-    Created --> JSON
-    JSON --> Stdout["stdout"]
-````
-
-La contrainte SQL sur `(provider, external_id)` reste la garantie ultime contre la création concurrente de doublons.
+L'extraction a lieu également lors d'un ajout répété pour identifier la source :
+les nouvelles métadonnées ne remplacent pas celles déjà enregistrées.
+La contrainte SQL sur `(provider, external_id)` protège les créations concurrentes ;
+seul l'appel qui crée effectivement la vidéo retourne `Created: true`.
 
 ## Architecture actuelle
 
-Le cœur applicatif dépend de **ports**, et non directement des technologies utilisées.
+`cmd/server` assemble le routeur Chi, les handlers HTTP, `video.Service`,
+`sqlite.VideoRepository` et `ytdlp.Client`.
 
-```mermaid
-flowchart TB
-    CLI["CLI provisoire<br/>cmd/server"]
-    Service["video.Service<br/>Application Service"]
-
-    YtdlpAdapter["ytdlp.Client<br/>adapter MetadataProvider"]
-    SQLiteAdapter["sqlite.VideoRepository<br/>adapter VideoRepository"]
-
-    Ytdlp["yt-dlp"]
-    SQLite["SQLite"]
-
-    CLI --> Service
-
-    Service -->|"MetadataProvider"| YtdlpAdapter
-    Service -->|"VideoRepository"| SQLiteAdapter
-
-    YtdlpAdapter --> Ytdlp
-    SQLiteAdapter --> SQLite
-```
-
-> Le service applicatif dépend uniquement des ports `MetadataProvider` et `VideoRepository`. Leurs implémentations actuelles sont respectivement `ytdlp.Client` et `sqlite.VideoRepository` (adapters) ce qui maintient le cœur indépendant de `yt-dlp` et de SQLite.
-
-`video.Service` orchestre les cas d'usage sans connaître les technologies utilisées.
-Le raccordement est effectué au démarrage en injectant les implémentations concrètes dans `video.NewService`.
+Les trois cas d'usage `AddVideo`, `GetVideo` et `ListVideos` sont réutilisables
+sans HTTP. Le cœur dépend uniquement des ports `MetadataProvider` et
+`VideoRepository`. Les DTO JSON appartiennent à l'adaptateur HTTP ; le modèle
+métier ne porte aucun tag JSON.
 
 ## Modèle de données actuel
 
@@ -363,25 +328,113 @@ Le mode WAL n'est pas activé pour l'instant.
 * Go 1.27.1 ;
 * `yt-dlp` accessible dans le `PATH`.
 
-Le programme dans `cmd/server` est actuellement une interface temporaire permettant de tester le flux persistant :
+Lancer le serveur depuis le répertoire de travail souhaité :
 
 ```bash
-go run ./cmd/server \
-  "https://www.youtube.com/watch?v=IgKU8xCgbjc" \
-  ./sillage.db
+go run ./cmd/server
 ```
 
-Il affiche la `Video` normalisée en JSON.
+| Variable d'environnement | Défaut |
+| --- | --- |
+| `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` |
+| `SILLAGE_POST_TIMEOUT` | `60s` |
 
-Relancer la commande avec une autre URL représentant la même vidéo réutilise l'enregistrement existant dans `sillage.db`.
+Le timeout accepte une durée Go strictement positive, par exemple `90s`.
+Le chemin de base est fixe : `data/sillage.db`, relatif au répertoire de travail
+du processus. Son dossier parent est créé s'il manque. Une ancienne base à la
+racine n'est ni déplacée ni importée automatiquement. Le futur conteneur utilisera
+`WORKDIR /app` avec un volume monté sur `/app/data`.
 
-Exemple :
+Le serveur n'active ni authentification ni CORS. L'adresse d'écoute est configurable.
+Les fichiers de packaging Docker restent à implémenter.
+
+Le POST est synchrone. Après décodage du corps, un contexte limité par
+`SILLAGE_POST_TIMEOUT` est propagé jusqu'au processus d'extraction et à SQLite.
+`http.Server` limite la lecture des en-têtes à 5 s, la lecture de la requête à
+15 s et l'inactivité entre requêtes à 60 s. `WriteTimeout` reste désactivé pour
+permettre l'envoi du JSON d'erreur après expiration du timeout applicatif.
+L'arrêt sur interruption ou SIGTERM annule les traitements, arrête le serveur,
+puis ferme SQLite.
+
+### Contrat API v1
 
 ```bash
-go run ./cmd/server \
-  "https://youtu.be/IgKU8xCgbjc" \
-  ./sillage.db
+curl -i http://127.0.0.1:8080/api/v1/videos \
+  -H 'Content-Type: application/json; charset=utf-8' \
+  --data '{"url":"https://www.youtube.com/watch?v=IgKU8xCgbjc"}'
+
+curl http://127.0.0.1:8080/api/v1/videos
+curl http://127.0.0.1:8080/api/v1/videos/42
 ```
+
+`POST /api/v1/videos` exige le type MIME `application/json`, avec paramètres
+éventuels, et accepte un seul objet `{"url":"…"}` de 16 Kio maximum.
+L'URL est obligatoire ; les champs inconnus et le contenu JSON supplémentaire
+sont rejetés.
+
+- Création : `201 Created`, avec `Location: /api/v1/videos/{id}`.
+- Vidéo déjà présente : `200 OK`, sans `Location` et sans refresh.
+
+Les deux réponses et `GET /api/v1/videos/{id}` utilisent exactement la même
+représentation :
+
+```json
+{
+  "id": 42,
+  "created_at": "2026-09-10T18:30:12.123Z",
+  "sources": [
+    {
+      "id": 17,
+      "provider": "youtube",
+      "external_id": "IgKU8xCgbjc",
+      "canonical_url": "https://www.youtube.com/watch?v=IgKU8xCgbjc",
+      "title": "Strategies for programming with AI agents | DHH and Lex Fridman",
+      "description": null,
+      "creator": "Lex Clips",
+      "duration_ms": 1025000,
+      "thumbnail_url": null
+    }
+  ]
+}
+```
+
+Les dates sont en UTC / RFC 3339 avec leur précision disponible. Les sources
+sont ordonnées par ID croissant et n'exposent pas `video_id`.
+Les champs optionnels absents valent `null`, y compris `external_id` et
+`canonical_url` dans le modèle générique. Une durée connue de zéro reste `0`.
+
+`GET /api/v1/videos` retourne `{"videos":[…]}`, avec la même représentation
+pour chaque vidéo. L'ordre est `created_at DESC, id DESC`, sans pagination
+ni limite implicite. Une bibliothèque vide retourne `200` et `{"videos":[]}`.
+
+### Erreurs API
+
+```json
+{
+  "error": {
+    "code": "video_not_found",
+    "message": "video not found"
+  }
+}
+```
+
+Les codes sont stables ; les messages lisibles en anglais peuvent évoluer.
+
+| Statut | Code | Situation |
+| --- | --- | --- |
+| 400 | `bad_request` | Corps, URL ou identifiant invalide |
+| 404 | `video_not_found` | Vidéo absente |
+| 413 | `payload_too_large` | Corps supérieur à 16 Kio |
+| 415 | `unsupported_media_type` | Type de contenu absent, invalide ou différent de JSON |
+| 502 | `metadata_fetch_failed` | Échec d'extraction ou métadonnées inexploitables |
+| 504 | `metadata_fetch_timeout` | Délai applicatif dépassé |
+| 500 | `internal_error` | Problème local d'exécution, persistance ou autre erreur interne |
+
+L'adaptateur valide déjà les hôtes YouTube et signale un refus explicite par
+`400 bad_request`. Les erreurs non classifiées d'extraction donnent `502`,
+sans interprétation de chaînes stderr. Aucun `422 video_unavailable` n'est
+introduit. Les détails techniques restent dans les logs. La déconnexion du client
+annule le traitement sans réponse particulière.
 
 ### Validation
 
@@ -392,6 +445,10 @@ go build ./...
 ```
 
 Les tests automatisés de parsing et de comportement de l'adapter `yt-dlp` ne nécessitent ni Internet ni un véritable processus `yt-dlp`. Les vérifications réelles avec YouTube et le binaire `yt-dlp` restent des tests d'intégration manuels.
+
+Les tests HTTP couvrent le contrat JSON, les validations, les erreurs, les ajouts
+concurrents et le parcours avec SQLite temporaire. Un test TCP vérifie que le
+timeout applicatif peut envoyer son erreur JSON.
 
 Les tests SQLite couvrent notamment :
 
@@ -484,11 +541,12 @@ IA intégrée
 * migrations ;
 * `VideoRepository` ;
 * service `AddVideo` ;
-* idempotence par identité externe.
+* idempotence par identité externe ;
+* API HTTP : ajout, liste et détail, DTO et erreurs JSON.
 
-### Prochaine tranche
+### API HTTP réalisée
 
-L'étape suivante prévue est une **API HTTP minimale** permettant notamment :
+La tranche HTTP expose :
 
 ```text
 POST /api/v1/videos
@@ -496,7 +554,7 @@ GET  /api/v1/videos
 GET  /api/v1/videos/{id}
 ```
 
-La sémantique exacte de cette API doit encore être précisée avant son implémentation.
+Le contrat est décrit ci-dessus. La prochaine tranche concerne les transcriptions.
 
 ## Principes de développement
 

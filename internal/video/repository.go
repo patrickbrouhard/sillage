@@ -19,6 +19,9 @@ type VideoRepository interface {
 	Create(ctx context.Context, v Video) (Video, error)
 	// Get retourne la vidéo ou une erreur enveloppant ErrVideoNotFound.
 	Get(ctx context.Context, id VideoID) (Video, error)
+	// List retourne toute la bibliothèque par date de création puis ID décroissants.
+	// Les sources de chaque vidéo sont ordonnées par ID croissant.
+	List(ctx context.Context) ([]Video, error)
 	// FindBySource recherche une identité externe non vide.
 	FindBySource(ctx context.Context, provider, externalID string) (Video, error)
 }

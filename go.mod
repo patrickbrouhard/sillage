@@ -2,7 +2,10 @@ module github.com/patrickbrouhard/sillage
 
 go 1.27.1
 
-require modernc.org/sqlite v1.58.0
+require (
+	github.com/go-chi/chi/v5 v5.3.2
+	modernc.org/sqlite v1.58.0
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

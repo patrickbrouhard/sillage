@@ -3,6 +3,7 @@ package ytdlp
 import (
 	"context"
 	"errors"
+	"github.com/patrickbrouhard/sillage/internal/video"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,7 +44,7 @@ func TestClientExtract(t *testing.T) {
 func TestClientErrors(t *testing.T) {
 	t.Run("missing executable", func(t *testing.T) {
 		_, err := (Client{Binary: filepath.Join(t.TempDir(), "missing")}).Extract(context.Background(), "https://youtu.be/abc")
-		if !errors.Is(err, os.ErrNotExist) {
+		if !errors.Is(err, os.ErrNotExist) || !errors.Is(err, video.ErrMetadataProviderUnavailable) {
 			t.Fatalf("expected missing executable: %v", err)
 		}
 	})
@@ -51,14 +52,14 @@ func TestClientErrors(t *testing.T) {
 		binary := writeExecutable(t, "echo 'video unavailable' >&2\nexit 7\n")
 		_, err := (Client{Binary: binary}).Extract(context.Background(), "https://youtu.be/abc")
 		var exitError *exec.ExitError
-		if !errors.As(err, &exitError) || exitError.ExitCode() != 7 || !strings.Contains(err.Error(), "video unavailable") {
+		if !errors.Is(err, video.ErrMetadataFetchFailed) || !errors.As(err, &exitError) || exitError.ExitCode() != 7 || !strings.Contains(err.Error(), "video unavailable") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 	t.Run("invalid JSON", func(t *testing.T) {
 		binary := writeExecutable(t, "echo 'not JSON'\n")
 		_, err := (Client{Binary: binary}).Extract(context.Background(), "https://youtu.be/abc")
-		if err == nil || !strings.Contains(err.Error(), "parse yt-dlp") {
+		if !errors.Is(err, video.ErrMetadataFetchFailed) || !strings.Contains(err.Error(), "parse yt-dlp") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -77,7 +78,7 @@ func TestClientRejectsInvalidURLBeforeExecution(t *testing.T) {
 	for _, inputURL := range []string{"", "--version", "file:///tmp/video", "https://example.com/video", "https://youtube.com.evil.test/video", "https://user@youtube.com/watch?v=abc", "://"} {
 		t.Run(inputURL, func(t *testing.T) {
 			_, err := (Client{Binary: "/does-not-exist"}).Extract(context.Background(), inputURL)
-			if err == nil || strings.Contains(err.Error(), "execute yt-dlp") {
+			if !errors.Is(err, video.ErrInvalidInput) || strings.Contains(err.Error(), "execute yt-dlp") {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
@@ -92,4 +93,13 @@ func writeExecutable(t *testing.T, script string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestClientPreservesExplicitCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := (Client{Binary: writeExecutable(t, "exit 0\n")}).Extract(ctx, "https://youtu.be/abc")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("lost cancellation: %v", err)
+	}
 }
