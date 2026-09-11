@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/videos/0"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("JSON response", () => {
+          pm.expect(pm.response.headers.get("Content-Type")).to.match(/^application\/json(?:;|$)/i);
+      });
+
+      pm.test("HTTP 400", () => pm.response.to.have.status(400));
+
+      pm.test("Error contract", () => {
+          const body = pm.response.json();
+          pm.expect(body).to.have.all.keys("error");
+          pm.expect(body.error).to.have.all.keys("code", "message");
+          pm.expect(body.error.code).to.eql("bad_request");
+          pm.expect(body.error.message).to.be.a("string").and.not.empty;
+          pm.expect(pm.response.headers.has("Location")).to.eql(false);
+      });
+    language: text/javascript
+order: 4000

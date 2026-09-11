@@ -436,6 +436,11 @@ sans interprétation de chaînes stderr. Aucun `422 video_unavailable` n'est
 introduit. Les détails techniques restent dans les logs. La déconnexion du client
 annule le traitement sans réponse particulière.
 
+### Tests Postman
+
+Les collections v3 et le lanceur isolé sont décrits dans [tests/postman/README.md](tests/postman/README.md).
+La CI exécute les scénarios déterministes ; le parcours réel YouTube reste local.
+
 ### Validation
 
 ```bash
