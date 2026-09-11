@@ -21,9 +21,12 @@ doublon sans refresh, détail et liste. Les assertions portent sur la représent
 les identifiants, les en-têtes et la cohérence des réponses ; le titre et la
 description ne sont pas figés. Chaque parcours complet exige une base vide.
 
-Aucun faux exécutable `yt-dlp` n'est ajouté pour ce jalon. Les scénarios CI de
-création réussie, doublon, tri sur bibliothèque remplie, échec d'extraction et
-timeout seront ajoutés au second jalon. Les tests Go existants restent complémentaires.
+Le premier jalon est suffisant pour les besoins actuels. Le second jalon avec
+un faux exécutable `yt-dlp` est **différé, sans échéance** ; les tests Go existants
+et les essais réels locaux restent complémentaires.
+
+Les limites de couverture, les conditions de reprise et l'approche envisagée sont
+documentées dans [Amélioration différée : simuler yt-dlp](future-ytdlp-simulation.md).
 
 ## Prérequis
 
@@ -108,6 +111,11 @@ Le timeout de la CLI par requête est de 75 s, supérieur aux 60 s du POST Silla
 
 ## Utilisation dans Postman
 
+Les collections sont validées avec Postman CLI et leur format v3 passe le lint.
+L'utilisation interactive dans Postman Desktop reste à valider : l'essai depuis
+Windows avec le serveur sous WSL n'a pas abouti, sans cause identifiée.
+La procédure ci-dessous reste à confirmer dans l'application, notamment sous Linux.
+
 Ouvrir le dépôt local avec **Native Git dans Postman v12**, puis les collections
 situées dans `tests/postman/sillage-api/`. Les fichiers v3 du dépôt sont la source
 de vérité ; aucune collection cloud ni export v2.1 n'est nécessaire.
@@ -132,14 +140,17 @@ retrouver une base vide. La collection mémorise l'ID et la représentation cré
 pendant le parcours ; le premier scénario efface les valeurs des runs précédents.
 Un environnement Postman ne doit pas masquer ces variables avec d'anciennes valeurs.
 
-Avec Postman sous Windows et Sillage sous WSL2, utiliser le localhost transféré
-par WSL. Si ce transfert n'est pas disponible sur la machine, il faut le rétablir
-avant de tester depuis l'application Windows ; le serveur reste lié au loopback.
+Avec Postman sous Windows et Sillage sous WSL2, l'URL cible reste le localhost
+transféré par WSL. Un appel HTTP depuis Windows a bien atteint le serveur pendant
+la validation ; cela ne confirme pas à lui seul le fonctionnement dans Postman
+Desktop et ne permet pas d'attribuer la difficulté rencontrée à WSL.
 
 ## GitHub Actions
 
 `.github/workflows/api-tests.yml` est déclenché par `push`, `pull_request` et
 `workflow_dispatch`.
+
+Un lancement réel déclenché par push a été validé avec succès.
 
 Il exécute les tests Go, `vet`, le build, valide le format des deux collections,
 puis **exécute uniquement deterministic/**. Les logs sont conservés dans l'artefact
