@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/transcript"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 func TestTranscriptPersistenceRefreshAndNullablePath(t *testing.T) {

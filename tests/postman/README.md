@@ -111,6 +111,28 @@ Le timeout de la CLI par requête est de 75 s, supérieur aux 60 s du POST Silla
 
 ## Utilisation dans Postman
 
+### Validation manuelle des transcriptions
+
+Le parcours transcription est couvert automatiquement en Go, avec le vrai adapter
+et un exécutable temporaire ciblé. Les collections Postman existantes ne simulent
+toujours pas yt-dlp.
+
+Pour un essai réel, lancer `python3 tests/postman/run.py youtube --serve`,
+ajouter une vidéo avec la collection, puis remplacer les deux IDs ci-dessous
+par ceux de la réponse :
+
+```bash
+curl -i -X POST http://127.0.0.1:18080/api/v1/videos/1/sources/1/transcript
+curl -i http://127.0.0.1:18080/api/v1/videos/1/sources/1/transcript
+```
+
+Le POST est sans corps, retourne 200 et conserve un JSON3. Le GET restitue
+le même contenu sans réseau. Un second POST rafraîchit le contenu avec le même
+contrat public. Cette base et ses snapshots sont temporaires et isolés de
+`data/` du dépôt.
+
+### Collections existantes
+
 Les collections sont validées avec Postman CLI et leur format v3 passe le lint.
 L'utilisation interactive dans Postman Desktop reste à valider : l'essai depuis
 Windows avec le serveur sous WSL n'a pas abouti, sans cause identifiée.

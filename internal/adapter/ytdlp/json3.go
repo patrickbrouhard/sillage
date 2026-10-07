@@ -3,11 +3,12 @@ package ytdlp
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"math"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/patrickbrouhard/sillage/internal/transcript"
 )
 
 // json3Document isole les champs utiles ; les événements de présentation sont ignorés.

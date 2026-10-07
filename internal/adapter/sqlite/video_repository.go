@@ -56,12 +56,32 @@ func (r *VideoRepository) Create(ctx context.Context, v video.Video) (video.Vide
 		Sources:   make([]video.VideoSource, 0, len(v.Sources)),
 	}
 	for _, source := range v.Sources {
-		result, err := tx.ExecContext(ctx, `INSERT INTO video_sources
-			(video_id, provider, external_id, canonical_url, title, description, creator, duration_ms, thumbnail_url, original_audio_language)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, source.Provider, nullableText(source.ExternalID), nullableText(source.CanonicalURL),
-			source.Title, nullableText(source.Description), nullableText(source.Creator),
-			source.DurationMS, nullableText(source.ThumbnailURL), nullableText(source.OriginalAudioLanguage))
+		result, err := tx.ExecContext(ctx, `
+			INSERT INTO video_sources (
+				video_id,
+				provider,
+				external_id,
+				canonical_url,
+				title,
+				description,
+				creator,
+				duration_ms,
+				thumbnail_url,
+				original_audio_language
+			)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`,
+			id,
+			source.Provider,
+			nullableText(source.ExternalID),
+			nullableText(source.CanonicalURL),
+			source.Title,
+			nullableText(source.Description),
+			nullableText(source.Creator),
+			source.DurationMS,
+			nullableText(source.ThumbnailURL),
+			nullableText(source.OriginalAudioLanguage),
+		)
 		if err != nil {
 			var sqliteErr *driver.Error
 			// Cet INSERT ne fournit aucun ID ; son seul conflit UNIQUE possible

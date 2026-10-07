@@ -3,9 +3,10 @@ package transcript
 import (
 	"context"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"strings"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // VideoReader permet de vérifier l'appartenance d'une source sans dépendre de HTTP.

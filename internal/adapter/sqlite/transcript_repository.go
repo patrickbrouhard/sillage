@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"strings"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/transcript"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // TranscriptRepository conserve les acquisitions sans stocker leurs fragments.

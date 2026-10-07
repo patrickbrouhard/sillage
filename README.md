@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les tranches extraction des métadonnées YouTube, persistance SQLite et API HTTP sont fonctionnelles.
+> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP et transcriptions automatiques originales sont fonctionnelles.
 
 ## Vision
 
@@ -56,6 +56,9 @@ Sillage sait actuellement :
 * retrouver une vidéo existante à partir de l'identité de sa source ;
 * conserver la même `Video` pour plusieurs formes d'URL correspondant à la même vidéo YouTube.
 
+Il peut également acquérir, rafraîchir et relire localement la transcription
+automatique originale d'une source YouTube.
+
 Une `Video` et ses `VideoSource` possèdent leurs propres identifiants internes Sillage.
 
 L'identité externe d'une source repose, lorsqu'un identifiant externe existe, sur le couple :
@@ -89,20 +92,23 @@ seul l'appel qui crée effectivement la vidéo retourne `Created: true`.
 ## Architecture actuelle
 
 `cmd/server` assemble le routeur Chi, les handlers HTTP, `video.Service`,
-`sqlite.VideoRepository` et `ytdlp.Client`.
+`transcript.Service`, les repositories SQLite, `ytdlp.Client` et le stockage
+filesystem des snapshots.
 
 Les trois cas d'usage `AddVideo`, `GetVideo` et `ListVideos` sont réutilisables
-sans HTTP. Le cœur dépend uniquement des ports `MetadataProvider` et
-`VideoRepository`. Les DTO JSON appartiennent à l'adaptateur HTTP ; le modèle
+sans HTTP, comme `transcript.Service.Fetch` et `Get`. Le cœur dépend de ports
+spécialisés de lecture, acquisition, snapshots et persistance.
+Les DTO JSON appartiennent à l'adaptateur HTTP ; le modèle
 métier ne porte aucun tag JSON.
 
 ## Modèle de données actuel
 
-La première tranche persistante ne contient volontairement que les entités nécessaires à l'ajout d'une vidéo.
+Le schéma persistant contient les vidéos, leurs sources et les transcriptions acquises.
 
 ```mermaid
 erDiagram
     VIDEO ||--|{ VIDEO_SOURCE : possede
+    VIDEO_SOURCE ||--o{ TRANSCRIPT : synchronise
 
     VIDEO {
         INTEGER id PK
@@ -120,6 +126,16 @@ erDiagram
         TEXT creator
         INTEGER duration_ms
         TEXT thumbnail_url
+        TEXT original_audio_language
+    }
+
+    TRANSCRIPT {
+        INTEGER id PK
+        INTEGER video_source_id FK
+        TEXT language
+        TEXT provenance
+        TEXT local_path
+        TEXT last_fetched_at
     }
 ```
 
@@ -137,8 +153,6 @@ est unique.
 
 Le modèle métier prévoit plus tard d'autres objets tels que :
 
-* `Transcript` ;
-* `TranscriptSegment` ;
 * `Note` ;
 * `Annotation` ;
 * `Tag` ;
@@ -205,21 +219,64 @@ Exemple de prise de notes :
 
 La dimension temporelle est un élément métier de premier ordre : timestamps de notes, annotations, segments de transcription et captures doivent pouvoir être reliés précisément à la vidéo.
 
-### Transcriptions
+### Transcriptions YouTube
 
-Pour YouTube, Sillage utilisera dans un premier temps `yt-dlp` afin de récupérer les sous-titres disponibles.
+Le flux complet est implémenté : découverte yt-dlp, sélection de la caption
+automatique originale, téléchargement JSON3, validation, snapshot local,
+persistance SQLite et restitution REST.
 
-Le format `json3` sera normalisé vers le modèle interne :
+Une transcription appartient à une `VideoSource`, dont elle partage la timeline.
+Son identité est `(video_source_id, language, provenance)`. La langue métier
+est celle du contenu (`en`, `pt-BR`), sans le suffixe technique `-orig`.
+La provenance de cette tranche est `youtube_auto`.
 
-```text
-Transcript
-└── TranscriptSegment
-    ├── start_ms
-    ├── end_ms
-    └── text
+`VideoSource.original_audio_language` est facultative et n'est pas exposée
+dans le JSON vidéo. L'adapter utilise les formats audio explicitement marqués
+originaux par yt-dlp (`language_preference = 10`), puis à défaut une unique
+clé de caption `*-orig`. Une piste audio simplement « default » ne suffit pas.
+L'acquisition peut renseigner une langue jusque-là inconnue, atomiquement avec
+la transcription ; elle ne rafraîchit pas les autres métadonnées vidéo.
+
+La langue connue cible sa clé `<langue>-orig`. Sinon, un seul candidat
+original proposant JSON3 est accepté. Plusieurs formats d'une même clé ne sont
+pas plusieurs pistes. Une contradiction avec la langue connue ou plusieurs
+signaux audio originaux contradictoires font échouer la sélection.
+Aucun fallback vers une autre langue, une caption manuelle ou du STT.
+
+JSON3 reste dans l'adapter. Le domaine utilise seulement :
+
+```go
+type TranscriptItem struct {
+    StartMS int64
+    Text    string
+}
+
+type TranscriptContent []TranscriptItem
 ```
 
-Le format externe ne doit pas devenir le format métier de l'application.
+Le parser conserve l'ordre source et les espaces des fragments. Il matérialise
+une séparation entre événements autonomes si aucun blanc ne les sépare déjà ;
+un événement JSON3 `aAppend` prolonge le précédent. Les événements sans texte
+sont ignorés ; un texte sans temps valide, des offsets invalides ou un document
+sans contenu exploitable sont rejetés. Les offsets absents valent zéro.
+Aucune durée de fin ni segmentation par mots n'est inférée.
+
+`TranscriptContent.PlainText()` concatène puis normalise les blancs.
+Le texte brut n'est pas persisté. Les fragments ne deviennent pas des lignes SQL.
+
+Chaque acquisition réussie conserve actuellement le JSON3 dans
+`data/transcripts/`. SQLite contient un chemin relatif à cette racine.
+Un nouveau fichier complet est publié avant la transaction SQL ; un échec
+ne remplace ni le chemin courant ni sa date. Les fichiers précédents et les
+éventuels fichiers orphelins après échec/crash ne sont pas automatiquement
+supprimés pendant cette phase, afin de préserver les lectures concurrentes.
+Ce mécanisme n'expose aucun historique métier. La politique durable de rétention
+et de nettoyage reste ouverte.
+
+Les téléchargements utilisent un répertoire temporaire supprimé en fin d'appel.
+Le dump yt-dlp de découverte n'y reste que le temps du téléchargement, via
+`--load-info-json`, pour conserver exactement la piste sélectionnée.
+Le JSON3 est limité à 16 Mio, le dump de découverte à 64 Mio et stderr à 16 Kio.
 
 ### Recherche
 
@@ -442,6 +499,55 @@ sans interprétation de chaînes stderr. Aucun `422 video_unavailable` n'est
 introduit. Les détails techniques restent dans les logs. La déconnexion du client
 annule le traitement sans réponse particulière.
 
+### API des transcriptions
+
+```text
+POST /api/v1/videos/{video_id}/sources/{source_id}/transcript
+GET  /api/v1/videos/{video_id}/sources/{source_id}/transcript
+```
+
+Le POST sans corps acquiert ou rafraîchit la caption automatique originale.
+Aucun `Content-Type` n'est requis ; un corps non vide est rejeté par `400 bad_request`.
+Il retourne toujours `200 OK`, sans `Location`, après publication et persistance.
+Le délai global `SILLAGE_POST_TIMEOUT` couvre toute l'acquisition.
+
+Le GET ne fait aucun accès distant. Il sélectionne la dernière acquisition
+`youtube_auto` par `last_fetched_at DESC, id DESC`, puis parse le snapshot local.
+Une ligne dont le snapshot est absent, illisible ou corrompu donne `500 internal_error`.
+Le service vérifie la vidéo et l'appartenance de la source avant tout accès au contenu.
+
+GET et POST exposent exactement les mêmes champs :
+
+```json
+{
+  "language": "en",
+  "provenance": "youtube_auto",
+  "last_fetched_at": "2026-10-07T14:21:35.042Z",
+  "items": [
+    {"start_ms": 2960, "text": "This"},
+    {"start_ms": 3080, "text": " is"}
+  ]
+}
+```
+
+L'ID du transcript, `video_source_id` et `local_path` restent internes.
+Il n'existe pas de ressource autonome `/api/v1/transcripts`.
+
+| Statut | Code | Situation |
+| --- | --- | --- |
+| 400 | `bad_request` | Identifiant invalide ou corps non vide |
+| 404 | `video_not_found` | Vidéo inexistante |
+| 404 | `video_source_not_found` | Source absente ou appartenant à une autre vidéo |
+| 404 | `transcript_not_found` | Aucune acquisition pour la politique actuelle |
+| 404 | `transcript_not_available` | Aucune piste originale JSON3 sélectionnable de façon fiable |
+| 502 | `transcript_fetch_failed` | Échec distant ou contenu distant inexploitable |
+| 504 | `transcript_fetch_timeout` | Délai applicatif dépassé |
+| 500 | `internal_error` | Erreur locale : exécutable indisponible, SQLite, filesystem, snapshot |
+
+Les échecs de processus ne sont pas interprétés en analysant le texte de stderr.
+Une déconnexion annule l'opération sans réponse particulière. Un commit déjà
+réussi peut néanmoins précéder une déconnexion ; le client peut alors relire le GET.
+
 ### Tests Postman
 
 Les collections v3 et le lanceur isolé sont décrits dans [tests/postman/README.md](tests/postman/README.md).
@@ -470,6 +576,16 @@ Les tests SQLite couvrent notamment :
 * identité externe ;
 * idempotence ;
 * créations concurrentes.
+
+Les tests de transcription couvrent également les langues originales et régionales,
+le JSON3, l'exécution simulée de yt-dlp, la relecture locale après réouverture,
+les erreurs de snapshot, les rafraîchissements échoués et les acquisitions concurrentes.
+Un parcours HTTP utilise l'adapter réel avec un exécutable temporaire contrôlé.
+
+Validation manuelle du 7 octobre 2026 : yt-dlp `2026.08.19`, vidéo
+`IgKU8xCgbjc`, acquisition anglaise de 3 615 fragments et GET identique au POST.
+Cette observation ne fige pas le contenu futur de YouTube et ne fait pas partie
+des tests automatisés.
 
 ## Structure du projet
 
@@ -553,7 +669,8 @@ IA intégrée
 * `VideoRepository` ;
 * service `AddVideo` ;
 * idempotence par identité externe ;
-* API HTTP : ajout, liste et détail, DTO et erreurs JSON.
+* API HTTP : ajout, liste et détail, DTO et erreurs JSON ;
+* acquisition et lecture locale des transcriptions automatiques originales YouTube.
 
 ### API HTTP réalisée
 
@@ -565,7 +682,8 @@ GET  /api/v1/videos
 GET  /api/v1/videos/{id}
 ```
 
-Le contrat est décrit ci-dessus. La prochaine tranche concerne les transcriptions.
+Les contrats vidéo et transcription sont décrits ci-dessus. La tranche transcription
+est réalisée ; notes et tags constituent la prochaine direction de développement.
 
 ## Principes de développement
 

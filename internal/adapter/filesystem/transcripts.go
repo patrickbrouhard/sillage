@@ -4,11 +4,12 @@ package filesystem
 import (
 	"context"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/patrickbrouhard/sillage/internal/transcript"
 )
 
 const maxSnapshotBytes = 16 << 20

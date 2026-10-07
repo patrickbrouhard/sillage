@@ -2,10 +2,11 @@
 package http
 
 import (
-	"github.com/go-chi/chi/v5"
-	"github.com/patrickbrouhard/sillage/internal/http/handlers"
 	"net/http"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/patrickbrouhard/sillage/internal/http/handlers"
 )
 
 // NewRouter expose les vidéos et les transcriptions de leurs sources sous le préfixe versionné.

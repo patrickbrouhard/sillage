@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"io"
 	"net/url"
 	"os"
@@ -16,6 +14,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/transcript"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 const maxTranscriptBytes = 16 << 20

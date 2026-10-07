@@ -4,16 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
-	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
-	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
+	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
+	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
+	"github.com/patrickbrouhard/sillage/internal/transcript"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 type providerFunc func(context.Context, video.VideoSource) (transcript.Acquisition, error)
@@ -201,5 +202,49 @@ func TestConcurrentAcquisitions(t *testing.T) {
 	got, err := transcript.NewService(videos, repo, nil, snapshots).Get(ctx, v.ID, v.Sources[0].ID)
 	if err != nil || (!reflect.DeepEqual(got, a) && !reflect.DeepEqual(got, b)) {
 		t.Fatal(got, err)
+	}
+}
+
+func TestFailedPublicationAndCancellationDoNotPersist(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	db, err := sqlite.Open(ctx, filepath.Join(root, "sillage.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	videos := sqlite.NewVideoRepository(db)
+	v, err := videos.Create(ctx, video.Video{
+		CreatedAt: time.Now(),
+		Sources:   []video.VideoSource{{Provider: "youtube", ExternalID: "abc", Title: "Title"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := sqlite.NewTranscriptRepository(db)
+	blocked := filepath.Join(root, "not-a-directory")
+	if err := os.WriteFile(blocked, []byte("occupied"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	content := acquisition(t, "valid text")
+	provider := providerFunc(func(context.Context, video.VideoSource) (transcript.Acquisition, error) {
+		return content, nil
+	})
+	service := transcript.NewService(videos, repo, provider, filesystem.NewTranscripts(blocked, ytdlp.ParseJSON3))
+	if _, err := service.Fetch(ctx, v.ID, v.Sources[0].ID); err == nil || errors.Is(err, transcript.ErrFetchFailed) {
+		t.Fatalf("local publication failure: %v", err)
+	}
+	cancelCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	provider = providerFunc(func(context.Context, video.VideoSource) (transcript.Acquisition, error) {
+		cancel()
+		return content, nil
+	})
+	service = transcript.NewService(videos, repo, provider, nil)
+	if _, err := service.Fetch(cancelCtx, v.ID, v.Sources[0].ID); !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
+	}
+	if _, err := repo.Latest(ctx, v.Sources[0].ID); !errors.Is(err, transcript.ErrNotFound) {
+		t.Fatalf("failed acquisition created a row: %v", err)
 	}
 }

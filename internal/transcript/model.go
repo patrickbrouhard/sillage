@@ -2,9 +2,10 @@
 package transcript
 
 import (
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"strings"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // YouTubeAuto désigne une transcription automatique originale fournie par YouTube.

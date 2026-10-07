@@ -5,18 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
-	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
-	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
-	api "github.com/patrickbrouhard/sillage/internal/http"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
+	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
+	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
+	api "github.com/patrickbrouhard/sillage/internal/http"
+	"github.com/patrickbrouhard/sillage/internal/transcript"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 type transcriptStub struct {

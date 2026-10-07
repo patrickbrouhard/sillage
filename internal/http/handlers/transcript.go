@@ -3,14 +3,15 @@ package handlers
 import (
 	"context"
 	"errors"
-	"github.com/go-chi/chi/v5"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/patrickbrouhard/sillage/internal/transcript"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // TranscriptService fournit les deux cas d'usage réutilisables par les interfaces.

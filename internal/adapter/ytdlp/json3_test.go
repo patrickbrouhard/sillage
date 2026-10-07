@@ -1,10 +1,11 @@
 package ytdlp
 
 import (
-	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/patrickbrouhard/sillage/internal/transcript"
 )
 
 func TestParseJSON3Fixture(t *testing.T) {

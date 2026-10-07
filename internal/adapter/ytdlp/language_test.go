@@ -3,8 +3,9 @@ package ytdlp
 import (
 	"encoding/json"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"testing"
+
+	"github.com/patrickbrouhard/sillage/internal/transcript"
 )
 
 func TestOriginalLanguageAndSelection(t *testing.T) {

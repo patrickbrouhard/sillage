@@ -3,12 +3,15 @@ package ytdlp
 import (
 	"context"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/transcript"
-	"github.com/patrickbrouhard/sillage/internal/video"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/transcript"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 func TestFetchTranscriptWithExecutable(t *testing.T) {
@@ -96,5 +99,24 @@ func TestTranscriptProcessErrors(t *testing.T) {
 	cancel()
 	if _, err := missing.Fetch(ctx, source); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
+	}
+}
+
+func TestTranscriptOutputLimitDrainsWithoutGrowing(t *testing.T) {
+	output := &boundedOutput{limit: 4}
+	n, err := io.Copy(output, strings.NewReader("0123456789"))
+	if err != nil || n != 10 || !output.truncated || output.buffer.String() != "0123" {
+		t.Fatalf("n=%d output=%q truncated=%v error=%v", n, output.buffer.String(), output.truncated, err)
+	}
+}
+
+func TestTranscriptMissingDownloadedFile(t *testing.T) {
+	binary := writeExecutable(t, `printf '%s' '{"extractor_key":"Youtube","id":"abc","title":"Title","automatic_captions":{"en-orig":[{"ext":"json3","url":"https://example.test/en"}]}}'`)
+	_, err := (Client{Binary: binary}).Fetch(context.Background(), video.VideoSource{
+		Provider:   "youtube",
+		ExternalID: "abc",
+	})
+	if !errors.Is(err, transcript.ErrFetchFailed) {
+		t.Fatalf("successful process without file: %v", err)
 	}
 }
