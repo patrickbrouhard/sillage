@@ -1,6 +1,6 @@
 # Project brief
 
-> **Nom du projet :** à déterminer  
+> **Nom du projet :** Sillage
 > **Description courte :** base de connaissances personnelle centrée sur la vidéo.
 
 ## 1. Vision
