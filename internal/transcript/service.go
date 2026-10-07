@@ -10,6 +10,7 @@ import (
 
 // VideoReader permet de vérifier l'appartenance d'une source sans dépendre de HTTP.
 type VideoReader interface {
+	// Get relit une vidéo et toutes ses sources, ou video.ErrVideoNotFound.
 	Get(context.Context, video.VideoID) (video.Video, error)
 }
 
@@ -22,6 +23,7 @@ type Acquisition struct {
 
 // Provider acquiert exclusivement la transcription automatique originale de cette tranche.
 type Provider interface {
+	// Fetch sélectionne, récupère et valide un contenu sans modifier la persistance.
 	Fetch(context.Context, video.VideoSource) (Acquisition, error)
 }
 
@@ -35,7 +37,9 @@ type Repository interface {
 
 // Snapshots publie des fichiers indépendants et relit leur contenu sans accès distant.
 type Snapshots interface {
+	// Publish rend disponible un nouveau fichier complet sans écraser un snapshot.
 	Publish(context.Context, []byte) (string, error)
+	// Read retourne le contenu local décodé ou une erreur locale.
 	Read(context.Context, string) (TranscriptContent, error)
 }
 

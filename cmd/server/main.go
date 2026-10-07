@@ -13,9 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
 	api "github.com/patrickbrouhard/sillage/internal/http"
+	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
@@ -85,8 +87,16 @@ func run(ctx context.Context, cfg config) error {
 		return err
 	}
 	defer db.Close()
-	service := video.NewService(sqlite.NewVideoRepository(db), ytdlp.Client{})
-	server := newHTTPServer(cfg.addr, api.NewRouter(service, cfg.postTimeout))
+	videos := sqlite.NewVideoRepository(db)
+	provider := ytdlp.Client{}
+	service := video.NewService(videos, provider)
+	transcripts := transcript.NewService(
+		videos,
+		sqlite.NewTranscriptRepository(db),
+		provider,
+		filesystem.NewTranscripts("data/transcripts", ytdlp.ParseJSON3),
+	)
+	server := newHTTPServer(cfg.addr, api.NewRouter(transcripts, service, cfg.postTimeout))
 	server.BaseContext = func(net.Listener) context.Context { return ctx }
 	listener, err := net.Listen("tcp", cfg.addr)
 	if err != nil {

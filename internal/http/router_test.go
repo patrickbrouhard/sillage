@@ -63,7 +63,7 @@ func assertError(t *testing.T, w *httptest.ResponseRecorder, status int, code st
 }
 
 func TestPostValidation(t *testing.T) {
-	h := api.NewRouter(serviceStub{add: func(context.Context, string) (video.AddVideoResult, error) {
+	h := api.NewRouter(nil, serviceStub{add: func(context.Context, string) (video.AddVideoResult, error) {
 		t.Fatal("service called for invalid request")
 		return video.AddVideoResult{}, nil
 	}}, time.Second)
@@ -96,7 +96,7 @@ func TestPostValidation(t *testing.T) {
 
 func TestPostJSONParametersAndSizeBoundary(t *testing.T) {
 	calls := 0
-	h := api.NewRouter(serviceStub{add: func(ctx context.Context, url string) (video.AddVideoResult, error) {
+	h := api.NewRouter(nil, serviceStub{add: func(ctx context.Context, url string) (video.AddVideoResult, error) {
 		calls++
 		if _, ok := ctx.Deadline(); !ok {
 			t.Fatal("missing application deadline")
@@ -133,13 +133,13 @@ func TestErrors(t *testing.T) {
 		{errors.New("unexpected database failure"), 500, "internal_error"},
 	} {
 		t.Run(tc.code, func(t *testing.T) {
-			h := api.NewRouter(serviceStub{add: func(context.Context, string) (video.AddVideoResult, error) {
+			h := api.NewRouter(nil, serviceStub{add: func(context.Context, string) (video.AddVideoResult, error) {
 				return video.AddVideoResult{}, fmt.Errorf("private diagnostic: %w", tc.err)
 			}}, time.Second)
 			assertError(t, request(h, "POST", "/api/v1/videos", `{"url":"https://youtu.be/x"}`, "application/json"), tc.status, tc.code)
 		})
 	}
-	h := api.NewRouter(serviceStub{
+	h := api.NewRouter(nil, serviceStub{
 		get: func(context.Context, video.VideoID) (video.Video, error) {
 			return video.Video{}, video.ErrVideoNotFound
 		},
@@ -153,7 +153,7 @@ func TestErrors(t *testing.T) {
 }
 
 func TestDeadlineAndClientCancellation(t *testing.T) {
-	h := api.NewRouter(serviceStub{add: func(ctx context.Context, _ string) (video.AddVideoResult, error) {
+	h := api.NewRouter(nil, serviceStub{add: func(ctx context.Context, _ string) (video.AddVideoResult, error) {
 		<-ctx.Done()
 		return video.AddVideoResult{}, fmt.Errorf("wrapped: %w", ctx.Err())
 	}}, 10*time.Millisecond)
@@ -186,7 +186,7 @@ func TestLibraryEndToEnd(t *testing.T) {
 		calls++
 		return video.VideoSource{Provider: "youtube", ExternalID: "x", CanonicalURL: "https://youtu.be/x", Title: fmt.Sprintf("title %d", calls)}, nil
 	})
-	h := api.NewRouter(video.NewService(sqlite.NewVideoRepository(db), provider), time.Second)
+	h := api.NewRouter(nil, video.NewService(sqlite.NewVideoRepository(db), provider), time.Second)
 	empty := request(h, "GET", "/api/v1/videos", "", "")
 	if empty.Code != 200 || strings.TrimSpace(empty.Body.String()) != `{"videos":[]}` {
 		t.Fatal(empty.Body.String())
@@ -245,7 +245,7 @@ func TestConcurrentHTTPAdds(t *testing.T) {
 	provider := providerFunc(func(context.Context, string) (video.VideoSource, error) {
 		return video.VideoSource{Provider: "youtube", ExternalID: "x", CanonicalURL: "https://youtu.be/x", Title: "title"}, nil
 	})
-	h := api.NewRouter(video.NewService(sqlite.NewVideoRepository(db), provider), time.Second)
+	h := api.NewRouter(nil, video.NewService(sqlite.NewVideoRepository(db), provider), time.Second)
 	results := make(chan *httptest.ResponseRecorder, 2)
 	var wg sync.WaitGroup
 	for range 2 {

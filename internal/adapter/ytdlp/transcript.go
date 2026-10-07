@@ -148,30 +148,30 @@ func (c Client) transcriptCommand(ctx context.Context, args ...string) ([]byte, 
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			return nil, fmt.Errorf("%w: yt-dlp: %w: %s", transcript.ErrFetchFailed, err, stderr.String())
+			return nil, fmt.Errorf("%w: yt-dlp: %w: %s", transcript.ErrFetchFailed, err, stderr.buffer.String())
 		}
 		return nil, fmt.Errorf("execute yt-dlp: %w", err)
 	}
 	if stdout.truncated {
 		return nil, fmt.Errorf("%w: oversized discovery", transcript.ErrFetchFailed)
 	}
-	return stdout.Bytes(), nil
+	return stdout.buffer.Bytes(), nil
 }
 
 // boundedOutput continue de drainer les pipes après la limite pour ne pas bloquer le processus.
 type boundedOutput struct {
-	bytes.Buffer
+	buffer    bytes.Buffer
 	limit     int
 	truncated bool
 }
 
 func (b *boundedOutput) Write(data []byte) (int, error) {
 	size := len(data)
-	remaining := b.limit - b.Len()
+	remaining := b.limit - b.buffer.Len()
 	if len(data) > remaining {
 		data = data[:remaining]
 		b.truncated = true
 	}
-	_, _ = b.Buffer.Write(data)
+	_, _ = b.buffer.Write(data)
 	return size, nil
 }
