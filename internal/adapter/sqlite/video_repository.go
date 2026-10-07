@@ -42,7 +42,7 @@ func (r *VideoRepository) Create(ctx context.Context, v video.Video) (video.Vide
 		return video.Video{}, fmt.Errorf("begin video creation: %w", err)
 	}
 	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, "INSERT INTO videos (created_at_ms) VALUES (?)", v.CreatedAt.UnixMilli())
+	result, err := tx.ExecContext(ctx, "INSERT INTO videos (created_at) VALUES (?)", formatDate(v.CreatedAt))
 	if err != nil {
 		return video.Video{}, fmt.Errorf("insert video: %w", err)
 	}
@@ -122,7 +122,7 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
 			v.id,
-			v.created_at_ms,
+			v.created_at,
 			s.id,
 			s.provider,
 			s.external_id,
@@ -137,7 +137,7 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 			ON s.video_id = v.id
 		WHERE `+predicate+`
 		ORDER BY
-			v.created_at_ms DESC,
+			v.created_at DESC,
 			v.id DESC,
 			s.id ASC
 	`, args...)
@@ -151,13 +151,13 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 	// Une vidéo peut apparaître sur plusieurs lignes, une par source jointe.
 	for rows.Next() {
 		var id video.VideoID
-		var createdAtMS int64
+		var createdAtText string
 		var sourceID, duration sql.NullInt64
 		var provider, externalID, canonicalURL, title, description, creator, thumbnail sql.NullString
 
 		if err := rows.Scan(
 			&id,
-			&createdAtMS,
+			&createdAtText,
 			&sourceID,
 			&provider,
 			&externalID,
@@ -173,9 +173,13 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 
 		// L'ordre SQL garantit que toutes les sources d'une vidéo sont contiguës.
 		if len(videos) == 0 || videos[len(videos)-1].ID != id {
+			createdAt, err := parseDate(createdAtText)
+			if err != nil {
+				return nil, fmt.Errorf("read video creation date: %w", err)
+			}
 			videos = append(videos, video.Video{
 				ID:        id,
-				CreatedAt: time.UnixMilli(createdAtMS).UTC(),
+				CreatedAt: createdAt,
 				Sources:   make([]video.VideoSource, 0),
 			})
 		}

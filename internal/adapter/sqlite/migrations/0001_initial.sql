@@ -1,6 +1,6 @@
 CREATE TABLE videos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at_ms INTEGER NOT NULL
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE video_sources (

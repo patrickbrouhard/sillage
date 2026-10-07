@@ -106,7 +106,7 @@ erDiagram
 
     VIDEO {
         INTEGER id PK
-        INTEGER created_at_ms
+        TEXT created_at
     }
 
     VIDEO_SOURCE {
@@ -344,6 +344,12 @@ Le chemin de base est fixe : `data/sillage.db`, relatif au répertoire de travai
 du processus. Son dossier parent est créé s'il manque. Une ancienne base à la
 racine n'est ni déplacée ni importée automatiquement. Le futur conteneur utilisera
 `WORKDIR /app` avec un volume monté sur `/app/data`.
+
+Les dates SQLite utilisent UTC avec une précision milliseconde fixe
+(`YYYY-MM-DDTHH:MM:SS.mmmZ`). Le schéma initial a été réinitialisé pendant
+le développement : les anciennes bases utilisant `created_at_ms` ne sont
+pas compatibles. Serveur arrêté, déplacer `data/sillage.db` hors de ce
+chemin puis redémarrer recrée une base vide ; aucun ancien contenu n'est importé.
 
 Le serveur n'active ni authentification ni CORS. L'adresse d'écoute est configurable.
 Les fichiers de packaging Docker restent à implémenter.

@@ -36,9 +36,9 @@ func TestRepositoryPersistence(t *testing.T) {
 	if input.ID != 0 || input.Sources[0].ID != 0 || input.Sources[0].VideoID != 0 {
 		t.Fatal("Create mutated its argument")
 	}
-	var storedMS int64
-	if err := db.QueryRow("SELECT created_at_ms FROM videos WHERE id = ?", created.ID).Scan(&storedMS); err != nil || storedMS != input.CreatedAt.UnixMilli() {
-		t.Fatalf("stored timestamp = %d, error = %v", storedMS, err)
+	var storedDate string
+	if err := db.QueryRow("SELECT created_at FROM videos WHERE id = ?", created.ID).Scan(&storedDate); err != nil || storedDate != "2026-09-07T11:30:00.123Z" {
+		t.Fatalf("stored date = %q, error = %v", storedDate, err)
 	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
@@ -282,7 +282,7 @@ func TestRepositoryListOrderingAndSources(t *testing.T) {
 		t.Fatalf("%v %v", empty, err)
 	}
 	var created []video.Video
-	for i, ms := range []int64{2000, 1000, 2000} {
+	for i, ms := range []int64{2100, 2000, 2100} {
 		v := sampleVideo(fmt.Sprint(i))
 		v.CreatedAt = time.UnixMilli(ms)
 		v.Sources = append(v.Sources, video.VideoSource{Provider: "test", ExternalID: fmt.Sprint(i), Title: "second source"})
