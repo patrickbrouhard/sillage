@@ -12,15 +12,17 @@ import (
 
 // metadata isole le format externe ; les champs non utilisés sont ignorés.
 type metadata struct {
-	Type         string   `json:"_type"`
-	ExtractorKey string   `json:"extractor_key"`
-	ID           string   `json:"id"`
-	Title        string   `json:"title"`
-	Description  string   `json:"description"`
-	Channel      string   `json:"channel"`
-	Uploader     string   `json:"uploader"`
-	Duration     *float64 `json:"duration"`
-	Thumbnail    string   `json:"thumbnail"`
+	Type              string                     `json:"_type"`
+	ExtractorKey      string                     `json:"extractor_key"`
+	ID                string                     `json:"id"`
+	Title             string                     `json:"title"`
+	Description       string                     `json:"description"`
+	Channel           string                     `json:"channel"`
+	Uploader          string                     `json:"uploader"`
+	Duration          *float64                   `json:"duration"`
+	Thumbnail         string                     `json:"thumbnail"`
+	Formats           []audioFormat              `json:"formats"`
+	AutomaticCaptions map[string][]captionFormat `json:"automatic_captions"`
 }
 
 func parseMetadata(data []byte) (video.VideoSource, error) {
@@ -54,14 +56,16 @@ func parseMetadata(data []byte) (video.VideoSource, error) {
 	if creator == "" {
 		creator = strings.TrimSpace(raw.Uploader)
 	}
+	originalLanguage, _ := raw.originalLanguage()
 	return video.VideoSource{
-		Provider:     "youtube",
-		ExternalID:   id,
-		CanonicalURL: "https://www.youtube.com/watch?v=" + url.QueryEscape(id),
-		Title:        title,
-		Description:  raw.Description,
-		Creator:      creator,
-		DurationMS:   durationMS,
-		ThumbnailURL: raw.Thumbnail,
+		Provider:              "youtube",
+		ExternalID:            id,
+		CanonicalURL:          "https://www.youtube.com/watch?v=" + url.QueryEscape(id),
+		Title:                 title,
+		Description:           raw.Description,
+		Creator:               creator,
+		DurationMS:            durationMS,
+		ThumbnailURL:          raw.Thumbnail,
+		OriginalAudioLanguage: originalLanguage,
 	}, nil
 }

@@ -27,6 +27,8 @@ type VideoSource struct {
 	Title        string
 	Description  string
 	Creator      string
+	// OriginalAudioLanguage décrit l'audio original ; vide si indéterminé.
+	OriginalAudioLanguage string
 	// DurationMS vaut nil lorsque la durée est inconnue, notamment pour un direct.
 	DurationMS   *int64
 	ThumbnailURL string

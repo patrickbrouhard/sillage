@@ -57,11 +57,11 @@ func (r *VideoRepository) Create(ctx context.Context, v video.Video) (video.Vide
 	}
 	for _, source := range v.Sources {
 		result, err := tx.ExecContext(ctx, `INSERT INTO video_sources
-			(video_id, provider, external_id, canonical_url, title, description, creator, duration_ms, thumbnail_url)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			(video_id, provider, external_id, canonical_url, title, description, creator, duration_ms, thumbnail_url, original_audio_language)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			id, source.Provider, nullableText(source.ExternalID), nullableText(source.CanonicalURL),
 			source.Title, nullableText(source.Description), nullableText(source.Creator),
-			source.DurationMS, nullableText(source.ThumbnailURL))
+			source.DurationMS, nullableText(source.ThumbnailURL), nullableText(source.OriginalAudioLanguage))
 		if err != nil {
 			var sqliteErr *driver.Error
 			// Cet INSERT ne fournit aucun ID ; son seul conflit UNIQUE possible
@@ -131,7 +131,8 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 			s.description,
 			s.creator,
 			s.duration_ms,
-			s.thumbnail_url
+			s.thumbnail_url,
+			s.original_audio_language
 		FROM videos v
 		LEFT JOIN video_sources s
 			ON s.video_id = v.id
@@ -154,6 +155,7 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 		var createdAtText string
 		var sourceID, duration sql.NullInt64
 		var provider, externalID, canonicalURL, title, description, creator, thumbnail sql.NullString
+		var originalLanguage sql.NullString
 
 		if err := rows.Scan(
 			&id,
@@ -167,6 +169,7 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 			&creator,
 			&duration,
 			&thumbnail,
+			&originalLanguage,
 		); err != nil {
 			return nil, fmt.Errorf("scan video: %w", err)
 		}
@@ -187,15 +190,16 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 		// Le LEFT JOIN peut produire une ligne sans source associée.
 		if sourceID.Valid {
 			source := video.VideoSource{
-				ID:           video.VideoSourceID(sourceID.Int64),
-				VideoID:      id,
-				Provider:     provider.String,
-				ExternalID:   externalID.String,
-				CanonicalURL: canonicalURL.String,
-				Title:        title.String,
-				Description:  description.String,
-				Creator:      creator.String,
-				ThumbnailURL: thumbnail.String,
+				ID:                    video.VideoSourceID(sourceID.Int64),
+				VideoID:               id,
+				Provider:              provider.String,
+				ExternalID:            externalID.String,
+				CanonicalURL:          canonicalURL.String,
+				Title:                 title.String,
+				Description:           description.String,
+				Creator:               creator.String,
+				ThumbnailURL:          thumbnail.String,
+				OriginalAudioLanguage: originalLanguage.String,
 			}
 
 			// La durée est optionnelle en base.

@@ -1,0 +1,16 @@
+{
+  "wireMagic": "pb3",
+  "pens": [{}],
+  "events": [
+    {"tStartMs": 0, "wpWinPosId": 1},
+    {"tStartMs": 2960, "dDurationMs": 2000, "segs": [
+      {"utf8": "This", "tOffsetMs": 0},
+      {"utf8": " is", "tOffsetMs": 120},
+      {"utf8": " useful.", "tOffsetMs": 500}
+    ]},
+    {"tStartMs": 5100, "dDurationMs": 2000, "segs": [
+      {"utf8": "Été — bonjour !"}
+    ]},
+    {"tStartMs": 7000, "aAppend": 1, "segs": [{"utf8": "\n"}]}
+  ]
+}
