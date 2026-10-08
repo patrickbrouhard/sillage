@@ -700,7 +700,7 @@ Restent ouverts :
 ## 19. Questions ouvertes — API
 
 Le contrat de la tranche initiale est arrêté (voir étape 2 et README).
-Restent pour des tranches futures : pagination, filtres, tris configurables
+Restent pour des tranches futures : pagination, filtres supplémentaires et combinaisons de filtres, tris configurables
 et authentification éventuelle.
 
 ## 20. Questions ouvertes — MCP

@@ -19,8 +19,6 @@ Thumbs.db
 
 # personal files
 *.bak
-docs/*
-!/docs/00-project-brief.md
 
 # database
 *.db
