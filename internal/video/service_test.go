@@ -144,3 +144,7 @@ func (r stubRepository) Create(ctx context.Context, v Video) (Video, error) { re
 func (r stubRepository) Get(context.Context, VideoID) (Video, error)        { panic("unexpected Get") }
 
 func (r stubRepository) List(context.Context) ([]Video, error) { panic("unexpected List") }
+
+func (r stubRepository) ListByTag(context.Context, TagID) ([]Video, error) {
+	panic("unexpected ListByTag")
+}

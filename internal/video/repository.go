@@ -22,6 +22,8 @@ type VideoRepository interface {
 	// List retourne toute la bibliothèque par date de création puis ID décroissants.
 	// Les sources de chaque vidéo sont ordonnées par ID croissant.
 	List(ctx context.Context) ([]Video, error)
+	// ListByTag sélectionne par association sans réduire les sources ni les tags restitués.
+	ListByTag(ctx context.Context, tagID TagID) ([]Video, error)
 	// FindBySource recherche une identité externe non vide.
 	FindBySource(ctx context.Context, provider, externalID string) (Video, error)
 }

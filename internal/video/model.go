@@ -14,6 +14,7 @@ type Video struct {
 	ID        VideoID
 	CreatedAt time.Time
 	Sources   []VideoSource
+	Tags      []Tag
 }
 
 // VideoSource contient la provenance et ses métadonnées.

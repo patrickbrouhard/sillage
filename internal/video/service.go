@@ -81,3 +81,11 @@ func (s *Service) GetVideo(ctx context.Context, id VideoID) (Video, error) {
 func (s *Service) ListVideos(ctx context.Context) ([]Video, error) {
 	return s.repository.List(ctx)
 }
+
+// ListVideosByTag conserve la représentation complète des vidéos sélectionnées.
+func (s *Service) ListVideosByTag(ctx context.Context, tagID TagID) ([]Video, error) {
+	if tagID <= 0 {
+		return nil, ErrInvalidInput
+	}
+	return s.repository.ListByTag(ctx, tagID)
+}

@@ -54,6 +54,7 @@ func (r *VideoRepository) Create(ctx context.Context, v video.Video) (video.Vide
 		ID:        video.VideoID(id),
 		CreatedAt: time.UnixMilli(v.CreatedAt.UnixMilli()).UTC(),
 		Sources:   make([]video.VideoSource, 0, len(v.Sources)),
+		Tags:      make([]video.Tag, 0),
 	}
 	for _, source := range v.Sources {
 		result, err := tx.ExecContext(ctx, `
@@ -119,9 +120,18 @@ func (r *VideoRepository) FindBySource(ctx context.Context, provider, externalID
 		provider, externalID)
 }
 
-// List charge la bibliothèque et ses sources en une seule requête.
+// List charge la bibliothèque avec ses sources et ses tags, sans requête par vidéo.
 func (r *VideoRepository) List(ctx context.Context) ([]video.Video, error) {
 	return r.query(ctx, "1 = 1")
+}
+
+// ListByTag utilise l'association uniquement pour sélectionner les vidéos.
+func (r *VideoRepository) ListByTag(ctx context.Context, tagID video.TagID) ([]video.Video, error) {
+	return r.query(ctx, `EXISTS (
+		SELECT 1
+		FROM video_tags filter
+		WHERE filter.video_id = v.id AND filter.tag_id = ?
+	)`, tagID)
 }
 
 // read retrouve un agrégat avec le même décodage que la bibliothèque.
@@ -204,6 +214,7 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 				ID:        id,
 				CreatedAt: createdAt,
 				Sources:   make([]video.VideoSource, 0),
+				Tags:      make([]video.Tag, 0),
 			})
 		}
 
@@ -237,7 +248,47 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 		return nil, fmt.Errorf("read video rows: %w", err)
 	}
 
-	return videos, nil
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if len(videos) == 0 {
+		return videos, nil
+	}
+	// Charger les tags en lot évite de multiplier les lignes sources × tags et
+	// de faire une requête par vidéo. Fermer les sources libère aussi la connexion.
+	indices := make(map[video.VideoID]int, len(videos))
+	for i, v := range videos {
+		indices[v.ID] = i
+	}
+	tagRows, err := r.db.QueryContext(ctx, `
+		SELECT
+			vt.video_id,
+			t.id,
+			t.name
+		FROM videos v
+		JOIN video_tags vt
+			ON vt.video_id = v.id
+		JOIN tags t
+			ON t.id = vt.tag_id
+		WHERE `+predicate+`
+		ORDER BY t.id ASC
+	`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer tagRows.Close()
+	for tagRows.Next() {
+		var id video.VideoID
+		var tag video.Tag
+		if err := tagRows.Scan(&id, &tag.ID, &tag.Name); err != nil {
+			return nil, err
+		}
+		// Une vidéo créée entre les lectures ne fait pas partie de cette sélection.
+		if i, ok := indices[id]; ok {
+			videos[i].Tags = append(videos[i].Tags, tag)
+		}
+	}
+	return videos, tagRows.Err()
 }
 
 // nullableText traduit la convention métier « chaîne vide = absente » en NULL.
