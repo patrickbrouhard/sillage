@@ -76,8 +76,7 @@ Schéma conceptuel actuel :
 ```
 
 Ce schéma reste volontairement simple et inclut des concepts futurs.
-Le cadrage de `Note` et `Tag` est acté pour l'étape 4 ; leur implémentation
-et leur persistance restent à réaliser.
+Les objets `Note` et `Tag` de l'étape 4 sont implémentés et persistés.
 
 Les concepts doivent être ajoutés ou enrichis uniquement lorsqu'un besoin réel apparaît.
 
@@ -490,7 +489,7 @@ multi-transcriptions ni sélection manuelle dans cette tranche.
 
 `Note` est le document Markdown de travail associé à une vidéo.
 
-Décision actée pour l'étape 4, non encore implémentée : `Video 1 → 0..1 Note`.
+Décision actée et implémentée pour l'étape 4 : `Video 1 → 0..1 Note`.
 La note appartient directement à `Video`, jamais à une `VideoSource`.
 
 | Champ | Rôle |
@@ -748,7 +747,7 @@ via une table associative :
 VIDEO_TAG
 ```
 
-Le modèle suivant est acté pour l'étape 4, mais reste à implémenter :
+Le modèle suivant est acté et implémenté pour l'étape 4 :
 
 | Champ | Rôle |
 | --- | --- |
@@ -776,7 +775,8 @@ Exemples contractuels :
 
 La persistance doit garantir l'unicité des identités de tags et des associations
 `VideoTag`, y compris lors d'écritures concurrentes. La stratégie technique de
-comparaison et d'unicité SQL reste à choisir pendant l'implémentation.
+comparaison et d'unicité SQL est décrite dans `04-tech-stack-and-decisions.md`,
+section 5.6.
 
 ### 9.2 Associations et cycle de vie
 

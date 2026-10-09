@@ -286,8 +286,8 @@ Les essais réels YouTube restent manuels et distincts de la CI.
 
 ### État
 
-**Cadrage fonctionnel terminé et validé ; implémentation à réaliser.**
-Le code actuel expose les vidéos et les transcriptions, sans notes ni tags.
+**Cadrage et implémentation terminés ; étape validée le 9 octobre 2026.**
+Notes et tags sont disponibles de bout en bout, des services à SQLite et REST.
 Les décisions sont réparties entre le [modèle métier](02-domain-model.md),
 les [contrats REST et invariants architecturaux](03-architecture.md) et les
 [décisions techniques](04-tech-stack-and-decisions.md).
@@ -339,8 +339,19 @@ Restent hors de l'étape 4 :
 - combinaisons de filtres, recherche textuelle et FTS5 ;
 - MCP et génération de tags par IA.
 
-Les limites raisonnables des requêtes et des noms, les validations secondaires
-et les détails techniques réversibles seront choisis pendant l'implémentation.
+Les choix locaux et limites de validation sont documentés dans l'architecture
+et les décisions techniques ; ils ne deviennent pas des contraintes permanentes.
+
+### Validation réalisée
+
+Les tests Go couvrent les migrations depuis le schéma précédent, la réouverture,
+les dates et le Markdown exact, l'identité Unicode, la concurrence, le rollback
+des créations et associations, les erreurs REST et les interactions avec vidéos
+et transcriptions. Les acquisitions de test sont simulées, sans accès à YouTube.
+La collection Postman déterministe complète les validations sur une base vide :
+44 requêtes et 132 assertions réussies. Les deux collections passent le lint
+sans erreur ni avertissement ; la collection YouTube réelle n'a pas été exécutée.
+Les tests, `go test -race ./...`, `go vet ./...` et `go build ./...` passent.
 
 ## 7. Étape 5 — UI Web minimale
 

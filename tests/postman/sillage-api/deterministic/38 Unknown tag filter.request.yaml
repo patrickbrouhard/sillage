@@ -1,0 +1,11 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/videos?tag_id=42"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("JSON response", () => pm.expect(pm.response.headers.get("Content-Type")).to.match(/^application\/json(?:;|$)/i));
+      pm.test("Response contract", () => pm.expect(pm.response.json()).to.deep.eql({"videos": []}));
+    language: text/javascript
+order: 38000

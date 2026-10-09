@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP et transcriptions automatiques originales sont fonctionnelles.
+> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales et Notes + Tags sont fonctionnelles.
 
 ## Vision
 
@@ -59,6 +59,10 @@ Sillage sait actuellement :
 Il peut également acquérir, rafraîchir et relire localement la transcription
 automatique originale d'une source YouTube.
 
+Chaque vidéo peut recevoir une note Markdown principale et des tags partagés.
+Leur lecture et leur modification sont locales, indépendantes des sources.
+La bibliothèque peut être filtrée par un tag. L'interface Web constitue la prochaine étape.
+
 Une `Video` et ses `VideoSource` possèdent leurs propres identifiants internes Sillage.
 
 L'identité externe d'une source repose, lorsqu'un identifiant externe existe, sur le couple :
@@ -92,7 +96,7 @@ seul l'appel qui crée effectivement la vidéo retourne `Created: true`.
 ## Architecture actuelle
 
 `cmd/server` assemble le routeur Chi, les handlers HTTP, `video.Service`,
-`transcript.Service`, les repositories SQLite, `ytdlp.Client` et le stockage
+`transcript.Service`, `note.Service`, `video.TagService`, les repositories SQLite, `ytdlp.Client` et le stockage
 filesystem des snapshots.
 
 Les trois cas d'usage `AddVideo`, `GetVideo` et `ListVideos` sont réutilisables
@@ -103,7 +107,9 @@ métier ne porte aucun tag JSON.
 
 ## Modèle de données actuel
 
-Le schéma persistant contient les vidéos, leurs sources et les transcriptions acquises.
+Le schéma persistant contient les vidéos, leurs sources, les transcriptions,
+les notes et les tags. Le diagramme ci-dessous détaille la partie acquisition ;
+les tables de connaissance utilisateur sont décrites à sa suite.
 
 ```mermaid
 erDiagram
@@ -139,6 +145,14 @@ erDiagram
     }
 ```
 
+La migration `0003_notes_tags.sql` complète ce schéma sans perte des données existantes :
+
+| Table | Identité et contenu |
+| --- | --- |
+| `notes` | `video_id` clé primaire et étrangère, `content_md`, `created_at`, `updated_at` |
+| `tags` | `id` généré, `name` affiché, `identity_key` unique |
+| `video_tags` | clé primaire composée `(video_id, tag_id)`, deux clés étrangères |
+
 `Video.id` et `VideoSource.id` sont des identifiants internes Sillage.
 
 `VideoSource.external_id` appartient à l'espace de noms défini par son `provider`.
@@ -153,9 +167,7 @@ est unique.
 
 Le modèle métier prévoit plus tard d'autres objets tels que :
 
-* `Note` ;
 * `Annotation` ;
-* `Tag` ;
 * `Asset` ;
 * `MediaFile`.
 
@@ -457,7 +469,8 @@ représentation :
       "duration_ms": 1025000,
       "thumbnail_url": null
     }
-  ]
+  ],
+  "tags": []
 }
 ```
 
@@ -548,10 +561,81 @@ Les échecs de processus ne sont pas interprétés en analysant le texte de stde
 Une déconnexion annule l'opération sans réponse particulière. Un commit déjà
 réussi peut néanmoins précéder une déconnexion ; le client peut alors relire le GET.
 
+### API des notes et tags
+
+Ces routes sont disponibles depuis l'étape 4, sans accès distant :
+
+| Méthode | Endpoint | Succès |
+| --- | --- | --- |
+| `GET` | `/api/v1/videos/{id}/note` | `200`, note principale |
+| `PUT` | `/api/v1/videos/{id}/note` | `201` à la création, `200` ensuite |
+| `GET` | `/api/v1/tags` | `200`, catalogue incluant les tags inutilisés |
+| `POST` | `/api/v1/videos/{id}/tags` | `200`, ajout additif puis tous les tags associés |
+| `DELETE` | `/api/v1/videos/{id}/tags/{tag_id}` | `204`, même si l'association est absente |
+
+Exemples pour une vidéo existante :
+
+```bash
+curl -X PUT http://127.0.0.1:8080/api/v1/videos/42/note \
+  -H 'Content-Type: application/json' \
+  --data '{"content_md":"# À retenir\n\n  [12:42] Une idée.  \n"}'
+
+curl -X POST http://127.0.0.1:8080/api/v1/videos/42/tags \
+  -H 'Content-Type: application/json' \
+  --data '{"names":["Go","SQLite"]}'
+
+curl http://127.0.0.1:8080/api/v1/tags
+curl 'http://127.0.0.1:8080/api/v1/videos?tag_id=7'
+curl -X DELETE http://127.0.0.1:8080/api/v1/videos/42/tags/7
+```
+
+GET et PUT de note retournent `video_id`, `content_md`, `created_at` et `updated_at`.
+Le premier enregistrement crée la note, y compris avec `content_md: ""` ; son absence
+reste distincte d'une note vide. À la création les dates sont identiques ; ensuite
+`created_at` reste stable et une sauvegarde identique ne change aucune date.
+La création fournit `Location: /api/v1/videos/{id}/note`.
+Le Markdown est conservé exactement, sans trim, parsing, rendu ou normalisation.
+Le contenu des notes n'est pas inclus dans les réponses vidéo générales.
+
+Les réponses du catalogue et de l'ajout de tags utilisent `{"tags":[{"id":3,"name":"Go"}]}`.
+Tous les tags sont ordonnés par ID croissant. Les réponses vidéo de création,
+réajout, détail et liste incluent `tags`, avec `[]` sans association. Le filtre
+`tag_id` sélectionne des vidéos complètes : toutes leurs sources et tous leurs tags
+restent présents. Un tag inconnu ou inutilisé retourne `200` et `{"videos":[]}`.
+
+L'identité des tags combine NFC et un repli Unicode complet de casse via
+`golang.org/x/text`, sans NFKC ni suppression d'accents. `École` et `école`, ou
+`Café` précomposé et décomposé, désignent le même tag ; `Café` et `Cafe` restent
+distincts. Le repli assimile aussi `Straße` et `STRASSE`. Les espaces Unicode aux
+extrémités sont supprimés ; le nom d'affichage initial est conservé. Les contraintes
+SQL garantissent l'unicité des clés et associations, même en concurrence.
+Un ajout multiple est atomique, créations comprises. Retirer une association
+ne supprime jamais le tag partagé.
+
+Limites et erreurs des nouvelles routes :
+
+- corps JSON de note : 1 Mio maximum ; ajout de tags : 64 Kio maximum,
+  enveloppe et échappements compris (`413 payload_too_large`) ;
+- `application/json` requis pour PUT/POST, paramètres MIME acceptés
+  (`415 unsupported_media_type` sinon) ;
+- objet JSON unique, sans champs inconnus ; UTF-8 invalide ou échappements Unicode
+  non appariés refusés, sans remplacement silencieux (`400 bad_request`) ;
+- `content_md` obligatoire, chaîne non nulle ; `names` obligatoire, tableau non vide
+  de chaînes non nulles ; noms non vides après trim et limités à 200 points de code ;
+- identifiants strictement positifs ; `tag_id` vide, invalide ou répété refusé par `400` ;
+- vidéo absente : `404 video_not_found` ; note absente sur vidéo existante : `404 note_not_found` ;
+- erreur locale : `500 internal_error`, sans diagnostic technique exposé.
+
+Aucun quota métier de tags par vidéo. La dernière écriture gagnante des notes reste
+provisoire et sera réexaminée avec l'UI à l'étape 5. Suppression de note, historique,
+conflits, renommage/suppression globale des tags, recherche et combinaisons de filtres
+restent hors périmètre. Les timestamps interactifs et annotations attendent l'étape 6.
+
 ### Tests Postman
 
 Les collections v3 et le lanceur isolé sont décrits dans [tests/postman/README.md](tests/postman/README.md).
 La CI exécute les scénarios déterministes ; le parcours réel YouTube reste local.
+La collection déterministe couvre 44 requêtes et 132 assertions, sans accès à YouTube.
 
 ### Validation
 
@@ -576,6 +660,13 @@ Les tests SQLite couvrent notamment :
 * identité externe ;
 * idempotence ;
 * créations concurrentes.
+
+Les tests Notes + Tags vérifient aussi la migration d'une base contenant déjà
+des transcriptions, la réouverture, la fidélité du Markdown, la stabilité des dates,
+les équivalences Unicode, les contraintes d'unicité, le rollback complet d'un lot
+et les sauvegardes concurrentes. Les parcours REST vérifient les limites exactes
+des corps, les erreurs, le filtrage complet, le réajout avec tags et la préservation
+des données utilisateur pendant les acquisitions de transcriptions.
 
 Les tests de transcription couvrent également les langues originales et régionales,
 le JSON3, l'exécution simulée de yt-dlp, la relecture locale après réouverture,
@@ -606,6 +697,7 @@ des tests automatisés.
 │   │   └── ytdlp/
 │   │
 │   ├── transcript/
+│   ├── note/
 │   └── http/
 │
 ├── docs/
@@ -670,7 +762,8 @@ IA intégrée
 * service `AddVideo` ;
 * idempotence par identité externe ;
 * API HTTP : ajout, liste et détail, DTO et erreurs JSON ;
-* acquisition et lecture locale des transcriptions automatiques originales YouTube.
+* acquisition et lecture locale des transcriptions automatiques originales YouTube ;
+* notes Markdown exactes, tags partagés et filtre par tag, persistants et disponibles via REST.
 
 ### API HTTP réalisée
 
@@ -682,8 +775,8 @@ GET  /api/v1/videos
 GET  /api/v1/videos/{id}
 ```
 
-Les contrats vidéo et transcription sont décrits ci-dessus. La tranche transcription
-est réalisée ; notes et tags constituent la prochaine direction de développement.
+Les contrats vidéo, transcription, notes et tags sont décrits ci-dessus.
+L'étape 4 est réalisée ; l'interface Web minimale constitue la prochaine direction.
 
 ## Principes de développement
 

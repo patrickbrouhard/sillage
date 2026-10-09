@@ -12,7 +12,8 @@ scripts:
 
       const video = pm.response.json();
       pm.test("Video representation", () => {
-          pm.expect(video).to.have.all.keys("id", "created_at", "sources");
+          pm.expect(video).to.have.all.keys("id", "created_at", "sources", "tags");
+          pm.expect(video.tags).to.deep.eql([]);
           pm.expect(Number.isSafeInteger(video.id) && video.id > 0).to.eql(true);
           pm.expect(video.created_at).to.match(/^\d{4}-\d{2}-\d{2}T.*Z$/);
           pm.expect(Number.isNaN(Date.parse(video.created_at))).to.eql(false);

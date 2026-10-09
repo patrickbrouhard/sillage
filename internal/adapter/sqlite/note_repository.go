@@ -78,7 +78,9 @@ func (r *NoteRepository) Save(ctx context.Context, id video.VideoID, content str
 		updated = formatDate(at)
 		_, err = tx.ExecContext(ctx, `
 			UPDATE notes
-			SET content_md = ?, updated_at = ?
+			SET
+				content_md = ?,
+				updated_at = ?
 			WHERE video_id = ?
 		`, content, updated, id)
 	}

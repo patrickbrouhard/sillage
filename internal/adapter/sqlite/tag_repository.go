@@ -51,7 +51,9 @@ func (r *TagRepository) Add(ctx context.Context, id video.VideoID, names []video
 		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO video_tags (video_id, tag_id)
-			SELECT ?, id
+			SELECT
+				?,
+				id
 			FROM tags
 			WHERE identity_key = ?
 			ON CONFLICT (video_id, tag_id) DO NOTHING

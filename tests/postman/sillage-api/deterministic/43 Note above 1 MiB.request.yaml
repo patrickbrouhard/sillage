@@ -1,0 +1,26 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/videos/42/note"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: "{{oversizedNote}}"
+scripts:
+  - type: beforeRequest
+    code: |-
+      pm.variables.set("oversizedNote", JSON.stringify({content_md: "x".repeat(1024 * 1024)}));
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test("HTTP 413", () => pm.response.to.have.status(413));
+      pm.test("JSON response", () => pm.expect(pm.response.headers.get("Content-Type")).to.match(/^application\/json(?:;|$)/i));
+      pm.test("Error contract", () => {
+          const body = pm.response.json();
+          pm.expect(body).to.have.all.keys("error");
+          pm.expect(body.error).to.have.all.keys("code", "message");
+          pm.expect(body.error.code).to.eql("payload_too_large");
+          pm.expect(body.error.message).to.be.a("string").and.not.empty;
+      });
+    language: text/javascript
+order: 43000

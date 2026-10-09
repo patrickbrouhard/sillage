@@ -179,6 +179,7 @@ type VideoRepository interface {
     Create(ctx context.Context, video Video) (Video, error)
     Get(ctx context.Context, id VideoID) (Video, error)
     List(ctx context.Context) ([]Video, error)
+    ListByTag(ctx context.Context, tagID TagID) ([]Video, error)
     FindBySource(
         ctx context.Context,
         provider string,
@@ -196,6 +197,8 @@ SQLite implémente cette interface.
 - `Delete`.
 
 `List` est utilisé par le service `ListVideos` pour l'API de bibliothèque.
+Depuis l'étape 4, `ListByTag` sélectionne par association tout en conservant
+les sources et tags complets des vidéos.
 
 Le repository expose une erreur applicative stable telle que :
 
@@ -271,13 +274,15 @@ de lecture ou corruption donnent une erreur locale. Il ne dépend d'aucun
 provider distant. Les transcriptions ne sont pas imbriquées dans le type
 `video.VideoSource`, ce qui évite une dépendance cyclique entre packages.
 
-### 5.6 Notes et tags — étape 4 à implémenter
+### 5.6 Notes et tags — étape 4 implémentée
 
-Le cadrage est terminé. Lecture et enregistrement de la note, catalogue de tags,
+Le cadrage et l'implémentation sont terminés. Lecture et enregistrement de la note, catalogue de tags,
 ajout et retrait d'associations et filtrage des vidéos passent par des services
 applicatifs indépendants de HTTP et SQLite, avec des ports spécialisés et des
 handlers minces. REST et le futur MCP réutiliseront les mêmes cas d'usage.
-Le découpage exact des services et repositories reste un choix d'implémentation.
+`note.Service` et `video.TagService` utilisent leurs ports spécialisés.
+`video.Service.ListVideosByTag` porte le filtrage. Ce découpage reste local
+et révisable, sans repository générique.
 
 Ces opérations sont locales et ne dépendent d'aucune acquisition ou actualisation
 distante. Les notes et tags restent séparés des métadonnées et transcriptions
@@ -286,11 +291,13 @@ source ; un rafraîchissement ne doit pas les écraser.
 L'adapter SQLite garantit l'unicité concurrente des tags et associations ainsi
 que l'atomicité de tout ajout multiple, créations de tags comprises. Un simple
 contrôle d'existence avant insertion ne suffit pas à garantir ces invariants.
-Les évolutions de schéma utiliseront les migrations embarquées et versionnées.
+La migration embarquée `0003_notes_tags.sql` ajoute les trois tables sans
+modifier les vidéos, sources ou transcriptions existantes.
 
-Les lectures filtrées devront conserver toutes les sources et tous les tags
-des vidéos sélectionnées. Le réajout d'une vidéo existante devra également
-restituer ses tags actuels. La stratégie de chargement reste libre.
+Les lectures filtrées conservent toutes les sources et tous les tags
+des vidéos sélectionnées. Le réajout d'une vidéo existante restitue également
+ses tags actuels. Le repository charge les sources puis les tags en lot pour
+éviter une requête par vidéo et le produit des deux relations.
 
 ## 6. Adapter `yt-dlp`
 
@@ -423,13 +430,28 @@ Les échecs de processus ne sont pas interprétés en analysant le texte de stde
 Une déconnexion annule l'opération sans réponse particulière. Un commit déjà
 réussi peut néanmoins précéder une déconnexion ; le client peut alors relire le GET.
 
-### API Notes + Tags — contrat validé, non encore disponible
+### API Notes + Tags — disponible
 
-Ces routes et extensions sont prévues pour l'étape 4. Les modèles et invariants
+Ces routes et extensions sont implémentées depuis l'étape 4. Les modèles et invariants
 sont définis dans [le modèle métier](02-domain-model.md), sections 5 et 9.
-Les conventions REST existantes de JSON, DTO et erreurs restent applicables ;
-les limites raisonnables des requêtes et les validations secondaires seront
-définies pendant le développement.
+Les conventions REST existantes de JSON, DTO et erreurs restent applicables.
+
+Validation des nouveaux corps JSON :
+
+- `application/json` requis, paramètres MIME acceptés ; sinon `415 unsupported_media_type` ;
+- un seul objet, champs inconnus refusés ; JSON ou Unicode invalide refusé par
+  `400 bad_request`, sans remplacement silencieux de caractères ;
+- corps du `PUT` de note limité à 1 Mio et du `POST` de tags à 64 Kio,
+  enveloppe et échappements JSON compris ; dépassement : `413 payload_too_large` ;
+- `names` est un tableau non vide de chaînes ; absence, `null`, tableau vide,
+  élément nul ou nom vide sont refusés par `400 bad_request` ;
+- chaque nom est limité à 200 points de code Unicode après suppression des
+  espaces aux extrémités ; aucun quota total de tags par vidéo ;
+- `tag_id` doit être fourni une seule fois et être un entier strictement positif ;
+  valeur vide, répétée, invalide ou requête mal encodée : `400 bad_request`.
+
+Les erreurs locales donnent `500 internal_error`, sans diagnostic technique
+dans le JSON. Les limites sont des choix locaux révisables.
 
 #### Note principale
 
@@ -439,6 +461,7 @@ définies pendant le développement.
 | `PUT` | `/api/v1/videos/{id}/note` | `201` à la création, `200` ensuite, même sans changement |
 
 Le `PUT` exige un champ `content_md` de type chaîne ; la chaîne vide est acceptée.
+La création retourne aussi `Location: /api/v1/videos/{id}/note`.
 Les réponses réussies des deux opérations contiennent `video_id`, `content_md`,
 `created_at` et `updated_at`. Le contenu de la note n'est pas intégré aux
 représentations générales de `Video`.
@@ -484,13 +507,13 @@ imposer de tri linguistique à la future interface.
 Une vidéo inexistante donne `404 video_not_found` ; des identifiants ou noms
 invalides donnent `400 bad_request`.
 
-Les réponses de création, de réajout, de détail et de liste des vidéos incluront
+Les réponses de création, de réajout, de détail et de liste des vidéos incluent
 un champ `tags` contenant ces objets `{id, name}`, ou `[]` sans tags.
 Aucun endpoint séparé de lecture des tags d'une vidéo n'est nécessaire.
 
 #### Filtrage des vidéos
 
-`GET /api/v1/videos` acceptera le paramètre facultatif `tag_id`, par exemple
+`GET /api/v1/videos` accepte le paramètre facultatif `tag_id`, par exemple
 `GET /api/v1/videos?tag_id=7`.
 
 - Sans filtre, le comportement existant est conservé, avec l'ajout du champ `tags`.

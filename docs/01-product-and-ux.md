@@ -138,7 +138,7 @@ Cette disposition n'est pas figée.
 ### 6.1 Note principale
 
 Chaque vidéo dispose d'un espace de note Markdown principal. Pour l'étape 4,
-le cadrage est terminé, mais l'implémentation reste à réaliser : une vidéo
+le cadrage et l'implémentation sont terminés : une vidéo
 possède zéro ou une note persistée, créée au premier enregistrement seulement.
 Une note absente et une note enregistrée vide sont deux états distincts.
 
@@ -338,7 +338,7 @@ Après capture, l'application doit pouvoir insérer immédiatement une référen
 
 Les tags sont des données structurées attachées aux vidéos.
 
-Le cadrage de l'étape 4 est validé, son implémentation reste à réaliser.
+L'étape 4 est implémentée et accessible via REST.
 Les tags sont partagés entre vidéos. L'ajout par noms est additif, sans doublons,
 et un ajout multiple réussit ou échoue intégralement. Retirer un tag d'une vidéo
 ne le supprime pas du catalogue, même s'il n'est plus utilisé.
@@ -349,7 +349,7 @@ sont supprimés ; la casse d'affichage initiale est conservée lors des réutili
 Ainsi, `DevOps` et `devops` désignent le même tag, mais `Café` et `Cafe`,
 ou `Go` et `Golang`, restent distincts. Aucun rapprochement sémantique n'est fait.
 
-L'API prévue expose les tags sur les vidéos et permet un filtre par un seul tag.
+L'API expose les tags sur les vidéos et permet un filtre par un seul tag.
 Le filtrage conserve la représentation complète de chaque vidéo et l'ordre des
 ajouts récents. Les tags sont restitués par identifiant croissant, selon un ordre
 stable commun au catalogue et aux vidéos. L'interface Web vient à l'étape 5 ;

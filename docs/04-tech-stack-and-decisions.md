@@ -46,9 +46,9 @@ Le but est d'éviter que des choix ponctuels discutés dans une conversation dev
 | WAL SQLite | non décidé | Ouvert |
 | Logging structuré / niveaux | à définir plus tard | Ouvert |
 | Dates calendaires | `TEXT` UTC RFC 3339 à millisecondes fixes | Acté |
-| Note principale | zéro ou une par vidéo, `video_id` clé primaire, Markdown brut en SQLite `TEXT` | Acté pour l'étape 4, non implémenté |
+| Note principale | zéro ou une par vidéo, `video_id` clé primaire, Markdown brut en SQLite `TEXT` | Acté et implémenté pour l'étape 4 |
 | Identité des tags | NFC + comparaison Unicode insensible à la casse, accents significatifs | Acté pour l'étape 4, mécanisme technique libre |
-| REST des tags | enveloppe `tags`, ordre `id` croissant dans toutes les réponses | Acté pour l'étape 4, non implémenté |
+| REST des tags | enveloppe `tags`, ordre `id` croissant dans toutes les réponses | Acté et implémenté pour l'étape 4 |
 | Écritures concurrentes des notes | dernière écriture gagnante | Provisoire pour l'étape 4, à réexaminer à l'étape 5 |
 
 ## 3. Go
@@ -187,8 +187,8 @@ type VideoSourceID int64
 
 UUID, ULID ou UUIDv7 ne répondent actuellement à aucun besoin du MVP.
 
-Pour l'étape 4 à implémenter, `Tag` aura un identifiant entier stable généré
-par SQLite. `Note` n'aura pas d'identifiant propre : `video_id` sera à la fois
+Depuis l'étape 4, `Tag` a un identifiant entier stable généré
+par SQLite. `Note` n'a pas d'identifiant propre : `video_id` est à la fois
 sa clé primaire et sa référence vers `Video`.
 
 Ils pourront être reconsidérés si des contraintes futures d'import/export, synchronisation ou distribution apparaissent.
@@ -238,8 +238,8 @@ Principes :
 - `duration_ms`, lorsqu'elle existe, ne peut pas être négative ;
 - la création d'une `Video` et de sa première `VideoSource` est transactionnelle.
 
-Les notes et tags seront ajoutés par des migrations de l'étape 4, dont le
-cadrage est terminé mais l'implémentation reste à réaliser. Ne pas anticiper :
+La migration `0003_notes_tags.sql` ajoute les notes, tags et associations
+sans perte des données existantes. L'étape 4 est implémentée. Ne pas anticiper :
 
 - `MediaFile` ;
 - `title_override` ;
@@ -347,7 +347,7 @@ Il reste ouvert et pourra être évalué lorsque l'API introduira de vraies lect
 ### 5.6 Persistance Notes + Tags — décisions de l'étape 4
 
 Les invariants fonctionnels sont définis dans [le modèle métier](02-domain-model.md),
-sections 5 et 9. Ils sont actés, mais aucun schéma Notes + Tags n'est encore implémenté.
+sections 5 et 9. Ils sont actés et implémentés.
 
 - Stocker le Markdown directement dans une colonne `TEXT`, sans transformation,
   parsing ni rendu ; préserver exactement le contenu après relecture et redémarrage.
@@ -361,10 +361,22 @@ sections 5 et 9. Ils sont actés, mais aucun schéma Notes + Tags n'est encore i
 - Conserver les tags devenus inutilisés ; ne pas introduire de quota métier arbitraire
   de tags par vidéo.
 
-La bibliothèque Unicode éventuelle, le mécanisme d'unicité SQL, les index,
-l'organisation interne des services et repositories, les limites raisonnables
-des requêtes et des noms et les validations secondaires restent des choix locaux
-d'implémentation. Aucune solution technique particulière n'est imposée ici.
+Choix locaux d'implémentation, révisables :
+
+- `golang.org/x/text` fournit NFC et le repli complet de casse Unicode,
+  indépendant de la locale ; la clé est `NFC(Fold(NFC(nom sans espaces aux extrémités)))` ;
+- la colonne `tags.identity_key` porte une contrainte unique SQL ; le nom affiché
+  conserve sa casse et ses caractères après suppression des espaces aux extrémités ;
+- ce repli assimile aussi `Straße` et `STRASSE`, ainsi que les variantes du sigma grec ;
+  il ne réalise aucune normalisation de compatibilité NFKC ;
+- `video_tags` a une clé primaire composée et un index pour le filtre par tag ;
+- les transactions immédiates existantes sérialisent les sauvegardes de notes
+  et les ajouts/retraits d'associations ; les sauvegardes identiques ne font aucun UPDATE ;
+- `note.Service` et `video.TagService` restent indépendants des adapters.
+
+Le contrat et les limites des requêtes sont documentés dans `03-architecture.md`.
+Un changement de règle d'identité Unicode devra examiner les collisions entre
+tags déjà persistés ; remplacer le mécanisme technique doit préserver cette règle.
 
 La dernière écriture gagnante des notes est un compromis limité à l'étape 4.
 L'étape 5 devra réexaminer l'autosauvegarde, les onglets concurrents, la prévention
@@ -530,7 +542,7 @@ Les données persistantes sont externalisées via volume.
 
 ## 12. API REST
 
-Le contrat Notes + Tags est validé mais non encore disponible. Il est décrit
+Le contrat Notes + Tags est implémenté et disponible. Il est décrit
 dans [l'architecture](03-architecture.md), section « API Notes + Tags » :
 lecture/enregistrement de la note, catalogue et associations de tags,
 enveloppe `tags`, ordre `id` croissant, tags dans les réponses vidéo et filtre

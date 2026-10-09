@@ -12,9 +12,18 @@ Elles s'utilisent avec Postman v12 (Native Git) et Postman CLI, pas Newman.
 - **youtube/** : scénarios réels, réservés aux lancements locaux avec `yt-dlp`
   et accès à YouTube. Aucun workflow ne lance cette collection.
 
-La collection déterministe couvre 29 requêtes : bibliothèque vide, vidéo absente,
+La collection déterministe couvre 44 requêtes : bibliothèque vide, vidéo absente,
 identifiants invalides, validation JSON et URL, types de contenu, paramètres MIME,
 limite exacte de 16 Kio et dépassement, puis bibliothèque toujours vide.
+Les scénarios Notes + Tags ajoutent le catalogue vide, les ressources absentes,
+les champs invalides, les filtres inconnus ou invalides, le retrait sur vidéo
+absente et les dépassements de 1 Mio pour les notes et 64 Kio pour les tags.
+Les 132 assertions passent avec Postman CLI 1.56.1.
+
+Les écritures réussies de notes et tags, les sauvegardes identiques, les équivalences
+Unicode, l'atomicité, le réajout et les filtres conservant la représentation complète
+sont couverts en Go avec SQLite réel. Cette collection conserve sa base vide et
+ne nécessite aucun faux exécutable yt-dlp supplémentaire.
 
 La collection YouTube couvre cinq requêtes : bibliothèque vide, création,
 doublon sans refresh, détail et liste. Les assertions portent sur la représentation,
