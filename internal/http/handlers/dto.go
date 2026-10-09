@@ -9,6 +9,7 @@ type videoResponse struct {
 	ID        int64                 `json:"id"`
 	CreatedAt time.Time             `json:"created_at"`
 	Sources   []videoSourceResponse `json:"sources"`
+	Tags      []tagResponse         `json:"tags"`
 }
 
 type videoSourceResponse struct {
@@ -29,6 +30,7 @@ type videoListResponse struct {
 
 func toVideoResponse(v video.Video) videoResponse {
 	result := videoResponse{ID: int64(v.ID), CreatedAt: v.CreatedAt.UTC(), Sources: make([]videoSourceResponse, 0, len(v.Sources))}
+	result.Tags = toTagResponses(v.Tags)
 	for _, s := range v.Sources {
 		result.Sources = append(result.Sources, videoSourceResponse{
 			ID: int64(s.ID), Provider: s.Provider, ExternalID: optionalText(s.ExternalID),

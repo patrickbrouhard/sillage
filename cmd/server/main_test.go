@@ -62,7 +62,7 @@ func (waitingService) GetVideo(context.Context, video.VideoID) (video.Video, err
 func (waitingService) ListVideos(context.Context) ([]video.Video, error) { panic("unexpected List") }
 
 func TestApplicationTimeoutWritesJSONOverTCP(t *testing.T) {
-	server := newHTTPServer("127.0.0.1:0", api.NewRouter(nil, waitingService{}, 30*time.Millisecond))
+	server := newHTTPServer("127.0.0.1:0", api.NewRouter(nil, nil, nil, waitingService{}, 30*time.Millisecond))
 	// Une lecture bornée ne doit pas devenir une limite d'écriture pendant le traitement.
 	server.ReadTimeout = 5 * time.Millisecond
 	if server.WriteTimeout != 0 {
@@ -114,4 +114,8 @@ func TestRunCreatesNewDefaultWithoutMovingOldDatabase(t *testing.T) {
 	if info, err := os.Stat(filepath.Join(dir, "data", "sillage.db")); err != nil || info.Size() == 0 {
 		t.Fatal("new database not created", err)
 	}
+}
+
+func (waitingService) ListVideosByTag(context.Context, video.TagID) ([]video.Video, error) {
+	panic("unexpected filter")
 }

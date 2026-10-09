@@ -17,6 +17,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
 	api "github.com/patrickbrouhard/sillage/internal/http"
+	"github.com/patrickbrouhard/sillage/internal/note"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -96,7 +97,13 @@ func run(ctx context.Context, cfg config) error {
 		provider,
 		filesystem.NewTranscripts("data/transcripts", ytdlp.ParseJSON3),
 	)
-	server := newHTTPServer(cfg.addr, api.NewRouter(transcripts, service, cfg.postTimeout))
+	server := newHTTPServer(cfg.addr, api.NewRouter(
+		note.NewService(sqlite.NewNoteRepository(db)),
+		video.NewTagService(sqlite.NewTagRepository(db)),
+		transcripts,
+		service,
+		cfg.postTimeout,
+	))
 	server.BaseContext = func(net.Listener) context.Context { return ctx }
 	listener, err := net.Listen("tcp", cfg.addr)
 	if err != nil {

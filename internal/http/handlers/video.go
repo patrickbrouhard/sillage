@@ -9,6 +9,7 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,8 @@ type VideoService interface {
 	GetVideo(context.Context, video.VideoID) (video.Video, error)
 	// ListVideos retourne la bibliothèque dans l'ordre des ajouts récents.
 	ListVideos(context.Context) ([]video.Video, error)
+	// ListVideosByTag sélectionne les vidéos sans réduire leur représentation.
+	ListVideosByTag(context.Context, video.TagID) ([]video.Video, error)
 }
 
 // VideoHandler traduit les requêtes et résultats sans connaître les adapters techniques.
@@ -109,7 +112,25 @@ func (h *VideoHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // List retourne toutes les vidéos dans l'enveloppe de bibliothèque.
 func (h *VideoHandler) List(w http.ResponseWriter, r *http.Request) {
-	videos, err := h.service.ListVideos(r.Context())
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeError(w, 400, "bad_request", "invalid query")
+		return
+	}
+	var videos []video.Video
+	if values, present := query["tag_id"]; present {
+		var id int64
+		if len(values) == 1 {
+			id, err = strconv.ParseInt(values[0], 10, 64)
+		}
+		if len(values) != 1 || err != nil || id <= 0 {
+			writeError(w, 400, "bad_request", "invalid tag_id")
+			return
+		}
+		videos, err = h.service.ListVideosByTag(r.Context(), video.TagID(id))
+	} else {
+		videos, err = h.service.ListVideos(r.Context())
+	}
 	if err != nil {
 		respondError(w, r, err)
 		return

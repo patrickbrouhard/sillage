@@ -33,6 +33,10 @@ func (s serviceStub) GetVideo(ctx context.Context, id video.VideoID) (video.Vide
 }
 func (s serviceStub) ListVideos(ctx context.Context) ([]video.Video, error) { return s.list(ctx) }
 
+func (s serviceStub) ListVideosByTag(context.Context, video.TagID) ([]video.Video, error) {
+	panic("unexpected filter")
+}
+
 func request(h http.Handler, method, path, body, contentType string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))
 	if contentType != "" {
@@ -63,7 +67,7 @@ func assertError(t *testing.T, w *httptest.ResponseRecorder, status int, code st
 }
 
 func TestPostValidation(t *testing.T) {
-	h := api.NewRouter(nil, serviceStub{add: func(context.Context, string) (video.AddVideoResult, error) {
+	h := api.NewRouter(nil, nil, nil, serviceStub{add: func(context.Context, string) (video.AddVideoResult, error) {
 		t.Fatal("service called for invalid request")
 		return video.AddVideoResult{}, nil
 	}}, time.Second)
@@ -96,7 +100,7 @@ func TestPostValidation(t *testing.T) {
 
 func TestPostJSONParametersAndSizeBoundary(t *testing.T) {
 	calls := 0
-	h := api.NewRouter(nil, serviceStub{add: func(ctx context.Context, url string) (video.AddVideoResult, error) {
+	h := api.NewRouter(nil, nil, nil, serviceStub{add: func(ctx context.Context, url string) (video.AddVideoResult, error) {
 		calls++
 		if _, ok := ctx.Deadline(); !ok {
 			t.Fatal("missing application deadline")
@@ -133,13 +137,13 @@ func TestErrors(t *testing.T) {
 		{errors.New("unexpected database failure"), 500, "internal_error"},
 	} {
 		t.Run(tc.code, func(t *testing.T) {
-			h := api.NewRouter(nil, serviceStub{add: func(context.Context, string) (video.AddVideoResult, error) {
+			h := api.NewRouter(nil, nil, nil, serviceStub{add: func(context.Context, string) (video.AddVideoResult, error) {
 				return video.AddVideoResult{}, fmt.Errorf("private diagnostic: %w", tc.err)
 			}}, time.Second)
 			assertError(t, request(h, "POST", "/api/v1/videos", `{"url":"https://youtu.be/x"}`, "application/json"), tc.status, tc.code)
 		})
 	}
-	h := api.NewRouter(nil, serviceStub{
+	h := api.NewRouter(nil, nil, nil, serviceStub{
 		get: func(context.Context, video.VideoID) (video.Video, error) {
 			return video.Video{}, video.ErrVideoNotFound
 		},
@@ -153,7 +157,7 @@ func TestErrors(t *testing.T) {
 }
 
 func TestDeadlineAndClientCancellation(t *testing.T) {
-	h := api.NewRouter(nil, serviceStub{add: func(ctx context.Context, _ string) (video.AddVideoResult, error) {
+	h := api.NewRouter(nil, nil, nil, serviceStub{add: func(ctx context.Context, _ string) (video.AddVideoResult, error) {
 		<-ctx.Done()
 		return video.AddVideoResult{}, fmt.Errorf("wrapped: %w", ctx.Err())
 	}}, 10*time.Millisecond)
@@ -186,7 +190,7 @@ func TestLibraryEndToEnd(t *testing.T) {
 		calls++
 		return video.VideoSource{Provider: "youtube", ExternalID: "x", CanonicalURL: "https://youtu.be/x", Title: fmt.Sprintf("title %d", calls)}, nil
 	})
-	h := api.NewRouter(nil, video.NewService(sqlite.NewVideoRepository(db), provider), time.Second)
+	h := api.NewRouter(nil, nil, nil, video.NewService(sqlite.NewVideoRepository(db), provider), time.Second)
 	empty := request(h, "GET", "/api/v1/videos", "", "")
 	if empty.Code != 200 || strings.TrimSpace(empty.Body.String()) != `{"videos":[]}` {
 		t.Fatal(empty.Body.String())
@@ -205,7 +209,7 @@ func TestLibraryEndToEnd(t *testing.T) {
 	if err := json.Unmarshal(created.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body) != 3 {
+	if len(body) != 4 || len(body["tags"].([]any)) != 0 {
 		t.Fatal(body)
 	}
 	date := body["created_at"].(string)
@@ -245,7 +249,7 @@ func TestConcurrentHTTPAdds(t *testing.T) {
 	provider := providerFunc(func(context.Context, string) (video.VideoSource, error) {
 		return video.VideoSource{Provider: "youtube", ExternalID: "x", CanonicalURL: "https://youtu.be/x", Title: "title"}, nil
 	})
-	h := api.NewRouter(nil, video.NewService(sqlite.NewVideoRepository(db), provider), time.Second)
+	h := api.NewRouter(nil, nil, nil, video.NewService(sqlite.NewVideoRepository(db), provider), time.Second)
 	results := make(chan *httptest.ResponseRecorder, 2)
 	var wg sync.WaitGroup
 	for range 2 {
