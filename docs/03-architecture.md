@@ -735,7 +735,8 @@ Stockage conceptuel :
 
 La structure exacte reste non contractuelle.
 
-Le fichier SQLite et les données persistantes doivent vivre sur un volume.
+Le fichier SQLite et les données persistantes vivent dans un bind mount vers un
+répertoire hôte explicite et configurable. Compose ne crée pas de volume nommé.
 Le chemin actuel est `data/` relatif au processus : le packaging prévu emploie
 `WORKDIR /app` et un volume `/app/data`, snapshots et sauvegardes compris.
 Le serveur écoute sur toutes les interfaces du conteneur, mais le port publié

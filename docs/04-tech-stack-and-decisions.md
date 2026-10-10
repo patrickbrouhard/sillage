@@ -874,3 +874,32 @@ Référence : https://www.w3.org/WAI/ARIA/apg/patterns/combobox/.
 Les descriptions privilégient les éléments natifs `details` et `summary`.
 Le futur volet de gestion et le panneau de métadonnées sont des préférences
 révisables, sans architecture anticipée ni synchronisation entre onglets.
+
+## Distribution Docker — décisions du jalon 4
+
+Décisions actées :
+
+- build multi-stage React/Vite et Go, depuis les seules sources du dépôt ;
+- image finale Debian slim, Linux AMD64, Go et frontend compilé réunis ;
+- yt-dlp autonome officiel `yt-dlp_linux`, version stable explicite, et Deno ;
+- téléchargements versionnés vérifiés par SHA-256 ; ffmpeg, ffprobe, CA et
+  bibliothèques système nécessaires présents, sans Python système ni Node permanent ;
+- `WORKDIR /app`, données dans `/app/data`, bind mount vers un répertoire hôte
+  explicite et configurable ; aucune migration automatique des données locales ;
+- utilisateur non-root, UID/GID adaptés au propriétaire du bind mount, sans
+  modification récursive des permissions au démarrage ;
+- écoute interne `0.0.0.0:8080`, publication sur `127.0.0.1` par défaut,
+  absence d'authentification ; arrêt gracieux compatible avec les 10 s du serveur ;
+- sauvegarde et restauration à froid de tout le répertoire persistant ;
+  jamais deux instances Sillage sur la même base ;
+- mise à jour de yt-dlp uniquement par reconstruction avec version et empreinte
+  explicites, y compris une nightly corrective choisie ; aucun téléchargement
+  automatique au démarrage et aucun binaire modifiable par l'application ;
+- validation Docker indépendante en CI, données temporaires isolées, vrais outils
+  testés séparément du parcours REST déterministe sans YouTube réel.
+
+Question ouverte : un exécutable yt-dlp externe persistant pourrait être sélectionné
+explicitement plus tard, éventuellement depuis les paramètres. La préférence est
+de garder la version stable intégrée comme repli, avec activation volontaire d'une
+autre version. Sélection, vérification, permissions, mises à jour et retour arrière
+restent à définir ; aucun mécanisme d'override n'est implémenté au jalon 4.

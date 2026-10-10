@@ -412,9 +412,9 @@ sont exclus. Aucun éditeur, lecteur, transcription ou mécanisme temporel ici.
 Le jalon 2 est validé manuellement et en CI : navigation, ajout synchrone,
 doublon et fiche présentant toutes les sources. Aucun contrat REST ni règle
 métier n'est modifié. Les tests couvrent routage, historique, erreurs, accès
-directs, réponses tardives et ajout/doublon via Go/SQLite. Le jalon 3 est implémenté et attend la validation manuelle :
+directs, réponses tardives et ajout/doublon via Go/SQLite. Le jalon 3 est validé manuellement et en CI :
 gestion immédiate des tags en modale, autocomplétion clavier, navigation et
-filtrage par tag, descriptions repliables. Le jalon 4 reste à réaliser.
+filtrage par tag, descriptions repliables. Le jalon 4 entre en implémentation : distribution Docker, CI et consolidation.
 La modale est provisoire ; un futur volet ou onglet et le panneau de métadonnées
 restent des pistes révisables (voir Product & UX).
 
