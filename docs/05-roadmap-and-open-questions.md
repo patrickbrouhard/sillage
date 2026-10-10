@@ -390,66 +390,82 @@ noms, reprise automatique des anciennes sources, autres providers, collaboration
 rôles, organisations et interface Web. Les sources anciennes sont rattachables
 explicitement ; leurs anciens libellés restent uniquement dans la sauvegarde.
 
-## 7. Étape 5 — UI Web minimale
+## 7. Étape 5 — Interface Web
 
-### Objectif
+React, TypeScript et Vite sont actés pour une SPA consommant REST. Go sert les
+fichiers statiques de production, livrés avec le binaire dans Docker.
+Le développement avance par commits cohérents, avec validation utilisateur
+après chaque jalon fonctionnel. La mise à jour documentaire précède le code.
 
-Créer une interface réellement utilisable sans chercher encore un design avancé.
+### 5.1 — Bibliothèque utilisable et distribuable
 
-### Vues minimales
+Périmètre validé : bibliothèque (miniature, titre, source, tags), ajout YouTube
+et doublon, fiche dédiée, ajout/retrait des tags vidéo, filtre unique effaçable,
+navigation et accès direct, états de chargement/vide/erreur, build Go + frontend,
+Docker et vérifications automatisées.
 
-#### Bibliothèque
+La première source REST présente provisoirement la carte. La gestion complète
+des publishers/personnes, la recherche, les filtres combinés et la pagination
+sont exclus. Aucun éditeur, lecteur, transcription ou mécanisme temporel ici.
 
-```text
-thumbnail + titre + source + tags
-```
+État : jalon documentaire terminé ; jalon 1 validé manuellement et en CI.
+Le jalon 2 est validé manuellement et en CI : navigation, ajout synchrone,
+doublon et fiche présentant toutes les sources. Aucun contrat REST ni règle
+métier n'est modifié. Les tests couvrent routage, historique, erreurs, accès
+directs, réponses tardives et ajout/doublon via Go/SQLite. Le jalon 3 est implémenté et attend la validation manuelle :
+gestion immédiate des tags en modale, autocomplétion clavier, navigation et
+filtrage par tag, descriptions repliables. Le jalon 4 reste à réaliser.
+La modale est provisoire ; un futur volet ou onglet et le panneau de métadonnées
+restent des pistes révisables (voir Product & UX).
 
-#### Page vidéo
+Jalons prévus :
 
-```text
-player
-métadonnées
-tags
-note Markdown
-transcription
-```
+1. fondations React/Go : liste réellement connectée et production servie par Go ;
+2. navigation, ajout et détail vidéo ;
+3. classement par tags : navigation par tags, gestion immédiate en modale avec
+   autocomplétion, filtre unique dans l’URL et descriptions repliables ;
+4. distribution Docker, CI et consolidation.
 
-### Critère de sortie
+La chaîne de production doit fonctionner dès le premier jalon. Les tests
+préservent Go et Postman et incluent un parcours déterministe via Go et SQLite,
+sans dépendance obligatoire à YouTube en CI. Les accès directs SPA ne doivent
+pas masquer les erreurs API ou les assets absents.
 
-L'utilisateur peut ajouter, retrouver, ouvrir et travailler sur une vidéo depuis son navigateur.
+### 5.2 — Éditeur Markdown et sauvegarde fiable
 
-### Réexamen obligatoire des écritures de notes
+CodeMirror 6 est fortement privilégié, à valider par l'intégration. La note est
+la zone principale et stable. La protection contre les écrasements concurrents
+est requise, y compris entre onglets ; protocole de version, gestion des conflits
+et politique de sauvegarde explicite/automatique restent à définir.
+La suppression d'une note vidée n'est pas acquise.
 
-Lors des essais de l'interface, réévaluer l'autosauvegarde, les onglets concurrents,
-la prévention des pertes de modifications et les éventuels mécanismes de résolution
-des conflits. La dernière écriture gagnante de l'étape 4 n'est pas une décision
-définitive. La suppression explicite d'une note vidée reste une évolution UX à
-évaluer, sans être acquise pour cette étape. Les timestamps interactifs et les
-annotations structurées restent réservés à l'étape 6.
+### 5.3 — Lecteur et transcription
 
-## 8. Étape 6 — Workflow temporel
+Premiers workflows réunissant note, lecteur YouTube et transcription automatique
+originale. La transcription est consultable à côté de la note même lorsque le
+lecteur est masqué, notamment pour les contenus principalement audio.
+Premiers ajustements de disposition, sans exiger redimensionnement avancé,
+détachement ou coordination entre fenêtres.
 
-### Objectif
+## 8. Étape 6 — Interactions temporelles, citations et références enrichies
 
-Valider la fonctionnalité différenciante principale.
+- insertion rapide du temps courant dans la note ;
+- recherche et navigation dans la transcription ;
+- sélection d'un passage pour une citation Markdown ;
+- référence avec début obligatoire et fin facultative, bornes ajustables ;
+- provenance temporelle conservée lorsque nécessaire ;
+- rendu enrichi dans l'éditeur et navigation vers le lecteur.
 
-### Travail
+Les liens Markdown contenant des URI `sillage://` sont la syntaxe candidate
+privilégiée ; le format exact doit être expérimenté avant validation.
+Insertion rapide et citation enrichie peuvent partager la même référence.
+La relation aux annotations structurées reste ouverte.
 
-- lire le timestamp courant du player ;
-- bouton d'insertion rapide ;
-- produire par exemple :
-
-```markdown
-[12:42]
-```
-
-- reconnaître les timestamps dans les notes ;
-- cliquer pour repositionner la vidéo ;
-- réfléchir à la première implémentation d'`Annotation`.
-
-### Critère de sortie
-
-Pendant le visionnage, l'utilisateur peut capturer une idée liée au temps sans interrompre son flow.
+Le Markdown brut reste stocké sans transformation et peut contenir des extensions
+internes. La copie ordinaire préserve les informations utiles ; copie adaptée et
+export peuvent convertir les références. L'export Markdown de consultation est
+distinct d'une sauvegarde réimportable de toutes les données métier.
+Aucune de ces capacités ne doit être implémentée artificiellement en 5.1.
 
 ## 9. Étape 7 — Téléchargement local et screenshots
 
@@ -744,10 +760,9 @@ Restent ouverts :
 
 ## 18. Questions ouvertes — frontend
 
-- framework ou vanilla ;
 - lecteur YouTube ;
 - lecteur local ;
-- éditeur Markdown ;
+- intégration de CodeMirror 6, candidat fortement privilégié ;
 - rendu Markdown ;
 - layout final de la page de travail ;
 - synchronisation player/transcription ;

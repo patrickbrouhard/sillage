@@ -670,13 +670,36 @@ Lorsque les services applicatifs sont déjà stables, le serveur MCP devient une
 
 ## 10. Interface Web
 
-L'interface Web consomme l'API HTTP.
+**Acté :** SPA React avec TypeScript et Vite, consommant l'API REST Go existante.
+Le cœur applicatif reste indépendant de React et des interfaces. Aucun accès
+direct du navigateur à SQLite ou au filesystem interne n'est prévu.
 
-Elle ne doit pas nécessiter d'accès direct à SQLite ou au filesystem interne.
+En développement, Vite sert l'interface et relaie `/api` vers Go ; les appels
+du navigateur restent relatifs, sans ajouter de CORS. En production, Go sert
+les fichiers statiques compilés livrés à côté du binaire dans la même image
+Docker. Aucun SSR ni serveur Node.js permanent n'est requis.
 
-Le choix du framework frontend n'est pas encore arrêté.
+Le jalon 1 utilise `SILLAGE_WEB_DIR` pour activer le build statique. Son absence
+conserve le serveur API seul, indépendant de Node pour sa compilation.
+Le répertoire est ouvert avec `os.OpenRoot` pour borner les accès filesystem.
 
-Le MVP peut rester visuellement simple.
+Les routes API, les assets et les routes SPA doivent être séparés : le repli vers
+`index.html` ne doit jamais masquer une erreur API ou un asset absent. Seul le
+répertoire frontend est public, jamais celui des données.
+
+Le jalon 2 utilise React Router en mode déclaratif pour `/`, `/videos/new`
+et `/videos/:videoId`. Les cartes et retours sont des liens ; la fiche relit
+REST indépendamment de la navigation précédente. Les lectures sont annulées
+au démontage et leurs réponses tardives ignorées. Le formulaire lance un seul
+POST par soumission explicite et distingue 201/200 sans modifier AddVideo.
+L'état reste local aux pages ; aucune bibliothèque de store n'est ajoutée.
+CodeMirror 6 est une préférence forte pour 5.2, pas encore
+une intégration validée. La concurrence des notes sera traitée dans les services
+et la persistance en 5.2, avec une traduction HTTP appropriée ; une coordination
+entre onglets seule ne suffirait pas à protéger les autres clients.
+
+La fiche 5.1 ne fige pas le workspace ultérieur : note stable, transcription
+indépendante et lecteur flexible. Les références temporelles relèvent de 6.
 
 ## 11. Desktop futur
 
@@ -713,6 +736,11 @@ Stockage conceptuel :
 La structure exacte reste non contractuelle.
 
 Le fichier SQLite et les données persistantes doivent vivre sur un volume.
+Le chemin actuel est `data/` relatif au processus : le packaging prévu emploie
+`WORKDIR /app` et un volume `/app/data`, snapshots et sauvegardes compris.
+Le serveur écoute sur toutes les interfaces du conteneur, mais le port publié
+reste lié à localhost par défaut, en l'absence d'authentification.
+Le Dockerfile et Compose restent à implémenter au jalon de distribution de 5.1.
 
 ## 13. Gestion des opérations longues
 

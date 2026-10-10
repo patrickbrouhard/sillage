@@ -17,7 +17,7 @@ import (
 
 func clearConfig(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"SILLAGE_HTTP_ADDR", "SILLAGE_POST_TIMEOUT"} {
+	for _, key := range []string{"SILLAGE_HTTP_ADDR", "SILLAGE_POST_TIMEOUT", "SILLAGE_WEB_DIR"} {
 		t.Setenv(key, "")
 		if err := os.Unsetenv(key); err != nil {
 			t.Fatal(err)
@@ -33,8 +33,9 @@ func TestConfig(t *testing.T) {
 	}
 	t.Setenv("SILLAGE_HTTP_ADDR", "0.0.0.0:9000")
 	t.Setenv("SILLAGE_POST_TIMEOUT", "90s")
+	t.Setenv("SILLAGE_WEB_DIR", "/tmp/frontend")
 	cfg, err = loadConfig()
-	if err != nil || cfg.addr != "0.0.0.0:9000" || cfg.postTimeout != 90*time.Second {
+	if err != nil || cfg.addr != "0.0.0.0:9000" || cfg.postTimeout != 90*time.Second || cfg.webDir != "/tmp/frontend" {
 		t.Fatalf("%+v %v", cfg, err)
 	}
 	for _, value := range []string{"", "oops", "0s", "-1s"} {

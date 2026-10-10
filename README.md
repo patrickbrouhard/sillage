@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. L'interface Web reste la prochaine étape.
+> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. La bibliothèque Web, l'ajout avec détection des doublons, les fiches vidéo et le classement par tags sont fonctionnels. Les jalons 1 à 3 de 5.1 sont validés ; le jalon 4 — distribution Docker et consolidation — reste à réaliser.
 
 ## Vision
 
@@ -61,7 +61,11 @@ automatique originale d'une source YouTube.
 
 Chaque vidéo peut recevoir une note Markdown principale et des tags partagés.
 Leur lecture et leur modification sont locales, indépendantes des sources.
-La bibliothèque peut être filtrée par un tag. L'interface Web constitue la prochaine étape.
+L'interface Web permet de consulter la bibliothèque et les fiches, d'ajouter une
+vidéo YouTube et de retrouver un doublon. Les tags vidéo peuvent être ajoutés et
+retirés dans une modale avec autocomplétion, puis utilisés pour naviguer et filtrer
+la bibliothèque par un seul tag. Les descriptions des sources sont repliables.
+L'édition des notes reste disponible via REST, sans éditeur Web à ce stade.
 
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
@@ -227,10 +231,13 @@ Les interfaces externes et dépendances techniques restent des adapters autour d
 
 ### Bibliothèque vidéo
 
-* ajout d'une vidéo depuis une URL ;
+L'ajout YouTube, les métadonnées, la navigation et le classement par tags sont
+disponibles dans l'interface Web. La recherche reste à développer.
+
+* ajout d'une vidéo depuis une URL YouTube ;
 * récupération automatique des métadonnées ;
 * navigation par miniatures ;
-* tags et filtres ;
+* tags et filtre unique par tag ;
 * recherche.
 
 ### Espace de travail vidéo
@@ -372,7 +379,13 @@ Choix actuels ou privilégiés :
 * API REST
 * MCP en Go à terme
 
-Le frontend n'est pas encore choisi.
+React, TypeScript et Vite sont utilisés pour une SPA consommant l'API REST,
+avec React Router pour la navigation. Go sert déjà les fichiers compilés en
+production locale, sans serveur Node.js permanent. Leur distribution avec le
+binaire dans une même image Docker reste à réaliser au jalon 4. L'accès reste
+local par défaut.
+Les autres bibliothèques seront choisies selon les besoins. CodeMirror 6 est
+fortement privilégié pour 5.2, sans intégration encore validée.
 
 Une version desktop reste envisageable, mais sa technologie n'est pas arrêtée.
 
@@ -442,6 +455,7 @@ go run ./cmd/server
 | --- | --- |
 | `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` |
 | `SILLAGE_POST_TIMEOUT` | `60s` |
+| `SILLAGE_WEB_DIR` | absent : API seule |
 
 Le timeout accepte une durée Go strictement positive, par exemple `90s`.
 Le chemin de base est fixe : `data/sillage.db`, relatif au répertoire de travail
@@ -465,6 +479,160 @@ Le POST est synchrone. Après décodage du corps, un contexte limité par
 permettre l'envoi du JSON d'erreur après expiration du timeout applicatif.
 L'arrêt sur interruption ou SIGTERM annule les traitements, arrête le serveur,
 puis ferme SQLite.
+
+### Interface Web — étape 5.1, jalons 1 à 3
+
+Les jalons 1, 2 et 3 sont terminés, testés automatiquement et validés manuellement.
+La CI GitHub Actions est réussie. Le jalon 4 — distribution Docker et consolidation —
+reste à réaliser.
+
+Disponible : bibliothèque connectée à REST, ajout YouTube, détection des
+doublons et fiches vidéo. Les cartes ouvrent `/videos/{id}` avec l'ID interne
+Sillage ; `/videos/new` permet l'ajout. React Router gère la navigation et
+l'historique. Accès direct, rechargement et retour à la bibliothèque sont pris
+en charge par le build servi par Go comme par le serveur Vite.
+
+Le formulaire distingue création (201) et vidéo déjà présente (200), puis
+propose d'ouvrir la fiche retournée. Une seule acquisition synchrone est lancée
+à la fois, sans relance automatique ni timeout client plus court que le serveur.
+Les erreurs de validation, d'acquisition et de délai sont traduites par leur
+code REST ; la saisie est conservée. Quitter la page annule la requête cliente
+et ignore sa réponse tardive, sans garantir l'annulation d'un enregistrement
+déjà effectué. Après une coupure réseau, vérifier la bibliothèque ou réessayer :
+le backend conserve sa déduplication existante.
+
+La fiche affiche les métadonnées de toutes les sources, leurs publishers,
+durées, descriptions en texte brut et liens HTTP(S), ainsi que les tags directs
+de la vidéo. Le titre d'en-tête utilise provisoirement la première source.
+La date affichée est celle de l'ajout dans Sillage, pas celle de publication.
+Les personnes ne sont pas déduites des publishers. Aucun lecteur, éditeur ni
+panneau de transcription n'est introduit.
+
+Les tags de la fiche ouvrent la bibliothèque filtrée (`/?tag_id=7`). Le retour
+à une bibliothèque filtrée conserve ce contexte ; un accès direct à une fiche
+revient à la bibliothèque complète. Les tags des cartes restent non interactifs.
+
+**Gérer les tags** (ou **Ajouter des tags**) ouvre une modale provisoire.
+Le champ unique propose les tags existants et permet un ajout par nom :
+flèches pour parcourir, Entrée pour associer, Échap pour fermer les propositions,
+puis la modale. Les ajouts/retraits sont enregistrés immédiatement. Fermer la
+modale n'annule pas une opération ; quitter la fiche ignore ses réponses tardives.
+**Actualiser les associations** relit les données en cas de doute ou de modification
+dans un autre onglet. La normalisation et les noms affichés viennent du backend.
+Une seule mutation est exécutée à la fois ; aucune synchronisation entre onglets.
+
+Le filtre utilise le catalogue complet, y compris les tags sans vidéo associée.
+Un résultat vide ne signifie pas que toute la bibliothèque est vide.
+Les descriptions sont intégrales et repliées initialement, indépendamment pour
+chaque source. Le futur volet de gestion et un panneau de métadonnées restent
+des pistes UX, sans composants anticipés.
+
+Le packaging Docker reste réservé au jalon 4.
+La chaîne de production fonctionne déjà sans Vite à l'exécution.
+
+Prérequis supplémentaires : Node.js 24 (24.20.0 validé), npm et Make.
+Exécuter sous Linux/WSL depuis la racine du dépôt, avec Go dans le PATH.
+
+**Production locale :**
+
+```bash
+make web-install
+make build
+make run
+```
+
+Ouvrir <http://127.0.0.1:8080>. Le serveur utilise la bibliothèque existante
+`data/sillage.db`. `make run` lance le binaire compilé et sert `web/dist`.
+Après une modification du code, relancer `make build` puis le serveur.
+
+`SILLAGE_WEB_DIR` active explicitement le frontend et désigne son répertoire
+compilé, relatif au répertoire de travail ou absolu. Sans cette variable,
+le serveur conserve son fonctionnement API seul ; un chemin configuré absent
+ou sans `index.html` fait échouer le démarrage. Le répertoire public doit
+contenir uniquement le build frontend, jamais `data/`.
+
+**Développement, dans deux terminaux :**
+
+```bash
+make dev-api
+```
+
+```bash
+make web-dev
+```
+
+Ouvrir <http://127.0.0.1:5173>. Vite relaie `/api` vers
+`127.0.0.1:8080`, sans CORS. Les ports sont fixes pour éviter de viser
+accidentellement une autre instance ; arrêter le serveur de production avant
+de lancer l'API de développement. Les commandes restent entièrement sous WSL.
+
+**Validation automatisée :**
+
+```bash
+make test
+cd web
+npx playwright install --with-deps chromium
+cd ..
+make test-web
+python3 tests/postman/run.py deterministic
+```
+
+L'installation des dépendances système Chromium peut demander les droits
+administrateur sous Linux ; elle ne concerne que les tests navigateur.
+Playwright teste le build servi par le vrai binaire Go, sur le port 18381,
+avec une base temporaire. Un double ciblé de yt-dlp fournit des métadonnées
+fixes uniquement dans ce processus de test. Les données initiales sont ajoutées
+par REST puis le serveur redémarre avant le test de lecture. Le navigateur
+effectue aussi un ajout et un doublon via Go/SQLite. Aucun accès YouTube ni
+donnée personnelle. Le parcours tags associe un même tag à deux vidéos,
+vérifie la normalisation côté Go, filtre la bibliothèque puis retire une
+association sans modifier l'autre. Les scénarios de transport couvrent erreurs,
+réponses tardives et fermeture pendant une mutation ; les tests clavier couvrent
+les suggestions et le focus du dialogue.
+Les états vide/erreur et les variantes de métadonnées utilisent des réponses
+simulées dans le navigateur, séparément de ce parcours d'intégration.
+
+**Essai manuel du jalon 2 :**
+
+1. Lancer l'application avec le vrai `yt-dlp` dans le PATH, puis ouvrir la
+   bibliothèque et choisir **Ajouter une vidéo**.
+2. Saisir une URL YouTube publique non encore enregistrée. Pendant l'acquisition,
+   le bouton et le champ sont désactivés. Attendre **Vidéo ajoutée**, puis choisir
+   **Ouvrir la fiche**.
+3. Vérifier titre, source, compte de publication, durée et lien externe, puis
+   déplier la description ; les données absentes doivent rester compréhensibles.
+4. Revenir à la bibliothèque et ouvrir la carte. Tester précédent/suivant,
+   rechargement et ouverture de l'URL de fiche dans un nouvel onglet.
+5. Ajouter à nouveau la même URL : le message **déjà présente** mène à la même
+   fiche et aucune nouvelle carte n'est créée.
+6. Arrêter le serveur (Ctrl+C), puis relancer `make run` depuis le même dossier.
+   Rouvrir la fiche : elle est lue dans SQLite sans nouvelle acquisition.
+7. Essayer `https://example.com/video` dans le formulaire : l'erreur de
+   validation conserve la saisie et permet de la corriger. Les erreurs distantes
+   et timeouts sont couverts de façon déterministe dans Playwright.
+8. Ouvrir `/videos/999999999` (ID absent), `/videos/invalide` et
+   `/page-inconnue`, puis revenir à la bibliothèque. Les erreurs API et
+   `/assets/inconnu.js` restent séparées de la SPA.
+9. Réduire la fenêtre et parcourir les cartes/liens au clavier.
+
+**Essai manuel du jalon 3 :**
+
+1. Ouvrir une fiche, cliquer sur **Gérer les tags**, saisir un nouveau nom
+   et choisir son ajout. Vérifier que la saisie est vidée et garde le focus.
+2. Sur une seconde vidéo, saisir le début de ce nom et choisir la suggestion
+   avec les flèches puis Entrée. Fermer la modale : le tag reste visible.
+3. Cliquer sur le tag : la bibliothèque filtrée doit montrer les deux vidéos.
+   Recharger, essayer précédent/suivant et changer le filtre avec le sélecteur.
+4. Ouvrir une carte puis revenir à la bibliothèque : le filtre est conservé.
+   Une fiche ouverte directement peut revenir à la bibliothèque complète.
+5. Retirer le tag de la première vidéo dans la modale : la seconde doit rester
+   associée et visible sous ce filtre. Retirer le filtre retrouve toute la liste.
+6. Après retrait de la dernière association, le tag reste disponible dans le
+   catalogue ; son filtre affiche un état vide explicite.
+7. Arrêter et relancer `make run` depuis le même dossier : les associations
+   restantes et les retraits sont conservés.
+8. Vérifier les descriptions fermées initialement, leur ouverture indépendante
+   et le clavier de la modale (Tab, flèches, Entrée, Échap), sur écran étroit aussi.
 
 ### Contrat API v1
 
@@ -784,6 +952,14 @@ des tests automatisés.
 │   ├── note/
 │   └── http/
 │
+├── web/
+│   ├── src/
+│   └── tests/
+│
+├── tests/
+│   ├── postman/
+│   └── web/
+│
 ├── docs/
 │
 └── deployments/
@@ -806,6 +982,24 @@ La documentation détaillée de conception se trouve dans [`docs/`](docs/).
 Ces documents constituent la référence détaillée du projet.
 
 ## Roadmap
+
+L'étape Web est découpée en jalons validables :
+
+- **5.1 — bibliothèque utilisable et distribuable** : liste, ajout et détail,
+  tags vidéo et filtre unique, navigation, build servi par Go ; distribution
+  Docker et consolidation encore à réaliser au jalon 4 ;
+- **5.2 — éditeur Markdown et sauvegarde fiable** : protection contre les
+  écrasements concurrents ; politique d'autosauvegarde encore ouverte ;
+- **5.3 — lecteur et transcription** : consultation avec la note comme zone
+  principale et la transcription indépendante de la visibilité du lecteur ;
+- **6 — interactions temporelles** : références avec début et fin facultative,
+  citations et rendu enrichi ; syntaxe candidate `sillage://` à expérimenter.
+
+La gestion complète des publishers et personnes reste hors de 5.1. La première
+source REST sert provisoirement à présenter une carte, sans créer de source
+principale métier. Les extensions Markdown internes sont admises ; copie adaptée
+et export de consultation pourront convertir leur représentation. Un tel export
+ne remplace pas une sauvegarde réimportable de toutes les données métier.
 
 Le développement avance par petits incréments verticaux :
 
@@ -847,7 +1041,16 @@ IA intégrée
 * idempotence par identité externe ;
 * API HTTP : ajout, liste et détail, DTO et erreurs JSON ;
 * acquisition et lecture locale des transcriptions automatiques originales YouTube ;
-* notes Markdown exactes, tags partagés et filtre par tag, persistants et disponibles via REST.
+* notes Markdown exactes, tags partagés et filtre par tag, persistants et disponibles via REST ;
+* publishers, personnes et associations avec les tags partagés via REST ;
+* bibliothèque Web React/TypeScript/Vite, ajout YouTube avec détection des doublons
+  et fiches vidéo navigables ;
+* gestion des tags vidéo en modale avec autocomplétion, navigation et filtre unique
+  par tag dans l'URL, descriptions des sources repliables.
+
+Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une CI
+GitHub Actions réussie. Le jalon 4 reste à réaliser ; l'étape 5.1 n'est donc pas
+encore entièrement terminée.
 
 ### API HTTP réalisée
 
@@ -859,8 +1062,9 @@ GET  /api/v1/videos
 GET  /api/v1/videos/{id}
 ```
 
-Les contrats vidéo, transcription, notes et tags sont décrits ci-dessus.
-L'étape 4 est réalisée ; l'interface Web minimale constitue la prochaine direction.
+Les contrats vidéo, transcription, notes, tags, publishers et personnes sont
+décrits ci-dessus. Les étapes 4 et 4 bis sont réalisées ; les jalons 1 à 3 de
+l'interface Web sont disponibles et validés.
 
 ## Principes de développement
 

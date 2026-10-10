@@ -178,7 +178,10 @@ titre affiché = titre de la source utilisée pour l'affichage
 
 Dans le MVP, où une vidéo possède généralement une seule source YouTube, ce choix est trivial.
 
-La politique de sélection du titre par défaut lorsqu'une `Video` possède plusieurs sources reste ouverte.
+La politique métier de sélection du titre par défaut lorsqu'une `Video`
+possède plusieurs sources reste ouverte. En 5.1, la première source retournée
+par REST est utilisée provisoirement pour présenter une carte ; cette convention
+ne crée pas de source principale persistée.
 
 La sémantique exacte d'un éventuel `updated_at` reste également à préciser : un rafraîchissement de source, l'ajout d'une transcription ou une modification utilisateur ne doivent pas être assimilés implicitement.
 
@@ -623,33 +626,31 @@ Un changement d'espace ou de retour à la ligne est une modification effective.
 Les dates suivent la convention UTC à précision milliseconde.
 
 La dernière écriture gagnante est retenue provisoirement pour l'étape 4, sans
-historique ni gestion des conflits. Cette stratégie devra être réexaminée lors
-des essais Web de l'étape 5 : autosauvegarde, onglets concurrents, prévention
-des pertes de modifications et éventuelle résolution des conflits.
+historique ni gestion des conflits. La protection contre les écrasements concurrents est requise en 5.2.
+Le mécanisme de version et la politique d'autosauvegarde restent ouverts ;
+ils ne sont pas implémentés en 5.1.
 Plusieurs notes, l'ajout partiel et la suppression explicite sont hors de cette
 tranche ; la suppression reste une évolution UX envisagée.
 
-### 5.2 Références faibles
+### 5.2 Références temporelles — orientation pour l'étape 6
 
-Les timestamps interactifs et les annotations structurées relèvent de l'étape 6.
-À l'étape 4, ces références restent du texte opaque dans la note.
+Les références restent du texte opaque pour la persistance. Le Markdown brut
+peut accueillir des extensions propres à Sillage, sans compatibilité
+fonctionnelle obligatoire avec les applications Markdown externes.
 
-Une note peut contenir des timestamps écrits dans le Markdown :
+Une référence a un début obligatoire et une fin facultative. Insertion rapide
+et citation enrichie peuvent partager cette notion sans nécessiter chacune une
+entité `Annotation`. La provenance temporelle doit être conservée lorsque
+nécessaire : les timelines de plusieurs sources ne sont pas interchangeables.
 
-```markdown
-[12:42] Explication à comparer avec SQLite.
-```
+Une syntaxe de liens Markdown contenant des URI `sillage://` est fortement
+privilégiée. Son format exact, l'identification de la provenance et la relation
+avec les annotations restent à expérimenter avant validation. Aucun schéma ni
+parseur n'est introduit en 5.1.
 
-Ces timestamps constituent des **références temporelles faibles** :
-
-- rapides à créer ;
-- intégrées au flow d'écriture ;
-- potentiellement reconnues et rendues interactives par l'UI ;
-- pas nécessairement matérialisées comme objets `Annotation`.
-
-La source ou représentation vidéo à laquelle un timestamp doit être appliqué est triviale lorsqu'une `Video` ne possède qu'une source active.
-
-Si plusieurs sources désynchronisées deviennent un cas d'usage réel, cette sémantique devra être précisée.
+La copie ordinaire doit préserver les informations utiles. Copie adaptée et
+export pourront convertir les références. Un export Markdown de consultation
+est distinct d'une sauvegarde réimportable de l'ensemble des données métier.
 
 ## 6. `Annotation`
 
@@ -657,7 +658,7 @@ Si plusieurs sources désynchronisées deviennent un cas d'usage réel, cette s�
 
 `Annotation` est une référence temporelle structurée et forte.
 
-Structure minimale actuelle :
+Ancienne esquisse conceptuelle, non implémentée et à réexaminer avec les plages et leur provenance :
 
 ```text
 id
