@@ -98,6 +98,8 @@ func run(ctx context.Context, cfg config) error {
 		filesystem.NewTranscripts("data/transcripts", ytdlp.ParseJSON3),
 	)
 	server := newHTTPServer(cfg.addr, api.NewRouter(
+		video.NewPublisherService(sqlite.NewPublisherRepository(db), provider),
+		video.NewPersonService(sqlite.NewPersonRepository(db)),
 		note.NewService(sqlite.NewNoteRepository(db)),
 		video.NewTagService(sqlite.NewTagRepository(db)),
 		transcripts,

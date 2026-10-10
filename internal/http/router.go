@@ -11,6 +11,8 @@ import (
 
 // NewRouter expose vidéos, notes, tags et transcriptions sous le préfixe versionné.
 func NewRouter(
+	publishers handlers.PublisherService,
+	persons handlers.PersonService,
 	notes handlers.NoteService,
 	tags handlers.TagService,
 	transcripts handlers.TranscriptService,
@@ -21,6 +23,26 @@ func NewRouter(
 	h := handlers.NewVideoHandler(service, postTimeout)
 	t := handlers.NewTranscriptHandler(transcripts, postTimeout)
 	k := handlers.NewKnowledgeHandler(notes, tags)
+	p := handlers.NewPeopleHandler(publishers, persons, postTimeout)
+	r.Route("/api/v1/publishers", func(r chi.Router) {
+		r.Post("/", p.ResolvePublisher)
+		r.Get("/", p.ListPublishers)
+		r.Get("/{id}", p.GetPublisher)
+		r.Put("/{id}/person", p.SetPublisherPerson)
+		r.Get("/{id}/videos", p.PublisherVideos)
+		r.Post("/{id}/tags", p.AddPublisherTags)
+		r.Delete("/{id}/tags/{tag_id}", p.RemovePublisherTag)
+	})
+	r.Route("/api/v1/persons", func(r chi.Router) {
+		r.Post("/", p.CreatePerson)
+		r.Get("/", p.ListPersons)
+		r.Get("/{id}", p.GetPerson)
+		r.Patch("/{id}", p.RenamePerson)
+		r.Get("/{id}/publishers", p.PersonPublishers)
+		r.Get("/{id}/videos", p.PersonVideos)
+		r.Post("/{id}/tags", p.AddPersonTags)
+		r.Delete("/{id}/tags/{tag_id}", p.RemovePersonTag)
+	})
 	r.Get("/api/v1/tags", k.ListTags)
 	r.Route("/api/v1/videos", func(r chi.Router) {
 		r.Post("/", h.Add)
@@ -32,6 +54,9 @@ func NewRouter(
 		r.Delete("/{id}/tags/{tag_id}", k.RemoveTag)
 		r.Post("/{video_id}/sources/{source_id}/transcript", t.Fetch)
 		r.Get("/{video_id}/sources/{source_id}/transcript", t.Get)
+		r.Put("/{video_id}/sources/{source_id}/publisher", p.SetSourcePublisher)
+		r.Put("/{video_id}/persons/{person_id}", p.SetVideoPerson)
+		r.Delete("/{video_id}/persons/{person_id}", p.SetVideoPerson)
 	})
 	return r
 }

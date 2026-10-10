@@ -38,7 +38,7 @@ func knowledgeAPI(t *testing.T) (http.Handler, *sql.DB) {
 		t.Fatal(err)
 	}
 	provider := providerFunc(func(context.Context, string) (video.VideoSource, error) { return source, nil })
-	h := api.NewRouter(
+	h := api.NewRouter(nil, nil,
 		note.NewService(sqlite.NewNoteRepository(db)),
 		video.NewTagService(sqlite.NewTagRepository(db)),
 		nil,

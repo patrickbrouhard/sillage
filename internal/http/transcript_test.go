@@ -53,13 +53,13 @@ func TestTranscriptHTTPValidationAndErrors(t *testing.T) {
 			fail := func(context.Context, video.VideoID, video.VideoSourceID) (transcript.Result, error) {
 				return transcript.Result{}, fmt.Errorf("private diagnostic: %w", tc.err)
 			}
-			handler := api.NewRouter(nil, nil, transcriptStub{fetch: fail, get: fail}, nil, time.Second)
+			handler := api.NewRouter(nil, nil, nil, nil, transcriptStub{fetch: fail, get: fail}, nil, time.Second)
 			for _, method := range []string{"GET", "POST"} {
 				assertError(t, request(handler, method, path, "", ""), tc.status, tc.code)
 			}
 		})
 	}
-	handler := api.NewRouter(nil, nil, transcriptStub{}, nil, time.Second)
+	handler := api.NewRouter(nil, nil, nil, nil, transcriptStub{}, nil, time.Second)
 	for _, ids := range []string{"0/sources/2", "1/sources/-1", "abc/sources/2", "1/sources/9223372036854775808"} {
 		for _, method := range []string{"GET", "POST"} {
 			assertError(t, request(handler, method, "/api/v1/videos/"+ids+"/transcript", "", ""), 400, "bad_request")
@@ -75,7 +75,7 @@ func TestTranscriptHTTPTimeoutAndCancellation(t *testing.T) {
 		<-ctx.Done()
 		return transcript.Result{}, ctx.Err()
 	}}
-	handler := api.NewRouter(nil, nil, service, nil, 10*time.Millisecond)
+	handler := api.NewRouter(nil, nil, nil, nil, service, nil, 10*time.Millisecond)
 	path := "/api/v1/videos/1/sources/2/transcript"
 	assertError(t, request(handler, "POST", path, "", ""), 504, "transcript_fetch_timeout")
 	ctx, cancel := context.WithCancel(context.Background())
@@ -137,7 +137,7 @@ printf '%s' '{"events":[{"tStartMs":2960,"segs":[{"utf8":"This"},{"tOffsetMs":12
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := api.NewRouter(notes, tags, service, video.NewService(videos, ytdlp.Client{Binary: binary}), time.Second)
+	handler := api.NewRouter(nil, nil, notes, tags, service, video.NewService(videos, ytdlp.Client{Binary: binary}), time.Second)
 	path := fmt.Sprintf("/api/v1/videos/%d/sources/%d/transcript", v.ID, v.Sources[0].ID)
 	wrongPath := fmt.Sprintf("/api/v1/videos/%d/sources/%d/transcript", other.ID, v.Sources[0].ID)
 	for _, method := range []string{"GET", "POST"} {
