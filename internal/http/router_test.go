@@ -209,7 +209,7 @@ func TestLibraryEndToEnd(t *testing.T) {
 	if err := json.Unmarshal(created.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body) != 4 || len(body["tags"].([]any)) != 0 {
+	if len(body) != 5 || len(body["tags"].([]any)) != 0 {
 		t.Fatal(body)
 	}
 	date := body["created_at"].(string)
@@ -223,7 +223,7 @@ func TestLibraryEndToEnd(t *testing.T) {
 	if _, ok := source["video_id"]; ok {
 		t.Fatal("video_id exposed")
 	}
-	for _, key := range []string{"description", "creator", "duration_ms", "thumbnail_url"} {
+	for _, key := range []string{"description", "publisher", "duration_ms", "thumbnail_url"} {
 		value, ok := source[key]
 		if !ok || value != nil {
 			t.Fatalf("%s = %v, present %v", key, value, ok)

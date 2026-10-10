@@ -24,7 +24,7 @@ func TestParseMetadata(t *testing.T) {
 		CanonicalURL: "https://www.youtube.com/watch?v=BaW_jenozKc",
 		Title:        "Vidéo de test – Sillage",
 		Description:  "Première ligne.\nDeuxième ligne : été.",
-		Creator:      "Chaîne de test", DurationMS: &duration,
+		DurationMS:   &duration,
 		ThumbnailURL: "https://i.ytimg.com/vi/BaW_jenozKc/hqdefault.jpg",
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -37,19 +37,18 @@ func TestParseMetadataOptionalFields(t *testing.T) {
 		name         string
 		fields       string
 		wantDuration *int64
-		wantCreator  string
 	}{
 		{name: "missing"},
 		{name: "null", fields: `,"duration":null,"description":null,"channel":null,"thumbnail":null`},
 		{name: "zero", fields: `,"duration":0`, wantDuration: new(int64)},
-		{name: "uploader fallback", fields: `,"channel":"  ","uploader":" Auteur "`, wantCreator: "Auteur"},
+		{name: "uploader fallback", fields: `,"channel":"  ","uploader":" Auteur "`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := parseMetadata([]byte(`{"extractor_key":"Youtube","id":"abc","title":"Titre"` + tc.fields + `}`))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(got.DurationMS, tc.wantDuration) || got.Creator != tc.wantCreator {
+			if !reflect.DeepEqual(got.DurationMS, tc.wantDuration) || got.Publisher != nil {
 				t.Fatalf("unexpected optional metadata: %#v", got)
 			}
 		})

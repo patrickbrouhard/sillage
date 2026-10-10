@@ -113,7 +113,7 @@ func TestNotesAndTagsREST(t *testing.T) {
 	if err := json.Unmarshal(detail.Body.Bytes(), &v); err != nil {
 		t.Fatal(err)
 	}
-	if len(v) != 4 || len(v["tags"].([]any)) != 3 || len(v["sources"].([]any)) != 2 {
+	if len(v) != 5 || len(v["tags"].([]any)) != 3 || len(v["sources"].([]any)) != 2 {
 		t.Fatal(v)
 	}
 	filtered := request(h, "GET", fmt.Sprintf("/api/v1/videos?tag_id=%d", tags.Tags[0].ID), "", "")

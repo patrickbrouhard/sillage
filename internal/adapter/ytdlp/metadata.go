@@ -18,6 +18,7 @@ type metadata struct {
 	Title             string                     `json:"title"`
 	Description       string                     `json:"description"`
 	Channel           string                     `json:"channel"`
+	ChannelID         string                     `json:"channel_id"`
 	Uploader          string                     `json:"uploader"`
 	Duration          *float64                   `json:"duration"`
 	Thumbnail         string                     `json:"thumbnail"`
@@ -52,10 +53,7 @@ func parseMetadata(data []byte) (video.VideoSource, error) {
 		value := int64(ms)
 		durationMS = &value
 	}
-	creator := strings.TrimSpace(raw.Channel)
-	if creator == "" {
-		creator = strings.TrimSpace(raw.Uploader)
-	}
+	publisher := raw.publisher()
 	originalLanguage, _ := raw.originalLanguage()
 	return video.VideoSource{
 		Provider:              "youtube",
@@ -63,7 +61,7 @@ func parseMetadata(data []byte) (video.VideoSource, error) {
 		CanonicalURL:          "https://www.youtube.com/watch?v=" + url.QueryEscape(id),
 		Title:                 title,
 		Description:           raw.Description,
-		Creator:               creator,
+		Publisher:             publisher,
 		DurationMS:            durationMS,
 		ThumbnailURL:          raw.Thumbnail,
 		OriginalAudioLanguage: originalLanguage,

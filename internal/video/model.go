@@ -15,6 +15,7 @@ type Video struct {
 	CreatedAt time.Time
 	Sources   []VideoSource
 	Tags      []Tag
+	PersonIDs []PersonID
 }
 
 // VideoSource contient la provenance et ses métadonnées.
@@ -27,7 +28,7 @@ type VideoSource struct {
 	CanonicalURL string
 	Title        string
 	Description  string
-	Creator      string
+	Publisher    *Publisher
 	// OriginalAudioLanguage décrit l'audio original ; vide si indéterminé.
 	OriginalAudioLanguage string
 	// DurationMS vaut nil lorsque la durée est inconnue, notamment pour un direct.

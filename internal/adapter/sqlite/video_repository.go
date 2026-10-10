@@ -55,8 +55,27 @@ func (r *VideoRepository) Create(ctx context.Context, v video.Video) (video.Vide
 		CreatedAt: time.UnixMilli(v.CreatedAt.UnixMilli()).UTC(),
 		Sources:   make([]video.VideoSource, 0, len(v.Sources)),
 		Tags:      make([]video.Tag, 0),
+		PersonIDs: make([]video.PersonID, 0),
 	}
 	for _, source := range v.Sources {
+		var publisherID *video.PublisherID
+		if source.Publisher != nil {
+			if source.Publisher.Provider != source.Provider {
+				return video.Video{}, video.ErrInvalidInput
+			}
+			// Le compte est partagé, mais sa création participe au rollback de la vidéo.
+			result, err := findOrCreatePublisher(ctx, tx, *source.Publisher)
+			if err != nil {
+				return video.Video{}, err
+			}
+			source.Publisher = &video.Publisher{
+				ID:         result.Publisher.ID,
+				Provider:   result.Publisher.Provider,
+				ExternalID: result.Publisher.ExternalID,
+				Name:       result.Publisher.Name,
+			}
+			publisherID = &result.Publisher.ID
+		}
 		result, err := tx.ExecContext(ctx, `
 			INSERT INTO video_sources (
 				video_id,
@@ -65,7 +84,7 @@ func (r *VideoRepository) Create(ctx context.Context, v video.Video) (video.Vide
 				canonical_url,
 				title,
 				description,
-				creator,
+				publisher_id,
 				duration_ms,
 				thumbnail_url,
 				original_audio_language
@@ -78,7 +97,7 @@ func (r *VideoRepository) Create(ctx context.Context, v video.Video) (video.Vide
 			nullableText(source.CanonicalURL),
 			source.Title,
 			nullableText(source.Description),
-			nullableText(source.Creator),
+			publisherID,
 			source.DurationMS,
 			nullableText(source.ThumbnailURL),
 			nullableText(source.OriginalAudioLanguage),
@@ -159,13 +178,18 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 			s.canonical_url,
 			s.title,
 			s.description,
-			s.creator,
+			p.id,
+			p.provider,
+			p.external_id,
+			p.name,
 			s.duration_ms,
 			s.thumbnail_url,
 			s.original_audio_language
 		FROM videos v
 		LEFT JOIN video_sources s
 			ON s.video_id = v.id
+		LEFT JOIN publishers p
+			ON p.id = s.publisher_id
 		WHERE `+predicate+`
 		ORDER BY
 			v.created_at DESC,
@@ -184,7 +208,9 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 		var id video.VideoID
 		var createdAtText string
 		var sourceID, duration sql.NullInt64
-		var provider, externalID, canonicalURL, title, description, creator, thumbnail sql.NullString
+		var provider, externalID, canonicalURL, title, description, thumbnail sql.NullString
+		var publisherID sql.NullInt64
+		var publisherProvider, publisherExternalID, publisherName sql.NullString
 		var originalLanguage sql.NullString
 
 		if err := rows.Scan(
@@ -196,7 +222,10 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 			&canonicalURL,
 			&title,
 			&description,
-			&creator,
+			&publisherID,
+			&publisherProvider,
+			&publisherExternalID,
+			&publisherName,
 			&duration,
 			&thumbnail,
 			&originalLanguage,
@@ -215,6 +244,7 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 				CreatedAt: createdAt,
 				Sources:   make([]video.VideoSource, 0),
 				Tags:      make([]video.Tag, 0),
+				PersonIDs: make([]video.PersonID, 0),
 			})
 		}
 
@@ -228,9 +258,16 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 				CanonicalURL:          canonicalURL.String,
 				Title:                 title.String,
 				Description:           description.String,
-				Creator:               creator.String,
 				ThumbnailURL:          thumbnail.String,
 				OriginalAudioLanguage: originalLanguage.String,
+			}
+			if publisherID.Valid {
+				source.Publisher = &video.Publisher{
+					ID:         video.PublisherID(publisherID.Int64),
+					Provider:   publisherProvider.String,
+					ExternalID: publisherExternalID.String,
+					Name:       publisherName.String,
+				}
 			}
 
 			// La durée est optionnelle en base.
@@ -288,7 +325,35 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 			videos[i].Tags = append(videos[i].Tags, tag)
 		}
 	}
-	return videos, tagRows.Err()
+	if err := tagRows.Err(); err != nil {
+		return nil, err
+	}
+	if err := tagRows.Close(); err != nil {
+		return nil, err
+	}
+	// Les personnes directes sont chargées séparément pour éviter le produit sources × tags × personnes.
+	personRows, err := r.db.QueryContext(ctx, `
+		SELECT vp.video_id, vp.person_id
+		FROM videos v
+		JOIN video_persons vp ON vp.video_id = v.id
+		WHERE `+predicate+`
+		ORDER BY vp.person_id ASC
+	`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer personRows.Close()
+	for personRows.Next() {
+		var id video.VideoID
+		var person video.PersonID
+		if err := personRows.Scan(&id, &person); err != nil {
+			return nil, err
+		}
+		if i, ok := indices[id]; ok {
+			videos[i].PersonIDs = append(videos[i].PersonIDs, person)
+		}
+	}
+	return videos, personRows.Err()
 }
 
 // nullableText traduit la convention métier « chaîne vide = absente » en NULL.

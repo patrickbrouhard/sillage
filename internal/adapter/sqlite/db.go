@@ -33,6 +33,10 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open SQLite: %w", err)
 	}
+	if err := backupBeforePublishers(ctx, db, absolute); err != nil {
+		db.Close()
+		return nil, err
+	}
 	if err := migrate(ctx, db, migrationFiles); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate SQLite: %w", err)

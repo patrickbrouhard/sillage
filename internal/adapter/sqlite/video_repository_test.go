@@ -84,14 +84,14 @@ func TestRepositoryOptionalFields(t *testing.T) {
 		if err != nil || !reflect.DeepEqual(got, created) {
 			t.Fatalf("got %#v, error=%v", got, err)
 		}
-		var external, canonical, description, creator, thumbnail sql.NullString
+		var external, canonical, description, publisher_id, thumbnail sql.NullString
 		var storedDuration sql.NullInt64
-		err = db.QueryRow(`SELECT external_id, canonical_url, description, creator, thumbnail_url, duration_ms
-			FROM video_sources WHERE video_id = ?`, created.ID).Scan(&external, &canonical, &description, &creator, &thumbnail, &storedDuration)
+		err = db.QueryRow(`SELECT external_id, canonical_url, description, publisher_id, thumbnail_url, duration_ms
+			FROM video_sources WHERE video_id = ?`, created.ID).Scan(&external, &canonical, &description, &publisher_id, &thumbnail, &storedDuration)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if external.Valid || canonical.Valid || description.Valid || creator.Valid || thumbnail.Valid {
+		if external.Valid || canonical.Valid || description.Valid || publisher_id.Valid || thumbnail.Valid {
 			t.Fatal("absent strings must be SQL NULL")
 		}
 		if storedDuration.Valid != (duration != nil) || storedDuration.Int64 != 0 {
@@ -225,7 +225,7 @@ func sampleVideo(externalID string) video.Video {
 		CreatedAt: time.Date(2026, 9, 7, 12, 30, 0, 123456789, time.FixedZone("test", 3600)),
 		Sources: []video.VideoSource{{
 			Provider: "youtube", ExternalID: externalID, CanonicalURL: "https://www.youtube.com/watch?v=" + externalID,
-			Title: "Titre été", Description: "Texte\nmultiligne", Creator: "Créateur",
+			Title: "Titre été", Description: "Texte\nmultiligne",
 			DurationMS: &duration, ThumbnailURL: "https://example.com/thumbnail.jpg",
 		}},
 	}
@@ -259,7 +259,6 @@ func TestAddVideoAfterReopenDoesNotRefresh(t *testing.T) {
 	changed := original
 	changed.Title = "Nouveau titre"
 	changed.Description = "Nouvelle description"
-	changed.Creator = "Autre créateur"
 	changed.ThumbnailURL = "https://example.com/changed.jpg"
 	changed.DurationMS = nil
 	service = video.NewService(NewVideoRepository(db), fixedProvider{source: changed})

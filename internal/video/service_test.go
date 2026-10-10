@@ -11,7 +11,7 @@ import (
 func TestAddVideoCreatesThenReturnsExistingWithoutRefresh(t *testing.T) {
 	source := VideoSource{
 		Provider: "youtube", ExternalID: "same", CanonicalURL: "https://www.youtube.com/watch?v=same",
-		Title: "Original", Description: "Description", Creator: "Créateur", ThumbnailURL: "https://example.com/original",
+		Title: "Original", Description: "Description", ThumbnailURL: "https://example.com/original",
 	}
 	var stored Video
 	creates := 0
@@ -44,7 +44,7 @@ func TestAddVideoCreatesThenReturnsExistingWithoutRefresh(t *testing.T) {
 			return source, nil
 		}
 		changed := source
-		changed.Title, changed.Description, changed.Creator, changed.ThumbnailURL = "Changed", "Changed", "Changed", "Changed"
+		changed.Title, changed.Description, changed.ThumbnailURL = "Changed", "Changed", "Changed"
 		return changed, nil
 	})
 	service := NewService(repo, provider)

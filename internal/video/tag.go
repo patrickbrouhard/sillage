@@ -61,7 +61,20 @@ func (s *TagService) List(ctx context.Context) ([]Tag, error) { return s.reposit
 
 // Add valide tout le lot avant écriture ; un lot vide est refusé.
 func (s *TagService) Add(ctx context.Context, id VideoID, names []string) ([]Tag, error) {
-	if id <= 0 || len(names) == 0 {
+	if id <= 0 {
+		return nil, ErrInvalidInput
+	}
+	normalized, err := NormalizeTagNames(names)
+	if err != nil {
+		return nil, err
+	}
+	return s.repository.Add(ctx, id, normalized)
+}
+
+// NormalizeTagNames valide et déduplique le lot entier avant toute écriture.
+// La même identité est utilisée pour les vidéos, publishers et personnes.
+func NormalizeTagNames(names []string) ([]TagName, error) {
+	if len(names) == 0 {
 		return nil, ErrInvalidInput
 	}
 	normalized := make([]TagName, 0, len(names))
@@ -77,7 +90,7 @@ func (s *TagService) Add(ctx context.Context, id VideoID, names []string) ([]Tag
 			seen[value.Key] = true
 		}
 	}
-	return s.repository.Add(ctx, id, normalized)
+	return normalized, nil
 }
 
 // Remove est idempotent pour une vidéo existante, sans supprimer le tag partagé.
