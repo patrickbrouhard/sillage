@@ -74,6 +74,12 @@ Ces entrées doivent toutes aboutir au même cœur métier.
 
 ## 4. Bibliothèque
 
+Pour 5.1, ajout et retrait des tags vidéo ainsi qu'un filtre par un seul tag
+sont retenus. La première source retournée par REST fournit provisoirement
+titre, miniature et provenance d'une carte. Ce choix de présentation n'ajoute
+aucune notion persistée de source principale. Les tags restent ceux de la vidéo,
+sans héritage depuis les publishers ou personnes.
+
 La bibliothèque est la vue de navigation principale.
 
 Elle doit pouvoir rappeler visuellement une bibliothèque vidéo moderne :
@@ -107,41 +113,23 @@ L'interface n'a pas besoin d'être sophistiquée au début. La valeur principale
 
 La page de détail d'une vidéo est un **espace de travail durable**.
 
-L'analogie initiale avec Karakeep concerne la disposition générale :
+La note Markdown constitue la zone principale et stable. Le lecteur est la
+partie flexible : masquable à l'étape 5.3, puis potentiellement redimensionnable
+ou détachable dans une autre fenêtre. Le détachement n'est pas requis en 5.3.
 
-- aperçu/lecteur d'un côté ;
-- informations de l'autre.
+La transcription est un panneau indépendant, consultable à côté de la note même
+quand le lecteur n'est pas visible. Le travail sans affichage vidéo doit rester
+possible, notamment pour les contenus principalement audio. Masquer le lecteur
+ne doit pas interrompre l'édition de la note.
 
-Mais une modal est inadaptée, car l'utilisateur peut rester longtemps sur cette page et y effectuer un vrai travail.
-
-Une disposition conceptuelle possible :
-
-```text
-┌───────────────────────────────────────────────────────────────┐
-│ Titre                                             actions     │
-├─────────────────────────────────────┬─────────────────────────┤
-│                                     │ Métadonnées             │
-│                                     │ Source                  │
-│              PLAYER                 │ Compte de publication   │
-│                                     │ Date                    │
-│                                     │ Tags                    │
-│                                     │ État local              │
-│                                     │ Actions                 │
-├─────────────────────────────────────┴─────────────────────────┤
-│ Notes | Transcript | Annotations | Assets | AI               │
-├───────────────────────────────────────────────────────────────┤
-│                                                               │
-│                    zone de travail                            │
-│                                                               │
-└───────────────────────────────────────────────────────────────┘
-```
-
-Cette disposition n'est pas figée.
+La disposition finale, les tailles et les interactions entre panneaux restent
+à éprouver. En 5.1, la fiche montre seulement les informations disponibles ;
+elle ne préfigure pas un système avancé de panneaux.
 
 ### 5.2 Comptes de publication et personnes
 
 Les capacités suivantes sont disponibles par REST depuis l'étape 4 bis ; leur
-interface Web reste à développer à l'étape 5.
+interface Web complète est différée et reste hors du périmètre 5.1.
 
 L'utilisateur peut créer ou retrouver une chaîne depuis son URL. La résolution
 peut échouer ; sans identité fiable, aucun publisher n'est créé. Il peut ensuite
@@ -175,9 +163,10 @@ pas sa date de modification. Les notes appartiennent à la vidéo, indépendamme
 des métadonnées et transcriptions de ses sources.
 
 La dernière écriture gagnante est acceptée provisoirement pour l'étape 4.
-Lors des essais de l'interface Web à l'étape 5, il faudra réexaminer
-l'autosauvegarde, les onglets concurrents, la prévention des pertes de
-modifications et les éventuels mécanismes de résolution des conflits.
+L'étape 5.2 doit protéger les notes contre les écrasements concurrents.
+Le protocole de version, la résolution des conflits et le comportement exact
+de sauvegarde, explicite ou automatique, restent à définir. CodeMirror 6 est
+fortement privilégié ; son intégration n'est pas encore validée.
 La future interface pourra éviter de créer une note vide et envisager une
 suppression explicite lorsqu'une note est vidée ; cette suppression ne fait
 pas partie de l'étape 4.
@@ -222,21 +211,26 @@ Pas de modal.
 Pas de formulaire obligatoire.
 Pas de validation complexe.
 
-### 6.3 Références temporelles faibles
+### 6.3 Références temporelles et citations — orientation pour l'étape 6
 
-Un timestamp inséré dans le Markdown peut être considéré comme une **référence faible**.
+Une référence possède un début obligatoire et une fin facultative. L'insertion
+rapide pendant la prise de notes et la citation enrichie d'un passage de
+transcription sont deux workflows pouvant utiliser cette même notion.
+La provenance temporelle doit être conservée lorsque nécessaire pour retrouver
+la bonne source ; sa représentation précise reste à expérimenter.
 
-Il doit idéalement être reconnu par l'application et devenir interactif.
+Les liens Markdown contenant une URI `sillage://` sont la syntaxe candidate
+privilégiée, pas un format arrêté. Les exemples `[12:42]` illustrent l'intention
+d'usage, sans constituer un contrat de parsing.
 
-Exemple :
+Le Markdown brut peut contenir des extensions propres à Sillage. La compatibilité
+fonctionnelle avec des applications externes n'est pas prioritaire. La copie
+ordinaire doit préserver les informations utiles ; des opérations explicites de
+copie adaptée et d'export pourront convertir les références.
 
-```markdown
-[12:42]
-```
-
-Un clic peut repositionner le lecteur à `12:42`.
-
-La référence existe d'abord dans le texte et ne nécessite pas forcément un objet `Annotation`.
+Un export Markdown destiné à la consultation est distinct d'une sauvegarde
+réimportable préservant toutes les données métier. Les formats et mécanismes
+de ces opérations restent ouverts. Aucune de ces fonctions n'est requise en 5.1.
 
 ### 6.4 Annotations fortes
 

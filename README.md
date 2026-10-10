@@ -372,7 +372,11 @@ Choix actuels ou privilégiés :
 * API REST
 * MCP en Go à terme
 
-Le frontend n'est pas encore choisi.
+React, TypeScript et Vite sont retenus pour une SPA consommant l'API REST.
+En production, Go servira les fichiers compilés livrés avec le binaire dans une
+même image Docker, sans serveur Node.js permanent. L'accès reste local par défaut.
+Les autres bibliothèques seront choisies selon les besoins. CodeMirror 6 est
+fortement privilégié pour 5.2, sans intégration encore validée.
 
 Une version desktop reste envisageable, mais sa technologie n'est pas arrêtée.
 
@@ -806,6 +810,22 @@ La documentation détaillée de conception se trouve dans [`docs/`](docs/).
 Ces documents constituent la référence détaillée du projet.
 
 ## Roadmap
+
+L'étape Web est découpée en jalons validables :
+- **5.1 — bibliothèque utilisable et distribuable** : liste, ajout et détail,
+  tags vidéo et filtre unique, navigation, build servi par Go et Docker ;
+- **5.2 — éditeur Markdown et sauvegarde fiable** : protection contre les
+  écrasements concurrents ; politique d'autosauvegarde encore ouverte ;
+- **5.3 — lecteur et transcription** : consultation avec la note comme zone
+  principale et la transcription indépendante de la visibilité du lecteur ;
+- **6 — interactions temporelles** : références avec début et fin facultative,
+  citations et rendu enrichi ; syntaxe candidate `sillage://` à expérimenter.
+
+La gestion complète des publishers et personnes reste hors de 5.1. La première
+source REST sert provisoirement à présenter une carte, sans créer de source
+principale métier. Les extensions Markdown internes sont admises ; copie adaptée
+et export de consultation pourront convertir leur représentation. Un tel export
+ne remplace pas une sauvegarde réimportable de toutes les données métier.
 
 Le développement avance par petits incréments verticaux :
 

@@ -80,7 +80,16 @@ Current choices or strong preferences:
 
 SQLite FTS5 is planned for later full-text search.
 
-The frontend technology is not decided yet.
+React, TypeScript and Vite are selected for the initial Web SPA.
+The frontend consumes the existing REST API; Go serves its compiled static files
+alongside the API in production. No permanent Node.js server or SSR is required.
+Keep local access as the default while authentication is absent.
+
+The Markdown note is the stable main workspace area. The player is flexible and
+the transcript is an independent panel. CodeMirror 6 is strongly preferred, but
+its integration remains to be validated in step 5.2.
+Step 5.1 covers the library, video details, imports and video tags; do not
+anticipate the editor, player, transcripts or temporal references in this slice.
 
 Do not introduce PostgreSQL, Redis, a vector database, microservices, or another major infrastructure component without a concrete requirement.
 

@@ -114,6 +114,15 @@ Les timestamps servent notamment à :
 
 ### 4.3 Les notes doivent préserver le flow de l'utilisateur
 
+La note Markdown est la zone principale et stable du workspace. La transcription
+reste consultable à ses côtés même sans lecteur visible, notamment pour les
+contenus principalement audio. Le lecteur est la partie flexible ; son
+redimensionnement et son détachement sont des évolutions ultérieures.
+
+Le Markdown brut reste le stockage de référence. Des extensions propres à
+Sillage sont admises, sans obligation de compatibilité fonctionnelle externe.
+Les exemples de timestamps ci-dessous illustrent l'usage, pas une syntaxe arrêtée.
+
 Lors d'une première passe, la prise de notes doit être très rapide.
 
 Exemple :

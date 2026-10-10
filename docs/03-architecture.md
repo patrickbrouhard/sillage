@@ -670,13 +670,27 @@ Lorsque les services applicatifs sont déjà stables, le serveur MCP devient une
 
 ## 10. Interface Web
 
-L'interface Web consomme l'API HTTP.
+**Acté :** SPA React avec TypeScript et Vite, consommant l'API REST Go existante.
+Le cœur applicatif reste indépendant de React et des interfaces. Aucun accès
+direct du navigateur à SQLite ou au filesystem interne n'est prévu.
 
-Elle ne doit pas nécessiter d'accès direct à SQLite ou au filesystem interne.
+En développement, Vite sert l'interface et relaie `/api` vers Go ; les appels
+du navigateur restent relatifs, sans ajouter de CORS. En production, Go sert
+les fichiers statiques compilés livrés à côté du binaire dans la même image
+Docker. Aucun SSR ni serveur Node.js permanent n'est requis.
 
-Le choix du framework frontend n'est pas encore arrêté.
+Les routes API, les assets et les routes SPA doivent être séparés : le repli vers
+`index.html` ne doit jamais masquer une erreur API ou un asset absent. Seul le
+répertoire frontend est public, jamais celui des données.
 
-Le MVP peut rester visuellement simple.
+L'état React reste simple ; les bibliothèques supplémentaires sont choisies
+selon les besoins. CodeMirror 6 est une préférence forte pour 5.2, pas encore
+une intégration validée. La concurrence des notes sera traitée dans les services
+et la persistance en 5.2, avec une traduction HTTP appropriée ; une coordination
+entre onglets seule ne suffirait pas à protéger les autres clients.
+
+La fiche 5.1 ne fige pas le workspace ultérieur : note stable, transcription
+indépendante et lecteur flexible. Les références temporelles relèvent de 6.
 
 ## 11. Desktop futur
 
@@ -713,6 +727,11 @@ Stockage conceptuel :
 La structure exacte reste non contractuelle.
 
 Le fichier SQLite et les données persistantes doivent vivre sur un volume.
+Le chemin actuel est `data/` relatif au processus : le packaging prévu emploie
+`WORKDIR /app` et un volume `/app/data`, snapshots et sauvegardes compris.
+Le serveur écoute sur toutes les interfaces du conteneur, mais le port publié
+reste lié à localhost par défaut, en l'absence d'authentification.
+Le Dockerfile et Compose sont encore à implémenter au démarrage de 5.1.
 
 ## 13. Gestion des opérations longues
 

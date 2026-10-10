@@ -39,7 +39,11 @@ peut être différée. Les mentions « implémenté » décrivent le code dispon
 | API | REST HTTP | Acté |
 | MCP | Serveur MCP Go appelant directement les services applicatifs | Acté architecturalement, implémentation différée |
 | SDK MCP | SDK Go officiel | Préféré |
-| Frontend Web | à choisir | Ouvert |
+| Frontend Web | React, TypeScript et Vite ; SPA sans SSR | Acté pour 5.1 |
+| Distribution Web | fichiers statiques servis par Go, avec le binaire dans Docker | Acté |
+| Éditeur Markdown | CodeMirror 6 | Fortement privilégié, intégration à valider en 5.2 |
+| Références temporelles | début obligatoire, fin facultative, provenance conservée si nécessaire | Orientation actée pour 6 |
+| Syntaxe des références | liens Markdown avec URI `sillage://` | Candidate privilégiée, format ouvert |
 | Desktop | possibilité future, Wails à évaluer | Ouvert |
 | IA intégrée | fournisseur à choisir | Ouvert |
 | STT local | moteur à choisir si besoin | Ouvert |
@@ -676,21 +680,32 @@ L'architecture doit éviter de dépendre directement d'OpenAI, Ollama ou d'un au
 
 ## 15. Frontend
 
-Le frontend n'est pas encore choisi.
+### Décisions actées
 
-Contraintes connues :
+- React, TypeScript et Vite pour une SPA consommant REST ;
+- Go sert les fichiers compilés livrés avec le binaire dans la même image Docker ;
+- aucun SSR ni serveur Node.js permanent, accès local par défaut sans auth ;
+- note Markdown principale et stable, transcription indépendante du lecteur ;
+- lecteur flexible, masquable puis potentiellement redimensionnable/détachable ;
+- stockage Markdown brut, extensions internes autorisées ;
+- références temporelles avec début obligatoire et fin facultative, provenance
+  conservée lorsque nécessaire ; insertion rapide et citation partagent la notion ;
+- copie ordinaire préservant les informations utiles ; copie adaptée et export
+  de consultation distincts d'une sauvegarde métier réimportable.
 
-- interface Web dans la première version ;
-- page vidéo orientée travail ;
-- interaction étroite avec un player ;
-- éditeur Markdown ;
-- timestamps interactifs ;
-- bibliothèque visuelle ;
-- API REST comme backend.
+### Préférences révisables
 
-Le MVP n'exige pas un design sophistiqué.
+CodeMirror 6 est fortement privilégié pour 5.2, sans intégration encore validée.
+Les URI `sillage://` dans des liens Markdown sont la syntaxe candidate pour 6.
+La première source REST sert provisoirement à présenter les cartes en 5.1,
+sans devenir une règle métier de source principale.
 
-Ne pas considérer React comme acté tant qu'une décision explicite n'a pas été prise.
+### Questions ouvertes
+
+Bibliothèques complémentaires selon les besoins, layout final, protocole de
+concurrence des notes, politique d'autosauvegarde, format exact des références,
+copie adaptée et formats d'export/sauvegarde. Ces questions ne justifient pas
+d'anticiper les étapes 5.2, 5.3 et 6 en 5.1.
 
 ## 16. Desktop
 
@@ -819,7 +834,6 @@ hors de l'étape 4.
 - Goose ou autre outil de migrations dédié ;
 - WAL SQLite ;
 - stratégie de tests d'intégration avec `yt-dlp` ;
-- framework frontend ;
 - lecteur vidéo ;
 - éditeur Markdown ;
 - système de jobs ;
