@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
-import type { Video, VideoSource } from './api'
+import type { Tag, Video, VideoSource } from './api'
+import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { formatDuration, httpURL, providerLabel } from './videoPresentation'
 
@@ -33,8 +34,10 @@ function SourceDetails({ source, index }: { source: VideoSource; index: number }
           ) : <p className="muted">Lien externe non disponible</p>}
         </div>
       </div>
-      <h3>Description</h3>
-      <p className="description">{source.description || 'Aucune description disponible.'}</p>
+      {source.description?.trim() ? <details>
+        <summary>Description</summary>
+        <p className="description">{source.description}</p>
+      </details> : <p className="muted">Aucune description disponible.</p>}
     </section>
   )
 }
@@ -43,6 +46,15 @@ function SourceDetails({ source, index }: { source: VideoSource; index: number }
 function VideoDetail({ id }: { id: string }) {
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const location = useLocation()
+  const origin: unknown = location.state?.library
+  // Seul le contexte interne de bibliothèque peut devenir la destination de retour.
+  const backTo = typeof origin === 'string' && /^\/\?tag_id=[0-9]+$/.test(origin) ? origin : '/'
+  function updateTags(tags: Tag[]) {
+    setState((current) => current.status === 'ready'
+      ? { ...current, video: { ...current.video, tags } }
+      : current)
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -66,7 +78,7 @@ function VideoDetail({ id }: { id: string }) {
   return (
     <>
       <title>{`${state.status === 'ready' ? state.video.sources[0]?.title || 'Vidéo' : 'Fiche vidéo'} · Sillage`}</title>
-      <Link className="back-link" to="/">← Revenir à la bibliothèque</Link>
+      <Link className="back-link" to={backTo}>← Revenir à la bibliothèque</Link>
       {state.status === 'loading' && <div className="state-panel" role="status">Chargement de la vidéo…</div>}
       {state.status === 'error' && (
         <div className="state-panel error" role="alert">
@@ -85,11 +97,7 @@ function VideoDetail({ id }: { id: string }) {
           <p className="muted">Ajoutée le <time dateTime={state.video.created_at}>
             {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
           </time></p>
-          {state.video.tags.length > 0 ? (
-            <ul className="tags detail-tags" aria-label="Tags de la vidéo">
-              {state.video.tags.map((tag) => <li key={tag.id}>{tag.name}</li>)}
-            </ul>
-          ) : <p className="muted">Aucun tag associé à cette vidéo.</p>}
+          <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
           {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
           {state.video.sources.map((source, index) => (
             <SourceDetails key={source.id} source={source} index={index} />

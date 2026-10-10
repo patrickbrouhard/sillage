@@ -471,7 +471,7 @@ permettre l'envoi du JSON d'erreur après expiration du timeout applicatif.
 L'arrêt sur interruption ou SIGTERM annule les traitements, arrête le serveur,
 puis ferme SQLite.
 
-### Interface Web — étape 5.1, jalons 1 et 2
+### Interface Web — étape 5.1, jalons 1 à 3
 
 Disponible : bibliothèque connectée à REST, ajout YouTube, détection des
 doublons et fiches vidéo. Les cartes ouvrent `/videos/{id}` avec l'ID interne
@@ -495,7 +495,26 @@ La date affichée est celle de l'ajout dans Sillage, pas celle de publication.
 Les personnes ne sont pas déduites des publishers. Aucun lecteur, éditeur ni
 panneau de transcription n'est introduit.
 
-Modification des tags et filtre arrivent au jalon 3, packaging Docker au jalon 4.
+Les tags de la fiche ouvrent la bibliothèque filtrée (`/?tag_id=7`). Le retour
+à une bibliothèque filtrée conserve ce contexte ; un accès direct à une fiche
+revient à la bibliothèque complète. Les tags des cartes restent non interactifs.
+
+**Gérer les tags** (ou **Ajouter des tags**) ouvre une modale provisoire.
+Le champ unique propose les tags existants et permet un ajout par nom :
+flèches pour parcourir, Entrée pour associer, Échap pour fermer les propositions,
+puis la modale. Les ajouts/retraits sont enregistrés immédiatement. Fermer la
+modale n'annule pas une opération ; quitter la fiche ignore ses réponses tardives.
+**Actualiser les associations** relit les données en cas de doute ou de modification
+dans un autre onglet. La normalisation et les noms affichés viennent du backend.
+Une seule mutation est exécutée à la fois ; aucune synchronisation entre onglets.
+
+Le filtre utilise le catalogue complet, y compris les tags sans vidéo associée.
+Un résultat vide ne signifie pas que toute la bibliothèque est vide.
+Les descriptions sont intégrales et repliées initialement, indépendamment pour
+chaque source. Le futur volet de gestion et un panneau de métadonnées restent
+des pistes UX, sans composants anticipés.
+
+Le packaging Docker reste réservé au jalon 4.
 La chaîne de production fonctionne déjà sans Vite à l'exécution.
 
 Prérequis supplémentaires : Node.js 24 (24.20.0 validé), npm et Make.
@@ -552,7 +571,11 @@ avec une base temporaire. Un double ciblé de yt-dlp fournit des métadonnées
 fixes uniquement dans ce processus de test. Les données initiales sont ajoutées
 par REST puis le serveur redémarre avant le test de lecture. Le navigateur
 effectue aussi un ajout et un doublon via Go/SQLite. Aucun accès YouTube ni
-donnée personnelle.
+donnée personnelle. Le parcours tags associe un même tag à deux vidéos,
+vérifie la normalisation côté Go, filtre la bibliothèque puis retire une
+association sans modifier l'autre. Les scénarios de transport couvrent erreurs,
+réponses tardives et fermeture pendant une mutation ; les tests clavier couvrent
+les suggestions et le focus du dialogue.
 Les états vide/erreur et les variantes de métadonnées utilisent des réponses
 simulées dans le navigateur, séparément de ce parcours d'intégration.
 
@@ -578,6 +601,25 @@ simulées dans le navigateur, séparément de ce parcours d'intégration.
    `/page-inconnue`, puis revenir à la bibliothèque. Les erreurs API et
    `/assets/inconnu.js` restent séparées de la SPA.
 9. Réduire la fenêtre et parcourir les cartes/liens au clavier.
+
+**Essai manuel du jalon 3 :**
+
+1. Ouvrir une fiche, cliquer sur **Gérer les tags**, saisir un nouveau nom
+   et choisir son ajout. Vérifier que la saisie est vidée et garde le focus.
+2. Sur une seconde vidéo, saisir le début de ce nom et choisir la suggestion
+   avec les flèches puis Entrée. Fermer la modale : le tag reste visible.
+3. Cliquer sur le tag : la bibliothèque filtrée doit montrer les deux vidéos.
+   Recharger, essayer précédent/suivant et changer le filtre avec le sélecteur.
+4. Ouvrir une carte puis revenir à la bibliothèque : le filtre est conservé.
+   Une fiche ouverte directement peut revenir à la bibliothèque complète.
+5. Retirer le tag de la première vidéo dans la modale : la seconde doit rester
+   associée et visible sous ce filtre. Retirer le filtre retrouve toute la liste.
+6. Après retrait de la dernière association, le tag reste disponible dans le
+   catalogue ; son filtre affiche un état vide explicite.
+7. Arrêter et relancer `make run` depuis le même dossier : les associations
+   restantes et les retraits sont conservés.
+8. Vérifier les descriptions fermées initialement, leur ouverture indépendante
+   et le clavier de la modale (Tab, flèches, Entrée, Échap), sur écran étroit aussi.
 
 ### Contrat API v1
 

@@ -81,6 +81,8 @@ def main():
             + "external_id = sys.argv[-1].rsplit('/', 1)[-1]\n"
             + "if external_id.startswith('sillage-new-'):\n"
             + "    metadata.update(id=external_id, title='Une nouvelle vidéo pour apprendre', description='Une description conservée dans SQLite.')\n"
+            + "if external_id.startswith('sillage-tags-'):\n"
+            + "    metadata.update(id=external_id, title=external_id, description='Description pour le classement.')\n"
             + "print(json.dumps(metadata))\n",
             encoding="utf-8",
         )

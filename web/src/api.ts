@@ -27,9 +27,17 @@ export interface Video {
 }
 
 /** Lit la bibliothèque locale ; l'annulation empêche les réponses devenues inutiles. */
-export async function listVideos(signal: AbortSignal): Promise<Video[]> {
-  const response = await fetch('/api/v1/videos', { signal })
+export async function listVideos(signal: AbortSignal, tagID?: string): Promise<Video[]> {
+  const query = tagID === undefined ? '' : '?' + new URLSearchParams({ tag_id: tagID })
+  const response = await fetch('/api/v1/videos' + query, { signal })
   if (!response.ok) {
+    if (response.status === 400) {
+      throw await responseError(
+        response,
+        'Le filtre est invalide.',
+        'Le filtre de tag est invalide. Retirez-le pour retrouver la bibliothèque.',
+      )
+    }
     throw new Error('Impossible de charger la bibliothèque. Réessayez dans un instant.')
   }
   const body: { videos: Video[] } = await response.json()
@@ -55,6 +63,7 @@ async function responseError(
   response: Response,
   fallback: string,
   invalidInput: string,
+  tooLarge = 'L’URL saisie est trop longue.',
 ): Promise<APIError> {
   const body = await response.json().catch(() => null)
   const code = typeof body?.error?.code === 'string' ? body.error.code : ''
@@ -63,7 +72,7 @@ async function responseError(
     video_not_found: 'Cette vidéo n’existe pas ou n’est plus disponible dans votre bibliothèque.',
     metadata_fetch_failed: 'Les informations de cette vidéo n’ont pas pu être récupérées auprès de YouTube. Réessayez plus tard.',
     metadata_fetch_timeout: 'Le délai d’acquisition est dépassé. Vous pouvez réessayer.',
-    payload_too_large: 'L’URL saisie est trop longue.',
+    payload_too_large: tooLarge,
     internal_error: 'Le serveur a rencontré une erreur. Réessayez dans un instant.',
   }
   return new APIError(code, messages[code] ?? fallback)
@@ -126,4 +135,56 @@ export function errorMessage(
   return error instanceof TypeError
     ? networkMessage
     : error instanceof Error ? error.message : 'Une erreur est survenue.'
+}
+
+/** Valide l'enveloppe commune du catalogue et des associations retournées. */
+async function readTags(response: Response): Promise<Tag[]> {
+  const body = await response.json()
+  if (!Array.isArray(body?.tags) || !body.tags.every((tag: Tag) =>
+    tag && Number.isInteger(tag.id) && tag.id > 0 && typeof tag.name === 'string')) {
+    throw new Error('La réponse des tags est invalide. Actualisez les associations.')
+  }
+  return body.tags
+}
+
+/** Charge le catalogue global, y compris les tags sans association vidéo. */
+export async function listTags(signal: AbortSignal): Promise<Tag[]> {
+  const response = await fetch('/api/v1/tags', { signal })
+  if (!response.ok) {
+    throw await responseError(
+      response,
+      'Impossible de charger le catalogue des tags.',
+      'Requête de tags invalide.',
+    )
+  }
+  return readTags(response)
+}
+
+/** Associe un nom ; le serveur décide de son identité et retourne tous les tags. */
+export async function addTag(id: number, name: string, signal: AbortSignal): Promise<Tag[]> {
+  const response = await fetch(`/api/v1/videos/${id}/tags`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ names: [name] }),
+    signal,
+  })
+  if (!response.ok) throw await responseError(
+    response,
+    'Impossible d’associer ce tag.',
+    'Saisissez un nom non vide de 200 caractères Unicode maximum.',
+    'Le nom envoyé est trop volumineux.',
+  )
+  return readTags(response)
+}
+
+/** Retire uniquement l'association, même si elle a déjà disparu. */
+export async function removeTag(id: number, tagID: number, signal: AbortSignal): Promise<void> {
+  const response = await fetch(`/api/v1/videos/${id}/tags/${tagID}`, { method: 'DELETE', signal })
+  if (!response.ok) {
+    throw await responseError(
+      response,
+      'Impossible de retirer ce tag.',
+      'L’association demandée est invalide.',
+    )
+  }
 }

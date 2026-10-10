@@ -864,8 +864,13 @@ Une erreur de catalogue conserve les données disponibles ; un échec de relectu
 après écriture réussie doit être distingué d'un échec d'écriture.
 
 La modale contient un éditeur de tags vidéo indépendant de sa présentation.
-L'autocomplétion utilise un champ unique ; son choix technique reste local,
-sans design system ni reproduction de la normalisation métier Go.
+L'implémentation utilise un dialogue HTML natif et une combobox locale suivant
+le modèle WAI-ARIA (listbox, sélection par flèches, aria-activedescendant,
+Entrée et Échap). Aucune dépendance supplémentaire. L'éditeur reste séparé du
+conteneur, monté à sa fermeture pour laisser aboutir les mutations en cours.
+La recherche des propositions est une comparaison de présentation simple,
+sans reproduction de la normalisation métier Go.
+Référence : https://www.w3.org/WAI/ARIA/apg/patterns/combobox/.
 Les descriptions privilégient les éléments natifs `details` et `summary`.
 Le futur volet de gestion et le panneau de métadonnées sont des préférences
 révisables, sans architecture anticipée ni synchronisation entre onglets.

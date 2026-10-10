@@ -33,6 +33,8 @@ test('ajout et doublon via Go/SQLite, fiche directe et historique navigateur', a
   await page.getByRole('link', { name: 'Ouvrir la fiche' }).click()
   const detailURL = page.url()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une nouvelle vidéo pour apprendre')
+  await expect(page.getByText('Une description conservée dans SQLite.')).toBeHidden()
+  await page.locator('summary').click()
   await expect(page.getByText('Une description conservée dans SQLite.')).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une nouvelle vidéo pour apprendre')

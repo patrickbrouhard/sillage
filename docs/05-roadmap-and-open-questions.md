@@ -412,8 +412,11 @@ sont exclus. Aucun éditeur, lecteur, transcription ou mécanisme temporel ici.
 Le jalon 2 est validé manuellement et en CI : navigation, ajout synchrone,
 doublon et fiche présentant toutes les sources. Aucun contrat REST ni règle
 métier n'est modifié. Les tests couvrent routage, historique, erreurs, accès
-directs, réponses tardives et ajout/doublon via Go/SQLite. Les jalons 3 et 4
-restent à réaliser.
+directs, réponses tardives et ajout/doublon via Go/SQLite. Le jalon 3 est implémenté et attend la validation manuelle :
+gestion immédiate des tags en modale, autocomplétion clavier, navigation et
+filtrage par tag, descriptions repliables. Le jalon 4 reste à réaliser.
+La modale est provisoire ; un futur volet ou onglet et le panneau de métadonnées
+restent des pistes révisables (voir Product & UX).
 
 Jalons prévus :
 
@@ -817,7 +820,3 @@ Quand plusieurs directions sont possibles :
 4. seulement ensuite généraliser.
 
 Ne pas construire aujourd'hui une abstraction destinée à une fonctionnalité hypothétique de demain si le modèle actuel permet de l'ajouter plus tard proprement.
-
-Le périmètre UX du jalon 3 est validé ; son implémentation reste à réaliser.
-La modale est provisoire, le futur volet ou onglet et le panneau de métadonnées
-restent des pistes révisables (voir Product & UX).
