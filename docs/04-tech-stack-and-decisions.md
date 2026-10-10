@@ -853,3 +853,19 @@ hors de l'étape 4.
 - stockage configurable des snapshots de transcription ;
 - éventuelle sélection explicite d'autres pistes (aucun fallback actuel) ;
 - éventuel besoin de persister un identifiant de piste provider distinct de la langue.
+
+## Jalon 3 Web — décisions d'intégration
+
+Les contrats REST existants suffisent : catalogue global, ajout par noms,
+retrait par ID et filtre vidéo unique. React Router porte le filtre dans l'URL.
+Les mutations sont successives ; le POST fournit les associations à afficher,
+le DELETE est suivi d'une relecture. Les réponses tardives doivent être ignorées.
+Une erreur de catalogue conserve les données disponibles ; un échec de relecture
+après écriture réussie doit être distingué d'un échec d'écriture.
+
+La modale contient un éditeur de tags vidéo indépendant de sa présentation.
+L'autocomplétion utilise un champ unique ; son choix technique reste local,
+sans design system ni reproduction de la normalisation métier Go.
+Les descriptions privilégient les éléments natifs `details` et `summary`.
+Le futur volet de gestion et le panneau de métadonnées sont des préférences
+révisables, sans architecture anticipée ni synchronisation entre onglets.

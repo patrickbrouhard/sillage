@@ -409,7 +409,7 @@ des publishers/personnes, la recherche, les filtres combinés et la pagination
 sont exclus. Aucun éditeur, lecteur, transcription ou mécanisme temporel ici.
 
 État : jalon documentaire terminé ; jalon 1 validé manuellement et en CI.
-Le jalon 2 est implémenté, à valider manuellement : navigation, ajout synchrone,
+Le jalon 2 est validé manuellement et en CI : navigation, ajout synchrone,
 doublon et fiche présentant toutes les sources. Aucun contrat REST ni règle
 métier n'est modifié. Les tests couvrent routage, historique, erreurs, accès
 directs, réponses tardives et ajout/doublon via Go/SQLite. Les jalons 3 et 4
@@ -419,7 +419,8 @@ Jalons prévus :
 
 1. fondations React/Go : liste réellement connectée et production servie par Go ;
 2. navigation, ajout et détail vidéo ;
-3. classement par tags ;
+3. classement par tags : navigation par tags, gestion immédiate en modale avec
+   autocomplétion, filtre unique dans l’URL et descriptions repliables ;
 4. distribution Docker, CI et consolidation.
 
 La chaîne de production doit fonctionner dès le premier jalon. Les tests
@@ -816,3 +817,7 @@ Quand plusieurs directions sont possibles :
 4. seulement ensuite généraliser.
 
 Ne pas construire aujourd'hui une abstraction destinée à une fonctionnalité hypothétique de demain si le modèle actuel permet de l'ajouter plus tard proprement.
+
+Le périmètre UX du jalon 3 est validé ; son implémentation reste à réaliser.
+La modale est provisoire, le futur volet ou onglet et le panneau de métadonnées
+restent des pistes révisables (voir Product & UX).

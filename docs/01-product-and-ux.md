@@ -474,3 +474,35 @@ Il ne doit pas être exposé à des primitives internes inutiles comme `execute_
 7. Le téléchargement est un moyen, pas le cœur du produit.
 8. La vidéo locale et la vidéo distante représentent le même objet métier.
 9. Le MVP doit privilégier l'utilité avant le raffinement visuel.
+
+## Jalon 3 de 5.1 — décisions UX validées
+
+Les tags de la fiche sont visibles et ouvrent la bibliothèque filtrée
+(`/?tag_id=7`). Ceux des cartes restent non interactifs. Le retour depuis
+une fiche conserve le filtre de la bibliothèque d'origine ; un accès direct
+peut revenir à la bibliothèque complète.
+
+Un bouton « Gérer les tags » (ou « Ajouter des tags ») ouvre une modale.
+Un champ unique propose les tags existants à la saisie et une action explicite
+d'ajout du nom. Flèches, Entrée et Échap permettent son utilisation au clavier.
+Les associations sont enregistrées immédiatement, une opération à la fois ;
+fermer la modale n'annule pas les modifications réussies. Les ajouts sont
+successifs, sans sauvegarde globale. Le retrait concerne uniquement l'association.
+
+Le filtre unique figure dans l'URL et peut être retiré explicitement.
+Un catalogue vide, un filtre sans résultat et une erreur sont distincts.
+Le catalogue reste global, y compris les tags inutilisés ou employés uniquement
+sur d'autres entités. Le backend reste seul responsable de l'identité Unicode ;
+l'autocomplétion est une aide de présentation, pas une déduplication métier.
+
+Chaque description de source est intégrale mais repliée initialement, avec
+une ouverture indépendante. Une description absente est signalée sans volet vide.
+Les retours à la ligne sont conservés, sans état d'ouverture persisté.
+
+### Préférences révisables et questions ouvertes
+
+La modale est provisoire. Un volet ou onglet pourrait accueillir ultérieurement
+la gestion des tags ; un panneau « Informations » ou « Métadonnées » pourrait
+regrouper les propriétés secondaires. La disposition du workspace reste ouverte.
+Séparer simplement l'éditeur de tags de son conteneur suffit pour ce jalon :
+aucun système générique de panneaux, modales ou onglets n'est prévu.
