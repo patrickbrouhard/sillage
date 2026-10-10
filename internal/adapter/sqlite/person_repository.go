@@ -72,12 +72,20 @@ func (r *PersonRepository) List(ctx context.Context) ([]video.Person, error) {
 // query regroupe les tags contigus dans l'ordre des identifiants internes.
 func (r *PersonRepository) query(ctx context.Context, predicate string, args ...any) ([]video.Person, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT p.id, p.name, t.id, t.name
+		SELECT
+			p.id,
+			p.name,
+			t.id,
+			t.name
 		FROM persons p
-		LEFT JOIN person_tags pt ON pt.person_id = p.id
-		LEFT JOIN tags t ON t.id = pt.tag_id
+		LEFT JOIN person_tags pt
+			ON pt.person_id = p.id
+		LEFT JOIN tags t
+			ON t.id = pt.tag_id
 		WHERE `+predicate+`
-		ORDER BY p.id ASC, t.id ASC
+		ORDER BY
+			p.id ASC,
+			t.id ASC
 	`, args...)
 	if err != nil {
 		return nil, err
@@ -155,12 +163,17 @@ func (r *PersonRepository) Videos(ctx context.Context, id video.PersonID, relati
 		return nil, err
 	}
 	direct := `EXISTS (
-		SELECT 1 FROM video_persons vp
+		SELECT
+			1
+		FROM video_persons vp
 		WHERE vp.video_id = v.id AND vp.person_id = ?
 	)`
 	indirect := `EXISTS (
-		SELECT 1 FROM video_sources ps
-		JOIN publishers p ON p.id = ps.publisher_id
+		SELECT
+			1
+		FROM video_sources ps
+		JOIN publishers p
+			ON p.id = ps.publisher_id
 		WHERE ps.video_id = v.id AND p.person_id = ?
 	)`
 	switch relation {
@@ -178,11 +191,15 @@ func (r *PersonRepository) Videos(ctx context.Context, id video.PersonID, relati
 // readPersonTags fournit le résultat complet dans la transaction d'ajout.
 func readPersonTags(ctx context.Context, tx *sql.Tx, id video.PersonID) ([]video.Tag, error) {
 	rows, err := tx.QueryContext(ctx, `
-		SELECT t.id, t.name
+		SELECT
+			t.id,
+			t.name
 		FROM tags t
-		JOIN person_tags pt ON pt.tag_id = t.id
+		JOIN person_tags pt
+			ON pt.tag_id = t.id
 		WHERE pt.person_id = ?
-		ORDER BY t.id ASC
+		ORDER BY
+			t.id ASC
 	`, id)
 	if err != nil {
 		return nil, err
@@ -206,7 +223,11 @@ func (r *PersonRepository) AddTags(ctx context.Context, id video.PersonID, names
 		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO person_tags (person_id, tag_id)
-			SELECT ?, id FROM tags WHERE identity_key = ?
+			SELECT
+				?,
+				id
+			FROM tags
+			WHERE identity_key = ?
 			ON CONFLICT (person_id, tag_id) DO NOTHING
 		`, id, name.Key); err != nil {
 			return nil, err

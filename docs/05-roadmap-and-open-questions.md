@@ -353,6 +353,43 @@ La collection Postman déterministe complète les validations sur une base vide 
 sans erreur ni avertissement ; la collection YouTube réelle n'a pas été exécutée.
 Les tests, `go test -race ./...`, `go vet ./...` et `go build ./...` passent.
 
+## 6 bis. Étape 4 bis — Publishers, personnes et tags universels
+
+### Position et état
+
+Cette tranche a été décidée avant l'interface Web. Son modèle est validé et son
+implémentation est disponible via services applicatifs, SQLite et REST.
+L'étape 5 reste la tranche suivante ; aucune interface Web n'est ajoutée ici.
+
+### Périmètre réalisé
+
+- publisher identifié par `(provider, external_id)`, avec nom facultatif ;
+- résolution YouTube par `channel_id`, à l'import vidéo ou depuis une URL de chaîne ;
+- réutilisation sans rafraîchissement et sources pouvant rester sans publisher ;
+- personnes indépendantes, noms obligatoires non uniques, renommage ;
+- personne de référence facultative du publisher et liens directs vidéo–personne sans rôles ;
+- rattachements explicites modifiables et retirables, sans propagation ;
+- catalogue de tags unique et tables d'associations explicites pour les trois entités ;
+- navigation par publisher et par personne, chemins direct/indirect et union dédupliquée ;
+- migration versionnée avec sauvegarde préalable, suppression de `creator` sans déduction par nom ;
+- rupture REST documentée : `publisher: {id, name}` nullable et `person_ids` directs.
+
+### Validation et limites
+
+Les tests couvrent migration et sauvegarde, conservation des données et IDs,
+concurrence et rollback, métadonnées absentes, résolution simulée de chaînes,
+absence de refresh et de propagation, contrats REST et navigation.
+Le 10 octobre 2026, la suite Go, `go test -race ./...`, `go vet ./...` et
+`go build ./...` passent. La collection Postman déterministe réussit ses
+44 requêtes et 132 assertions ; les deux collections passent le lint.
+La résolution réelle de `@LexClips` par yt-dlp a été vérifiée sans téléchargement
+ni parcours des vidéos. La collection YouTube complète n'a pas été exécutée.
+
+Restent hors périmètre : suppression des personnes/publishers, actualisation des
+noms, reprise automatique des anciennes sources, autres providers, collaborations,
+rôles, organisations et interface Web. Les sources anciennes sont rattachables
+explicitement ; leurs anciens libellés restent uniquement dans la sauvegarde.
+
 ## 7. Étape 5 — UI Web minimale
 
 ### Objectif
@@ -652,6 +689,11 @@ concernent le workflow temporel de l'étape 6 ou des extensions ultérieures :
 - stratégie de surcharge utilisateur ;
 - rafraîchissement manuel ou automatique.
 
+L'identité YouTube du publisher et la nullabilité de son nom sont actées.
+Restent à cadrer : rafraîchissement explicite du nom partagé, y compris lorsqu'il
+est absent, protection des associations utilisateur et identification des
+publishers des futurs providers. Les collaborations YouTube sont différées.
+
 ### 15.4 Données temporelles et plusieurs sources
 
 Une même `Video` peut avoir plusieurs `VideoSource` dont les timelines ne sont pas parfaitement synchronisées.
@@ -661,6 +703,11 @@ Une même `Video` peut avoir plusieurs `VideoSource` dont les timelines ne sont 
 Pour les autres objets temporels, notamment `Annotation` et certains `Asset`, il reste à déterminer si un rattachement à une source ou à une timeline de référence devient nécessaire lorsque ce scénario sera réellement supporté.
 
 ## 16. Questions ouvertes — stockage
+
+L'étape 4 bis ajoute les publishers, personnes et associations explicites par
+migration avec sauvegarde préalable. La reprise par nom de `creator` est exclue.
+La suppression des nouvelles entités et le devenir de leurs références restent
+à cadrer avant toute fonctionnalité correspondante.
 
 Les choix suivants sont désormais actés pour la tranche initiale :
 
@@ -711,6 +758,9 @@ Restent ouverts :
 ## 19. Questions ouvertes — API
 
 Le contrat de la tranche initiale est arrêté (voir étape 2 et README).
+Le contrat de l'étape 4 bis est également arrêté et implémenté, y compris la
+rupture `creator` → objet `publisher`, les associations et parcours de navigation
+(voir `03-architecture.md`).
 Restent pour des tranches futures : pagination, filtres supplémentaires et combinaisons de filtres, tris configurables
 et authentification éventuelle.
 

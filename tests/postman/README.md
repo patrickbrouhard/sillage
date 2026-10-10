@@ -30,6 +30,13 @@ doublon sans refresh, détail et liste. Les assertions portent sur la représent
 les identifiants, les en-têtes et la cohérence des réponses ; le titre et la
 description ne sont pas figés. Chaque parcours complet exige une base vide.
 
+Depuis l'étape 4 bis, les assertions vidéo attendent `person_ids` et le publisher
+minimal `{id, name}` nullable de chaque source, sans `creator`. Les parcours de
+création/association des publishers et personnes, la navigation et les tags
+universels sont couverts en Go avec les services et SQLite réels. Le faux
+exécutable ciblé de résolution de chaîne reste un test Go, pas une nouvelle
+collection Postman simulant yt-dlp.
+
 Le premier jalon est suffisant pour les besoins actuels. Le second jalon avec
 un faux exécutable `yt-dlp` est **différé, sans échéance** ; les tests Go existants
 et les essais réels locaux restent complémentaires.

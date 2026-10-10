@@ -54,6 +54,11 @@ L'application ne conserve pas par défaut un dump brut complet des métadonnées
 
 Si le modèle évolue, la source peut être réinterrogée.
 
+Depuis l'étape 4 bis, l'import peut créer ou retrouver le compte de publication
+YouTube grâce à son `channel_id`. Sans identité fiable, la vidéo reste disponible
+sans publisher. Le nom du compte peut être inconnu ; il n'est jamais utilisé pour
+fusionner des comptes ou créer une personne.
+
 ### 3.3 Évolutions possibles
 
 Plus tard, l'ajout d'une vidéo pourra aussi provenir de :
@@ -117,7 +122,7 @@ Une disposition conceptuelle possible :
 ├─────────────────────────────────────┬─────────────────────────┤
 │                                     │ Métadonnées             │
 │                                     │ Source                  │
-│              PLAYER                 │ Chaîne / auteur         │
+│              PLAYER                 │ Compte de publication   │
 │                                     │ Date                    │
 │                                     │ Tags                    │
 │                                     │ État local              │
@@ -132,6 +137,28 @@ Une disposition conceptuelle possible :
 ```
 
 Cette disposition n'est pas figée.
+
+### 5.2 Comptes de publication et personnes
+
+Les capacités suivantes sont disponibles par REST depuis l'étape 4 bis ; leur
+interface Web reste à développer à l'étape 5.
+
+L'utilisateur peut créer ou retrouver une chaîne depuis son URL. La résolution
+peut échouer ; sans identité fiable, aucun publisher n'est créé. Il peut ensuite
+associer, remplacer ou retirer ce publisher sur une source vidéo.
+
+Une personne peut être créée indépendamment, renommée, associée directement à
+des vidéos et choisie comme personne de référence de plusieurs publishers.
+Les homonymes ne sont pas fusionnés.
+
+La navigation distingue les vidéos associées directement à une personne et les
+vidéos publiées par ses publishers. L'union des deux chemins ne duplique pas les
+vidéos. L'interface devra rendre cette distinction compréhensible et ne pas
+présenter automatiquement toutes les vidéos d'une chaîne comme ses œuvres.
+
+Les réponses vidéo fournissent directement `publisher: {id, name}` sur chaque
+source, ou `null`. Un compte identifié peut avoir un nom `null`. Le nom n'est
+pas dupliqué dans la source persistée.
 
 ## 6. Prise de notes
 
@@ -336,7 +363,9 @@ Après capture, l'application doit pouvoir insérer immédiatement une référen
 
 ## 10. Tags
 
-Les tags sont des données structurées attachées aux vidéos.
+Les tags sont des données structurées d'un catalogue unique, associables aux
+vidéos, publishers et personnes. L'extension aux deux derniers est disponible
+par REST depuis l'étape 4 bis.
 
 L'étape 4 est implémentée et accessible via REST.
 Les tags sont partagés entre vidéos. L'ajout par noms est additif, sans doublons,
@@ -371,11 +400,19 @@ Ils servent à :
 
 Les suggestions IA ne doivent pas nécessairement être appliquées sans validation selon le workflow choisi plus tard.
 
+Les associations de tags sont indépendantes : le tag DevOps d'une personne
+n'est pas attribué à ses vidéos ou à ses publishers. Retirer une association
+conserve le tag partagé. Le filtre vidéo actuel reste fondé sur ses tags directs.
+
 ## 11. Recherche
 
 ### 11.1 Recherche de base
 
 Le MVP peut commencer par une recherche simple sur les métadonnées, les tags ou les notes.
+
+Une recherche future pourra exploiter les liens entre personnes, publishers,
+vidéos et tags sans matérialiser d'héritage automatique. Les routes de navigation
+directe et indirecte existent déjà ; elles ne constituent pas une recherche plein texte.
 
 ### 11.2 Recherche plein texte
 

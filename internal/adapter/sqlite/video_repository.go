@@ -147,7 +147,8 @@ func (r *VideoRepository) List(ctx context.Context) ([]video.Video, error) {
 // ListByTag utilise l'association uniquement pour sélectionner les vidéos.
 func (r *VideoRepository) ListByTag(ctx context.Context, tagID video.TagID) ([]video.Video, error) {
 	return r.query(ctx, `EXISTS (
-		SELECT 1
+		SELECT
+			1
 		FROM video_tags filter
 		WHERE filter.video_id = v.id AND filter.tag_id = ?
 	)`, tagID)
@@ -308,7 +309,8 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 		JOIN tags t
 			ON t.id = vt.tag_id
 		WHERE `+predicate+`
-		ORDER BY t.id ASC
+		ORDER BY
+			t.id ASC
 	`, args...)
 	if err != nil {
 		return nil, err
@@ -333,11 +335,15 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 	}
 	// Les personnes directes sont chargées séparément pour éviter le produit sources × tags × personnes.
 	personRows, err := r.db.QueryContext(ctx, `
-		SELECT vp.video_id, vp.person_id
+		SELECT
+			vp.video_id,
+			vp.person_id
 		FROM videos v
-		JOIN video_persons vp ON vp.video_id = v.id
+		JOIN video_persons vp
+			ON vp.video_id = v.id
 		WHERE `+predicate+`
-		ORDER BY vp.person_id ASC
+		ORDER BY
+			vp.person_id ASC
 	`, args...)
 	if err != nil {
 		return nil, err

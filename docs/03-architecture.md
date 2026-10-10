@@ -156,7 +156,7 @@ Il ne rafraîchit pas implicitement :
 
 - titre ;
 - description ;
-- créateur ;
+- publisher et nom du compte partagé ;
 - miniature ;
 - autres métadonnées de source.
 
@@ -230,11 +230,20 @@ Exemple :
 
 ```go
 type MetadataProvider interface {
-    Extract(ctx context.Context, url string) (*SourceMetadata, error)
+    Extract(ctx context.Context, url string) (VideoSource, error)
 }
 ```
 
 L'adapter `yt-dlp` implémente ce port pour les sources prises en charge.
+
+Depuis l'étape 4 bis, la source normalisée peut contenir les métadonnées d'un
+publisher sans identifiant interne. L'adapter résout l'identité externe ; le
+repository crée ou retrouve le compte dans la transaction vidéo/source.
+L'extraction distante précède cette transaction. Aucun identifiant interne ni
+personne de référence ne provient des métadonnées externes.
+
+Le port distinct `PublisherProvider.ResolvePublisher` permet de résoudre une URL
+de chaîne indépendamment d'une vidéo. Il est consommé par `PublisherService`.
 
 ### 5.4 Transcriptions
 
@@ -298,6 +307,27 @@ Les lectures filtrées conservent toutes les sources et tous les tags
 des vidéos sélectionnées. Le réajout d'une vidéo existante restitue également
 ses tags actuels. Le repository charge les sources puis les tags en lot pour
 éviter une requête par vidéo et le produit des deux relations.
+
+### 5.7 Publishers et personnes — étape 4 bis implémentée
+
+`video.PublisherService` et `video.PersonService` portent les cas d'usage sur les
+comptes, personnes, associations, tags et parcours de navigation. Leurs ports
+`PublisherRepository` et `PersonRepository` sont spécialisés et implémentés par
+SQLite. Les handlers n'interprètent ni métadonnées externes ni SQL.
+
+Les types restent dans `internal/video`, autour du domaine central, sans framework
+d'entités ni repository générique. Ce placement est un choix local révisable.
+`NormalizeTagNames` est partagé par les trois services de tags ; le catalogue SQL
+reste unique. Le futur MCP pourra appeler exactement les mêmes services.
+
+La création du publisher lors d'un import est atomique avec vidéo et sources.
+Sa réutilisation ne fait aucun UPDATE. Le réajout d'une vidéo existante ne modifie
+ni ses métadonnées ni ses rattachements explicites, même absents.
+
+Les parcours directs et indirects sélectionnent les vidéos avec EXISTS et les
+dédupliquent par leur ID, sans créer d'associations. Les lectures vidéo joignent
+les publishers aux sources et chargent séparément les tags et personnes directes
+en lot, pour éviter le produit des relations et une requête par vidéo.
 
 ## 6. Adapter `yt-dlp`
 
@@ -524,6 +554,72 @@ Aucun endpoint séparé de lecture des tags d'une vidéo n'est nécessaire.
 - L'enveloppe `{"videos": [...]}` et l'ordre `created_at DESC, id DESC` restent inchangés.
 
 Les combinaisons de filtres et la recherche textuelle sont différées.
+
+### API Publishers + Personnes — disponible
+
+L'étape 4 bis introduit une rupture documentée de `/api/v1` : `creator` disparaît
+des sources. Chaque source expose `publisher: {id, name}` ou `null`. Le nom peut
+être `null` même si le publisher existe. Aucun `publisher_id` séparé n'est exposé
+dans la réponse source ; la persistance conserve bien cette clé étrangère.
+Les réponses vidéo ajoutent `person_ids`, liste croissante des associations
+directes uniquement, vide sous la forme `[]`.
+
+Les ressources autonomes ont ces représentations :
+
+```json
+{"id":7,"provider":"youtube","external_id":"UC…","name":null,"person_id":null,"tags":[]}
+```
+
+```json
+{"id":3,"name":"Lex Fridman","tags":[]}
+```
+
+Les routes suivantes sont préfixées par `/api/v1` :
+
+| Méthode | Route | Corps | Succès |
+| --- | --- | --- | --- |
+| POST | `/publishers` | `{"url":"https://www.youtube.com/@LexClips"}` | 201 créé avec Location ; 200 réutilisé sans refresh |
+| GET | `/publishers` | — | 200, `{"publishers": [...]}` |
+| GET | `/publishers/{id}` | — | 200, publisher et tags propres |
+| POST | `/persons` | `{"name":"Lex Fridman"}` | 201 avec Location, y compris pour un homonyme |
+| GET | `/persons` | — | 200, `{"persons": [...]}` |
+| GET | `/persons/{id}` | — | 200, personne et tags propres |
+| PATCH | `/persons/{id}` | `{"name":"…"}` | 200, personne renommée |
+| PUT | `/publishers/{id}/person` | `{"person_id":3}` ou `{"person_id":null}` | 204 |
+| PUT | `/videos/{video_id}/sources/{source_id}/publisher` | `{"publisher_id":7}` ou `{"publisher_id":null}` | 204 |
+| PUT / DELETE | `/videos/{video_id}/persons/{person_id}` | aucun corps | 204, idempotent |
+| POST | `/publishers/{id}/tags` | `{"names":["DevOps"]}` | 200, tous les tags associés |
+| POST | `/persons/{id}/tags` | même format | 200, tous les tags associés |
+| DELETE | `/publishers/{id}/tags/{tag_id}` | — | 204, association seule |
+| DELETE | `/persons/{id}/tags/{tag_id}` | — | 204, association seule |
+| GET | `/publishers/{id}/videos` | — | 200, `{"videos": [...]}` |
+| GET | `/persons/{id}/publishers` | — | 200, `{"publishers": [...]}` |
+| GET | `/persons/{id}/videos?relation=direct\|publisher\|all` | — | 200, `{"videos": [...]}` |
+
+`relation` vaut `all` par défaut ; valeur vide, inconnue ou répétée : 400.
+Les vidéos conservent l'ordre `created_at DESC, id DESC`, toutes leurs sources,
+leurs tags et leurs associations directes. Une vidéo commune aux deux chemins
+n'apparaît qu'une fois. Publishers, personnes, tags et identifiants de personnes
+sont ordonnés par ID croissant. Les catalogues incluent les entités sans liens.
+
+Les corps JSON suivent les conventions strictes existantes : objet unique,
+champs inconnus refusés, UTF-8 valide et `application/json` requis. Limites locales :
+16 Kio pour création/renommage/rattachement, 64 Kio pour les tags ; dépassement : 413.
+Les champs de rattachement doivent être présents ; seul `null` retire le lien.
+`Person.name` est non vide après trim, sans unicité. Les noms de tags gardent les
+limites et la normalisation existantes. Les ajouts de tags sont additifs et atomiques.
+
+Les erreurs d'identifiant, d'entrée ou de provider incompatible donnent
+`400 bad_request`. Les ressources absentes donnent `404 publisher_not_found`,
+`person_not_found`, `video_not_found` ou `video_source_not_found` ; une source
+d'une autre vidéo est également absente pour ce chemin.
+La résolution distante utilise `502 metadata_fetch_failed` et
+`504 metadata_fetch_timeout`, avec `SILLAGE_POST_TIMEOUT`. Une erreur locale
+donne `500 internal_error`. Les diagnostics techniques ne sont pas exposés.
+
+Le catalogue `/tags` reste unique. Le filtre `/videos?tag_id=…` reste direct.
+Aucune suppression de personne/publisher, aucun rafraîchissement, rôle,
+héritage ou traitement de collaboration n'est exposé.
 
 ## 9. MCP
 

@@ -22,14 +22,23 @@ var ErrPersonNotFound = errors.New("person not found")
 
 // PersonRepository conserve les personnes et leurs associations sans rôles.
 type PersonRepository interface {
+	// Create attribue une nouvelle identité sans rechercher les homonymes.
 	Create(context.Context, string) (Person, error)
+	// Rename préserve l'identité et les relations existantes.
 	Rename(context.Context, PersonID, string) (Person, error)
+	// Get retourne les tags propres ou ErrPersonNotFound.
 	Get(context.Context, PersonID) (Person, error)
+	// List inclut les personnes sans associations, par ID croissant.
 	List(context.Context) ([]Person, error)
+	// SetVideo vérifie les deux identités et modifie le seul lien direct.
 	SetVideo(context.Context, VideoID, PersonID, bool) error
+	// Publishers ne confond pas personne de référence et propriétaire juridique.
 	Publishers(context.Context, PersonID) ([]Publisher, error)
+	// Videos distingue direct, publisher et all ; les vidéos restent dédupliquées.
 	Videos(context.Context, PersonID, string) ([]Video, error)
+	// AddTags garantit l'atomicité du lot et la conservation des associations existantes.
 	AddTags(context.Context, PersonID, []TagName) ([]Tag, error)
+	// RemoveTag retire uniquement le lien, même s'il est déjà absent.
 	RemoveTag(context.Context, PersonID, TagID) error
 }
 

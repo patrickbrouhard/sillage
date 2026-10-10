@@ -12,6 +12,9 @@ Il doit distinguer :
 
 Le but est d'éviter que des choix ponctuels discutés dans une conversation deviennent implicitement des contraintes permanentes.
 
+Le statut d'une décision est distinct de son implémentation : une décision actée
+peut être différée. Les mentions « implémenté » décrivent le code disponible.
+
 ## 2. Tableau synthétique
 
 | Sujet | Choix actuel | Statut |
@@ -50,6 +53,12 @@ Le but est d'éviter que des choix ponctuels discutés dans une conversation dev
 | Identité des tags | NFC + comparaison Unicode insensible à la casse, accents significatifs | Acté pour l'étape 4, mécanisme technique libre |
 | REST des tags | enveloppe `tags`, ordre `id` croissant dans toutes les réponses | Acté et implémenté pour l'étape 4 |
 | Écritures concurrentes des notes | dernière écriture gagnante | Provisoire pour l'étape 4, à réexaminer à l'étape 5 |
+| Publication et personnes | `Publisher`, `Person`, relations explicites sans rôles | Acté et implémenté à l'étape 4 bis |
+| Identité des publishers YouTube | `channel_id` obligatoire, nom facultatif | Acté et implémenté |
+| Tags universels | catalogue unique, aucune propagation | Acté et implémenté |
+| Associations de tags | tables explicites avec clés étrangères | Choix privilégié, implémenté |
+| Migration de `creator` | sauvegarde préalable, suppression sans rapprochement par nom | Acté et implémenté |
+| Contrat vidéo REST | objet `publisher: {id, name}` nullable et `person_ids` directs | Rupture de `/api/v1` validée et implémentée |
 
 ## 3. Go
 
@@ -194,6 +203,9 @@ sa clé primaire et sa référence vers `Video`.
 Ils pourront être reconsidérés si des contraintes futures d'import/export, synchronisation ou distribution apparaissent.
 
 ### 5.3 Schéma SQLite initial
+
+Le SQL ci-dessous décrit la migration historique `0001`, pas le schéma courant.
+La migration `0004_publishers_persons.sql` supprime notamment `creator`.
 
 La première migration contient uniquement les tables nécessaires à la tranche de persistance :
 
@@ -382,6 +394,40 @@ La dernière écriture gagnante des notes est un compromis limité à l'étape 4
 L'étape 5 devra réexaminer l'autosauvegarde, les onglets concurrents, la prévention
 des pertes de modifications et les éventuels mécanismes de résolution des conflits.
 
+### 5.7 Publishers, personnes et tags universels — étape 4 bis
+
+Les décisions conceptuelles figurent dans le modèle métier, sections 3.10,
+3.11 et 9. Leur implémentation ajoute `publishers`, `persons`, `video_persons`,
+`publisher_tags` et `person_tags`. La source conserve uniquement `publisher_id`,
+nullable ; le nom appartient à `publishers` et peut être NULL.
+
+Les identités internes utilisent les conventions entières existantes.
+`UNIQUE(provider, external_id)` protège les comptes, les clés composées protègent
+les associations et les clés étrangères garantissent leurs références. Des triggers
+renforcent la cohérence du provider source–publisher et l'immutabilité de l'identité
+externe des publishers. Aucune suppression d'entité n'est exposée.
+
+Le catalogue `tags` et sa clé Unicode sont inchangés. Les nouveaux ajouts de tags
+sont atomiques, y compris les créations du catalogue, et les retraits conservent
+les tags inutilisés. Les services réutilisent la même normalisation.
+
+Avant de migrer une base existante en version 1, 2 ou 3, `Open` crée un snapshot
+SQLite complet par `VACUUM INTO`, dans un fichier voisin unique
+`<base>.before-publishers-<suffixe>.bak`. Le fichier et son répertoire sont
+synchronisés avant migration ; un échec bloque l'ouverture. Les sauvegardes
+précédentes ne sont jamais écrasées. Arrêter les anciens processus avant la mise
+à niveau : la sauvegarde et les migrations sont deux opérations distinctes.
+
+La migration est locale et transactionnelle. Elle préserve les identifiants et
+les autres données, supprime `creator` et laisse les sources existantes sans
+publisher. Aucun réseau ni déduction par nom. Les anciens libellés restent dans
+la sauvegarde, pas dans la base migrée. Une base neuve n'a pas besoin de sauvegarde.
+La réouverture d'une base déjà migrée ne produit pas de nouvelle sauvegarde.
+
+Le rattachement des anciennes sources passe par les mêmes opérations explicites
+que les nouvelles. Aucun backfill, rafraîchissement ou rapprochement automatique
+n'est inclus. Le runner existant est conservé ; aucune dépendance n'est ajoutée.
+
 ## 6. SQLite FTS5
 
 FTS5 est la technologie privilégiée pour une future recherche plein texte.
@@ -449,12 +495,26 @@ external_id?
 canonical_url?
 title
 description?
-creator?
+publisher_id?
 duration_ms?
 thumbnail_url?
 ```
 
 `external_id` et `canonical_url` peuvent être facultatifs pour de futures provenances. Pour YouTube, ils sont obligatoires.
+
+L'identité du publisher YouTube est extraite exclusivement de `channel_id`.
+Le nom `channel`, ou à défaut `uploader`, n'est utilisé qu'après identification
+fiable. L'adapter refuse les handles et les noms comme identifiants ; les
+métadonnées de collaborations ne sont pas exploitées.
+
+La résolution d'une URL de chaîne utilise yt-dlp avec `--flat-playlist` et
+`--playlist-items 0`, sans téléchargement média ni parcours du catalogue complet.
+Les URLs `@handle`, `/channel/…`, `/user/…` et `/c/…` sont normalisées vers la
+racine de chaîne. Le résultat doit être une extraction `YoutubeTab` avec un
+`channel_id` valide. Sortie limitée à 4 Mio, diagnostic à 16 Kio, contexte HTTP
+borné par `SILLAGE_POST_TIMEOUT`. Ces limites et options sont des choix locaux
+révisables. Référence technique :
+[extracteur YoutubeTab de yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube/_tab.py).
 
 ## 9. Sous-titres YouTube et JSON3
 
@@ -541,6 +601,11 @@ devront être incluses ou installées de manière reproductible dans l'image.
 Les données persistantes sont externalisées via volume.
 
 ## 12. API REST
+
+L'étape 4 bis supprime `creator` de `/api/v1` sans alias de compatibilité et ajoute
+un objet `publisher` minimal aux sources ainsi que les `person_ids` directs aux
+vidéos. La rupture est explicite. Les nouveaux contrats sont documentés dans
+`03-architecture.md`, section « API Publishers + Personnes ».
 
 Le contrat Notes + Tags est implémenté et disponible. Il est décrit
 dans [l'architecture](03-architecture.md), section « API Notes + Tags » :
@@ -739,6 +804,11 @@ Ne pas introduire sans besoin :
 Le JSON3 de transcription peut en revanche être conservé comme snapshot du contenu source.
 
 ## 20. Décisions à revisiter lorsque le besoin apparaît
+
+Après l'étape 4 bis : politique explicite de rafraîchissement des publishers
+(y compris compléter un nom absent), suppression des entités et traitement de
+leurs références, identification des comptes d'autres providers. Les rôles,
+organisations et collaborations détaillées ne sont pas des exigences acquises.
 
 Rendez-vous explicite à l'étape 5 : réexaminer les écritures concurrentes des
 notes avec l'autosauvegarde, les onglets concurrents, la prévention des pertes

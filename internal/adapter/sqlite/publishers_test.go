@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -223,5 +224,179 @@ func TestPublisherMigrationBacksUpAndPreservesKnowledge(t *testing.T) {
 	backups, _ = filepath.Glob(path + ".before-publishers-*.bak")
 	if len(backups) != 1 {
 		t.Fatal("unnecessary backup", backups)
+	}
+}
+
+func TestUniversalTagsConcurrentAndRollback(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	db := openTestDB(t, filepath.Join(t.TempDir(), "tags.db"))
+	publishers := NewPublisherRepository(db)
+	persons := NewPersonRepository(db)
+	p, err := publishers.CreateOrFind(ctx, video.Publisher{Provider: "youtube", ExternalID: "shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := persons.Create(ctx, "Person")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubs := video.NewPublisherService(publishers, nil)
+	people := video.NewPersonService(persons)
+	errs := make(chan error, 12)
+	for i := range 12 {
+		go func() {
+			var err error
+			if i%2 == 0 {
+				_, err = pubs.AddTags(ctx, p.Publisher.ID, []string{"Café"})
+			} else {
+				_, err = people.AddTags(ctx, n.ID, []string{"CAFE\u0301"})
+			}
+			errs <- err
+		}()
+	}
+	for range 12 {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, table := range []string{"tags", "publisher_tags", "person_tags"} {
+		var count int
+		if err := db.QueryRow("SELECT count(*) FROM " + table).Scan(&count); err != nil || count != 1 {
+			t.Fatal(table, count, err)
+		}
+	}
+	for _, table := range []string{"publisher_tags", "person_tags"} {
+		_, err := db.Exec("CREATE TRIGGER fail_" + table + " BEFORE INSERT ON " + table + ` WHEN (SELECT name FROM tags WHERE id = NEW.tag_id) = 'Fail' BEGIN SELECT RAISE(ABORT, 'injected'); END`)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := pubs.AddTags(ctx, p.Publisher.ID, []string{"Transient", "Fail"}); err == nil {
+		t.Fatal("expected rollback")
+	}
+	if _, err := people.AddTags(ctx, n.ID, []string{"Transient", "Fail"}); err == nil {
+		t.Fatal("expected rollback")
+	}
+	var count int
+	if err := db.QueryRow("SELECT count(*) FROM tags").Scan(&count); err != nil || count != 1 {
+		t.Fatal(count, err)
+	}
+	if _, err := pubs.AddTags(ctx, p.Publisher.ID, []string{"valid", " "}); !errors.Is(err, video.ErrInvalidInput) {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"publisher_tags", "person_tags", "publishers"} {
+		if _, err := db.Exec("INSERT INTO " + table + " SELECT * FROM " + table); err == nil {
+			t.Fatal("duplicate accepted", table)
+		}
+	}
+}
+
+func TestPublisherReaddPreservesExplicitSourceChoice(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t, filepath.Join(t.TempDir(), "readd.db"))
+	r := NewVideoRepository(db)
+	publishers := NewPublisherRepository(db)
+	source := sampleVideo("same").Sources[0]
+	source.Publisher = &video.Publisher{Provider: "youtube", ExternalID: "original", Name: "Original"}
+	service := video.NewService(r, fixedProvider{source: source})
+	first, err := service.AddVideo(ctx, "url")
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := publishers.CreateOrFind(ctx, video.Publisher{Provider: "youtube", ExternalID: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := publishers.SetSource(ctx, first.Video.ID, first.Video.Sources[0].ID, &other.Publisher.ID); err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.AddVideo(ctx, "url")
+	if err != nil || second.Created || second.Video.Sources[0].Publisher.ID != other.Publisher.ID {
+		t.Fatal(second, err)
+	}
+	if err := publishers.SetSource(ctx, first.Video.ID, first.Video.Sources[0].ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	third, err := service.AddVideo(ctx, "url")
+	if err != nil || third.Video.Sources[0].Publisher != nil {
+		t.Fatal(third, err)
+	}
+}
+
+func TestBackupFailurePreventsDestructiveMigration(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root contourne les permissions de répertoire nécessaires à cette injection d'échec")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "old.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"0001_initial.sql", "0002_transcripts.sql", "0003_notes_tags.sql"} {
+		script, err := migrationFiles.ReadFile("migrations/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(string(script)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec("PRAGMA user_version = 3"); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	if err := os.Chmod(dir, 0500); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(dir, 0700)
+	opened, err := Open(context.Background(), path)
+	if opened != nil {
+		opened.Close()
+		t.Fatal("opened without backup")
+	}
+	if err == nil {
+		t.Fatal("expected backup failure")
+	}
+	if err := os.Chmod(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	db, err = sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var version int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 3 {
+		t.Fatal(version, err)
+	}
+	if _, err := db.Exec("SELECT creator FROM video_sources"); err != nil {
+		t.Fatal("creator lost", err)
+	}
+}
+
+func TestPublisherProviderConstraints(t *testing.T) {
+	db := openTestDB(t, filepath.Join(t.TempDir(), "constraints.db"))
+	ctx := context.Background()
+	p, err := NewPublisherRepository(db).CreateOrFind(ctx, video.Publisher{Provider: "youtube", ExternalID: "account"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := NewVideoRepository(db).Create(ctx, sampleVideo("one"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("UPDATE video_sources SET provider = 'local', publisher_id = ? WHERE id = ?", p.Publisher.ID, v.Sources[0].ID); err == nil {
+		t.Fatal("provider mismatch accepted")
+	}
+	if _, err := db.Exec("UPDATE publishers SET provider = 'local' WHERE id = ?", p.Publisher.ID); err == nil {
+		t.Fatal("identity changed")
+	}
+	if _, err := db.Exec("UPDATE publishers SET person_id = 999 WHERE id = ?", p.Publisher.ID); err == nil {
+		t.Fatal("missing person accepted")
+	}
+	if _, err := db.Exec("INSERT INTO video_persons VALUES (?, 999)", v.ID); err == nil {
+		t.Fatal("missing person accepted")
 	}
 }

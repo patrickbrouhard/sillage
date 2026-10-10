@@ -15,26 +15,43 @@ import (
 
 // PublisherService expose les comptes et leurs relations sans dépendance aux adapters.
 type PublisherService interface {
+	// Resolve distingue création et réutilisation sans rafraîchissement.
 	Resolve(context.Context, string) (video.PublisherResult, error)
+	// Get restitue le compte avec ses tags propres.
 	Get(context.Context, video.PublisherID) (video.Publisher, error)
+	// List inclut les comptes sans source, par ID croissant.
 	List(context.Context) ([]video.Publisher, error)
+	// SetPerson remplace ou retire la personne de référence.
 	SetPerson(context.Context, video.PublisherID, *video.PersonID) error
+	// SetSource vérifie l'appartenance et la cohérence des providers.
 	SetSource(context.Context, video.VideoID, video.VideoSourceID, *video.PublisherID) error
+	// Videos restitue des vidéos complètes sans doublons.
 	Videos(context.Context, video.PublisherID) ([]video.Video, error)
+	// AddTags ajoute atomiquement un lot au catalogue et au compte.
 	AddTags(context.Context, video.PublisherID, []string) ([]video.Tag, error)
+	// RemoveTag conserve le tag partagé après retrait du lien.
 	RemoveTag(context.Context, video.PublisherID, video.TagID) error
 }
 
 // PersonService expose les personnes et les deux chemins de navigation vidéo.
 type PersonService interface {
+	// Create conserve des identités distinctes pour les homonymes.
 	Create(context.Context, string) (video.Person, error)
+	// Rename préserve l'identité et les associations.
 	Rename(context.Context, video.PersonID, string) (video.Person, error)
+	// Get restitue une personne et ses tags directs.
 	Get(context.Context, video.PersonID) (video.Person, error)
+	// List inclut les personnes sans liens, par ID croissant.
 	List(context.Context) ([]video.Person, error)
+	// SetVideo modifie uniquement le lien explicite au contenu.
 	SetVideo(context.Context, video.VideoID, video.PersonID, bool) error
+	// Publishers retrouve les comptes de référence de la personne.
 	Publishers(context.Context, video.PersonID) ([]video.Publisher, error)
+	// Videos distingue les relations directes, indirectes et leur union.
 	Videos(context.Context, video.PersonID, string) ([]video.Video, error)
+	// AddTags garantit l'atomicité du lot sans propagation.
 	AddTags(context.Context, video.PersonID, []string) ([]video.Tag, error)
+	// RemoveTag retire uniquement le lien à la personne.
 	RemoveTag(context.Context, video.PersonID, video.TagID) error
 }
 

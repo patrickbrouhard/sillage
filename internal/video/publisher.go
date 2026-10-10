@@ -31,18 +31,27 @@ type PublisherResult struct {
 
 // PublisherProvider résout une URL de compte en métadonnées normalisées.
 type PublisherProvider interface {
+	// ResolvePublisher exige une identité externe fiable, avec nom éventuellement absent.
 	ResolvePublisher(context.Context, string) (Publisher, error)
 }
 
 // PublisherRepository persiste les comptes et leurs associations explicites.
 type PublisherRepository interface {
+	// CreateOrFind garantit l'unicité concurrente sans rafraîchir un compte connu.
 	CreateOrFind(context.Context, Publisher) (PublisherResult, error)
+	// Get retourne les métadonnées et tags propres, ou ErrPublisherNotFound.
 	Get(context.Context, PublisherID) (Publisher, error)
+	// List inclut les comptes sans source, par ID croissant.
 	List(context.Context) ([]Publisher, error)
+	// SetPerson remplace ou retire la référence après vérification des deux entités.
 	SetPerson(context.Context, PublisherID, *PersonID) error
+	// SetSource vérifie l'appartenance à la vidéo et l'égalité des providers.
 	SetSource(context.Context, VideoID, VideoSourceID, *PublisherID) error
+	// Videos déduplique les vidéos et conserve leur représentation complète.
 	Videos(context.Context, PublisherID) ([]Video, error)
+	// AddTags rend atomiques créations et associations, puis restitue tous les tags.
 	AddTags(context.Context, PublisherID, []TagName) ([]Tag, error)
+	// RemoveTag vérifie le compte et retire uniquement l'association, si présente.
 	RemoveTag(context.Context, PublisherID, TagID) error
 }
 

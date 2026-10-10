@@ -28,7 +28,9 @@ type VideoSource struct {
 	CanonicalURL string
 	Title        string
 	Description  string
-	Publisher    *Publisher
+	// Publisher contient les seules informations du compte nécessaires à la source.
+	// À l'extraction, son ID est nul ; ses tags et sa personne se lisent séparément.
+	Publisher *Publisher
 	// OriginalAudioLanguage décrit l'audio original ; vide si indéterminé.
 	OriginalAudioLanguage string
 	// DurationMS vaut nil lorsque la durée est inconnue, notamment pour un direct.

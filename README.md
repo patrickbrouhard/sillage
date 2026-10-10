@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales et Notes + Tags sont fonctionnelles.
+> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. L'interface Web reste la prochaine étape.
 
 ## Vision
 
@@ -63,6 +63,13 @@ Chaque vidéo peut recevoir une note Markdown principale et des tags partagés.
 Leur lecture et leur modification sont locales, indépendantes des sources.
 La bibliothèque peut être filtrée par un tag. L'interface Web constitue la prochaine étape.
 
+L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
+une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
+et leurs liens directs aux vidéos ou leurs publishers de référence. Le catalogue
+de tags est partagé entre vidéos, publishers et personnes, sans propagation.
+La navigation distingue les vidéos directement associées à une personne de celles
+publiées par ses publishers, avec une union dédupliquée.
+
 Une `Video` et ses `VideoSource` possèdent leurs propres identifiants internes Sillage.
 
 L'identité externe d'une source repose, lorsqu'un identifiant externe existe, sur le couple :
@@ -96,7 +103,8 @@ seul l'appel qui crée effectivement la vidéo retourne `Created: true`.
 ## Architecture actuelle
 
 `cmd/server` assemble le routeur Chi, les handlers HTTP, `video.Service`,
-`transcript.Service`, `note.Service`, `video.TagService`, les repositories SQLite, `ytdlp.Client` et le stockage
+`transcript.Service`, `note.Service`, `video.TagService`, `video.PublisherService`,
+`video.PersonService`, les repositories SQLite, `ytdlp.Client` et le stockage
 filesystem des snapshots.
 
 Les trois cas d'usage `AddVideo`, `GetVideo` et `ListVideos` sont réutilisables
@@ -108,7 +116,7 @@ métier ne porte aucun tag JSON.
 ## Modèle de données actuel
 
 Le schéma persistant contient les vidéos, leurs sources, les transcriptions,
-les notes et les tags. Le diagramme ci-dessous détaille la partie acquisition ;
+les notes, les tags, les publishers et les personnes. Le diagramme ci-dessous détaille la partie acquisition ;
 les tables de connaissance utilisateur sont décrites à sa suite.
 
 ```mermaid
@@ -129,7 +137,7 @@ erDiagram
         TEXT canonical_url
         TEXT title
         TEXT description
-        TEXT creator
+        INTEGER publisher_id FK
         INTEGER duration_ms
         TEXT thumbnail_url
         TEXT original_audio_language
@@ -152,6 +160,20 @@ La migration `0003_notes_tags.sql` complète ce schéma sans perte des données 
 | `notes` | `video_id` clé primaire et étrangère, `content_md`, `created_at`, `updated_at` |
 | `tags` | `id` généré, `name` affiché, `identity_key` unique |
 | `video_tags` | clé primaire composée `(video_id, tag_id)`, deux clés étrangères |
+
+La migration `0004_publishers_persons.sql` supprime `creator` et ajoute
+`video_sources.publisher_id`, facultatif, ainsi que :
+
+| Table | Identité et contenu |
+| --- | --- |
+| `publishers` | `id`, `provider`, `external_id` unique par provider, `name` nullable, `person_id` nullable |
+| `persons` | `id`, `name` obligatoire, homonymes autorisés |
+| `video_persons` | clé composée `(video_id, person_id)`, sans rôle |
+| `publisher_tags` | clé composée `(publisher_id, tag_id)` |
+| `person_tags` | clé composée `(person_id, tag_id)` |
+
+Toutes les associations ont des clés étrangères. Le nom de chaîne n'est stocké
+que dans le publisher. Les métadonnées ne créent jamais de personne automatiquement.
 
 `Video.id` et `VideoSource.id` sont des identifiants internes Sillage.
 
@@ -390,6 +412,19 @@ busy_timeout ≈ 5000 ms
 
 Le mode WAL n'est pas activé pour l'instant.
 
+### Mise à niveau vers l'étape 4 bis
+
+Arrêter les anciens processus avant de lancer le nouveau serveur. Pour une base
+en version 1 à 3, l'ouverture crée automatiquement une sauvegarde SQLite complète
+voisine, nommée `sillage.db.before-publishers-<suffixe>.bak`, puis applique les
+migrations. Si la sauvegarde échoue, l'ouverture échoue avant la migration.
+
+Les anciens libellés `creator` sont supprimés de la base migrée et restent dans
+la sauvegarde. Aucune identité n'est déduite de ces noms : les sources existantes
+commencent sans publisher. Les autres données et leurs identifiants sont conservés.
+Le rattachement ultérieur est explicite ; réajouter une vidéo ne le réalise pas.
+Les sauvegardes ne sont ni écrasées ni nettoyées automatiquement.
+
 ## Exécution
 
 ### Prérequis
@@ -465,12 +500,13 @@ représentation :
       "canonical_url": "https://www.youtube.com/watch?v=IgKU8xCgbjc",
       "title": "Strategies for programming with AI agents | DHH and Lex Fridman",
       "description": null,
-      "creator": "Lex Clips",
+      "publisher": {"id": 7, "name": "Lex Clips"},
       "duration_ms": 1025000,
       "thumbnail_url": null
     }
   ],
-  "tags": []
+  "tags": [],
+  "person_ids": []
 }
 ```
 
@@ -478,6 +514,13 @@ Les dates sont en UTC / RFC 3339 avec leur précision disponible. Les sources
 sont ordonnées par ID croissant et n'exposent pas `video_id`.
 Les champs optionnels absents valent `null`, y compris `external_id` et
 `canonical_url` dans le modèle générique. Une durée connue de zéro reste `0`.
+
+**Rupture de contrat de l'étape 4 bis :** `creator` est supprimé de `/api/v1`,
+sans alias. Chaque source expose `publisher`, soit `null`, soit un objet contenant
+uniquement `id` et `name`. Le nom vaut `null` s'il est inconnu. Aucun champ
+`publisher_id` supplémentaire n'est exposé dans cette réponse.
+`person_ids` contient uniquement les personnes directement associées à la vidéo,
+par ID croissant ; les relations indirectes par publisher ne sont pas matérialisées.
 
 `GET /api/v1/videos` retourne `{"videos":[…]}`, avec la même représentation
 pour chaque vidéo. L'ordre est `created_at DESC, id DESC`, sans pagination
@@ -630,6 +673,47 @@ Aucun quota métier de tags par vidéo. La dernière écriture gagnante des note
 provisoire et sera réexaminée avec l'UI à l'étape 5. Suppression de note, historique,
 conflits, renommage/suppression globale des tags, recherche et combinaisons de filtres
 restent hors périmètre. Les timestamps interactifs et annotations attendent l'étape 6.
+
+### API des publishers et personnes
+
+Les comptes YouTube sont identifiés par `channel_id`, jamais par nom ou handle.
+La résolution crée le compte (`201` avec Location) ou le retrouve (`200`) sans
+rafraîchir ses métadonnées. Le nom est facultatif. Sans identité fiable, l'import
+vidéo peut rester sans publisher ; la résolution manuelle de chaîne échoue.
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/v1/publishers \
+  -H 'Content-Type: application/json' \
+  --data '{"url":"https://www.youtube.com/@LexClips"}'
+
+curl -X POST http://127.0.0.1:8080/api/v1/persons \
+  -H 'Content-Type: application/json' \
+  --data '{"name":"Lex Fridman"}'
+
+curl -X PUT http://127.0.0.1:8080/api/v1/publishers/7/person \
+  -H 'Content-Type: application/json' --data '{"person_id":3}'
+
+curl -X PUT http://127.0.0.1:8080/api/v1/videos/42/sources/17/publisher \
+  -H 'Content-Type: application/json' --data '{"publisher_id":7}'
+
+curl -X PUT http://127.0.0.1:8080/api/v1/videos/42/persons/3
+curl 'http://127.0.0.1:8080/api/v1/persons/3/videos?relation=all'
+```
+
+Les deux dernières associations peuvent être retirées respectivement par
+`{"publisher_id":null}` et `DELETE /videos/42/persons/3`. La référence d'une
+personne sur un publisher se retire avec `{"person_id":null}`.
+
+Les listes/détails `/publishers` et `/persons`, le renommage `PATCH /persons/{id}`,
+les associations de tags sous chaque ressource et les navigations
+`/publishers/{id}/videos`, `/persons/{id}/publishers` et
+`/persons/{id}/videos?relation=direct|publisher|all` sont disponibles.
+`all` est le mode par défaut ; les vidéos sont dédupliquées.
+
+Le contrat complet, les corps, enveloppes, statuts et limites sont décrits dans
+[l'architecture](docs/03-architecture.md#api-publishers--personnes--disponible).
+La suppression des entités, leur rafraîchissement et les collaborations restent
+hors périmètre. Les associations et tags ne se propagent jamais.
 
 ### Tests Postman
 

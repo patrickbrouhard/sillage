@@ -10,7 +10,7 @@ Une vidéo peut être accessible depuis plusieurs provenances. Ces provenances s
 
 Les métadonnées issues d'une plateforme, les transcriptions, les fichiers locaux, les notes, les annotations et les autres éléments sont associés à ces objets sans définir l'identité de `Video`.
 
-Schéma conceptuel actuel :
+Schéma conceptuel cible (il inclut aussi des objets futurs) :
 
 ```text
                                ┌──────────────────┐
@@ -36,7 +36,7 @@ Schéma conceptuel actuel :
 │ canonical_url?     │        │ size             │          └──────────────────┘
 │ title              │        │ added_at         │
 │ description?       │        └──────────────────┘
-│ creator?           │
+│ publisher_id?      │
 │ duration_ms?       │
 │ thumbnail_url?     │
 │ published_at?      │
@@ -77,6 +77,21 @@ Schéma conceptuel actuel :
 
 Ce schéma reste volontairement simple et inclut des concepts futurs.
 Les objets `Note` et `Tag` de l'étape 4 sont implémentés et persistés.
+L'étape 4 bis implémente `Publisher`, `Person`, les associations vidéo–personne
+et les tags des publishers et personnes. `MediaFile`, `Annotation`, `Asset`,
+`title_override` et les artefacts IA restent futurs.
+
+Relations complémentaires implémentées :
+
+```text
+VideoSource → Publisher : zéro ou un publisher par source
+Publisher → VideoSource : zéro à plusieurs sources par publisher
+Publisher → Person      : zéro ou une personne de référence
+Person → Publisher      : zéro à plusieurs publishers
+Video ↔ Person          : N:N via VIDEO_PERSON, sans rôle
+Publisher ↔ Tag         : N:N via PUBLISHER_TAG
+Person ↔ Tag            : N:N via PERSON_TAG
+```
 
 Les concepts doivent être ajoutés ou enrichis uniquement lorsqu'un besoin réel apparaît.
 
@@ -99,6 +114,7 @@ Elle peut avoir :
 - zéro ou une note principale pour l'étape 4 ;
 - des annotations ;
 - des tags ;
+- zéro à plusieurs personnes explicitement associées au contenu ;
 - des assets ;
 - des transcriptions accessibles par ses sources ;
 - plus tard, des artefacts IA.
@@ -134,7 +150,9 @@ type VideoID int64
 
 ### 2.3 Métadonnées et titre affiché
 
-Les métadonnées provenant d'une plateforme appartiennent à `VideoSource`.
+Les métadonnées de la vidéo provenant d'une plateforme appartiennent à
+`VideoSource`. Les informations du compte de publication appartiennent à
+`Publisher`.
 
 Ainsi, le titre récupéré auprès de YouTube n'est pas le titre propre de `Video` : il s'agit du titre observé auprès de cette source.
 
@@ -285,7 +303,7 @@ Champs actuels :
 
 - titre ;
 - description ;
-- créateur ;
+- référence facultative au publisher ;
 - durée ;
 - miniature ;
 - URL canonique ;
@@ -294,11 +312,16 @@ Champs actuels :
 
 Des champs supplémentaires pourront être ajoutés à partir de besoins réels, par exemple une date de publication.
 
-Ces métadonnées restent génériques : un fichier local peut lui aussi fournir un titre, un créateur ou une durée via ses tags, son nom ou une analyse du média.
+Ces métadonnées restent génériques : un fichier local peut lui aussi fournir
+un titre ou une durée via ses tags, son nom ou une analyse du média.
 
 Les propriétés techniques d'un fichier concret — chemin, taille, conteneur, codecs, résolution, etc. — appartiennent en revanche à `MediaFile`.
 
-La sémantique exacte de `creator` pourra être réexaminée lorsque le besoin apparaîtra : chaîne, uploader et créateur intellectuel ne sont pas nécessairement équivalents.
+L'ancien champ `creator` contenait `channel`, avec repli sur `uploader`, sans
+garantir une attribution d'auteur. L'étape 4 bis le supprime et le remplace par
+`publisher_id`, facultatif. Aucun nom de secours n'est stocké dans la source.
+Le REST restitue un objet minimal `publisher: {id, name}`, ou `null` ; il s'agit
+d'une projection du compte partagé, pas d'une duplication en persistance.
 
 ### 3.7 Pas de `raw_metadata` par défaut
 
@@ -369,6 +392,92 @@ Il ne faut pas décider prématurément si une future identité locale doit êtr
 Cette question sera traitée lors de l'implémentation réelle de l'import de fichiers locaux.
 
 Aucun héritage ou sous-type SQL `OnlineVideoSource` / `LocalVideoSource` n'est introduit à ce stade.
+
+### 3.10 `Publisher` — compte de publication
+
+Décision validée et implémentée à l'étape 4 bis : un publisher représente un
+compte ou une entité de publication sur une plateforme, indépendamment des
+vidéos. Ce n'est pas nécessairement un auteur, une personne physique ou un
+propriétaire juridique.
+
+```text
+PUBLISHER
+  id
+  provider
+  external_id
+  name?
+  person_id?
+```
+
+- `id` est une identité interne Sillage.
+- `(provider, external_id)` identifie le compte externe ; le nom ne sert jamais
+  à identifier ou fusionner les comptes.
+- `name` est facultatif et affichable. Il n'est pas un historique du nom observé
+  à chaque import. Une future actualisation affectera toutes les sources liées.
+- Un publisher peut exister sans vidéo et sans personne de référence.
+- Une personne peut être la référence de plusieurs publishers. Cette association
+  n'exprime pas de propriété juridique.
+- Une source ne peut référencer qu'un publisher du même provider.
+
+Pour YouTube, `external_id` est obligatoirement un `channel_id` fiable, jamais
+un handle ni un nom. L'adapter utilise le nom `channel`, puis `uploader` si
+nécessaire, uniquement comme libellé d'un compte déjà identifié.
+
+Une création manuelle résout une URL de chaîne via yt-dlp, par exemple
+`https://www.youtube.com/@LexClips`. Si l'identité ne peut pas être obtenue,
+l'opération échoue sans création. L'absence du nom n'empêche pas la création.
+
+À l'import vidéo, sans identifiant de compte fiable, aucun publisher n'est créé
+et la source reste sans référence. Cela n'invalide pas à soi seul l'import.
+L'utilisateur peut ensuite associer, remplacer ou retirer explicitement un
+publisher identifié. Aucun rapprochement par nom ni champ `publisher_name`
+de secours n'est introduit.
+
+La réutilisation d'un publisher ne rafraîchit ni son nom ni ses associations,
+même lorsque son nom est absent. Aucun cas d'usage de rafraîchissement n'est
+inclus dans cette tranche. Le réajout d'une vidéo ne répare pas implicitement
+ses associations. Les règles des autres providers restent à définir lors de
+leur prise en charge ; seul YouTube peut actuellement être résolu.
+
+Le publisher YouTube est le compte principal de publication. Une collaboration
+ne crée pas plusieurs `VideoSource`. Les noms de chaînes créditées ne deviennent
+automatiquement ni des publishers ni des personnes. Leur modélisation est différée.
+
+### 3.11 `Person` et associations au contenu
+
+```text
+PERSON
+  id
+  name
+
+VIDEO_PERSON
+  video_id
+  person_id
+```
+
+Une personne représente une personne physique identifiable, indépendante des
+plateformes. Son nom est obligatoire après suppression des espaces aux extrémités,
+mais non unique. Les homonymes restent distincts et aucune fusion n'est automatique.
+Une personne peut exister sans publisher ni vidéo. Son nom peut être corrigé.
+
+`VideoPerson` exprime uniquement une association explicite au contenu, sans rôle.
+Le couple `(video_id, person_id)` est unique. Aucun `primary_person_id`, `Creator`,
+`Author`, `Contributor` ou `Organisation` distinct n'est introduit.
+
+Les chemins suivants sont différents et ne se propagent pas :
+
+- direct : `Video → VideoPerson → Person` ;
+- indirect : `Video → VideoSource → Publisher → Person`.
+
+Lex Fridman peut être la référence des publishers Lex Fridman et Lex Clips.
+La navigation depuis sa fiche retrouve alors les vidéos de ces comptes sans
+créer de liens directs. ThePrimeagen peut être associé directement à une interview
+publiée sur une autre chaîne, en plus de sa relation avec son propre publisher.
+L'union des deux chemins déduplique les vidéos par leur identité Sillage.
+
+L'association d'une personne à un publisher ou une vidéo est modifiable et
+retirable. Aucun import ne crée automatiquement de personne. La suppression des
+entités Person et Publisher est hors périmètre de cette tranche.
 
 ## 4. `Transcript`
 
@@ -733,18 +842,24 @@ Elle n'est pas actée ni nécessaire au schéma actuel et sera décidée lorsque
 
 ## 9. `Tag`
 
-Les tags sont des objets structurés partagés entre plusieurs vidéos.
+Les tags forment un catalogue unique partagé entre vidéos, publishers et personnes.
+Les associations vidéo sont implémentées depuis l'étape 4 ; les associations aux
+publishers et personnes le sont depuis l'étape 4 bis.
 
 Relation :
 
 ```text
 Video N:N Tag
+Publisher N:N Tag
+Person N:N Tag
 ```
 
 via une table associative :
 
 ```text
 VIDEO_TAG
+PUBLISHER_TAG
+PERSON_TAG
 ```
 
 Le modèle suivant est acté et implémenté pour l'étape 4 :
@@ -773,21 +888,28 @@ Exemples contractuels :
 | `Café` / `Cafe` | Tags distincts |
 | `Go` / `Golang` | Tags distincts |
 
-La persistance doit garantir l'unicité des identités de tags et des associations
-`VideoTag`, y compris lors d'écritures concurrentes. La stratégie technique de
+La persistance garantit l'unicité des identités de tags et des paires d'identifiants
+de chaque association, y compris lors d'écritures concurrentes. Les tables
+associatives explicites ont de vraies clés étrangères ; aucune table polymorphe
+`tag_assignments(target_type, target_id)` n'est introduite. La stratégie technique de
 comparaison et d'unicité SQL est décrite dans `04-tech-stack-and-decisions.md`,
 section 5.6.
 
 ### 9.2 Associations et cycle de vie
 
-L'ajout par noms retrouve ou crée les tags, puis les associe à la vidéo sans
+L'ajout par noms retrouve ou crée les tags, puis les associe à l'entité ciblée sans
 doublons et sans retirer les associations préexistantes. Un ajout multiple est
 atomique, créations de tags et associations comprises : un échec ne laisse
 aucun tag nouvellement créé ni association partielle par cette opération.
 
 Le retrait supprime seulement l'association. Le tag reste dans le catalogue,
-même sans vidéo associée. Aucun quota métier arbitraire de tags par vidéo
+même sans aucune entité associée. Aucun quota métier arbitraire de tags par entité
 n'est introduit.
+
+Les tags ne se propagent pas entre entités liées. Taguer une personne ne tague
+ni ses publishers ni les vidéos associées. Le filtre REST vidéo `tag_id` continue
+de sélectionner exclusivement les associations directes `VideoTag`. Une recherche
+exploitant les autres chemins reste une évolution distincte.
 
 Le remplacement complet des associations, le renommage, la suppression globale,
 les hiérarchies, alias, couleurs et catégories sont hors du périmètre de l'étape 4.
@@ -951,6 +1073,9 @@ Le rafraîchissement d'une source ne doit pas écraser :
 - assets ;
 - autres données créées par l'utilisateur.
 
+Cela inclut les personnes, leurs associations aux vidéos et publishers, les
+rattachements explicites source–publisher et les tags de chaque type d'entité.
+
 De la même manière, une correction ou réécriture produite par une IA ne doit pas modifier silencieusement la transcription source.
 
 ### 11.8 Disponibilité locale et identité sont distinctes
@@ -970,6 +1095,14 @@ local_path = NULL
 ```
 
 ne signifie pas que le `Transcript` cesse d'exister.
+
+### 11.9 Identités de publication et associations
+
+L'identité externe d'une vidéo et celle d'un compte occupent des espaces distincts,
+même si toutes deux utilisent `(provider, external_id)`. Une chaîne n'est pas une
+personne. Les relations directes et indirectes ne se matérialisent pas mutuellement.
+La création automatique du publisher participe à la transaction vidéo/source :
+un échec ne laisse pas de création partielle par cet import.
 
 ## 12. Concepts volontairement différés
 
@@ -991,5 +1124,10 @@ Ne pas ajouter prématurément au modèle :
 - chapitres comme entité persistante dédiée ;
 - modèle générique de timeline ;
 - synchronisation automatique entre timelines de différentes sources.
+- rôles des personnes et personne principale d'une vidéo ;
+- organisations, hiérarchies et relations de propriété complexes ;
+- modélisation des chaînes collaboratrices YouTube ;
+- propagation automatique des tags ou des personnes ;
+- suppression des personnes et publishers et rafraîchissement de leurs métadonnées.
 
 Ces concepts pourront être introduits lorsqu'un besoin réel apparaîtra.
