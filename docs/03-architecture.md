@@ -679,6 +679,10 @@ du navigateur restent relatifs, sans ajouter de CORS. En production, Go sert
 les fichiers statiques compilés livrés à côté du binaire dans la même image
 Docker. Aucun SSR ni serveur Node.js permanent n'est requis.
 
+Le jalon 1 utilise `SILLAGE_WEB_DIR` pour activer le build statique. Son absence
+conserve le serveur API seul, indépendant de Node pour sa compilation.
+Le répertoire est ouvert avec `os.OpenRoot` pour borner les accès filesystem.
+
 Les routes API, les assets et les routes SPA doivent être séparés : le repli vers
 `index.html` ne doit jamais masquer une erreur API ou un asset absent. Seul le
 répertoire frontend est public, jamais celui des données.
@@ -731,7 +735,7 @@ Le chemin actuel est `data/` relatif au processus : le packaging prévu emploie
 `WORKDIR /app` et un volume `/app/data`, snapshots et sauvegardes compris.
 Le serveur écoute sur toutes les interfaces du conteneur, mais le port publié
 reste lié à localhost par défaut, en l'absence d'authentification.
-Le Dockerfile et Compose sont encore à implémenter au démarrage de 5.1.
+Le Dockerfile et Compose restent à implémenter au jalon de distribution de 5.1.
 
 ## 13. Gestion des opérations longues
 

@@ -408,7 +408,13 @@ La première source REST présente provisoirement la carte. La gestion complète
 des publishers/personnes, la recherche, les filtres combinés et la pagination
 sont exclus. Aucun éditeur, lecteur, transcription ou mécanisme temporel ici.
 
+État : jalon documentaire terminé ; jalon 1 implémenté, à valider manuellement.
+La bibliothèque en lecture seule utilise REST et le build de production est
+servi par Go. Les tests couvrent le routage statique et un parcours navigateur
+via Go/SQLite redémarré ; les autres jalons restent à réaliser.
+
 Jalons prévus :
+
 1. fondations React/Go : liste réellement connectée et production servie par Go ;
 2. navigation, ajout et détail vidéo ;
 3. classement par tags ;

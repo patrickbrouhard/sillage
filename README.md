@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. L'interface Web reste la prochaine étape.
+> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. Le premier jalon Web affiche la bibliothèque ; les autres parcours de 5.1 restent à développer.
 
 ## Vision
 
@@ -61,7 +61,7 @@ automatique originale d'une source YouTube.
 
 Chaque vidéo peut recevoir une note Markdown principale et des tags partagés.
 Leur lecture et leur modification sont locales, indépendantes des sources.
-La bibliothèque peut être filtrée par un tag. L'interface Web constitue la prochaine étape.
+L'API permet de filtrer la bibliothèque par un tag ; son interface est prévue au jalon 3 de 5.1.
 
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
@@ -446,6 +446,7 @@ go run ./cmd/server
 | --- | --- |
 | `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` |
 | `SILLAGE_POST_TIMEOUT` | `60s` |
+| `SILLAGE_WEB_DIR` | absent : API seule |
 
 Le timeout accepte une durée Go strictement positive, par exemple `90s`.
 Le chemin de base est fixe : `data/sillage.db`, relatif au répertoire de travail
@@ -469,6 +470,78 @@ Le POST est synchrone. Après décodage du corps, un contexte limité par
 permettre l'envoi du JSON d'erreur après expiration du timeout applicatif.
 L'arrêt sur interruption ou SIGTERM annule les traitements, arrête le serveur,
 puis ferme SQLite.
+
+### Interface Web — étape 5.1, jalon 1
+
+Disponible : bibliothèque en lecture seule connectée à REST, miniatures avec
+repli, titres, plateformes, publishers et tags, actualisation, états vide,
+chargement et erreur. La première source REST présente la carte.
+Les cartes ne sont pas encore des liens : ajout et fiche arrivent au jalon 2,
+modification des tags et filtre au jalon 3, packaging Docker au jalon 4.
+La chaîne de production fonctionne déjà sans Vite à l'exécution.
+
+Prérequis supplémentaires : Node.js 24 (24.20.0 validé), npm et Make.
+Exécuter sous Linux/WSL depuis la racine du dépôt, avec Go dans le PATH.
+
+**Production locale :**
+
+```bash
+make web-install
+make build
+make run
+```
+
+Ouvrir <http://127.0.0.1:8080>. Le serveur utilise la bibliothèque existante
+`data/sillage.db`. `make run` lance le binaire compilé et sert `web/dist`.
+Après une modification du code, relancer `make build` puis le serveur.
+
+`SILLAGE_WEB_DIR` active explicitement le frontend et désigne son répertoire
+compilé, relatif au répertoire de travail ou absolu. Sans cette variable,
+le serveur conserve son fonctionnement API seul ; un chemin configuré absent
+ou sans `index.html` fait échouer le démarrage. Le répertoire public doit
+contenir uniquement le build frontend, jamais `data/`.
+
+**Développement, dans deux terminaux :**
+
+```bash
+make dev-api
+```
+
+```bash
+make web-dev
+```
+
+Ouvrir <http://127.0.0.1:5173>. Vite relaie `/api` vers
+`127.0.0.1:8080`, sans CORS. Les ports sont fixes pour éviter de viser
+accidentellement une autre instance ; arrêter le serveur de production avant
+de lancer l'API de développement. Les commandes restent entièrement sous WSL.
+
+**Validation automatisée :**
+
+```bash
+make test
+cd web
+npx playwright install --with-deps chromium
+cd ..
+make test-web
+python3 tests/postman/run.py deterministic
+```
+
+L'installation des dépendances système Chromium peut demander les droits
+administrateur sous Linux ; elle ne concerne que les tests navigateur.
+Playwright teste le build servi par le vrai binaire Go, sur le port 18381,
+avec une base temporaire. Une acquisition fixe remplace yt-dlp uniquement dans
+ce processus de test. Les données sont ajoutées par REST puis le serveur
+redémarre avant le test de lecture. Aucun accès YouTube ni donnée personnelle.
+Les états vide/erreur et les variantes de métadonnées utilisent des réponses
+simulées dans le navigateur, séparément de ce parcours d'intégration.
+
+**Essai manuel :** ouvrir la bibliothèque, vérifier les titres/tags existants,
+actualiser puis recharger. Sur une base vide, vérifier le message dédié.
+Ouvrir `/page-inconnue`, puis revenir à la bibliothèque. Vérifier que
+`/api/v1/inconnue` et `/assets/inconnu.js` renvoient 404, sans page SPA.
+Une réduction de la fenêtre doit conserver des cartes lisibles.
+L'ajout reste disponible via le contrat REST ci-dessous avant le jalon 2.
 
 ### Contrat API v1
 
@@ -880,7 +953,7 @@ GET  /api/v1/videos/{id}
 ```
 
 Les contrats vidéo, transcription, notes et tags sont décrits ci-dessus.
-L'étape 4 est réalisée ; l'interface Web minimale constitue la prochaine direction.
+Les étapes 4 et 4 bis sont réalisées ; le premier jalon de l'interface Web est disponible.
 
 ## Principes de développement
 

@@ -28,10 +28,12 @@ const databasePath = "data/sillage.db"
 type config struct {
 	addr        string
 	postTimeout time.Duration
+	webDir      string
 }
 
 func loadConfig() (config, error) {
 	cfg := config{addr: "127.0.0.1:8080", postTimeout: 60 * time.Second}
+	cfg.webDir = os.Getenv("SILLAGE_WEB_DIR")
 	if v, ok := os.LookupEnv("SILLAGE_HTTP_ADDR"); ok {
 		cfg.addr = v
 	}
@@ -97,7 +99,7 @@ func run(ctx context.Context, cfg config) error {
 		provider,
 		filesystem.NewTranscripts("data/transcripts", ytdlp.ParseJSON3),
 	)
-	server := newHTTPServer(cfg.addr, api.NewRouter(
+	var handler http.Handler = api.NewRouter(
 		video.NewPublisherService(sqlite.NewPublisherRepository(db), provider),
 		video.NewPersonService(sqlite.NewPersonRepository(db)),
 		note.NewService(sqlite.NewNoteRepository(db)),
@@ -105,7 +107,20 @@ func run(ctx context.Context, cfg config) error {
 		transcripts,
 		service,
 		cfg.postTimeout,
-	))
+	)
+	// Le build est facultatif pour garder le lancement API seul indépendant de Node.
+	if cfg.webDir != "" {
+		root, err := os.OpenRoot(cfg.webDir)
+		if err != nil {
+			return fmt.Errorf("open frontend directory: %w", err)
+		}
+		defer root.Close()
+		handler, err = api.NewWebHandler(handler, root.FS())
+		if err != nil {
+			return err
+		}
+	}
+	server := newHTTPServer(cfg.addr, handler)
 	server.BaseContext = func(net.Listener) context.Context { return ctx }
 	listener, err := net.Listen("tcp", cfg.addr)
 	if err != nil {

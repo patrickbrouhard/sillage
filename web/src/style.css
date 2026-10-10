@@ -1,0 +1,57 @@
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #243c36;
+  background: #f6f5f0;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+a { color: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; }
+:focus-visible { outline: 3px solid #a35428; outline-offset: 4px; }
+.site-header {
+  min-height: 88px; padding: 20px max(6vw, 24px);
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid #d9dfd7; background: #fbfaf7;
+}
+.brand { display: flex; align-items: center; gap: 12px; font-size: 27px; font-weight: 750; text-decoration: none; letter-spacing: -1px; }
+.brand-mark { display: grid; place-items: center; background: #254d43; color: #fff; width: 39px; height: 39px; border-radius: 12px; font-size: 32px; }
+.header-caption { font-size: 13px; color: #5b6a62; }
+main { max-width: 1400px; margin: 0 auto; padding: 56px max(6vw, 24px) 64px; min-height: calc(100vh - 160px); }
+.page-heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 36px; }
+.eyebrow { color: #6b7055; font-size: 11px; font-weight: 700; letter-spacing: 2px; margin: 0 0 12px; }
+h1 { font-size: clamp(32px, 4vw, 46px); line-height: 1.15; letter-spacing: -1.6px; margin: 0 0 12px; font-weight: 650; }
+.intro { color: #5b6a62; font-size: 15px; line-height: 1.6; margin: 0; }
+.button { display: inline-block; border: 1px solid #b8c7bd; border-radius: 8px; background: #fffefa; color: #284b3e; padding: 10px 17px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.button:hover { background: #e9eee7; }
+.button:disabled { opacity: .55; cursor: wait; }
+.library-count { font-size: 13px; color: #607066; border-top: 1px solid #d9dfd7; padding-top: 20px; margin-bottom: 22px; }
+.video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 26px; align-items: start; }
+.video-card { overflow: hidden; border: 1px solid #dce1d8; border-radius: 12px; background: #fffefa; }
+.thumbnail { position: relative; aspect-ratio: 16 / 9; background: #e6ebe2; overflow: hidden; }
+.thumbnail img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumbnail-placeholder { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; color: #59715f; font-size: 12px; }
+.placeholder-mark { font-size: 42px; line-height: 1; font-weight: 300; }
+.duration { position: absolute; bottom: 10px; right: 10px; padding: 3px 7px; background: #20392ee8; color: white; font-size: 12px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.card-content { padding: 20px; }
+.source-label { color: #7d5436; font-size: 10px; text-transform: uppercase; letter-spacing: 1.3px; font-weight: 750; margin: 0 0 9px; }
+.video-card h2 { font-size: 17px; line-height: 1.45; margin: 0 0 10px; font-weight: 650; overflow-wrap: anywhere; }
+.publisher { color: #5f6c61; font-size: 12px; line-height: 1.5; margin: 0 0 19px; overflow-wrap: anywhere; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; list-style: none; margin: 0; }
+.tags li { padding: 4px 9px; background: #eef1e7; color: #536342; border-radius: 5px; font-size: 11px; overflow-wrap: anywhere; max-width: 100%; }
+.no-tags { color: #667064; font-size: 11px; margin: 0; }
+.state-panel { border: 1px solid #dce1d8; border-radius: 12px; background: #fffefa; padding: 48px 28px; text-align: center; line-height: 1.6; }
+.state-panel h2 { font-size: 21px; margin-top: 0; }
+.state-panel p { color: #5b6a62; }
+.error { border-color: #d1a892; }
+footer { text-align: center; color: #687467; font-size: 12px; padding: 24px; border-top: 1px solid #d9dfd7; }
+.skip-link { position: absolute; left: 20px; top: -100px; padding: 12px; background: white; z-index: 2; }
+.skip-link:focus { top: 12px; }
+@media (max-width: 600px) {
+  .header-caption { display: none; }
+  main { padding-top: 32px; }
+  .page-heading { align-items: flex-start; flex-direction: column; }
+}
