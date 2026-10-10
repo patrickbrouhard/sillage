@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. La bibliothèque Web, l'ajout et les fiches vidéo sont disponibles ; classement par tags et packaging Docker restent à développer.
+> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. La bibliothèque Web, l'ajout avec détection des doublons, les fiches vidéo et le classement par tags sont fonctionnels. Les jalons 1 à 3 de 5.1 sont validés ; le jalon 4 — distribution Docker et consolidation — reste à réaliser.
 
 ## Vision
 
@@ -61,7 +61,11 @@ automatique originale d'une source YouTube.
 
 Chaque vidéo peut recevoir une note Markdown principale et des tags partagés.
 Leur lecture et leur modification sont locales, indépendantes des sources.
-L'API permet de filtrer la bibliothèque par un tag ; son interface est prévue au jalon 3 de 5.1.
+L'interface Web permet de consulter la bibliothèque et les fiches, d'ajouter une
+vidéo YouTube et de retrouver un doublon. Les tags vidéo peuvent être ajoutés et
+retirés dans une modale avec autocomplétion, puis utilisés pour naviguer et filtrer
+la bibliothèque par un seul tag. Les descriptions des sources sont repliables.
+L'édition des notes reste disponible via REST, sans éditeur Web à ce stade.
 
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
@@ -227,10 +231,13 @@ Les interfaces externes et dépendances techniques restent des adapters autour d
 
 ### Bibliothèque vidéo
 
-* ajout d'une vidéo depuis une URL ;
+L'ajout YouTube, les métadonnées, la navigation et le classement par tags sont
+disponibles dans l'interface Web. La recherche reste à développer.
+
+* ajout d'une vidéo depuis une URL YouTube ;
 * récupération automatique des métadonnées ;
 * navigation par miniatures ;
-* tags et filtres ;
+* tags et filtre unique par tag ;
 * recherche.
 
 ### Espace de travail vidéo
@@ -372,9 +379,11 @@ Choix actuels ou privilégiés :
 * API REST
 * MCP en Go à terme
 
-React, TypeScript et Vite sont retenus pour une SPA consommant l'API REST.
-En production, Go servira les fichiers compilés livrés avec le binaire dans une
-même image Docker, sans serveur Node.js permanent. L'accès reste local par défaut.
+React, TypeScript et Vite sont utilisés pour une SPA consommant l'API REST,
+avec React Router pour la navigation. Go sert déjà les fichiers compilés en
+production locale, sans serveur Node.js permanent. Leur distribution avec le
+binaire dans une même image Docker reste à réaliser au jalon 4. L'accès reste
+local par défaut.
 Les autres bibliothèques seront choisies selon les besoins. CodeMirror 6 est
 fortement privilégié pour 5.2, sans intégration encore validée.
 
@@ -472,6 +481,10 @@ L'arrêt sur interruption ou SIGTERM annule les traitements, arrête le serveur,
 puis ferme SQLite.
 
 ### Interface Web — étape 5.1, jalons 1 à 3
+
+Les jalons 1, 2 et 3 sont terminés, testés automatiquement et validés manuellement.
+La CI GitHub Actions est réussie. Le jalon 4 — distribution Docker et consolidation —
+reste à réaliser.
 
 Disponible : bibliothèque connectée à REST, ajout YouTube, détection des
 doublons et fiches vidéo. Les cartes ouvrent `/videos/{id}` avec l'ID interne
@@ -586,8 +599,8 @@ simulées dans le navigateur, séparément de ce parcours d'intégration.
 2. Saisir une URL YouTube publique non encore enregistrée. Pendant l'acquisition,
    le bouton et le champ sont désactivés. Attendre **Vidéo ajoutée**, puis choisir
    **Ouvrir la fiche**.
-3. Vérifier titre, description, source, compte de publication, durée et lien
-   externe ; les données absentes doivent rester compréhensibles.
+3. Vérifier titre, source, compte de publication, durée et lien externe, puis
+   déplier la description ; les données absentes doivent rester compréhensibles.
 4. Revenir à la bibliothèque et ouvrir la carte. Tester précédent/suivant,
    rechargement et ouverture de l'URL de fiche dans un nouvel onglet.
 5. Ajouter à nouveau la même URL : le message **déjà présente** mène à la même
@@ -939,6 +952,14 @@ des tests automatisés.
 │   ├── note/
 │   └── http/
 │
+├── web/
+│   ├── src/
+│   └── tests/
+│
+├── tests/
+│   ├── postman/
+│   └── web/
+│
 ├── docs/
 │
 └── deployments/
@@ -963,8 +984,10 @@ Ces documents constituent la référence détaillée du projet.
 ## Roadmap
 
 L'étape Web est découpée en jalons validables :
+
 - **5.1 — bibliothèque utilisable et distribuable** : liste, ajout et détail,
-  tags vidéo et filtre unique, navigation, build servi par Go et Docker ;
+  tags vidéo et filtre unique, navigation, build servi par Go ; distribution
+  Docker et consolidation encore à réaliser au jalon 4 ;
 - **5.2 — éditeur Markdown et sauvegarde fiable** : protection contre les
   écrasements concurrents ; politique d'autosauvegarde encore ouverte ;
 - **5.3 — lecteur et transcription** : consultation avec la note comme zone
@@ -1018,7 +1041,16 @@ IA intégrée
 * idempotence par identité externe ;
 * API HTTP : ajout, liste et détail, DTO et erreurs JSON ;
 * acquisition et lecture locale des transcriptions automatiques originales YouTube ;
-* notes Markdown exactes, tags partagés et filtre par tag, persistants et disponibles via REST.
+* notes Markdown exactes, tags partagés et filtre par tag, persistants et disponibles via REST ;
+* publishers, personnes et associations avec les tags partagés via REST ;
+* bibliothèque Web React/TypeScript/Vite, ajout YouTube avec détection des doublons
+  et fiches vidéo navigables ;
+* gestion des tags vidéo en modale avec autocomplétion, navigation et filtre unique
+  par tag dans l'URL, descriptions des sources repliables.
+
+Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une CI
+GitHub Actions réussie. Le jalon 4 reste à réaliser ; l'étape 5.1 n'est donc pas
+encore entièrement terminée.
 
 ### API HTTP réalisée
 
@@ -1030,8 +1062,9 @@ GET  /api/v1/videos
 GET  /api/v1/videos/{id}
 ```
 
-Les contrats vidéo, transcription, notes et tags sont décrits ci-dessus.
-Les étapes 4 et 4 bis sont réalisées ; le premier jalon de l'interface Web est disponible.
+Les contrats vidéo, transcription, notes, tags, publishers et personnes sont
+décrits ci-dessus. Les étapes 4 et 4 bis sont réalisées ; les jalons 1 à 3 de
+l'interface Web sont disponibles et validés.
 
 ## Principes de développement
 
