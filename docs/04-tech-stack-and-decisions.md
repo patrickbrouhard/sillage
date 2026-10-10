@@ -602,7 +602,7 @@ Les dépendances externes nécessaires telles que :
 
 devront être incluses ou installées de manière reproductible dans l'image.
 
-Les données persistantes sont externalisées via volume.
+Les données persistantes sont externalisées via un bind mount configurable.
 
 ## 12. API REST
 

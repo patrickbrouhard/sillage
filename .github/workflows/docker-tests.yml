@@ -1,0 +1,24 @@
+name: Docker distribution
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    name: Docker build and persistence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Build from clean sources
+        run: docker build --platform linux/amd64 -f deployments/docker/Dockerfile -t sillage:local .
+
+      - name: Verify tools, Compose and persistence without YouTube
+        run: python3 tests/docker/smoke.py

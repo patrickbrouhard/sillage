@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. La bibliothèque Web, l'ajout avec détection des doublons, les fiches vidéo et le classement par tags sont fonctionnels. Les jalons 1 à 3 de 5.1 sont validés ; le jalon 4 — distribution Docker et consolidation — reste à réaliser.
+> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. La bibliothèque Web, l'ajout avec détection des doublons, les fiches vidéo et le classement par tags sont fonctionnels. Les jalons 1 à 3 de 5.1 sont validés ; le jalon 4 — distribution Docker et consolidation — est implémenté et attend sa validation manuelle.
 
 ## Vision
 
@@ -381,8 +381,8 @@ Choix actuels ou privilégiés :
 
 React, TypeScript et Vite sont utilisés pour une SPA consommant l'API REST,
 avec React Router pour la navigation. Go sert déjà les fichiers compilés en
-production locale, sans serveur Node.js permanent. Leur distribution avec le
-binaire dans une même image Docker reste à réaliser au jalon 4. L'accès reste
+production locale, sans serveur Node.js permanent. Ils sont également distribués avec le
+binaire dans une même image Docker. L'accès reste
 local par défaut.
 Les autres bibliothèques seront choisies selon les besoins. CodeMirror 6 est
 fortement privilégié pour 5.2, sans intégration encore validée.
@@ -460,8 +460,8 @@ go run ./cmd/server
 Le timeout accepte une durée Go strictement positive, par exemple `90s`.
 Le chemin de base est fixe : `data/sillage.db`, relatif au répertoire de travail
 du processus. Son dossier parent est créé s'il manque. Une ancienne base à la
-racine n'est ni déplacée ni importée automatiquement. Le futur conteneur utilisera
-`WORKDIR /app` avec un volume monté sur `/app/data`.
+racine n'est ni déplacée ni importée automatiquement. Le conteneur utilise
+`WORKDIR /app` avec un bind mount sur `/app/data`.
 
 Les dates SQLite utilisent UTC avec une précision milliseconde fixe
 (`YYYY-MM-DDTHH:MM:SS.mmmZ`). Le schéma initial a été réinitialisé pendant
@@ -470,7 +470,7 @@ pas compatibles. Serveur arrêté, déplacer `data/sillage.db` hors de ce
 chemin puis redémarrer recrée une base vide ; aucun ancien contenu n'est importé.
 
 Le serveur n'active ni authentification ni CORS. L'adresse d'écoute est configurable.
-Les fichiers de packaging Docker restent à implémenter.
+Le packaging Docker est décrit ci-dessous.
 
 Le POST est synchrone. Après décodage du corps, un contexte limité par
 `SILLAGE_POST_TIMEOUT` est propagé jusqu'au processus d'extraction et à SQLite.
@@ -480,11 +480,138 @@ permettre l'envoi du JSON d'erreur après expiration du timeout applicatif.
 L'arrêt sur interruption ou SIGTERM annule les traitements, arrête le serveur,
 puis ferme SQLite.
 
+### Distribution Docker — Linux AMD64
+
+Le jalon 4 est implémenté ; sa validation manuelle reste à effectuer avant merge.
+Docker Engine avec Compose v2, ou Docker Desktop intégré à WSL2, suffit :
+Go, Node, Python, yt-dlp et ffmpeg n'ont pas à être installés sur l'hôte.
+Exécuter les commandes depuis la racine du dépôt sous Linux/WSL. Sous WSL,
+privilégier un répertoire du filesystem Linux pour les données et les permissions.
+
+**Premier démarrage :**
+
+```bash
+export SILLAGE_DATA_DIR="$HOME/.local/share/sillage"
+export SILLAGE_UID="$(id -u)"
+export SILLAGE_GID="$(id -g)"
+export SILLAGE_PORT=8080
+mkdir -p "$SILLAGE_DATA_DIR"
+chmod 700 "$SILLAGE_DATA_DIR"
+docker compose -f deployments/docker/compose.yaml up -d --build
+```
+
+Choisir un répertoire dédié. Compose exige un chemin de données existant ;
+il ne le crée pas implicitement en root. Le processus non-root utilise les
+UID/GID numériques indiqués (1000:1000 par défaut). Le répertoire et son contenu
+doivent appartenir à cet utilisateur ou lui donner les droits nécessaires.
+Sur un serveur, préparer ces droits une seule fois avec l'administrateur.
+Ne pas utiliser UID 0 ni rendre les données accessibles à tous pour contourner
+une erreur de permissions. Les mêmes variables doivent être conservées pour
+les commandes suivantes ; on peut les placer dans un fichier `.env` local
+non versionné, avec des valeurs absolues et numériques.
+
+Ouvrir <http://127.0.0.1:8080> (ou le port choisi). L'API est accessible sous
+`/api/v1`. Le serveur écoute sur `0.0.0.0:8080` dans le conteneur, mais Compose
+publie uniquement sur `127.0.0.1` de l'hôte. Sillage n'a pas d'authentification.
+En usage Docker direct, conserver cette restriction avec
+`-p 127.0.0.1:8080:8080`, le bind mount vers `/app/data` et `--user UID:GID`.
+
+```bash
+docker compose -f deployments/docker/compose.yaml logs -f
+docker compose -f deployments/docker/compose.yaml stop
+docker compose -f deployments/docker/compose.yaml start
+docker compose -f deployments/docker/compose.yaml up -d --force-recreate
+docker compose -f deployments/docker/compose.yaml down
+```
+
+Arrêts et recréations conservent le répertoire hôte. Le délai d'arrêt Compose
+est de 15 s pour laisser au serveur ses 10 s de shutdown gracieux.
+`SILLAGE_POST_TIMEOUT` configure la durée maximale d'acquisition (défaut `60s`).
+Les caches et fichiers temporaires des outils restent éphémères sous `/tmp`.
+Les exécutables appartiennent à root et ne sont pas modifiables par Sillage.
+
+**Sauvegarde, restauration et déplacement à froid :**
+
+Arrêter toutes les instances utilisant les données. Copier tout le répertoire,
+pas seulement `sillage.db` : il contient aussi les snapshots de transcription
+et peut contenir les fichiers auxiliaires SQLite.
+
+```bash
+docker compose -f deployments/docker/compose.yaml stop
+tar -C "$SILLAGE_DATA_DIR" -czf "$HOME/sillage-backup-$(date +%Y%m%d-%H%M%S).tar.gz" .
+docker compose -f deployments/docker/compose.yaml start
+```
+
+Pour restaurer, arrêter le conteneur, extraire l'archive dans un **nouveau
+répertoire vide** appartenant à l'utilisateur choisi, puis configurer ce chemin
+dans `SILLAGE_DATA_DIR` et exécuter `up -d --force-recreate`. Conserver l'ancien
+répertoire jusqu'à validation. Pour déplacer les données vers un autre hôte,
+appliquer la même procédure et adapter UID/GID au propriétaire sur cet hôte.
+
+Pour reprendre les données de développement, arrêter d'abord `make run`,
+copier **l'ensemble** de `data/` vers le répertoire dédié vide, puis démarrer
+Compose avec ce chemin. Aucune migration automatique n'est effectuée.
+Le backend lancé avec `make run` et le conteneur ne doivent jamais utiliser
+simultanément la même base SQLite.
+
+**Reconstruction et mises à jour :**
+
+```bash
+docker compose -f deployments/docker/compose.yaml build --pull --no-cache
+docker compose -f deployments/docker/compose.yaml up -d --force-recreate
+```
+
+Le Dockerfile fixe les versions Go/Node, les digests des images de base et les
+versions/empreintes de yt-dlp et Deno. Les paquets Debian reçoivent les correctifs
+disponibles au moment de la reconstruction ; le build n'est donc pas garanti
+identique octet pour octet. Actualiser explicitement les digests pour faire
+évoluer les images de base. Sauvegarder les données avant une mise à jour de
+Sillage et conserver l'ancienne image si un retour arrière est nécessaire.
+
+yt-dlp stable `2026.08.19` et Deno `2.9.7` sont intégrés. Pour reconstruire avec
+une autre version de yt-dlp, choisir un tag précis et relever l'empreinte de
+`yt-dlp_linux` dans les `SHA2-256SUMS` de la release officielle. Les paramètres
+sont `YTDLP_REPOSITORY`, `YTDLP_VERSION` et `YTDLP_SHA256` :
+
+```bash
+# Définir au préalable VERSION et SHA256 avec le tag et son empreinte vérifiée.
+docker compose -f deployments/docker/compose.yaml build \
+  --build-arg YTDLP_REPOSITORY=yt-dlp/yt-dlp \
+  --build-arg YTDLP_VERSION="$VERSION" \
+  --build-arg YTDLP_SHA256="$SHA256"
+docker compose -f deployments/docker/compose.yaml up -d --force-recreate
+```
+
+Pour une nightly corrective, utiliser `yt-dlp/yt-dlp-nightly-builds` et le tag
+**précis** de sa release avec sa propre empreinte, jamais `latest`.
+Les [releases stables](https://github.com/yt-dlp/yt-dlp/releases) et
+[nightly](https://github.com/yt-dlp/yt-dlp-nightly-builds/releases) fournissent
+ces fichiers. Une empreinte erronée fait échouer le build. Deno dispose des
+paramètres analogues `DENO_VERSION` et `DENO_SHA256`.
+Il n'y a ni auto-update au démarrage ni mise à jour depuis l'interface.
+Un exécutable externe persistant sélectionné volontairement, avec la version
+intégrée comme repli, reste une question ouverte.
+
+**Vérification de la distribution :**
+
+```bash
+docker build --platform linux/amd64 -f deployments/docker/Dockerfile -t sillage:local .
+python3 tests/docker/smoke.py
+```
+
+Le script requiert Python 3 et un utilisateur hôte non-root. Il teste les outils
+réels hors réseau, puis Compose avec une acquisition simulée : HTTP/SPA,
+permissions, publication localhost, SQLite, tags, fichier persistant, recréation
+et arrêt propre. Il utilise exclusivement un répertoire temporaire, supprimé
+après retrait des conteneurs de test. La CI Docker exécute ce parcours depuis
+un checkout propre, indépendamment de Go/Postman/Playwright. L'acquisition
+YouTube réelle reste une vérification manuelle.
+
 ### Interface Web — étape 5.1, jalons 1 à 3
 
 Les jalons 1, 2 et 3 sont terminés, testés automatiquement et validés manuellement.
-La CI GitHub Actions est réussie. Le jalon 4 — distribution Docker et consolidation —
-reste à réaliser.
+La CI GitHub Actions de ces jalons est réussie. Le jalon 4 — distribution Docker
+et consolidation — est implémenté et attend sa validation manuelle.
 
 Disponible : bibliothèque connectée à REST, ajout YouTube, détection des
 doublons et fiches vidéo. Les cartes ouvrent `/videos/{id}` avec l'ID interne
@@ -527,7 +654,7 @@ Les descriptions sont intégrales et repliées initialement, indépendamment pou
 chaque source. Le futur volet de gestion et un panneau de métadonnées restent
 des pistes UX, sans composants anticipés.
 
-Le packaging Docker reste réservé au jalon 4.
+Le packaging Docker du jalon 4 réutilise ce même build.
 La chaîne de production fonctionne déjà sans Vite à l'exécution.
 
 Prérequis supplémentaires : Node.js 24 (24.20.0 validé), npm et Make.
@@ -987,7 +1114,7 @@ L'étape Web est découpée en jalons validables :
 
 - **5.1 — bibliothèque utilisable et distribuable** : liste, ajout et détail,
   tags vidéo et filtre unique, navigation, build servi par Go ; distribution
-  Docker et consolidation encore à réaliser au jalon 4 ;
+  Docker et consolidation implémentés au jalon 4, en attente de validation manuelle ;
 - **5.2 — éditeur Markdown et sauvegarde fiable** : protection contre les
   écrasements concurrents ; politique d'autosauvegarde encore ouverte ;
 - **5.3 — lecteur et transcription** : consultation avec la note comme zone
@@ -1049,8 +1176,8 @@ IA intégrée
   par tag dans l'URL, descriptions des sources repliables.
 
 Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une CI
-GitHub Actions réussie. Le jalon 4 reste à réaliser ; l'étape 5.1 n'est donc pas
-encore entièrement terminée.
+GitHub Actions réussie. Le jalon 4 est implémenté et testé localement ; la
+validation manuelle Docker reste nécessaire pour clôturer l'étape 5.1.
 
 ### API HTTP réalisée
 

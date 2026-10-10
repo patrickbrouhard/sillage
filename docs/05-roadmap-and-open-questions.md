@@ -414,7 +414,9 @@ doublon et fiche présentant toutes les sources. Aucun contrat REST ni règle
 métier n'est modifié. Les tests couvrent routage, historique, erreurs, accès
 directs, réponses tardives et ajout/doublon via Go/SQLite. Le jalon 3 est validé manuellement et en CI :
 gestion immédiate des tags en modale, autocomplétion clavier, navigation et
-filtrage par tag, descriptions repliables. Le jalon 4 entre en implémentation : distribution Docker, CI et consolidation.
+filtrage par tag, descriptions repliables. Le jalon 4 est implémenté et vérifié
+localement : distribution Docker, CI et consolidation. La validation manuelle Docker et le résultat de la nouvelle CI
+restent à confirmer avant clôture de 5.1.
 La modale est provisoire ; un futur volet ou onglet et le panneau de métadonnées
 restent des pistes révisables (voir Product & UX).
 

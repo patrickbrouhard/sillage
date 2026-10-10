@@ -737,11 +737,14 @@ La structure exacte reste non contractuelle.
 
 Le fichier SQLite et les données persistantes vivent dans un bind mount vers un
 répertoire hôte explicite et configurable. Compose ne crée pas de volume nommé.
-Le chemin actuel est `data/` relatif au processus : le packaging prévu emploie
-`WORKDIR /app` et un volume `/app/data`, snapshots et sauvegardes compris.
+Le chemin actuel est `data/` relatif au processus : le packaging emploie
+`WORKDIR /app` et un bind mount `/app/data`, snapshots et sauvegardes compris.
 Le serveur écoute sur toutes les interfaces du conteneur, mais le port publié
 reste lié à localhost par défaut, en l'absence d'authentification.
-Le Dockerfile et Compose restent à implémenter au jalon de distribution de 5.1.
+Le Dockerfile multi-stage et Compose sont implémentés au jalon 4 de 5.1.
+Le conteneur non-root réunit Go, le frontend et les outils externes ; seule la
+publication localhost est activée par défaut. Les données ne font jamais partie
+de l'image. Voir le README pour les droits et les sauvegardes à froid.
 
 ## 13. Gestion des opérations longues
 

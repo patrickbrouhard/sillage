@@ -1,0 +1,25 @@
+# Seules les sources nécessaires au build sont envoyées au daemon.
+**
+!go.mod
+!go.sum
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!web/
+!web/**
+!deployments/
+!deployments/docker/
+!deployments/docker/Dockerfile
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+**/.env*
+**/*.db*
+**/*.sqlite*
+**/*.pem
+**/*.key
+**/*.bak
+**/.git
+**/data
