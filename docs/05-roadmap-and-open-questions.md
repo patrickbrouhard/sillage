@@ -408,10 +408,12 @@ La première source REST présente provisoirement la carte. La gestion complète
 des publishers/personnes, la recherche, les filtres combinés et la pagination
 sont exclus. Aucun éditeur, lecteur, transcription ou mécanisme temporel ici.
 
-État : jalon documentaire terminé ; jalon 1 implémenté, à valider manuellement.
-La bibliothèque en lecture seule utilise REST et le build de production est
-servi par Go. Les tests couvrent le routage statique et un parcours navigateur
-via Go/SQLite redémarré ; les autres jalons restent à réaliser.
+État : jalon documentaire terminé ; jalon 1 validé manuellement et en CI.
+Le jalon 2 est implémenté, à valider manuellement : navigation, ajout synchrone,
+doublon et fiche présentant toutes les sources. Aucun contrat REST ni règle
+métier n'est modifié. Les tests couvrent routage, historique, erreurs, accès
+directs, réponses tardives et ajout/doublon via Go/SQLite. Les jalons 3 et 4
+restent à réaliser.
 
 Jalons prévus :
 

@@ -687,8 +687,13 @@ Les routes API, les assets et les routes SPA doivent être séparés : le repli 
 `index.html` ne doit jamais masquer une erreur API ou un asset absent. Seul le
 répertoire frontend est public, jamais celui des données.
 
-L'état React reste simple ; les bibliothèques supplémentaires sont choisies
-selon les besoins. CodeMirror 6 est une préférence forte pour 5.2, pas encore
+Le jalon 2 utilise React Router en mode déclaratif pour `/`, `/videos/new`
+et `/videos/:videoId`. Les cartes et retours sont des liens ; la fiche relit
+REST indépendamment de la navigation précédente. Les lectures sont annulées
+au démontage et leurs réponses tardives ignorées. Le formulaire lance un seul
+POST par soumission explicite et distingue 201/200 sans modifier AddVideo.
+L'état reste local aux pages ; aucune bibliothèque de store n'est ajoutée.
+CodeMirror 6 est une préférence forte pour 5.2, pas encore
 une intégration validée. La concurrence des notes sera traitée dans les services
 et la persistance en 5.2, avec une traduction HTTP appropriée ; une coordination
 entre onglets seule ne suffirait pas à protéger les autres clients.

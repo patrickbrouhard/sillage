@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sert le build réel avec SQLite isolé et une seule acquisition déterministe."""
+"""Sert le build réel avec SQLite isolé et des métadonnées déterministes."""
 
 import json
 import os
@@ -73,10 +73,15 @@ def main():
             "channel": "Les ateliers du code",
             "thumbnail": f"http://127.0.0.1:{PORT}/missing-thumbnail.jpg",
         }
-        # Ce double répond à une acquisition fixe ; aucun simulateur ni accès YouTube.
+        # Métadonnées fixes ; un ID dédié à chaque tentative isole les reprises CI.
         executable = workspace / "yt-dlp"
         executable.write_text(
-            "#!/bin/sh\ncat <<'JSON'\n" + json.dumps(metadata) + "\nJSON\n",
+            "#!/usr/bin/python3\nimport json, sys\n"
+            + "metadata = " + repr(metadata) + "\n"
+            + "external_id = sys.argv[-1].rsplit('/', 1)[-1]\n"
+            + "if external_id.startswith('sillage-new-'):\n"
+            + "    metadata.update(id=external_id, title='Une nouvelle vidéo pour apprendre', description='Une description conservée dans SQLite.')\n"
+            + "print(json.dumps(metadata))\n",
             encoding="utf-8",
         )
         executable.chmod(0o700)

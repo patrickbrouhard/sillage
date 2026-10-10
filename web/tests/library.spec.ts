@@ -4,17 +4,19 @@ test('affiche la bibliothèque persistée par Go et SQLite après redémarrage',
   const response = await request.get('/api/v1/videos')
   expect(response.ok()).toBeTruthy()
   const { videos } = await response.json()
-  expect(videos).toHaveLength(1)
+  // Un autre parcours peut ajouter une vidéo en parallèle ; on vérifie notre fixture stable.
+  const seed = videos.find((video: { sources: { external_id: string }[] }) => video.sources[0].external_id === 'sillage-test')
+  expect(seed).toBeDefined()
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: videos[0].sources[0].title })).toBeVisible()
+  await expect(page.getByRole('heading', { name: seed.sources[0].title })).toBeVisible()
   await expect(page.getByText('Les ateliers du code')).toBeVisible()
   await expect(page.getByLabel('Tags').getByText('SQLite', { exact: true })).toBeVisible()
   await expect(page.getByText('2:05', { exact: true })).toBeVisible()
   await expect(page.getByText('Aucun aperçu disponible')).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('heading', { name: videos[0].sources[0].title })).toBeVisible()
+  await expect(page.getByRole('heading', { name: seed.sources[0].title })).toBeVisible()
   await page.getByRole('button', { name: 'Actualiser' }).click()
-  await expect(page.getByRole('status')).toHaveText('1 vidéo')
+  await expect(page.getByRole('status')).toHaveText(/^[1-9]\d* vidéos?$/)
 })
 
 test('présente une bibliothèque vide sans action inactive', async ({ page }) => {

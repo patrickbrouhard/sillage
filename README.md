@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. Le premier jalon Web affiche la bibliothèque ; les autres parcours de 5.1 restent à développer.
+> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. La bibliothèque Web, l'ajout et les fiches vidéo sont disponibles ; classement par tags et packaging Docker restent à développer.
 
 ## Vision
 
@@ -471,13 +471,31 @@ permettre l'envoi du JSON d'erreur après expiration du timeout applicatif.
 L'arrêt sur interruption ou SIGTERM annule les traitements, arrête le serveur,
 puis ferme SQLite.
 
-### Interface Web — étape 5.1, jalon 1
+### Interface Web — étape 5.1, jalons 1 et 2
 
-Disponible : bibliothèque en lecture seule connectée à REST, miniatures avec
-repli, titres, plateformes, publishers et tags, actualisation, états vide,
-chargement et erreur. La première source REST présente la carte.
-Les cartes ne sont pas encore des liens : ajout et fiche arrivent au jalon 2,
-modification des tags et filtre au jalon 3, packaging Docker au jalon 4.
+Disponible : bibliothèque connectée à REST, ajout YouTube, détection des
+doublons et fiches vidéo. Les cartes ouvrent `/videos/{id}` avec l'ID interne
+Sillage ; `/videos/new` permet l'ajout. React Router gère la navigation et
+l'historique. Accès direct, rechargement et retour à la bibliothèque sont pris
+en charge par le build servi par Go comme par le serveur Vite.
+
+Le formulaire distingue création (201) et vidéo déjà présente (200), puis
+propose d'ouvrir la fiche retournée. Une seule acquisition synchrone est lancée
+à la fois, sans relance automatique ni timeout client plus court que le serveur.
+Les erreurs de validation, d'acquisition et de délai sont traduites par leur
+code REST ; la saisie est conservée. Quitter la page annule la requête cliente
+et ignore sa réponse tardive, sans garantir l'annulation d'un enregistrement
+déjà effectué. Après une coupure réseau, vérifier la bibliothèque ou réessayer :
+le backend conserve sa déduplication existante.
+
+La fiche affiche les métadonnées de toutes les sources, leurs publishers,
+durées, descriptions en texte brut et liens HTTP(S), ainsi que les tags directs
+de la vidéo. Le titre d'en-tête utilise provisoirement la première source.
+La date affichée est celle de l'ajout dans Sillage, pas celle de publication.
+Les personnes ne sont pas déduites des publishers. Aucun lecteur, éditeur ni
+panneau de transcription n'est introduit.
+
+Modification des tags et filtre arrivent au jalon 3, packaging Docker au jalon 4.
 La chaîne de production fonctionne déjà sans Vite à l'exécution.
 
 Prérequis supplémentaires : Node.js 24 (24.20.0 validé), npm et Make.
@@ -530,18 +548,36 @@ python3 tests/postman/run.py deterministic
 L'installation des dépendances système Chromium peut demander les droits
 administrateur sous Linux ; elle ne concerne que les tests navigateur.
 Playwright teste le build servi par le vrai binaire Go, sur le port 18381,
-avec une base temporaire. Une acquisition fixe remplace yt-dlp uniquement dans
-ce processus de test. Les données sont ajoutées par REST puis le serveur
-redémarre avant le test de lecture. Aucun accès YouTube ni donnée personnelle.
+avec une base temporaire. Un double ciblé de yt-dlp fournit des métadonnées
+fixes uniquement dans ce processus de test. Les données initiales sont ajoutées
+par REST puis le serveur redémarre avant le test de lecture. Le navigateur
+effectue aussi un ajout et un doublon via Go/SQLite. Aucun accès YouTube ni
+donnée personnelle.
 Les états vide/erreur et les variantes de métadonnées utilisent des réponses
 simulées dans le navigateur, séparément de ce parcours d'intégration.
 
-**Essai manuel :** ouvrir la bibliothèque, vérifier les titres/tags existants,
-actualiser puis recharger. Sur une base vide, vérifier le message dédié.
-Ouvrir `/page-inconnue`, puis revenir à la bibliothèque. Vérifier que
-`/api/v1/inconnue` et `/assets/inconnu.js` renvoient 404, sans page SPA.
-Une réduction de la fenêtre doit conserver des cartes lisibles.
-L'ajout reste disponible via le contrat REST ci-dessous avant le jalon 2.
+**Essai manuel du jalon 2 :**
+
+1. Lancer l'application avec le vrai `yt-dlp` dans le PATH, puis ouvrir la
+   bibliothèque et choisir **Ajouter une vidéo**.
+2. Saisir une URL YouTube publique non encore enregistrée. Pendant l'acquisition,
+   le bouton et le champ sont désactivés. Attendre **Vidéo ajoutée**, puis choisir
+   **Ouvrir la fiche**.
+3. Vérifier titre, description, source, compte de publication, durée et lien
+   externe ; les données absentes doivent rester compréhensibles.
+4. Revenir à la bibliothèque et ouvrir la carte. Tester précédent/suivant,
+   rechargement et ouverture de l'URL de fiche dans un nouvel onglet.
+5. Ajouter à nouveau la même URL : le message **déjà présente** mène à la même
+   fiche et aucune nouvelle carte n'est créée.
+6. Arrêter le serveur (Ctrl+C), puis relancer `make run` depuis le même dossier.
+   Rouvrir la fiche : elle est lue dans SQLite sans nouvelle acquisition.
+7. Essayer `https://example.com/video` dans le formulaire : l'erreur de
+   validation conserve la saisie et permet de la corriger. Les erreurs distantes
+   et timeouts sont couverts de façon déterministe dans Playwright.
+8. Ouvrir `/videos/999999999` (ID absent), `/videos/invalide` et
+   `/page-inconnue`, puis revenir à la bibliothèque. Les erreurs API et
+   `/assets/inconnu.js` restent séparées de la SPA.
+9. Réduire la fenêtre et parcourir les cartes/liens au clavier.
 
 ### Contrat API v1
 

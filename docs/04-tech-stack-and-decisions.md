@@ -683,6 +683,7 @@ L'architecture doit éviter de dépendre directement d'OpenAI, Ollama ou d'un au
 ### Décisions actées
 
 - React, TypeScript et Vite pour une SPA consommant REST ;
+- React Router en mode déclaratif pour les parcours du jalon 2, sans SSR ;
 - Go sert les fichiers compilés livrés avec le binaire dans la même image Docker ;
 - aucun SSR ni serveur Node.js permanent, accès local par défaut sans auth ;
 - note Markdown principale et stable, transcription indépendante du lecteur ;
