@@ -29,6 +29,7 @@ export class NoteSession {
   private idleTimer: number | undefined
   private maxTimer: number | undefined
   private firstPending: number | null = null
+  private conflictRead = 0
 
   /** Associe définitivement la session à une vidéo. */
   constructor(private readonly videoID: number) {}
@@ -51,7 +52,7 @@ export class NoteSession {
   get dirty() { return this.state.content !== (this.state.confirmed?.content_md ?? '') }
 
   /** Une écriture incertaine reste à protéger, même après Undo vers le texte précédent. */
-  get unconfirmed() { return this.dirty || this.uncertain !== null || this.running !== null || this.state.phase === 'conflict' }
+  get unconfirmed() { return this.dirty || this.uncertain !== null || this.running !== null || this.state.phase === 'saving' || this.state.phase === 'conflict' }
 
   /** Charge la note ; un échec ne crée jamais de document éditable. */
   async start() {
@@ -177,13 +178,33 @@ export class NoteSession {
 
   /** Relit la version distante sans toucher au brouillon ni autoriser une écriture. */
   async readConflict() {
+    const request = ++this.conflictRead
     const lifetime = this.lifetime
     try {
       const remote = await getNote(this.videoID, this.signal())
-      if (!lifetime.signal.aborted) this.publish({ remote })
+      if (!lifetime.signal.aborted && request === this.conflictRead && this.state.phase === 'conflict') this.publish({ remote })
     } catch {
-      if (!lifetime.signal.aborted) this.publish({ message: 'Conflit : impossible de relire la version serveur. Votre texte est conservé.' })
+      if (!lifetime.signal.aborted && request === this.conflictRead && this.state.phase === 'conflict') this.publish({ message: 'Conflit : impossible de relire la version serveur. Votre texte est conservé.' })
     }
+  }
+
+  /** Abandon explicite du brouillon en faveur de la version effectivement présentée. */
+  useServer = () => {
+    const remote = this.state.remote
+    if (this.state.phase !== 'conflict' || remote === undefined) return
+    this.clearTimers(); this.uncertain = null; this.firstPending = null
+    this.publish({
+      content: remote?.content_md ?? '', confirmed: remote, phase: 'ready', message: '',
+      remote: undefined, editorVersion: this.state.editorVersion + 1,
+    })
+  }
+
+  /** Autorise seulement la révision consultée ; une nouvelle concurrence provoque un nouveau conflit. */
+  keepLocal = async () => {
+    if (this.state.phase !== 'conflict' || this.state.remote === undefined) return
+    this.uncertain = null
+    this.publish({ confirmed: this.state.remote, remote: undefined, phase: 'ready', message: '' })
+    await this.save(true)
   }
 
   /** Attend toutes les modifications courantes, sans quitter sur une simple confirmation partielle. */

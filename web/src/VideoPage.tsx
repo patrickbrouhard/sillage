@@ -2,10 +2,11 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
-const VideoNote = lazy(() => import('./VideoNote').then(module => ({ default: module.VideoNote })))
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { formatDuration, httpURL, providerLabel } from './videoPresentation'
+
+const VideoNote = lazy(() => import('./VideoNote').then(module => ({ default: module.VideoNote })))
 
 type DetailState =
   | { status: 'loading' }

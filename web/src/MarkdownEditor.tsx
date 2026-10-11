@@ -7,13 +7,16 @@ import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 
 interface Props {
   initial: string
+  active: boolean
   onChange: (content: string) => void
   onSave: () => void
 }
 
 /** Garde l'état CodeMirror stable ; seules les actions utilisateur modifient le texte. */
-export function MarkdownEditor({ initial, onChange, onSave }: Props) {
+export function MarkdownEditor({ initial, active, onChange, onSave }: Props) {
   const host = useRef<HTMLDivElement>(null)
+  const editor = useRef<EditorView | null>(null)
+  const wasActive = useRef(active)
   const callbacks = useRef({ onChange, onSave })
   callbacks.current = { onChange, onSave }
   useEffect(() => {
@@ -38,8 +41,16 @@ export function MarkdownEditor({ initial, onChange, onSave }: Props) {
         ],
       }),
     })
-    return () => view.destroy()
+    editor.current = view
+    return () => { view.destroy(); editor.current = null }
     // Le parent remonte cet éditeur uniquement pour une nouvelle version choisie explicitement.
   }, [initial])
+  useEffect(() => {
+    if (active && !wasActive.current) {
+      editor.current?.requestMeasure()
+      editor.current?.focus()
+    }
+    wasActive.current = active
+  }, [active])
   return <div className="markdown-editor" ref={host} />
 }

@@ -24,12 +24,13 @@ def command(*args, env=None):
     return result.stdout
 
 
-def request(port, path, data=None, expected=200):
+def request(port, path, data=None, expected=200, method=None):
     """Traverse le HTTP réel et vérifie aussi les statuts d'erreur."""
     req = urllib.request.Request(
         f"http://127.0.0.1:{port}{path}",
         data=None if data is None else json.dumps(data).encode(),
         headers={"Content-Type": "application/json"},
+        method=method,
     )
     try:
         response = OPENER.open(req, timeout=5)
@@ -153,6 +154,10 @@ def main():
             assert json.loads(request(port, "/api/v1/videos",
                                       {"url": "https://youtu.be/docker-test"}))["id"] == vid
             request(port, f"/api/v1/videos/{vid}/tags", {"names": ["Docker"]})
+            note_content = "# Docker\r\n\nNote conservée.  \n"
+            note_path = f"/api/v1/videos/{vid}/note"
+            request(port, note_path, {"content_md": note_content, "expected_revision": 0},
+                    expected=201, method="PUT")
             # Le fichier secondaire représente les snapshots conservés avec SQLite.
             snapshots = data / "transcripts"
             snapshots.mkdir(exist_ok=True)
@@ -166,6 +171,10 @@ def main():
             assert persisted["sources"][0]["title"] == metadata["title"], persisted
             assert persisted["tags"][0]["name"] == "Docker", persisted
             assert (snapshots / "persistence-check.txt").read_text() == "snapshot"
+            persisted_note = json.loads(request(port, note_path))
+            assert persisted_note["content_md"] == note_content and persisted_note["revision"] == 1
+            request(port, note_path, {"content_md": "obsolète", "expected_revision": 0},
+                    expected=409, method="PUT")
             stop_cleanly()
             print("Compose, HTTP/SPA, bind mount, recréation et arrêt propre : OK", flush=True)
         except BaseException:

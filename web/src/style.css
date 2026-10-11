@@ -139,3 +139,8 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .markdown-reading pre { overflow-x: auto; }
 .markdown-reading table { border-collapse: collapse; display: block; overflow-x: auto; }
 .markdown-reading td, .markdown-reading th { border: 1px solid #aaa; padding: .4rem; }
+
+.note-conflict { border: 1px solid #a64d30; border-radius: .5rem; padding: 1rem; }
+.note-conflict pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 16rem; overflow: auto; }
+.note-navigation { max-width: min(32rem, 90vw); border-radius: .75rem; border: 1px solid #aaa; padding: 1.5rem; }
+.note-navigation::backdrop { background: #0007; }

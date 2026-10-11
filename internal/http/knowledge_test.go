@@ -206,3 +206,27 @@ func TestKnowledgeRESTValidation(t *testing.T) {
 	assertError(t, request(h, "GET", "/api/v1/videos/1/note", "", ""), 500, "internal_error")
 	assertError(t, request(h, "GET", "/api/v1/tags", "", ""), 500, "internal_error")
 }
+
+func TestNotePreconditionsHTTP(t *testing.T) {
+	h, _ := knowledgeAPI(t)
+	path := "/api/v1/videos/1/note"
+	assertError(t, request(h, "PUT", path, `{"content_md":"legacy"}`, "application/json"), 400, "bad_request")
+	first := request(h, "PUT", path, `{"content_md":"first","expected_revision":0}`, "application/json")
+	if first.Code != 201 {
+		t.Fatal(first.Code, first.Body.String())
+	}
+	for _, body := range []string{
+		`{"content_md":"stale","expected_revision":0}`,
+		`{"content_md":"first","expected_revision":0}`,
+		`{"content_md":"future","expected_revision":99}`,
+	} {
+		assertError(t, request(h, "PUT", path, body, "application/json"), 409, "note_conflict")
+	}
+	same := request(h, "PUT", path, `{"content_md":"first","expected_revision":1}`, "application/json")
+	if same.Code != 200 || same.Body.String() != first.Body.String() {
+		t.Fatal(same.Body.String())
+	}
+	if got := request(h, "GET", path, "", ""); got.Body.String() != first.Body.String() {
+		t.Fatal(got.Body.String())
+	}
+}

@@ -1,22 +1,50 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useBlocker } from 'react-router'
 import { MarkdownEditor } from './MarkdownEditor'
 import { NoteSession } from './noteSession'
+
+const MarkdownReading = lazy(() => import('./MarkdownReading').then(module => ({ default: module.MarkdownReading })))
 
 /** Présente une note locale et son état confirmé, avec modes partageant la même source. */
 export function VideoNote({ videoID }: { videoID: number }) {
   const [session] = useState(() => new NoteSession(videoID))
   const state = useSyncExternalStore(session.subscribe, session.snapshot)
   const [reading, setReading] = useState(false)
-  const [initial, setInitial] = useState<string | null>(null)
+  const [initial, setInitial] = useState<{ content: string; version: number } | null>(null)
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    session.unconfirmed && (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search))
+  const leaveDialog = useRef<HTMLDialogElement>(null)
+  const [leaving, setLeaving] = useState(false)
   useEffect(() => {
     void session.start()
     return () => session.stop()
   }, [session])
   useEffect(() => {
-    if (state.loaded && initial === null) setInitial(state.content)
-  }, [state.loaded, state.content, initial])
+    if (state.loaded && initial?.version !== state.editorVersion) {
+      setInitial({ content: state.content, version: state.editorVersion })
+    }
+  }, [state.loaded, state.content, state.editorVersion, initial])
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') { leaveDialog.current?.close(); return }
+    let canceled = false
+    leaveDialog.current?.showModal()
+    setLeaving(true)
+    void session.flush().then(confirmed => {
+      if (canceled) return
+      setLeaving(false)
+      if (confirmed) blocker.proceed()
+    })
+    return () => { canceled = true; leaveDialog.current?.close() }
+    // Une tentative par destination : un échec attend un choix, pas une boucle de réessais.
+  }, [blocker.state, blocker.location?.key, session])
+
+  useEffect(() => {
+    if (!session.unconfirmed) return
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [session, state])
 
   // Le raccourci fonctionne aussi en Lecture et ne déclenche jamais le dialogue du navigateur.
   useEffect(() => {
@@ -47,13 +75,35 @@ export function VideoNote({ videoID }: { videoID: number }) {
           onClick={() => void session.save(true)}>{state.phase === 'error' ? 'Réessayer la sauvegarde' : 'Enregistrer la note'}</button>
       </div>
       <div hidden={reading}>
-        {initial !== null && <MarkdownEditor initial={initial} onChange={session.change} onSave={() => void session.save(true)} />}
+        {initial !== null && <MarkdownEditor key={initial.version} initial={initial.content} active={!reading} onChange={session.change} onSave={() => void session.save(true)} />}
       </div>
-      {reading && <div className="markdown-reading" aria-label="Lecture de la note">
-        {state.content ? <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{state.content}</ReactMarkdown> : <p>Note vide.</p>}
-      </div>}
+      {reading && <Suspense fallback={<p>Préparation de la lecture…</p>}><MarkdownReading content={state.content} /></Suspense>}
       <p role="status" aria-label="État de la note">{status}</p>
+      {state.phase === 'conflict' && <div className="note-conflict" role="region" aria-label="Résolution du conflit">
+        <p>L’autosauvegarde est suspendue. Choisissez explicitement la version à conserver.</p>
+        <h3>Votre version locale</h3>
+        <pre>{state.content || '(note vide)'}</pre>
+        <h3>Version serveur</h3>
+        {state.remote === undefined ? <p>Version serveur non disponible.</p> : <>
+          <p>{state.remote ? `Révision ${state.remote.revision}` : 'Aucune note enregistrée.'}</p>
+          <pre>{state.remote?.content_md || '(note vide)'}</pre>
+        </>}
+        <div className="note-toolbar">
+          <button className="button" onClick={() => void session.readConflict()}>Actualiser la version serveur</button>
+          <button className="button" disabled={state.remote === undefined} onClick={session.useServer}>Conserver la version serveur</button>
+          <button className="button" disabled={state.remote === undefined} onClick={() => void session.keepLocal()}>Conserver ma version locale</button>
+        </div>
+      </div>}
       {state.confirmed && <p className="muted">Dernier contenu confirmé : révision {state.confirmed.revision} · <time dateTime={state.confirmed.updated_at}>{new Date(state.confirmed.updated_at).toLocaleTimeString('fr-FR')}</time></p>}
     </>}
+    <dialog ref={leaveDialog} className="note-navigation" aria-labelledby="leave-note-title"
+      onCancel={event => { event.preventDefault(); if (blocker.state === 'blocked') blocker.reset() }}>
+      <h2 id="leave-note-title">Quitter la note ?</h2>
+      <p>{leaving ? 'Tentative de sauvegarde avant le départ…' : 'Les modifications ne sont pas confirmées. Quitter peut perdre votre texte local.'}</p>
+      <div className="note-toolbar">
+        <button className="button" onClick={() => { if (blocker.state === 'blocked') blocker.reset() }}>Rester sur la note</button>
+        <button className="button" onClick={() => { if (blocker.state === 'blocked') blocker.proceed() }}>Quitter malgré le risque</button>
+      </div>
+    </dialog>
   </section>
 }
