@@ -438,8 +438,9 @@ pas masquer les erreurs API ou les assets absents.
 
 ### 5.2 — Éditeur Markdown et sauvegarde fiable
 
-Les trois jalons sont implémentés et testés localement. La validation manuelle
-et la CI de cette branche restent à confirmer. Jalons réalisés :
+Les trois jalons sont implémentés et testés localement ; le périmètre fonctionnel
+est validé manuellement. La fusion reste soumise à une CI réussie sur le dernier
+commit, consultable dans GitHub Actions. Jalons réalisés :
 
 1. première édition protégée : révision atomique, migration, REST conditionnel,
    CodeMirror, sauvegarde explicite et vérification LF/CRLF/mixte ;

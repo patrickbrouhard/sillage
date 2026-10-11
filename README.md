@@ -1193,7 +1193,7 @@ L'étape Web est découpée en jalons validables :
   tags vidéo et filtre unique, navigation, build servi par Go ; distribution
   Docker et consolidation terminés ; les quatre jalons sont testés et validés ;
 - **5.2 — éditeur Markdown et sauvegarde fiable** : implémenté et testé localement,
-  validation manuelle et CI de cette branche à confirmer ; édition/lecture GFM,
+  périmètre fonctionnel validé manuellement ; édition/lecture GFM,
   autosauvegarde 2 s/20 s, conflits et navigation protégée ;
 - **5.3 — lecteur et transcription** : consultation avec la note comme zone
   principale et la transcription indépendante de la visibilité du lecteur ;
@@ -1256,7 +1256,7 @@ IA intégrée
 Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une CI
 GitHub Actions réussie. Le jalon 4 est lui aussi terminé et validé manuellement
 et en CI : l'étape 5.1 est clôturée. L'étape 5.2 est implémentée et vérifiée
-localement ; sa validation manuelle et sa CI restent à confirmer. L'étape 5.3
+localement, et son périmètre fonctionnel est validé manuellement. L'étape 5.3
 (lecteur et transcription) n'est pas commencée.
 
 ### API HTTP réalisée

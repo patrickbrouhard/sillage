@@ -916,7 +916,8 @@ aucune normalisation des séparateurs existants n'est introduite.
 
 Choix locaux révisables : délai réseau de 12 s, deux reprises après 1 puis 3 s,
 composants et messages. La vérification automatique locale est réussie ;
-la validation manuelle et la CI de cette étape restent à confirmer.
+le périmètre fonctionnel est également validé manuellement. Les résultats CI
+du dernier commit sont consultables dans GitHub Actions.
 
 Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
 ou mécanisme générique documentaire. Les questions des étapes 5.3 et 6 restent ouvertes.
