@@ -408,17 +408,22 @@ La première source REST présente provisoirement la carte. La gestion complète
 des publishers/personnes, la recherche, les filtres combinés et la pagination
 sont exclus. Aucun éditeur, lecteur, transcription ou mécanisme temporel ici.
 
-État : jalon documentaire terminé ; jalon 1 validé manuellement et en CI.
+État : étape 5.1 clôturée. Les jalons 1 à 4 sont terminés, testés et validés
+manuellement et en CI.
 Le jalon 2 est validé manuellement et en CI : navigation, ajout synchrone,
 doublon et fiche présentant toutes les sources. Aucun contrat REST ni règle
 métier n'est modifié. Les tests couvrent routage, historique, erreurs, accès
-directs, réponses tardives et ajout/doublon via Go/SQLite. Le jalon 3 est implémenté et attend la validation manuelle :
+directs, réponses tardives et ajout/doublon via Go/SQLite. Le jalon 3 est validé manuellement et en CI :
 gestion immédiate des tags en modale, autocomplétion clavier, navigation et
-filtrage par tag, descriptions repliables. Le jalon 4 reste à réaliser.
+filtrage par tag, descriptions repliables. Le jalon 4 est validé sous WSL2 avec
+Docker Compose : construction et démarrage, import YouTube réel, doublon, tags,
+accès direct et persistance après recréation du conteneur. Les données Docker
+sont séparées des données de développement local. Les trois jobs GitHub Actions
+Go/Postman, Web/Playwright et Docker ont réussi.
 La modale est provisoire ; un futur volet ou onglet et le panneau de métadonnées
 restent des pistes révisables (voir Product & UX).
 
-Jalons prévus :
+Jalons terminés et validés :
 
 1. fondations React/Go : liste réellement connectée et production servie par Go ;
 2. navigation, ajout et détail vidéo ;
@@ -432,6 +437,8 @@ sans dépendance obligatoire à YouTube en CI. Les accès directs SPA ne doivent
 pas masquer les erreurs API ou les assets absents.
 
 ### 5.2 — Éditeur Markdown et sauvegarde fiable
+
+Prochaine étape après la clôture de 5.1 ; les questions ci-dessous restent ouvertes.
 
 CodeMirror 6 est fortement privilégié, à valider par l'intégration. La note est
 la zone principale et stable. La protection contre les écrasements concurrents
