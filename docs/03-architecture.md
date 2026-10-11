@@ -694,16 +694,26 @@ Les routes API, les assets et les routes SPA doivent être séparés : le repli 
 `index.html` ne doit jamais masquer une erreur API ou un asset absent. Seul le
 répertoire frontend est public, jamais celui des données.
 
-Le jalon 2 utilise React Router en mode déclaratif pour `/`, `/videos/new`
+En 5.1, le jalon 2 utilisait React Router en mode déclaratif pour `/`, `/videos/new`
 et `/videos/:videoId`. Les cartes et retours sont des liens ; la fiche relit
 REST indépendamment de la navigation précédente. Les lectures sont annulées
 au démontage et leurs réponses tardives ignorées. Le formulaire lance un seul
 POST par soumission explicite et distingue 201/200 sans modifier AddVideo.
 L'état reste local aux pages ; aucune bibliothèque de store n'est ajoutée.
-CodeMirror 6 est une préférence forte pour 5.2, pas encore
-une intégration validée. La concurrence des notes sera traitée dans les services
-et la persistance en 5.2, avec une traduction HTTP appropriée ; une coordination
-entre onglets seule ne suffirait pas à protéger les autres clients.
+En 5.2, un data router React Router permet le blocage des navigations internes
+et de l'historique pendant la confirmation des sauvegardes. CodeMirror 6 est
+intégré directement et reste monté, masqué pendant la lecture GFM chargée à la demande.
+Le séparateur structurel de l'éditeur est LF : les CR existants restent dans le
+document, ce qui conserve aussi les fins de ligne mixtes. Entrée insère un LF.
+
+Une session locale par note gère le contenu courant, la dernière version confirmée,
+les temporisations et une unique écriture en cours. Elle est détruite à la sortie ;
+aucun brouillon n'est persisté dans le navigateur. Les requêtes ont un délai de
+12 secondes. Les reprises réseau sont limitées à deux, après 1 puis 3 secondes,
+avec relecture de l'état serveur après un résultat incertain. Ces valeurs sont
+des choix locaux révisables. Les conflits suspendent l'autosauvegarde ; le choix
+local reste conditionnel sur la version serveur consultée. Le service et SQLite
+assurent la protection pour tous les clients, indépendamment de cette session React.
 
 La fiche 5.1 ne fige pas le workspace ultérieur : note stable, transcription
 indépendante et lecteur flexible. Les références temporelles relèvent de 6.

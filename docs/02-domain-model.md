@@ -610,7 +610,7 @@ La note appartient directement à `Video`, jamais à une `VideoSource`.
 | `content_md` | Contenu Markdown brut, stocké en `TEXT` dans SQLite |
 | `created_at` | Date de création de la note |
 | `updated_at` | Date de dernière modification effective |
-| `revision` | Entier positif de version, introduit en 5.2 |
+| `revision` | Entier positif de version ; migration 0005 : 1 pour les notes existantes, texte et dates préservés |
 
 Aucune note n'est créée automatiquement à l'ajout d'une vidéo. Le premier
 enregistrement la crée ; les suivants remplacent son contenu. Une chaîne vide

@@ -41,7 +41,7 @@ peut être différée. Les mentions « implémenté » décrivent le code dispon
 | SDK MCP | SDK Go officiel | Préféré |
 | Frontend Web | React, TypeScript et Vite ; SPA sans SSR | Acté pour 5.1 |
 | Distribution Web | fichiers statiques servis par Go, avec le binaire dans Docker | Acté |
-| Éditeur Markdown | CodeMirror 6 | Fortement privilégié, intégration à valider en 5.2 |
+| Éditeur Markdown | CodeMirror 6 | Intégré directement et testé en 5.2 |
 | Références temporelles | début obligatoire, fin facultative, provenance conservée si nécessaire | Orientation actée pour 6 |
 | Syntaxe des références | liens Markdown avec URI `sillage://` | Candidate privilégiée, format ouvert |
 | Desktop | possibilité future, Wails à évaluer | Ouvert |
@@ -394,9 +394,9 @@ Le contrat et les limites des requêtes sont documentés dans `03-architecture.m
 Un changement de règle d'identité Unicode devra examiner les collisions entre
 tags déjà persistés ; remplacer le mécanisme technique doit préserver cette règle.
 
-La dernière écriture gagnante des notes est un compromis limité à l'étape 4.
-L'étape 5 devra réexaminer l'autosauvegarde, les onglets concurrents, la prévention
-des pertes de modifications et les éventuels mécanismes de résolution des conflits.
+La dernière écriture gagnante était le compromis de l'étape 4, remplacé en 5.2
+par la révision attendue et sa vérification atomique, y compris à la création.
+L'autosauvegarde et la résolution explicite des conflits réutilisent cette garantie.
 
 ### 5.7 Publishers, personnes et tags universels — étape 4 bis
 
@@ -696,7 +696,7 @@ L'architecture doit éviter de dépendre directement d'OpenAI, Ollama ou d'un au
 
 ### Préférences révisables
 
-CodeMirror 6 est fortement privilégié pour 5.2, sans intégration encore validée.
+CodeMirror 6 est intégré directement en 5.2, avec lecture react-markdown et remark-gfm.
 Les URI `sillage://` dans des liens Markdown sont la syntaxe candidate pour 6.
 La première source REST sert provisoirement à présenter les cartes en 5.1,
 sans devenir une règle métier de source principale.
@@ -826,17 +826,13 @@ Après l'étape 4 bis : politique explicite de rafraîchissement des publishers
 leurs références, identification des comptes d'autres providers. Les rôles,
 organisations et collaborations détaillées ne sont pas des exigences acquises.
 
-Rendez-vous explicite à l'étape 5 : réexaminer les écritures concurrentes des
-notes avec l'autosauvegarde, les onglets concurrents, la prévention des pertes
-de modifications et les éventuels mécanismes de résolution des conflits.
-La suppression explicite d'une note reste une évolution UX envisagée,
-hors de l'étape 4.
+La concurrence et l'autosauvegarde des notes sont traitées en 5.2.
+La suppression explicite d'une note reste une évolution UX envisagée, hors de 5.2.
 
 - Goose ou autre outil de migrations dédié ;
 - WAL SQLite ;
 - stratégie de tests d'intégration avec `yt-dlp` ;
 - lecteur vidéo ;
-- éditeur Markdown ;
 - système de jobs ;
 - politique de cache ;
 - politique de téléchargement/rétention ;
@@ -904,7 +900,7 @@ de garder la version stable intégrée comme repli, avec activation volontaire d
 autre version. Sélection, vérification, permissions, mises à jour et retour arrière
 restent à définir ; aucun mécanisme d'override n'est implémenté au jalon 4.
 
-## Étape 5.2 — cadrage validé
+## Étape 5.2 — décisions et implémentation
 
 Décisions actées : révision entière dans le modèle et JSON, expected_revision
 obligatoire (0 = absence attendue), 409 en cas de conflit, sans ETags.
@@ -912,11 +908,15 @@ Markdown exact, GFM sécurisé sans HTML brut, bascule source/lecture, sauvegard
 après 2 s d'inactivité et maximum 20 s de saisie continue. Les règles UX et de
 réconciliation réseau sont détaillées dans Product & UX et Architecture.
 
-Préférences techniques révisables : CodeMirror 6, intégration directe ; rendu
-React Markdown avec GFM ; data router React Router pour bloquer les navigations.
-Le nombre précis de réessais, les composants et messages restent des choix locaux.
-Les fins de ligne mixtes doivent être vérifiées dès le premier jalon ; aucun
-compromis de conservation ne peut être adopté sans validation.
+Choix techniques implémentés : CodeMirror 6 intégré directement ; react-markdown
+avec remark-gfm et HTML brut ignoré ; data router React Router pour bloquer les
+navigations. Le maintien de l'éditeur monté préserve son état entre les modes.
+Les fins de ligne LF, CRLF et mixtes sont vérifiées par les tests navigateur ;
+aucune normalisation des séparateurs existants n'est introduite.
+
+Choix locaux révisables : délai réseau de 12 s, deux reprises après 1 puis 3 s,
+composants et messages. La vérification automatique locale est réussie ;
+la validation manuelle et la CI de cette étape restent à confirmer.
 
 Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
 ou mécanisme générique documentaire. Les questions des étapes 5.3 et 6 restent ouvertes.

@@ -184,7 +184,8 @@ les décisions suivantes sont actées :
 - aucune création à l'ouverture, note vide autorisée, aucune suppression ;
 - une erreur de lecture n'est jamais assimilée à une note absente.
 
-CodeMirror 6 reste fortement privilégié jusqu'à validation de son intégration.
+CodeMirror 6 est intégré et vérifié automatiquement en 5.2 ; la validation
+manuelle de cette étape reste à effectuer.
 Les 20 s sont un objectif de déclenchement, pas une garantie en cas de requête
 en cours, onglet suspendu ou serveur indisponible. Sans brouillon persistant,
 la perte des dernières modifications après un crash brutal est une limite acceptée.

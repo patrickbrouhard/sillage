@@ -326,8 +326,8 @@ Faire apparaître le vrai produit derrière la bibliothèque vidéo.
 
 ### Compromis et hors périmètre
 
-La dernière écriture gagnante est acceptée provisoirement pour les notes ;
-elle devra être réexaminée à l'étape 5, sans mécanisme de conflits dans cette tranche.
+La dernière écriture gagnante était le compromis de cette tranche ;
+la protection par révision et les conflits sont désormais implémentés en 5.2.
 
 Restent hors de l'étape 4 :
 
@@ -438,7 +438,8 @@ pas masquer les erreurs API ou les assets absents.
 
 ### 5.2 — Éditeur Markdown et sauvegarde fiable
 
-Cadrage validé ; implémentation en cours. Jalons verticaux :
+Les trois jalons sont implémentés et testés localement. La validation manuelle
+et la CI de cette branche restent à confirmer. Jalons réalisés :
 
 1. première édition protégée : révision atomique, migration, REST conditionnel,
    CodeMirror, sauvegarde explicite et vérification LF/CRLF/mixte ;
@@ -452,8 +453,8 @@ aucune transformation du Markdown ni normalisation silencieuse des fins de ligne
 La précondition attendue est obligatoire pour tous les clients ; une résolution
 reste conditionnelle. Les détails sont actés dans Product & UX, Modèle et Architecture.
 
-CodeMirror 6 reste à valider par l'intégration. Les choix locaux de présentation
-et le nombre de réessais sont révisables. Sans brouillon persistant, une perte
+CodeMirror 6 est intégré ; la conservation LF/CRLF/mixte est testée. Les choix
+locaux de présentation et les deux reprises réseau automatiques sont révisables. Sans brouillon persistant, une perte
 après crash brutal reste possible et acceptée. Historique, File Recovery, suppression,
 fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
@@ -699,7 +700,7 @@ MCP et IA ne conditionnent pas le MVP produit.
 ### 15.1 `Note` vs `Annotation`
 
 Pour l'étape 4, une seule note principale facultative par vidéo est actée.
-La concurrence des écritures sera réexaminée à l'étape 5. Les questions suivantes
+La concurrence des écritures est protégée par révision depuis 5.2. Les questions suivantes
 concernent le workflow temporel de l'étape 6 ou des extensions ultérieures :
 
 - une annotation est-elle toujours distincte du Markdown ?
@@ -780,8 +781,6 @@ Restent ouverts :
 
 - lecteur YouTube ;
 - lecteur local ;
-- intégration de CodeMirror 6, candidat fortement privilégié ;
-- rendu Markdown ;
 - layout final de la page de travail ;
 - synchronisation player/transcription ;
 - comportement des timestamps ;
