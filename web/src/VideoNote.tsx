@@ -1,55 +1,59 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { MarkdownEditor } from './MarkdownEditor'
-import { getNote, putNote } from './noteApi'
-import type { Note } from './noteApi'
+import { NoteSession } from './noteSession'
 
-/** Première édition avec sauvegarde explicite et conservation du brouillon lors d'un refus. */
+/** Présente une note locale et son état confirmé, avec modes partageant la même source. */
 export function VideoNote({ videoID }: { videoID: number }) {
-  const [loaded, setLoaded] = useState(false)
-  const [initial, setInitial] = useState('')
-  const [content, setContent] = useState('')
-  const [saved, setSaved] = useState<Note | null>(null)
-  const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [attempt, setAttempt] = useState(0)
-  const writing = useRef(false)
-  const lifetime = useRef<AbortController | null>(null)
+  const [session] = useState(() => new NoteSession(videoID))
+  const state = useSyncExternalStore(session.subscribe, session.snapshot)
+  const [reading, setReading] = useState(false)
+  const [initial, setInitial] = useState<string | null>(null)
   useEffect(() => {
-    const controller = new AbortController()
-    lifetime.current = controller
-    void getNote(videoID, controller.signal).then(note => {
-      if (controller.signal.aborted) return
-      setSaved(note); setInitial(note?.content_md ?? ''); setContent(note?.content_md ?? '')
-      setLoaded(true); setMessage('')
-    }).catch(() => {
-      if (!controller.signal.aborted) setMessage('Impossible de charger la note.')
-    })
-    return () => controller.abort()
-  }, [videoID, attempt])
+    void session.start()
+    return () => session.stop()
+  }, [session])
+  useEffect(() => {
+    if (state.loaded && initial === null) setInitial(state.content)
+  }, [state.loaded, state.content, initial])
 
-  async function save() {
-    const signal = lifetime.current!.signal
-    if (writing.current || !loaded || (saved && saved.content_md === content)) return
-    writing.current = true; setBusy(true); setMessage('')
-    try {
-      const note = await putNote(videoID, content, saved?.revision ?? 0, signal)
-      if (!signal.aborted) { setSaved(note); setMessage('Enregistré') }
-    } catch (error) {
-      if (!signal.aborted) setMessage(error instanceof Error ? error.message : 'Échec de sauvegarde.')
-    } finally {
-      writing.current = false
-      if (!signal.aborted) setBusy(false)
+  // Le raccourci fonctionne aussi en Lecture et ne déclenche jamais le dialogue du navigateur.
+  useEffect(() => {
+    const save = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault(); void session.save(true)
+      }
     }
-  }
+    window.addEventListener('keydown', save)
+    return () => window.removeEventListener('keydown', save)
+  }, [session])
+
+  const status = state.phase === 'saving' ? 'Enregistrement…'
+    : state.phase === 'error' || state.phase === 'conflict' ? state.message
+    : session.dirty ? 'Modifications en attente'
+    : state.confirmed ? 'Enregistré' : 'Aucune note enregistrée'
+
   return <section className="video-note" aria-labelledby="note-title">
     <h2 id="note-title">Note</h2>
-    {!loaded ? <>
-      <p role="status">{message || 'Chargement de la note…'}</p>
-      {message && <button className="button" onClick={() => setAttempt(x => x + 1)}>Relire la note</button>}
+    {!state.loaded ? <>
+      <p role="status">{state.message || 'Chargement de la note…'}</p>
+      {state.message && <button className="button" onClick={() => void session.start()}>Relire la note</button>}
     </> : <>
-      <MarkdownEditor initial={initial} onChange={setContent} onSave={() => void save()} />
-      <button className="button" disabled={busy} onClick={() => void save()}>Enregistrer la note</button>
-      <p role="status">{busy ? 'Enregistrement…' : content !== (saved?.content_md ?? '') ? message || 'Modifications en attente' : message || (saved ? 'Enregistré' : 'Aucune note enregistrée')}</p>
+      <div className="note-toolbar" aria-label="Mode de la note">
+        <button className="button" aria-pressed={!reading} onClick={() => setReading(false)}>Édition</button>
+        <button className="button" aria-pressed={reading} onClick={() => setReading(true)}>Lecture</button>
+        <button className="button" disabled={state.phase === 'conflict'}
+          onClick={() => void session.save(true)}>{state.phase === 'error' ? 'Réessayer la sauvegarde' : 'Enregistrer la note'}</button>
+      </div>
+      <div hidden={reading}>
+        {initial !== null && <MarkdownEditor initial={initial} onChange={session.change} onSave={() => void session.save(true)} />}
+      </div>
+      {reading && <div className="markdown-reading" aria-label="Lecture de la note">
+        {state.content ? <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{state.content}</ReactMarkdown> : <p>Note vide.</p>}
+      </div>}
+      <p role="status" aria-label="État de la note">{status}</p>
+      {state.confirmed && <p className="muted">Dernier contenu confirmé : révision {state.confirmed.revision} · <time dateTime={state.confirmed.updated_at}>{new Date(state.confirmed.updated_at).toLocaleTimeString('fr-FR')}</time></p>}
     </>}
   </section>
 }
