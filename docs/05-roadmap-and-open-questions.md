@@ -438,13 +438,24 @@ pas masquer les erreurs API ou les assets absents.
 
 ### 5.2 — Éditeur Markdown et sauvegarde fiable
 
-Prochaine étape après la clôture de 5.1 ; les questions ci-dessous restent ouvertes.
+Cadrage validé ; implémentation en cours. Jalons verticaux :
 
-CodeMirror 6 est fortement privilégié, à valider par l'intégration. La note est
-la zone principale et stable. La protection contre les écrasements concurrents
-est requise, y compris entre onglets ; protocole de version, gestion des conflits
-et politique de sauvegarde explicite/automatique restent à définir.
-La suppression d'une note vidée n'est pas acquise.
+1. première édition protégée : révision atomique, migration, REST conditionnel,
+   CodeMirror, sauvegarde explicite et vérification LF/CRLF/mixte ;
+2. modes Édition/Lecture GFM sécurisé, autosauvegarde 2 s/20 s, états fiables,
+   requêtes successives et réconciliation après réponse perdue ;
+3. résolution explicite des conflits, navigation protégée (historique inclus),
+   avertissement de fermeture et consolidation des parcours Go/SQLite/Web/Docker.
+
+Aucune note créée à l'ouverture ; note vide conservée. Aucun HTML brut exécuté,
+aucune transformation du Markdown ni normalisation silencieuse des fins de ligne.
+La précondition attendue est obligatoire pour tous les clients ; une résolution
+reste conditionnelle. Les détails sont actés dans Product & UX, Modèle et Architecture.
+
+CodeMirror 6 reste à valider par l'intégration. Les choix locaux de présentation
+et le nombre de réessais sont révisables. Sans brouillon persistant, une perte
+après crash brutal reste possible et acceptée. Historique, File Recovery, suppression,
+fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
 ### 5.3 — Lecteur et transcription
 

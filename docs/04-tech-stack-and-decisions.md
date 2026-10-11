@@ -56,7 +56,7 @@ peut être différée. Les mentions « implémenté » décrivent le code dispon
 | Note principale | zéro ou une par vidéo, `video_id` clé primaire, Markdown brut en SQLite `TEXT` | Acté et implémenté pour l'étape 4 |
 | Identité des tags | NFC + comparaison Unicode insensible à la casse, accents significatifs | Acté pour l'étape 4, mécanisme technique libre |
 | REST des tags | enveloppe `tags`, ordre `id` croissant dans toutes les réponses | Acté et implémenté pour l'étape 4 |
-| Écritures concurrentes des notes | dernière écriture gagnante | Provisoire pour l'étape 4, à réexaminer à l'étape 5 |
+| Écritures concurrentes des notes | révision entière et précondition atomique | Acté pour 5.2 ; remplace le compromis de l'étape 4 |
 | Publication et personnes | `Publisher`, `Person`, relations explicites sans rôles | Acté et implémenté à l'étape 4 bis |
 | Identité des publishers YouTube | `channel_id` obligatoire, nom facultatif | Acté et implémenté |
 | Tags universels | catalogue unique, aucune propagation | Acté et implémenté |
@@ -704,7 +704,7 @@ sans devenir une règle métier de source principale.
 ### Questions ouvertes
 
 Bibliothèques complémentaires selon les besoins, layout final, protocole de
-concurrence des notes, politique d'autosauvegarde, format exact des références,
+format exact des références,
 copie adaptée et formats d'export/sauvegarde. Ces questions ne justifient pas
 d'anticiper les étapes 5.2, 5.3 et 6 en 5.1.
 
@@ -903,3 +903,20 @@ explicitement plus tard, éventuellement depuis les paramètres. La préférence
 de garder la version stable intégrée comme repli, avec activation volontaire d'une
 autre version. Sélection, vérification, permissions, mises à jour et retour arrière
 restent à définir ; aucun mécanisme d'override n'est implémenté au jalon 4.
+
+## Étape 5.2 — cadrage validé
+
+Décisions actées : révision entière dans le modèle et JSON, expected_revision
+obligatoire (0 = absence attendue), 409 en cas de conflit, sans ETags.
+Markdown exact, GFM sécurisé sans HTML brut, bascule source/lecture, sauvegarde
+après 2 s d'inactivité et maximum 20 s de saisie continue. Les règles UX et de
+réconciliation réseau sont détaillées dans Product & UX et Architecture.
+
+Préférences techniques révisables : CodeMirror 6, intégration directe ; rendu
+React Markdown avec GFM ; data router React Router pour bloquer les navigations.
+Le nombre précis de réessais, les composants et messages restent des choix locaux.
+Les fins de ligne mixtes doivent être vérifiées dès le premier jalon ; aucun
+compromis de conservation ne peut être adopté sans validation.
+
+Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
+ou mécanisme générique documentaire. Les questions des étapes 5.3 et 6 restent ouvertes.

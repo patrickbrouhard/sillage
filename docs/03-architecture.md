@@ -490,10 +490,14 @@ dans le JSON. Les limites sont des choix locaux révisables.
 | `GET` | `/api/v1/videos/{id}/note` | `200` si la note existe |
 | `PUT` | `/api/v1/videos/{id}/note` | `201` à la création, `200` ensuite, même sans changement |
 
-Le `PUT` exige un champ `content_md` de type chaîne ; la chaîne vide est acceptée.
+En 5.2, le `PUT` exige `content_md` (chaîne, vide acceptée) et
+`expected_revision` (entier non négatif, obligatoire). 0 attend une note absente.
+Les anciens clients sans précondition sont refusés par `400 bad_request`.
+Une version obsolète retourne `409 note_conflict` sans écriture.
+Aucun ETag ni If-Match parallèle n'est introduit.
 La création retourne aussi `Location: /api/v1/videos/{id}/note`.
 Les réponses réussies des deux opérations contiennent `video_id`, `content_md`,
-`created_at` et `updated_at`. Le contenu de la note n'est pas intégré aux
+`created_at`, `updated_at` et `revision` positive. Le contenu de la note n'est pas intégré aux
 représentations générales de `Video`.
 
 - Vidéo inexistante : `404 video_not_found`.
@@ -501,8 +505,11 @@ représentations générales de `Video`.
 - Identifiant invalide ou `content_md` absent, `null` ou de type invalide :
   `400 bad_request`.
 
-Aucune route de suppression, d'ajout partiel, d'historique ou de résolution
-des conflits n'est prévue dans cette tranche.
+Aucune route de suppression, d'ajout partiel ou d'historique n'est prévue.
+La résolution d'un conflit réutilise GET et PUT conditionnel ; aucune écriture forcée.
+Le service exige la révision attendue et SQLite la compare sous son verrou de
+transaction immédiate, y compris à la création. Une lecture HTTP préalable seule
+ne constitue pas une protection.
 
 #### Tags et associations
 
