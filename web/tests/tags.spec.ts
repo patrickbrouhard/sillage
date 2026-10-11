@@ -74,7 +74,7 @@ test('classe deux vidéos via Go/SQLite et conserve les associations partagées'
   await expect(page).toHaveURL(`/videos/${ids[0]}`)
   await openEditor(page)
   await page.getByRole('button', { name: `Retirer le tag ${name} de cette vidéo` }).click()
-  await expect(page.getByRole('status')).toContainText('Tag retiré')
+  await expect(page.getByRole('dialog').getByRole('status')).toContainText('Tag retiré')
   await page.getByRole('button', { name: 'Fermer', exact: true }).click()
   await page.getByRole('link', { name: /Revenir à la bibliothèque/ }).click()
   await expect(page.locator('.video-card')).toHaveCount(1)

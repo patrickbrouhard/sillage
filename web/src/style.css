@@ -126,3 +126,8 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 @media (max-width: 600px) {
   .tag-dialog { padding: 18px; }
 }
+
+.video-note { margin: 2rem 0; }
+.markdown-editor { border: 1px solid var(--border, #bbb); border-radius: .5rem; margin: 1rem 0; background: white; color: #222; }
+.markdown-editor .cm-content { min-height: 16rem; padding: 1rem; }
+.markdown-editor .cm-focused { outline: 2px solid #36665b; }

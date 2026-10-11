@@ -129,7 +129,7 @@ printf '%s' '{"events":[{"tStartMs":2960,"segs":[{"utf8":"This"},{"tOffsetMs":12
 	service := transcript.NewService(videos, repo, ytdlp.Client{Binary: binary}, snapshots)
 	notes := note.NewService(sqlite.NewNoteRepository(db))
 	tags := video.NewTagService(sqlite.NewTagRepository(db))
-	savedNote, err := notes.Save(ctx, v.ID, "  Notes personnelles\r\n")
+	savedNote, err := notes.Save(ctx, v.ID, "  Notes personnelles\r\n", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
