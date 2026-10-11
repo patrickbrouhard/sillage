@@ -3,7 +3,7 @@
 **Sillage** est une base de connaissances personnelle centrée sur la vidéo.
 L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
 
-> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. La bibliothèque Web, l'ajout avec détection des doublons, les fiches vidéo et le classement par tags sont fonctionnels. Les jalons 1 à 3 de 5.1 sont validés ; le jalon 4 — distribution Docker et consolidation — est implémenté et attend sa validation manuelle.
+> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. La bibliothèque Web, l'ajout avec détection des doublons, les fiches vidéo et le classement par tags sont fonctionnels. L'étape 5.1 est terminée et validée manuellement et en CI, avec une distribution Docker opérationnelle.
 
 ## Vision
 
@@ -482,7 +482,10 @@ puis ferme SQLite.
 
 ### Distribution Docker — Linux AMD64
 
-Le jalon 4 est implémenté ; sa validation manuelle reste à effectuer avant merge.
+Le jalon 4 et l'ensemble de l'étape 5.1 sont terminés et validés manuellement
+et en CI. Docker Compose a été validé sous WSL2, y compris l'import YouTube réel,
+les doublons, les tags, les accès directs et la persistance après recréation.
+Les données Docker sont conservées séparément de celles du développement local.
 Docker Engine avec Compose v2, ou Docker Desktop intégré à WSL2, suffit :
 Go, Node, Python, yt-dlp et ffmpeg n'ont pas à être installés sur l'hôte.
 Exécuter les commandes depuis la racine du dépôt sous Linux/WSL. Sous WSL,
@@ -507,8 +510,36 @@ doivent appartenir à cet utilisateur ou lui donner les droits nécessaires.
 Sur un serveur, préparer ces droits une seule fois avec l'administrateur.
 Ne pas utiliser UID 0 ni rendre les données accessibles à tous pour contourner
 une erreur de permissions. Les mêmes variables doivent être conservées pour
-les commandes suivantes ; on peut les placer dans un fichier `.env` local
-non versionné, avec des valeurs absolues et numériques.
+les commandes suivantes. On peut aussi placer la configuration dans
+`deployments/docker/.env`, à côté de `compose.yaml`. Ce fichier local est déjà
+ignoré par Git. Exemple à adapter au répertoire et aux UID/GID de l'utilisateur :
+
+```dotenv
+SILLAGE_DATA_DIR=/home/patrick/.local/share/sillage
+SILLAGE_UID=1000
+SILLAGE_GID=1000
+SILLAGE_PORT=8080
+```
+
+`SILLAGE_DATA_DIR` est obligatoire et doit contenir un chemin absolu vers le
+répertoire préparé. Les trois autres variables sont facultatives : UID et GID
+valent chacun `1000` par défaut, et le port hôte vaut `8080`. Utiliser `id -u`
+et `id -g` pour connaître les valeurs adaptées à l'hôte ; le fichier contient
+leurs valeurs numériques, pas des commandes shell.
+
+Depuis la racine du dépôt, vérifier la configuration effective avant le lancement :
+
+```bash
+docker compose -f deployments/docker/compose.yaml config
+```
+
+Les variables déjà exportées dans le terminal sont prioritaires sur le `.env`.
+Un `.env` présent dans le répertoire courant peut également prendre priorité
+sur celui du Compose ; pour choisir explicitement le fichier, ajouter
+`--env-file deployments/docker/.env` à la commande `docker compose`.
+Le chargement par Compose ne définit pas les variables du shell : pour les
+commandes `mkdir`, `chmod` et `tar` de ce guide, exporter aussi
+`SILLAGE_DATA_DIR` ou utiliser directement le même chemin absolu.
 
 Ouvrir <http://127.0.0.1:8080> (ou le port choisi). L'API est accessible sous
 `/api/v1`. Le serveur écoute sur `0.0.0.0:8080` dans le conteneur, mais Compose
@@ -605,13 +636,13 @@ permissions, publication localhost, SQLite, tags, fichier persistant, recréatio
 et arrêt propre. Il utilise exclusivement un répertoire temporaire, supprimé
 après retrait des conteneurs de test. La CI Docker exécute ce parcours depuis
 un checkout propre, indépendamment de Go/Postman/Playwright. L'acquisition
-YouTube réelle reste une vérification manuelle.
+YouTube réelle a été validée manuellement sous WSL2 ; elle reste exclue de la CI.
 
 ### Interface Web — étape 5.1, jalons 1 à 3
 
 Les jalons 1, 2 et 3 sont terminés, testés automatiquement et validés manuellement.
-La CI GitHub Actions de ces jalons est réussie. Le jalon 4 — distribution Docker
-et consolidation — est implémenté et attend sa validation manuelle.
+Le jalon 4 — distribution Docker et consolidation — est également validé.
+Les trois jobs GitHub Actions Go/Postman, Web/Playwright et Docker ont réussi.
 
 Disponible : bibliothèque connectée à REST, ajout YouTube, détection des
 doublons et fiches vidéo. Les cartes ouvrent `/videos/{id}` avec l'ID interne
@@ -1114,7 +1145,7 @@ L'étape Web est découpée en jalons validables :
 
 - **5.1 — bibliothèque utilisable et distribuable** : liste, ajout et détail,
   tags vidéo et filtre unique, navigation, build servi par Go ; distribution
-  Docker et consolidation implémentés au jalon 4, en attente de validation manuelle ;
+  Docker et consolidation terminés ; les quatre jalons sont testés et validés ;
 - **5.2 — éditeur Markdown et sauvegarde fiable** : protection contre les
   écrasements concurrents ; politique d'autosauvegarde encore ouverte ;
 - **5.3 — lecteur et transcription** : consultation avec la note comme zone
@@ -1176,8 +1207,9 @@ IA intégrée
   par tag dans l'URL, descriptions des sources repliables.
 
 Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une CI
-GitHub Actions réussie. Le jalon 4 est implémenté et testé localement ; la
-validation manuelle Docker reste nécessaire pour clôturer l'étape 5.1.
+GitHub Actions réussie. Le jalon 4 est lui aussi terminé et validé manuellement
+et en CI : l'étape 5.1 est clôturée. L'étape suivante est 5.2, consacrée à
+l'éditeur Markdown et à la sauvegarde fiable.
 
 ### API HTTP réalisée
 
