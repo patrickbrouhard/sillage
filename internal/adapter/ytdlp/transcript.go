@@ -21,7 +21,7 @@ import (
 
 const maxTranscriptBytes = 16 << 20
 
-// Fetch découvre une piste originale unique, télécharge son JSON3 et valide tout le contenu.
+// Fetch sélectionne une piste automatique marquée -orig, télécharge son JSON3 et valide le contenu.
 func (c Client) Fetch(ctx context.Context, source video.VideoSource) (transcript.Acquisition, error) {
 	if source.Provider != "youtube" || source.ExternalID == "" {
 		return transcript.Acquisition{}, transcript.ErrNotAvailable
@@ -114,6 +114,14 @@ func selectOriginal(raw metadata, knownLanguage string) (string, string, error) 
 	// originales peuvent employer un autre code que les métadonnées audio.
 	if language, ok := candidates[knownLanguage+"-orig"]; knownLanguage != "" && ok {
 		return knownLanguage + "-orig", language, nil
+	}
+	// Ne retirer qu'une région simple, jamais une écriture ou une étiquette
+	// complexe. La recherche porte sur les candidats déjà filtrés.
+	if regional := simpleRegionalLanguage.FindStringSubmatch(knownLanguage); regional != nil {
+		track := regional[1] + "-orig"
+		if language, ok := candidates[track]; ok {
+			return track, language, nil
+		}
 	}
 	if len(candidates) == 0 {
 		return "", "", transcript.ErrNotAvailable

@@ -88,7 +88,7 @@ export function VideoTranscript({ videoID, sourceID }: { videoID: number; source
     {message && <p role={failed ? 'alert' : 'status'}>{message}</p>}
     {content === null && !busy && !message && <p>Aucune transcription enregistrée localement.</p>}
     {content && <>
-      <p className="muted">Automatique originale · {content.language} · Acquisition du{' '}
+      <p className="muted">Transcription automatique · {content.language} · Acquisition du{' '}
         <time dateTime={content.last_fetched_at}>{new Date(content.last_fetched_at).toLocaleString('fr-FR')}</time>
       </p>
       <div className="transcript-content" tabIndex={0} aria-label="Texte de la transcription">

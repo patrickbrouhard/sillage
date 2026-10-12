@@ -408,6 +408,10 @@ cliquables ; recherche, synchronisation, citations et insertion du temps attende
 
 ### 8.3 Stockage et évolutions
 
+La provenance affichée est « Transcription automatique ». La sélection privilégie
+la langue audio originale, mais le marqueur `-orig` peut concerner une piste doublée ;
+le repli sur une piste unique ne garantit donc pas l'audio original.
+
 Toute acquisition réussie conserve actuellement son snapshot source.
 La politique produit durable (archive, cache ou récupération à la demande)
 reste ouverte. Un changement devra aussi préciser le comportement de lecture.

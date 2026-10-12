@@ -288,11 +288,15 @@ originaux par yt-dlp (`language_preference = 10`). Une piste audio simplement
 jamais la langue audio, même inconnue. Les anciennes valeurs restent conservées.
 
 La langue audio enregistrée donne priorité à sa clé `<langue>-orig` admissible.
-Sinon, un seul candidat original proposant JSON3 et une URL HTTPS valide est
+À défaut, une forme simple langue-région (région de deux lettres ou trois chiffres)
+cible sa clé générique ; les étiquettes complexes ne sont pas simplifiées.
+Sinon, un seul candidat `-orig` proposant JSON3 et une URL HTTPS valide est
 accepté, même dans une autre langue. Plusieurs formats d'une clé ne sont pas
 plusieurs pistes. Aucun candidat signifie indisponibilité ; plusieurs candidats
-sans correspondance exacte signifient ambiguïté. La redétection audio ne
-départage pas les pistes. Aucune traduction, caption manuelle ou STT n'est choisi.
+sans correspondance exacte ou régionale signifient ambiguïté. La redétection audio ne
+départage pas les pistes. Aucune traduction de captions n'est demandée ; les captions
+manuelles et le STT restent exclus. Une piste `-orig` peut transcrire un doublage : cette politique
+privilégie l'audio original sans le garantir, notamment lors du repli unique.
 
 JSON3 reste dans l'adapter. Le domaine utilise seulement :
 
@@ -934,7 +938,7 @@ Il n'existe pas de ressource autonome `/api/v1/transcripts`.
 | 404 | `video_source_not_found` | Source absente ou appartenant à une autre vidéo |
 | 404 | `transcript_not_found` | Aucune acquisition pour la politique actuelle |
 | 404 | `transcript_not_available` | Aucune piste originale JSON3 sélectionnable de façon fiable |
-| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte avec la langue audio enregistrée |
+| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte ou régionale avec la langue audio enregistrée |
 | 502 | `transcript_fetch_failed` | Échec distant ou contenu distant inexploitable |
 | 504 | `transcript_fetch_timeout` | Délai applicatif dépassé |
 | 500 | `internal_error` | Erreur locale : exécutable indisponible, SQLite, filesystem, snapshot |

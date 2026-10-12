@@ -43,6 +43,8 @@ def main():
     if external_id.startswith("tr-region"):
         metadata["formats"] = [{"language": "en-US", "language_preference": 10, "acodec": "opus"}]
         metadata["automatic_captions"] = {"en-orig": [{"ext": "json3", "url": "https://example.test/en"}]}
+        # Plusieurs captions, comme pour une vidéo proposant des pistes doublées.
+        metadata["automatic_captions"]["fr-orig"] = [{"ext": "json3", "url": "https://example.test/fr"}]
     if external_id.startswith("tr-ambigu"):
         metadata["automatic_captions"]["en-orig"] = [{"ext": "json3", "url": "https://example.test/en"}]
     print(json.dumps(metadata))

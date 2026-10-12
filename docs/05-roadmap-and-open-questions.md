@@ -256,8 +256,11 @@ VideoSource
 La langue métier (`en`, `pt-BR`) est distincte de la clé yt-dlp (`en-orig`).
 `original_audio_language` est facultative sur la source et provient uniquement
 des signaux audio explicites, jamais des captions. La sélection privilégie la
-clé exacte admissible de la langue enregistrée, puis une unique piste `*-orig`
+clé exacte admissible de la langue enregistrée, puis sa clé générique pour une
+forme simple langue-région (région de deux lettres ou trois chiffres), puis une unique piste `*-orig`
 admissible, même d'une autre langue. Elle distingue absence et ambiguïté.
+Les étiquettes complexes ne sont pas simplifiées. Le marqueur peut concerner un
+audio doublé : la politique privilégie l'audio original, sans garantie absolue.
 
 L'identité est `(video_source_id, language, provenance)`. Une réacquisition
 préserve l'ID et actualise le contenu et la date uniquement après succès.
@@ -462,6 +465,20 @@ après crash brutal reste possible et acceptée. Historique, File Recovery, supp
 fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
 ### 5.3 — Lecteur et transcription
+
+Complément régional implémenté : après filtrage, priorité exacte puis générique
+pour les seules étiquettes simples langue-région, puis repli unique ou erreurs
+existantes. Les doublages limitent la garantie d'originalité ; le libellé affiché
+est désormais « Transcription automatique ». Aucun changement REST, SQLite,
+d'identité ou de mise à jour de la langue audio.
+Validation déterministe : tests Go complets, vet, builds Go/frontend, typage et
+13 tests navigateur de transcription réussis. Les fixtures couvrent plusieurs
+pistes avec audio `en-US`, régions numériques, priorité exacte, candidats non
+admissibles, écritures/étiquettes complexes et erreurs conservées.
+Références pour le prochain essai manuel avant fusion : `G2B0YWuJUgI`
+(régression de l'acquisition déjà validée) et `LLS-D5bKyEE` (plusieurs pistes
+`-orig`, choix attendu `en-orig`, audio conservé `en-US`). Aucune nouvelle
+acquisition réelle n'est revendiquée lors de ce correctif.
 
 Correctif validé après essai manuel : le cas audio `en-US` / caption `en-orig`
 doit être accepté par repli sur une piste originale unique. Les égalités entre

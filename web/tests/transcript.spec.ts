@@ -125,6 +125,7 @@ test('acquiert la piste en-orig pour un audio en-US via Go et SQLite', async ({ 
   await page.getByRole('button', { name: 'Récupérer', exact: true }).click()
   await expect(page.getByLabel('Texte de la transcription')).toContainText('Bonjour le monde.')
   expect((await (await request.get(url)).json()).language).toBe('en')
+  await expect(page.getByText('Transcription automatique · en ·', { exact: false })).toBeVisible()
   await page.reload()
   await expect(page.getByLabel('Texte de la transcription')).toContainText('Bonjour le monde.')
 })

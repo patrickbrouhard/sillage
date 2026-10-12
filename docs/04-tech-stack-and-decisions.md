@@ -546,12 +546,19 @@ laissent la langue audio inconnue, sans interdire l'acquisition d'une caption.
 
 Les captions ne renseignent jamais la langue audio, à l'import comme à
 l'acquisition. La langue audio enregistrée donne priorité à sa clé `*-orig`
-exacte admissible ; à défaut, un unique candidat original admissible en JSON3
+exacte admissible, puis à la clé générique pour une forme simple `langue-région`
+(région de deux lettres ou trois chiffres). Aucune simplification des écritures,
+variantes ou étiquettes complexes. À défaut, un unique candidat `-orig` admissible en JSON3
 est accepté, même dans une autre langue. Plusieurs candidats sans correspondance
-exacte donnent `409 transcript_selection_ambiguous`, aucun candidat donne
+exacte ou régionale donnent `409 transcript_selection_ambiguous`, aucun candidat donne
 `404 transcript_not_available`. La redétection audio ne départage pas les pistes.
 Une future évolution de ces conventions doit être vérifiée par des fixtures
 et un essai manuel. Aucun changement de schéma ni de l'identité des transcriptions.
+
+Le marqueur `-orig` peut aussi désigner des captions d'un audio doublé.
+La politique privilégie donc l'audio original sans en garantir la correspondance,
+notamment lors du repli accepté sur une piste unique d'une autre langue.
+L'interface emploie « Transcription automatique » plutôt que « Automatique originale ».
 
 Référence : [extracteur YouTube de yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube/_video.py),
 notamment `get_language_code_and_preference` et la construction de

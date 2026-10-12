@@ -535,13 +535,20 @@ ne permettent pas de renseigner cette information. Des signaux audio
 contradictoires la laissent inconnue.
 
 La langue audio enregistrée donne priorité à sa clé originale exacte si elle
-est admissible. Sinon, une unique clé `*-orig` admissible est sélectionnée,
+est admissible. À défaut, une langue de forme simple `langue-région` (région
+de deux lettres ou trois chiffres) cible la clé générique : `en-US` → `en-orig`.
+Les écritures, variantes et étiquettes complexes ne sont pas simplifiées.
+Sinon, une unique clé `*-orig` admissible est sélectionnée,
 même si sa langue diffère. Sans candidat, la transcription est indisponible ;
-avec plusieurs candidats sans correspondance exacte, la sélection est ambiguë.
+avec plusieurs candidats sans correspondance exacte ou régionale, la sélection est ambiguë.
 Une clé admissible a une langue exploitable et un format JSON3 avec URL HTTPS
 valide, sans identifiants. Plusieurs formats d'une clé ne sont pas plusieurs
 candidats. La langue redétectée pendant l'acquisition ne départage pas les pistes.
-Aucune sélection de traductions, de sous-titres manuels ou de STT.
+Aucune traduction de captions n'est demandée, ni sous-titre manuel ni STT.
+Cette politique privilégie l'audio original sans le garantir : une piste
+`-orig` peut transcrire un audio doublé. Le repli sur une piste unique reste
+accepté même dans une autre langue. La provenance `youtube_auto` et l'identité
+existante ne constituent pas une preuve de correspondance avec l'audio original.
 
 La langue audio et celle de la transcription décrivent des informations distinctes
 et peuvent diverger. L'acquisition ne modifie jamais la langue audio, même inconnue.

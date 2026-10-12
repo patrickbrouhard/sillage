@@ -256,7 +256,10 @@ langue du contenu, `TranscriptContent`, octets source opaques à conserver.
 L'adapter yt-dlp découvre les formats audio/captions, sélectionne l'original,
 récupère son JSON3 et le parse. Les options CLI et structures JSON3 restent
 dans cet adapter. La langue audio enregistrée donne priorité à sa clé exacte
-admissible ; sinon seule une piste originale admissible unique est acceptée.
+admissible, puis à sa clé générique si l'étiquette est une simple langue-région
+(deux lettres ou trois chiffres pour la région) ; sinon seule une piste
+`-orig` admissible unique est acceptée. Ce marqueur peut concerner un doublage :
+la sélection privilégie l'audio original sans le garantir.
 Les langues audio et transcription peuvent diverger. Ni l'import ni l'acquisition
 ne déduisent la langue audio d'une caption.
 
@@ -455,7 +458,7 @@ Il n'existe pas de ressource autonome `/api/v1/transcripts`.
 | 404 | `video_source_not_found` | Source absente ou appartenant à une autre vidéo |
 | 404 | `transcript_not_found` | Aucune acquisition pour la politique actuelle |
 | 404 | `transcript_not_available` | Aucune piste originale JSON3 sélectionnable de façon fiable |
-| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte avec la langue audio enregistrée |
+| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte ou régionale avec la langue audio enregistrée |
 | 502 | `transcript_fetch_failed` | Échec distant ou contenu distant inexploitable |
 | 504 | `transcript_fetch_timeout` | Délai applicatif dépassé |
 | 500 | `internal_error` | Erreur locale : exécutable indisponible, SQLite, filesystem, snapshot |

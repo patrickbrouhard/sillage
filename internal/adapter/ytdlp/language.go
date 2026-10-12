@@ -4,6 +4,10 @@ import "regexp"
 
 var languageTag = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
 
+// simpleRegionalLanguage exclut écritures, variantes et extensions : seule une
+// région de deux lettres ou trois chiffres peut céder à la langue générique.
+var simpleRegionalLanguage = regexp.MustCompile(`^([A-Za-z]{2,8})-(?:[A-Za-z]{2}|[0-9]{3})$`)
+
 // usableLanguage écarte les marqueurs indéterminés sans tronquer les sous-étiquettes.
 func usableLanguage(language string) bool {
 	return languageTag.MatchString(language) && language != "und" && language != "mul" && language != "zxx"

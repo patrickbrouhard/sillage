@@ -8,6 +8,48 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 )
 
+func TestRegionalSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name, audio, want string
+		tracks            []string
+		invalidGeneric    bool
+		failure           error
+	}{
+		{"exact before generic", "en-US", "en-US", []string{"en", "en-US", "fr"}, false, nil},
+		{"alphabetic region", "pt-BR", "pt", []string{"pt", "fr"}, false, nil},
+		{"numeric region", "es-419", "es", []string{"es", "fr"}, false, nil},
+		{"generic unavailable", "en-US", "", []string{"fr", "de"}, false, transcript.ErrSelectionAmbiguous},
+		{"generic invalid", "en-US", "", []string{"en", "fr", "de"}, true, transcript.ErrSelectionAmbiguous},
+		{"invalid generic leaves unique", "en-US", "fr", []string{"en", "fr"}, true, nil},
+		{"script excluded", "zh-Hant", "", []string{"zh", "fr"}, false, transcript.ErrSelectionAmbiguous},
+		{"script region excluded", "zh-Hant-TW", "", []string{"zh", "zh-Hant"}, false, transcript.ErrSelectionAmbiguous},
+		{"variant excluded", "en-US-posix", "", []string{"en", "fr"}, false, transcript.ErrSelectionAmbiguous},
+		{"extension excluded", "en-US-u-ca-gregory", "", []string{"en", "fr"}, false, transcript.ErrSelectionAmbiguous},
+		{"complex exact retained", "zh-Hant-TW", "zh-Hant-TW", []string{"zh", "zh-Hant-TW"}, false, nil},
+		{"complex unique retained", "zh-Hant-TW", "fr", []string{"fr"}, false, nil},
+		{"different region not matched", "en-US", "", []string{"en-GB", "fr"}, false, transcript.ErrSelectionAmbiguous},
+		{"no candidate", "en-US", "", nil, false, transcript.ErrNotAvailable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := metadata{AutomaticCaptions: make(map[string][]captionFormat)}
+			for _, language := range tc.tracks {
+				format := captionFormat{Extension: "json3", URL: "https://example.test/caption"}
+				if tc.invalidGeneric && language == "en" {
+					format.URL = "http://example.test/caption"
+				}
+				raw.AutomaticCaptions[language+"-orig"] = []captionFormat{format}
+			}
+			track, language, err := selectOriginal(raw, tc.audio)
+			if !errors.Is(err, tc.failure) {
+				t.Fatalf("error %v, want %v", err, tc.failure)
+			}
+			if tc.failure == nil && (language != tc.want || track != tc.want+"-orig") {
+				t.Fatalf("%s %s", track, language)
+			}
+		})
+	}
+}
+
 func TestOriginalLanguageAndSelection(t *testing.T) {
 	const en = `"en-orig":[{"ext":"vtt","url":"https://example.test/vtt"},{"ext":"json3","url":"https://example.test/en"},{"ext":"json3","url":"https://example.test/en2"}]`
 	const fr = `"fr-orig":[{"ext":"json3","url":"https://example.test/fr"}]`
@@ -22,7 +64,7 @@ func TestOriginalLanguageAndSelection(t *testing.T) {
 		{"known mismatch", `"automatic_captions":{` + fr + `}`, "en", "fr", ""},
 		{"regional", `"automatic_captions":{"pt-BR-orig":[{"ext":"json3","url":"https://example.test/br"}]}`, "", "pt-BR", ""},
 		{"regional fallback", `"automatic_captions":{` + en + `}`, "en-US", "en", ""},
-		{"regional ambiguity", `"automatic_captions":{` + en + "," + fr + `}`, "en-US", "", ""},
+		{"regional disambiguates", `"automatic_captions":{` + en + "," + fr + `}`, "en-US", "en", ""},
 		{"fresh mismatch", `"formats":[{"language":"de","language_preference":10,"acodec":"opus"}],"automatic_captions":{` + en + "," + fr + `}`, "en", "en", "de"},
 		{"inadmissible exact", `"automatic_captions":{"fr-orig":[{"ext":"vtt","url":"https://example.test/fr"}],` + en + `}`, "fr", "en", ""},
 		{"unsafe URLs", `"automatic_captions":{"en-orig":[{"ext":"json3","url":"http://example.test/en"},{"ext":"json3","url":"https://user:pass@example.test/en"},{"ext":"json3","url":"https:///en"}]}`, "", "", ""},
@@ -46,7 +88,7 @@ func TestOriginalLanguageAndSelection(t *testing.T) {
 			if tc.want == "" {
 				wantError := transcript.ErrNotAvailable
 				switch tc.name {
-				case "ambiguous", "fresh audio does not disambiguate", "default is not original", "video language ignored", "regional ambiguity":
+				case "ambiguous", "fresh audio does not disambiguate", "default is not original", "video language ignored":
 					wantError = transcript.ErrSelectionAmbiguous
 				}
 				if !errors.Is(err, wantError) {
