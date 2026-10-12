@@ -1,11 +1,12 @@
 package ytdlp
 
-import (
-	"regexp"
-	"strings"
-)
+import "regexp"
 
 var languageTag = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
+
+// simpleRegionalLanguage exclut écritures, variantes et extensions : seule une
+// région de deux lettres ou trois chiffres peut céder à la langue générique.
+var simpleRegionalLanguage = regexp.MustCompile(`^([A-Za-z]{2,8})-(?:[A-Za-z]{2}|[0-9]{3})$`)
 
 // usableLanguage écarte les marqueurs indéterminés sans tronquer les sous-étiquettes.
 func usableLanguage(language string) bool {
@@ -25,7 +26,7 @@ type captionFormat struct {
 
 // originalLanguage utilise le signal original de yt-dlp (10), jamais default (5).
 // Voir yt_dlp/extractor/youtube/_video.py, get_language_code_and_preference.
-// À défaut de signal audio explicite, une seule clé -orig constitue un indice fiable.
+// Les captions ne permettent jamais d'inférer la langue audio.
 func (m metadata) originalLanguage() (string, bool) {
 	languages := make(map[string]bool)
 	for _, format := range m.Formats {
@@ -38,17 +39,6 @@ func (m metadata) originalLanguage() (string, bool) {
 	}
 	for language := range languages {
 		return language, false
-	}
-	for track, formats := range m.AutomaticCaptions {
-		language, ok := strings.CutSuffix(track, "-orig")
-		if ok && usableLanguage(language) && len(formats) > 0 {
-			languages[language] = true
-		}
-	}
-	if len(languages) == 1 {
-		for language := range languages {
-			return language, false
-		}
 	}
 	return "", false
 }

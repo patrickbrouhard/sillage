@@ -53,7 +53,7 @@ func TestTranscriptPersistenceRefreshAndNullablePath(t *testing.T) {
 		t.Fatalf("%#v %v", got, err)
 	}
 	v, err = NewVideoRepository(db).Get(ctx, v.ID)
-	if err != nil || v.Sources[0].OriginalAudioLanguage != "pt-BR" {
+	if err != nil || v.Sources[0].OriginalAudioLanguage != "" {
 		t.Fatalf("%#v %v", v, err)
 	}
 	var count int
@@ -101,7 +101,7 @@ func TestTranscriptConstraintsAndSelection(t *testing.T) {
 	}
 }
 
-func TestTranscriptSaveRollsBackSourceLanguage(t *testing.T) {
+func TestFailedTranscriptSavePreservesUnknownAudioLanguage(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t, filepath.Join(t.TempDir(), "rollback.db"))
 	v, err := NewVideoRepository(db).Create(ctx, sampleVideo("rollback"))

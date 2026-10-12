@@ -68,6 +68,17 @@ la bibliothèque par un seul tag. Les descriptions des sources sont repliables.
 La fiche intègre désormais l'édition Markdown, le mode Lecture GFM et une
 sauvegarde protégée contre les écrasements concurrents.
 
+La tranche 5.3 réunit désormais note, lecteur YouTube et transcription dans un
+workspace responsive. Le lecteur se masque avec pause, sans reprise automatique ;
+la transcription locale se consulte indépendamment, se récupère ou s'actualise
+explicitement, et se regroupe par intervalles de 5, 10, 15 ou 30 secondes.
+Les métadonnées complètes restent accessibles dans une section repliable.
+La tranche est terminée, vérifiée automatiquement et prête à fusionner après
+les retours manuels positifs de l'utilisateur, y compris sur les correctifs
+d'acquisition et de présentation. Le thème Clair / Sombre / Système utilise une
+palette bleu nuit et une préférence locale au navigateur. Les timestamps cliquables,
+citations et synchronisation sont réservés à l'étape 6.
+
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
 et leurs liens directs aux vidéos ou leurs publishers de référence. Le catalogue
@@ -274,16 +285,20 @@ La provenance de cette tranche est `youtube_auto`.
 
 `VideoSource.original_audio_language` est facultative et n'est pas exposée
 dans le JSON vidéo. L'adapter utilise les formats audio explicitement marqués
-originaux par yt-dlp (`language_preference = 10`), puis à défaut une unique
-clé de caption `*-orig`. Une piste audio simplement « default » ne suffit pas.
-L'acquisition peut renseigner une langue jusque-là inconnue, atomiquement avec
-la transcription ; elle ne rafraîchit pas les autres métadonnées vidéo.
+originaux par yt-dlp (`language_preference = 10`). Une piste audio simplement
+« default » ou une caption `*-orig` ne suffit pas. L'acquisition ne modifie
+jamais la langue audio, même inconnue. Les anciennes valeurs restent conservées.
 
-La langue connue cible sa clé `<langue>-orig`. Sinon, un seul candidat
-original proposant JSON3 est accepté. Plusieurs formats d'une même clé ne sont
-pas plusieurs pistes. Une contradiction avec la langue connue ou plusieurs
-signaux audio originaux contradictoires font échouer la sélection.
-Aucun fallback vers une autre langue, une caption manuelle ou du STT.
+La langue audio enregistrée donne priorité à sa clé `<langue>-orig` admissible.
+À défaut, une forme simple langue-région (région de deux lettres ou trois chiffres)
+cible sa clé générique ; les étiquettes complexes ne sont pas simplifiées.
+Sinon, un seul candidat `-orig` proposant JSON3 et une URL HTTPS valide est
+accepté, même dans une autre langue. Plusieurs formats d'une clé ne sont pas
+plusieurs pistes. Aucun candidat signifie indisponibilité ; plusieurs candidats
+sans correspondance exacte ou régionale signifient ambiguïté. La redétection audio ne
+départage pas les pistes. Aucune traduction de captions n'est demandée ; les captions
+manuelles et le STT restent exclus. Une piste `-orig` peut transcrire un doublage : cette politique
+privilégie l'audio original sans le garantir, notamment lors du repli unique.
 
 JSON3 reste dans l'adapter. Le domaine utilise seulement :
 
@@ -925,6 +940,7 @@ Il n'existe pas de ressource autonome `/api/v1/transcripts`.
 | 404 | `video_source_not_found` | Source absente ou appartenant à une autre vidéo |
 | 404 | `transcript_not_found` | Aucune acquisition pour la politique actuelle |
 | 404 | `transcript_not_available` | Aucune piste originale JSON3 sélectionnable de façon fiable |
+| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte ou régionale avec la langue audio enregistrée |
 | 502 | `transcript_fetch_failed` | Échec distant ou contenu distant inexploitable |
 | 504 | `transcript_fetch_timeout` | Délai applicatif dépassé |
 | 500 | `internal_error` | Erreur locale : exécutable indisponible, SQLite, filesystem, snapshot |
@@ -1195,8 +1211,9 @@ L'étape Web est découpée en jalons validables :
 - **5.2 — éditeur Markdown et sauvegarde fiable** : implémenté et testé localement,
   périmètre fonctionnel validé manuellement ; édition/lecture GFM,
   autosauvegarde 2 s/20 s, conflits et navigation protégée ;
-- **5.3 — lecteur et transcription** : consultation avec la note comme zone
-  principale et la transcription indépendante de la visibilité du lecteur ;
+- **5.3 — lecteur et transcription** : terminée, testée localement et prête à
+  fusionner après retours manuels positifs ; note principale, transcription
+  indépendante du lecteur, paragraphes fluides et thèmes clair/sombre/système ;
 - **6 — interactions temporelles** : références avec début et fin facultative,
   citations et rendu enrichi ; syntaxe candidate `sillage://` à expérimenter.
 
@@ -1257,7 +1274,10 @@ Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une
 GitHub Actions réussie. Le jalon 4 est lui aussi terminé et validé manuellement
 et en CI : l'étape 5.1 est clôturée. L'étape 5.2 est implémentée et vérifiée
 localement, et son périmètre fonctionnel est validé manuellement. L'étape 5.3
-(lecteur et transcription) n'est pas commencée.
+(lecteur et transcription) est terminée et prête à fusionner, avec retours manuels
+positifs de l'utilisateur. La vérification finale locale comprend 80 tests navigateur,
+les tests Go, vet, build Go et typage ; aucune nouvelle exécution de CI distante
+n'est revendiquée pour cette branche.
 
 ### API HTTP réalisée
 

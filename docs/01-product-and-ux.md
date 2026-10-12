@@ -6,6 +6,23 @@ Ce document décrit l'expérience utilisateur visée.
 
 Il ne définit pas le schéma de données ni l'architecture logicielle. Les concepts métier nécessaires à cette UX sont détaillés dans `02-domain-model.md`.
 
+### Confort d'affichage
+
+Un sélecteur dans l'en-tête propose Clair, Sombre et Système (par défaut).
+Système suit les changements du système d'exploitation. Le choix est mémorisé
+localement dans ce navigateur ; si le stockage est indisponible, le changement
+reste utilisable pour la page courante. Cette seule préférence d'affichage fait
+exception au report des préférences persistantes : aucun compte ni stockage serveur.
+Les panneaux, formulaires, dialogues, états de focus, l'éditeur et la lecture
+Markdown suivent le thème sans remonter la session de note. Le contenu intégré
+par YouTube conserve son apparence propre.
+
+La réalisation utilise des variables CSS et les contrôles natifs, sans refonte
+graphique ni ajout d'un framework CSS.
+La palette de confort est bleue : fonds bleu nuit en mode sombre, fonds clairs
+bleutés en mode clair, avec icône d'en-tête, accents et sélections assortis.
+Les erreurs gardent une couleur chaude distincte. Cette palette reste révisable.
+
 ## 2. Vue d'ensemble du workflow
 
 Le workflow principal est :
@@ -122,9 +139,19 @@ quand le lecteur n'est pas visible. Le travail sans affichage vidéo doit rester
 possible, notamment pour les contenus principalement audio. Masquer le lecteur
 ne doit pas interrompre l'édition de la note.
 
-La disposition finale, les tailles et les interactions entre panneaux restent
-à éprouver. En 5.1, la fiche montre seulement les informations disponibles ;
-elle ne préfigure pas un système avancé de panneaux.
+Pour 5.3, le desktop présente la note à gauche et le lecteur au-dessus de la
+transcription à droite. La hauteur du workspace est adaptée à l'espace disponible ;
+note et transcription défilent indépendamment. Masquer le lecteur libère la place
+pour la transcription. Sur écran étroit, la page défile normalement dans l'ordre
+lecteur, note, transcription. Le responsive et les interactions des autres panneaux
+ne démontent jamais la session de note. Les métadonnées complètes restent dans une
+section secondaire repliable. Aucun panneau redimensionnable ou détachable ici.
+
+La première source YouTube exploitable dans l'ordre REST est la source de travail
+commune : identité externe pour le lecteur, ID Sillage pour la transcription.
+Elle est identifiée dans l'interface. Ce choix de présentation ne persiste aucune
+source principale et ne nécessite pas de sélecteur. Sans source compatible, note
+et métadonnées restent accessibles.
 
 ### 5.2 Comptes de publication et personnes
 
@@ -295,7 +322,8 @@ La relation exacte entre notes et annotations reste volontairement ouverte tant 
 
 ## 7. Lecture et synchronisation temporelle
 
-Le lecteur est une partie active de l'application.
+Le lecteur est une partie active de l'application. Les interactions temporelles
+avec la note et la transcription ci-dessous sont réservées à l'étape 6.
 
 Il doit pouvoir fournir au reste de l'UI :
 
@@ -309,6 +337,17 @@ Deux modes sont envisagés :
 ### 7.1 Source distante
 
 La vidéo est lue directement depuis sa source, par exemple via le lecteur YouTube.
+
+En 5.3, l'IFrame Player API YouTube est intégrée directement, avec ses commandes
+natives, sans bibliothèque supplémentaire ni abstraction multi-provider.
+L'ouverture et la réapparition du lecteur ne déclenchent aucune lecture automatique.
+Masquer le lecteur YouTube interrompt la lecture et laisse un bandeau « Lecteur »
+avec une action de réaffichage. La position est conservée lors d'un masquage
+ordinaire dans la même fiche, sans garantie après erreur, recharge ou navigation.
+Ce comportement est propre à YouTube ; un futur lecteur local pourra garder l'audio.
+Chargement, échec d'initialisation, vidéo inaccessible et intégration interdite
+restent propres au panneau. Le lien externe reste accessible lorsqu'il est valide.
+Les dimensions et la visibilité respectent les exigences du lecteur YouTube.
 
 ### 7.2 Média local
 
@@ -339,7 +378,39 @@ brut est dérivé en mémoire ; il n'est pas persisté séparément.
 La recherche autour d'un timestamp et la synchronisation avancée du lecteur
 ne sont pas implémentées dans cette tranche.
 
+En 5.3, l'ouverture effectue uniquement le GET local. L'absence propose « Récupérer » ;
+un contenu disponible propose « Actualiser ». Seule une action explicite lance le
+POST sans corps. Le contenu reste affiché pendant l'opération et après son échec.
+L'état du contenu et celui de l'opération sont distincts : chargement initial,
+absence locale, disponibilité, acquisition, aucune piste originale sélectionnable,
+échec distant, délai dépassé, erreur interne ou de lecture locale. Une erreur locale
+ne prouve pas une corruption. Une piste non sélectionnable ne prouve pas l'absence
+de tous sous-titres. Après résultat POST incertain, une relecture locale peut
+retrouver le contenu publié ; aucun POST n'est relancé automatiquement.
+
+Les fragments sont regroupés en présentation par intervalles fixes ancrés sur zéro,
+de 10 secondes par défaut, réglables à 5, 10, 15 ou 30 secondes sans persistance.
+Chaque fragment est affecté selon start_ms, sans découpe ; seuls les fragments
+consécutifs du même intervalle sont réunis. L'ordre source reste prioritaire, même
+en cas de retour temporel : un intervalle peut donc produire plusieurs blocs.
+Les textes sont concaténés exactement, sans espace ajouté. Le timestamp est celui
+du premier fragment réel du bloc. Aucun bloc visuellement vide ni intervalle sans
+texte n'est affiché ; les blancs isolés restent des séparateurs du texte voisin.
+Chaque bloc est affiché comme un paragraphe fluide : les espaces et retours à la
+ligne sont normalisés visuellement par le navigateur, qui adapte les lignes à
+la largeur disponible sur desktop et mobile. Les coupures des sous-titres ne
+sont pas reproduites. Les chaînes regroupées, les fragments REST et les données
+sources conservent leurs espaces exacts ; aucun espace n'est ajouté entre deux
+fragments d'un même mot. Les groupes restent séparés avec leur timestamp.
+Les frontières peuvent couper une phrase ou un mot. Aucun traitement linguistique,
+changement de modèle ou de persistance n'est introduit. Les timestamps ne sont pas
+cliquables ; recherche, synchronisation, citations et insertion du temps attendent 6.
+
 ### 8.3 Stockage et évolutions
+
+La provenance affichée est « Transcription automatique ». La sélection privilégie
+la langue audio originale, mais le marqueur `-orig` peut concerner une piste doublée ;
+le repli sur une piste unique ne garantit donc pas l'audio original.
 
 Toute acquisition réussie conserve actuellement son snapshot source.
 La politique produit durable (archive, cache ou récupération à la demande)

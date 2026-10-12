@@ -30,7 +30,7 @@ type Provider interface {
 
 // Repository conserve une identité stable et sélectionne la dernière acquisition réussie.
 type Repository interface {
-	// Save actualise atomiquement la transcription et renseigne la langue audio encore inconnue.
+	// Save actualise atomiquement la transcription sans modifier la langue audio.
 	Save(context.Context, Transcript) (Transcript, error)
 	// Latest départage les dates égales par ID décroissant pour la politique youtube_auto.
 	Latest(context.Context, video.VideoSourceID) (Transcript, error)
@@ -72,9 +72,6 @@ func (s *Service) Fetch(ctx context.Context, videoID video.VideoID, sourceID vid
 	}
 	if strings.TrimSpace(acquired.Language) == "" || acquired.Content.PlainText() == "" || len(acquired.Source) == 0 {
 		return Result{}, ErrFetchFailed
-	}
-	if source.OriginalAudioLanguage != "" && source.OriginalAudioLanguage != acquired.Language {
-		return Result{}, ErrNotAvailable
 	}
 	if err := ctx.Err(); err != nil {
 		return Result{}, err

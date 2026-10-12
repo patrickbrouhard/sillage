@@ -3,6 +3,7 @@ import { Link, Route, Routes, useLocation } from 'react-router'
 import { Library } from './Library'
 import { AddVideo } from './AddVideo'
 import { VideoPage } from './VideoPage'
+import { ThemeSelector } from './ThemeSelector'
 
 /** Assemble les pages sans déplacer l'état des acquisitions dans un store global. */
 export function App() {
@@ -23,6 +24,7 @@ export function App() {
           <span className="brand-mark" aria-hidden="true">≈</span>Sillage
         </Link>
         <span className="header-caption">Une trace de ce qui compte.</span>
+        <ThemeSelector />
       </header>
       <main id="main" ref={main} tabIndex={-1}>
         <Routes>

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 
 for (const [name, original] of [
   ['LF', '# titre\n\ntexte  \n'],

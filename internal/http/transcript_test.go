@@ -45,6 +45,7 @@ func TestTranscriptHTTPValidationAndErrors(t *testing.T) {
 		{video.ErrVideoSourceNotFound, 404, "video_source_not_found"},
 		{transcript.ErrNotFound, 404, "transcript_not_found"},
 		{transcript.ErrNotAvailable, 404, "transcript_not_available"},
+		{transcript.ErrSelectionAmbiguous, 409, "transcript_selection_ambiguous"},
 		{transcript.ErrFetchFailed, 502, "transcript_fetch_failed"},
 		{context.DeadlineExceeded, 504, "transcript_fetch_timeout"},
 		{os.ErrNotExist, 500, "internal_error"},

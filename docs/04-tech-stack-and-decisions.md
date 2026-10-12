@@ -542,13 +542,23 @@ Dans la sortie structurée YouTube de yt-dlp, les formats audio marqués
 `language_preference = 10` identifient l'original ; la valeur `5` désigne
 seulement le défaut et n'est pas utilisée comme preuve. Plusieurs formats
 de même langue sont regroupés. Des signaux audio originaux contradictoires
-ne permettent pas l'acquisition.
+laissent la langue audio inconnue, sans interdire l'acquisition d'une caption.
 
-À défaut de signal audio explicite, une seule clé `*-orig` peut renseigner
-la langue. Une langue connue cible sa clé ; sinon un unique candidat original
-admissible en JSON3 est accepté. Une contradiction avec une langue connue
-est refusée. Une future évolution de ces conventions doit être vérifiée par
-des fixtures et un essai manuel.
+Les captions ne renseignent jamais la langue audio, à l'import comme à
+l'acquisition. La langue audio enregistrée donne priorité à sa clé `*-orig`
+exacte admissible, puis à la clé générique pour une forme simple `langue-région`
+(région de deux lettres ou trois chiffres). Aucune simplification des écritures,
+variantes ou étiquettes complexes. À défaut, un unique candidat `-orig` admissible en JSON3
+est accepté, même dans une autre langue. Plusieurs candidats sans correspondance
+exacte ou régionale donnent `409 transcript_selection_ambiguous`, aucun candidat donne
+`404 transcript_not_available`. La redétection audio ne départage pas les pistes.
+Une future évolution de ces conventions doit être vérifiée par des fixtures
+et un essai manuel. Aucun changement de schéma ni de l'identité des transcriptions.
+
+Le marqueur `-orig` peut aussi désigner des captions d'un audio doublé.
+La politique privilégie donc l'audio original sans en garantir la correspondance,
+notamment lors du repli accepté sur une piste unique d'une autre langue.
+L'interface emploie « Transcription automatique » plutôt que « Automatique originale ».
 
 Référence : [extracteur YouTube de yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube/_video.py),
 notamment `get_language_code_and_preference` et la construction de
@@ -688,6 +698,8 @@ L'architecture doit éviter de dépendre directement d'OpenAI, Ollama ou d'un au
 - aucun SSR ni serveur Node.js permanent, accès local par défaut sans auth ;
 - note Markdown principale et stable, transcription indépendante du lecteur ;
 - lecteur flexible, masquable puis potentiellement redimensionnable/détachable ;
+- en 5.3 : IFrame Player API YouTube directe, pause avant masquage, source commune
+  lecteur/transcription et regroupement temporel de présentation sans changement REST ;
 - stockage Markdown brut, extensions internes autorisées ;
 - références temporelles avec début obligatoire et fin facultative, provenance
   conservée lorsque nécessaire ; insertion rapide et citation partagent la notion ;
@@ -847,7 +859,7 @@ La suppression explicite d'une note reste une évolution UX envisagée, hors de 
 - logging structuré, niveaux et politique de journalisation.
 - politique de conservation/cache des transcriptions ;
 - stockage configurable des snapshots de transcription ;
-- éventuelle sélection explicite d'autres pistes (aucun fallback actuel) ;
+- éventuelle sélection manuelle de pistes, au-delà de la sélection automatique originale actuelle ;
 - éventuel besoin de persister un identifiant de piste provider distinct de la langue.
 
 ## Jalon 3 Web — décisions d'intégration
@@ -920,4 +932,5 @@ le périmètre fonctionnel est également validé manuellement. Les résultats C
 du dernier commit sont consultables dans GitHub Actions.
 
 Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
-ou mécanisme générique documentaire. Les questions des étapes 5.3 et 6 restent ouvertes.
+ou mécanisme générique documentaire. Le cadrage 5.3 est désormais implémenté
+(voir Product & UX et Architecture) ; les interactions temporelles de 6 restent futures.

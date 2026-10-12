@@ -254,8 +254,13 @@ VideoSource
 ```
 
 La langue métier (`en`, `pt-BR`) est distincte de la clé yt-dlp (`en-orig`).
-`original_audio_language` est facultative sur la source. La sélection refuse
-les ambiguïtés et n'introduit aucun fallback.
+`original_audio_language` est facultative sur la source et provient uniquement
+des signaux audio explicites, jamais des captions. La sélection privilégie la
+clé exacte admissible de la langue enregistrée, puis sa clé générique pour une
+forme simple langue-région (région de deux lettres ou trois chiffres), puis une unique piste `*-orig`
+admissible, même d'une autre langue. Elle distingue absence et ambiguïté.
+Les étiquettes complexes ne sont pas simplifiées. Le marqueur peut concerner un
+audio doublé : la politique privilégie l'audio original, sans garantie absolue.
 
 L'identité est `(video_source_id, language, provenance)`. Une réacquisition
 préserve l'ID et actualise le contenu et la date uniquement après succès.
@@ -461,11 +466,92 @@ fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
 ### 5.3 — Lecteur et transcription
 
-Premiers workflows réunissant note, lecteur YouTube et transcription automatique
-originale. La transcription est consultable à côté de la note même lorsque le
-lecteur est masqué, notamment pour les contenus principalement audio.
-Premiers ajustements de disposition, sans exiger redimensionnement avancé,
-détachement ou coordination entre fenêtres.
+État : terminée et prête à fusionner dans `master`, après les retours manuels
+positifs de l'utilisateur sur les correctifs de transcription. Vérification
+finale locale : 80 tests navigateur, tests Go complets, vet, build Go et typage
+réussis. La fusion reste à effectuer ; la CI distante n'est pas revendiquée ici.
+
+Complément régional implémenté : après filtrage, priorité exacte puis générique
+pour les seules étiquettes simples langue-région, puis repli unique ou erreurs
+existantes. Les doublages limitent la garantie d'originalité ; le libellé affiché
+est désormais « Transcription automatique ». Aucun changement REST, SQLite,
+d'identité ou de mise à jour de la langue audio.
+Validation déterministe : tests Go complets, vet, builds Go/frontend, typage et
+13 tests navigateur de transcription réussis. Les fixtures couvrent plusieurs
+pistes avec audio `en-US`, régions numériques, priorité exacte, candidats non
+admissibles, écritures/étiquettes complexes et erreurs conservées.
+Références de validation manuelle : `G2B0YWuJUgI`
+(régression de l'acquisition déjà validée) et `LLS-D5bKyEE` (plusieurs pistes
+`-orig`, choix attendu `en-orig`, audio conservé `en-US`). L'utilisateur rapporte
+un fonctionnement satisfaisant après le correctif régional ; aucun nouvel essai
+YouTube indépendant par l'agent n'est revendiqué.
+
+Correctif validé après essai manuel : le cas audio `en-US` / caption `en-orig`
+doit être accepté par repli sur une piste originale unique. Les égalités entre
+langues audio et transcription sont retirées de la sélection et de la sauvegarde.
+Les captions ne renseignent plus la langue audio, même à l'import ; aucune
+correction automatique des anciennes valeurs n'est prévue. Correctif implémenté
+et validé le 12 octobre 2026 : tests Go avec détection des races, vet, builds,
+typage, 76 tests navigateur et Postman (45 requêtes, 135 assertions) réussis.
+L'image Docker reconstruite et le smoke test Compose passent également.
+Les nouveaux parcours déterministes couvrent `en-US` / `en-orig`, l'ambiguïté,
+la conservation du contenu et les acquisitions concurrentes de langues distinctes.
+La validation manuelle rapportée par l'utilisateur confirme ensuite l'acquisition
+réelle de `G2B0YWuJUgI` : 5 511 fragments en `en`, avec l'audio conservé en `en-US`.
+
+Dernier ajustement UX : paragraphes de transcription fluides via CSS, sans
+modifier les fragments ni leur regroupement. Build Go/frontend, typage et les
+16 tests navigateur ciblés transcription/workspace passent, dont le rendu à
+1440 et 375 px et la conservation des chaînes exactes.
+
+L'utilisateur a également confirmé le bon fonctionnement de l'affichage fluide.
+Les scénarios lecteur sont couverts par les tests déterministes et StrictMode
+décrits ci-dessous ; aucun nouvel essai manuel indépendant du lecteur n'est revendiqué.
+
+Périmètre validé : workspace desktop note à gauche, lecteur et transcription à
+droite, défilements indépendants ; mobile lecteur, note, transcription avec
+défilement de page. La note conserve sa session, ses sauvegardes et son historique.
+Métadonnées secondaires repliables. Première source YouTube exploitable dans
+l'ordre REST, commune aux deux outils et identifiable, sans source principale
+persistée ni sélecteur.
+
+IFrame Player API directe et commandes natives, sans lecture automatique.
+Masquage avec pause YouTube, conservation de position dans la fiche, réaffichage
+sans reprise. États d'erreur indépendants et lien externe lorsque disponible.
+GET local à l'ouverture ; acquisition/actualisation par POST explicite uniquement.
+Ancien contenu conservé pendant l'actualisation et ses échecs, erreurs distinctes,
+relecture possible après résultat incertain sans relance automatique du POST.
+Regroupement de présentation par intervalles 5/10/15/30 s (10 s par défaut), ancrés
+sur zéro, fragments consécutifs et ordre source conservés, espaces exacts et aucun
+bloc visuellement vide. Les timestamps affichent le début réel du premier fragment.
+
+Jalons réalisés : lecture locale et regroupement ; acquisition explicite ; lecteur
+et masquage ; disposition et consolidation. Le faux yt-dlp fournit désormais des
+captions JSON3 pour les parcours frontend/Go/SQLite ; l'API lecteur est simulée.
+Les tests couvrent aussi réponses tardives, résultat POST incertain, pause non
+confirmée, reprise inattendue masquée, sélection et Undo/Redo de la note pendant
+les interactions, défilements indépendants et ordre mobile jusqu'à 320 px.
+
+Validation initiale locale du 12 octobre 2026 : tests Go, `go test -race ./...`, `go vet ./...`,
+builds Go et frontend, typage TypeScript, suite navigateur complète (73 tests)
+et collection Postman déterministe (45 requêtes, 135 assertions) réussis.
+Les scénarios lecteur passent également
+sous Vite/React StrictMode (10 tests ciblés). L'image Docker et le smoke test
+Compose passent : outils, HTTP/SPA, permissions, bind mount, persistance après
+recréation et arrêt propre. Les captures desktop et mobile des parcours simulés
+ont été inspectées. La CI distante n'a pas été lancée depuis cette branche.
+
+Choix locaux documentés dans l'architecture : chargements lecteur bornés à 15 s,
+destruction si pause non confirmée après 1 s, GET à 12 s et POST à 90 s côté client.
+L'avertissement Vite sur la taille du chunk CodeMirror de 5.2 reste présent ;
+aucune refonte de l'éditeur ni optimisation spéculative n'est introduite.
+
+Hors périmètre : interactions temporelles (étape 6), média local, panneaux avancés,
+gestion de plusieurs pistes/sources, préférences persistantes (sauf le thème
+d'affichage local ajouté pour le confort de développement) et acquisition
+automatique. Le schéma de persistance et les identités sont conservés. Les
+correctifs ont ajusté la politique de sélection et ajouté l'erreur REST
+`409 transcript_selection_ambiguous`, sans changer les payloads de transcription.
 
 ## 8. Étape 6 — Interactions temporelles, citations et références enrichies
 
@@ -780,11 +866,24 @@ Restent ouverts :
 
 ## 18. Questions ouvertes — frontend
 
-- lecteur YouTube ;
+Le thème Clair / Sombre / Système est ajouté avec des variables CSS et un choix
+local au navigateur. L'évaluation d'un éventuel framework CSS (par exemple
+Tailwind) reste une question ouverte pour un futur travail d'interface ; aucun
+framework ni adoption future n'est décidé par cet ajout.
+
+Ajout de confort validé automatiquement : 80 tests navigateur, tests Go, vet,
+builds et typage réussis. Les tests couvrent le suivi dynamique du système,
+le choix conservé après rechargement, le stockage refusé et la session de note
+(sélection, Undo/Redo, sauvegarde) pendant les changements de thème. Captures
+sombres de la bibliothèque, du workspace et de l'écran étroit inspectées.
+
+- évolutions du lecteur YouTube au-delà de l'intégration directe réalisée en 5.3 ;
 - lecteur local ;
 - layout final de la page de travail ;
 - synchronisation player/transcription ;
 - comportement des timestamps ;
+- possibilité future de sélection manuelle de la piste de transcription, sans
+  catalogue ni persistance supplémentaires dans le correctif de 5.3 ;
 - timeline d'annotations ;
 - raccourcis clavier.
 

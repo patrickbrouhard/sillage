@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import type { Video } from '../src/api'
 
 const fixture: Video = {
@@ -34,7 +34,8 @@ test('ajout et doublon via Go/SQLite, fiche directe et historique navigateur', a
   const detailURL = page.url()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une nouvelle vidéo pour apprendre')
   await expect(page.getByText('Une description conservée dans SQLite.')).toBeHidden()
-  await page.locator('summary').click()
+  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  await page.getByText('Description', { exact: true }).click()
   await expect(page.getByText('Une description conservée dans SQLite.')).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une nouvelle vidéo pour apprendre')
@@ -97,6 +98,7 @@ test('affiche toutes les sources, les tags directs et le texte brut sur écran �
   }))
   await page.goto('/videos/42')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une fiche de test')
+  await page.getByText('Métadonnées et sources', { exact: true }).click()
   await expect(page.getByRole('region', { name: 'Source 1 · YouTube' })).toContainText('Un compte')
   const second = page.getByRole('region', { name: 'Source 2 · autre' })
   await expect(second).toContainText('Autre provenance')

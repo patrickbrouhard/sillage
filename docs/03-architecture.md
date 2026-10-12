@@ -255,7 +255,13 @@ Le port `Provider` expose une acquisition normalisée :
 langue du contenu, `TranscriptContent`, octets source opaques à conserver.
 L'adapter yt-dlp découvre les formats audio/captions, sélectionne l'original,
 récupère son JSON3 et le parse. Les options CLI et structures JSON3 restent
-dans cet adapter. Une langue connue contraint la sélection.
+dans cet adapter. La langue audio enregistrée donne priorité à sa clé exacte
+admissible, puis à sa clé générique si l'étiquette est une simple langue-région
+(deux lettres ou trois chiffres pour la région) ; sinon seule une piste
+`-orig` admissible unique est acceptée. Ce marqueur peut concerner un doublage :
+la sélection privilégie l'audio original sans le garantir.
+Les langues audio et transcription peuvent diverger. Ni l'import ni l'acquisition
+ne déduisent la langue audio d'une caption.
 
 Le port `Snapshots` publie un nouveau fichier complet et relit son contenu
 sans réseau. L'adapter filesystem reçoit le parser JSON3 lors de l'assemblage
@@ -263,7 +269,7 @@ dans `cmd/server` ; le service ne choisit ni extension ni parser technique.
 
 Le repository de transcription conserve l'identité stable par
 `(video_source_id, language, provenance)`. Sa transaction actualise le chemin
-et la date et peut renseigner une langue audio encore inconnue. Elle ne reste
+et la date, sans modifier la langue audio ni imposer son égalité avec la transcription. Elle ne reste
 jamais ouverte pendant l'accès distant ou l'écriture du fichier.
 
 ### 5.5 Publication locale
@@ -452,6 +458,7 @@ Il n'existe pas de ressource autonome `/api/v1/transcripts`.
 | 404 | `video_source_not_found` | Source absente ou appartenant à une autre vidéo |
 | 404 | `transcript_not_found` | Aucune acquisition pour la politique actuelle |
 | 404 | `transcript_not_available` | Aucune piste originale JSON3 sélectionnable de façon fiable |
+| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte ou régionale avec la langue audio enregistrée |
 | 502 | `transcript_fetch_failed` | Échec distant ou contenu distant inexploitable |
 | 504 | `transcript_fetch_timeout` | Délai applicatif dépassé |
 | 500 | `internal_error` | Erreur locale : exécutable indisponible, SQLite, filesystem, snapshot |
@@ -717,6 +724,47 @@ assurent la protection pour tous les clients, indépendamment de cette session R
 
 La fiche 5.1 ne fige pas le workspace ultérieur : note stable, transcription
 indépendante et lecteur flexible. Les références temporelles relèvent de 6.
+
+### Workspace 5.3
+
+Le frontend sélectionne la première source `youtube` dont l'identifiant externe
+est exploitable par l'IFrame API (11 caractères alphanumériques, tiret ou underscore),
+dans l'ordre REST. Cette source unique alimente le lecteur et les URLs de
+transcription. Aucun changement de contrat REST, de domaine ou de persistance.
+L'absence de source compatible n'affecte pas la note. Les composants restent
+montés pendant les changements de grille CSS et de visibilité du lecteur.
+
+L'IFrame Player API est chargée à la demande par une promesse partagée. L'iframe
+déclare l'origine réelle, une politique `strict-origin-when-cross-origin`, les
+commandes natives et aucune lecture automatique. Le chargement du script et
+l'attente de `onReady` ont chacun une limite locale de 15 s et un réessai explicite.
+Les événements des instances détruites ou en échec sont ignorés, y compris sous
+StrictMode. Le masquage attend une pause confirmée et conserve normalement
+l'instance. Sans confirmation après 1 s, ou après une reprise inattendue une fois
+masqué, le lecteur est détruit pour arrêter le média ; ces échecs exceptionnels
+ne conservent pas la position. La navigation détruit également l'instance.
+Ces choix ne définissent pas un comportement générique pour les futurs médias locaux.
+
+Le panneau de transcription conserve séparément son contenu et l'opération en
+cours. Le GET local est borné à 12 s côté navigateur ; le POST à 90 s, indépendamment
+du délai des notes. Le serveur conserve son délai configurable, de 60 s par défaut :
+si celui-ci est porté au-delà de 90 s, le navigateur peut interrompre l'attente avant
+le serveur. Une réponse POST incertaine provoque une seule relecture GET, jamais
+un POST automatique ; un contenu retrouvé ne prouve pas à lui seul le succès de
+l'actualisation demandée. Les réponses abandonnées ne modifient pas la fiche suivante.
+
+Le regroupement parcourt les items dans leur ordre source et crée des blocs
+consécutifs par intervalle. Les groupes composés uniquement de blancs sont rattachés
+au texte précédent, ou préfixés au premier bloc textuel s'ils sont initiaux, sans
+ligne horodatée dédiée ni changement du timestamp du bloc textuel. Les items restent
+intacts. Le rendu utilise du texte échappé et `white-space: normal` : chaque bloc
+forme un paragraphe fluide, avec normalisation visuelle des blancs et retour à la
+ligne selon la largeur disponible. Aucune transformation JavaScript des chaînes
+n'est nécessaire ; les données et les règles de regroupement restent inchangées.
+
+Les tests navigateur emploient une IFrame API contrôlée, sans accès à YouTube,
+et un faux yt-dlp exécuté par le backend réel pour acquérir puis relire des snapshots.
+Les essais avec YouTube réel restent complémentaires aux validations déterministes.
 
 ## 11. Desktop futur
 

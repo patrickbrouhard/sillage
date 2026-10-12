@@ -45,7 +45,7 @@ done
 test -n "$output" || exit 10
 cp "$CAPTION_FIXTURE" "$(dirname "$output")/caption.en-orig.json3"
 `)
-	source := video.VideoSource{Provider: "youtube", ExternalID: "abc"}
+	source := video.VideoSource{Provider: "youtube", ExternalID: "abc", OriginalAudioLanguage: "en-US"}
 	got, err := (Client{Binary: binary}).Fetch(context.Background(), source)
 	if err != nil || got.Language != "en" || got.Content.PlainText() != "This is useful. Été — bonjour !" {
 		t.Fatalf("%#v %v", got, err)

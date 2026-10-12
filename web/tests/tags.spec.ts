@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import type { Tag, Video } from '../src/api'
 
@@ -214,7 +214,8 @@ test('les descriptions sont indépendantes, intégrales et utilisables au clavie
     ],
   } }))
   await page.goto('/videos/42')
-  const descriptions = page.locator('details')
+  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  const descriptions = page.locator('.source-section details')
   await expect(descriptions).toHaveCount(2)
   await expect(descriptions.nth(0)).not.toHaveAttribute('open')
   await descriptions.nth(0).locator('summary').focus()
