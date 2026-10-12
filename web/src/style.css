@@ -1,23 +1,23 @@
 :root {
   color-scheme: light dark;
-  --text: light-dark(#243c36, #dee9e3);
-  --page: light-dark(#f6f5f0, #141c19);
-  --surface: light-dark(#fffefa, #1c2823);
-  --header: light-dark(#fbfaf7, #18221e);
-  --input: light-dark(#ffffff, #131e19);
-  --muted: light-dark(#5b6a62, #acbdb2);
-  --border: light-dark(#b8c7bd, #53685b);
-  --subtle: light-dark(#dce1d8, #384c40);
-  --hover: light-dark(#e9eee7, #2d4035);
-  --tag: light-dark(#eef1e7, #293b2e);
-  --accent: light-dark(#254d43, #254d43);
-  --accent-hover: light-dark(#173b31, #326352);
-  --focus: light-dark(#a35428, #edb589);
+  --text: light-dark(#24344d, #e0e8f5);
+  --page: light-dark(#f2f5fa, #101827);
+  --surface: light-dark(#ffffff, #19253a);
+  --header: light-dark(#f8faff, #141f32);
+  --input: light-dark(#ffffff, #101c30);
+  --muted: light-dark(#566780, #afbdd3);
+  --border: light-dark(#aebed4, #506482);
+  --subtle: light-dark(#d8e1ee, #334560);
+  --hover: light-dark(#e6edf8, #2a3d5b);
+  --tag: light-dark(#eaf0fa, #233550);
+  --accent: light-dark(#294b7d, #294b7d);
+  --accent-hover: light-dark(#1d3861, #365f98);
+  --focus: light-dark(#315da0, #94bcff);
   --error: light-dark(#783b22, #ffc3aa);
   --error-border: light-dark(#c19882, #cc947b);
-  --label: light-dark(#7d5436, #dfb88e);
-  --selection: light-dark(#c9ded3, #3c6753);
-  --syntax: light-dark(#284b3e, #b4d8c8);
+  --label: light-dark(#3e5f90, #a9c8f5);
+  --selection: light-dark(#cbdcf5, #345783);
+  --syntax: light-dark(#294b7d, #b5d0f5);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--text);
   background: var(--page);
@@ -54,7 +54,7 @@ h1 { font-size: clamp(32px, 4vw, 46px); line-height: 1.15; letter-spacing: -1.6p
 .thumbnail img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumbnail-placeholder { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
 .placeholder-mark { font-size: 42px; line-height: 1; font-weight: 300; }
-.duration { position: absolute; bottom: 10px; right: 10px; padding: 3px 7px; background: #20392ee8; color: white; font-size: 12px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.duration { position: absolute; bottom: 10px; right: 10px; padding: 3px 7px; background: #172b49e8; color: white; font-size: 12px; border-radius: 4px; font-variant-numeric: tabular-nums; }
 .card-content { padding: 20px; }
 .source-label { color: var(--label); font-size: 10px; text-transform: uppercase; letter-spacing: 1.3px; font-weight: 750; margin: 0 0 9px; }
 .video-card h2 { font-size: 17px; line-height: 1.45; margin: 0 0 10px; font-weight: 650; overflow-wrap: anywhere; }
@@ -128,7 +128,7 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .library-filter select { width: 320px; }
 .active-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin-top: 14px; overflow-wrap: anywhere; }
 .tag-dialog { width: min(620px, calc(100% - 32px)); max-height: calc(100dvh - 48px); padding: 24px; border: 1px solid var(--border); border-radius: 14px; color: var(--text); background: var(--surface); }
-.tag-dialog::backdrop { background: #172c2599; }
+.tag-dialog::backdrop { background: #14223899; }
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .dialog-heading h2 { margin: 0; font-size: 22px; }
 .tag-associations { list-style: none; padding: 0; display: grid; gap: 8px; }

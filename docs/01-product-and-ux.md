@@ -19,6 +19,9 @@ par YouTube conserve son apparence propre.
 
 La réalisation utilise des variables CSS et les contrôles natifs, sans refonte
 graphique ni ajout d'un framework CSS.
+La palette de confort est bleue : fonds bleu nuit en mode sombre, fonds clairs
+bleutés en mode clair, avec icône d'en-tête, accents et sélections assortis.
+Les erreurs gardent une couleur chaude distincte. Cette palette reste révisable.
 
 ## 2. Vue d'ensemble du workflow
 
