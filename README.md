@@ -73,9 +73,11 @@ workspace responsive. Le lecteur se masque avec pause, sans reprise automatique 
 la transcription locale se consulte indépendamment, se récupère ou s'actualise
 explicitement, et se regroupe par intervalles de 5, 10, 15 ou 30 secondes.
 Les métadonnées complètes restent accessibles dans une section repliable.
-L'implémentation est validée automatiquement ; les essais utilisateur avec YouTube
-réel restent à effectuer. Les timestamps cliquables, citations et synchronisation
-sont réservés à l'étape 6.
+La tranche est terminée, vérifiée automatiquement et prête à fusionner après
+les retours manuels positifs de l'utilisateur, y compris sur les correctifs
+d'acquisition et de présentation. Le thème Clair / Sombre / Système utilise une
+palette bleu nuit et une préférence locale au navigateur. Les timestamps cliquables,
+citations et synchronisation sont réservés à l'étape 6.
 
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
@@ -1209,8 +1211,9 @@ L'étape Web est découpée en jalons validables :
 - **5.2 — éditeur Markdown et sauvegarde fiable** : implémenté et testé localement,
   périmètre fonctionnel validé manuellement ; édition/lecture GFM,
   autosauvegarde 2 s/20 s, conflits et navigation protégée ;
-- **5.3 — lecteur et transcription** : consultation avec la note comme zone
-  principale et la transcription indépendante de la visibilité du lecteur ;
+- **5.3 — lecteur et transcription** : terminée, testée localement et prête à
+  fusionner après retours manuels positifs ; note principale, transcription
+  indépendante du lecteur, paragraphes fluides et thèmes clair/sombre/système ;
 - **6 — interactions temporelles** : références avec début et fin facultative,
   citations et rendu enrichi ; syntaxe candidate `sillage://` à expérimenter.
 
@@ -1271,7 +1274,10 @@ Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une
 GitHub Actions réussie. Le jalon 4 est lui aussi terminé et validé manuellement
 et en CI : l'étape 5.1 est clôturée. L'étape 5.2 est implémentée et vérifiée
 localement, et son périmètre fonctionnel est validé manuellement. L'étape 5.3
-(lecteur et transcription) n'est pas commencée.
+(lecteur et transcription) est terminée et prête à fusionner, avec retours manuels
+positifs de l'utilisateur. La vérification finale locale comprend 80 tests navigateur,
+les tests Go, vet, build Go et typage ; aucune nouvelle exécution de CI distante
+n'est revendiquée pour cette branche.
 
 ### API HTTP réalisée
 

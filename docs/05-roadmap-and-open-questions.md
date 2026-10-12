@@ -466,6 +466,11 @@ fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
 ### 5.3 — Lecteur et transcription
 
+État : terminée et prête à fusionner dans `master`, après les retours manuels
+positifs de l'utilisateur sur les correctifs de transcription. Vérification
+finale locale : 80 tests navigateur, tests Go complets, vet, build Go et typage
+réussis. La fusion reste à effectuer ; la CI distante n'est pas revendiquée ici.
+
 Complément régional implémenté : après filtrage, priorité exacte puis générique
 pour les seules étiquettes simples langue-région, puis repli unique ou erreurs
 existantes. Les doublages limitent la garantie d'originalité ; le libellé affiché
@@ -475,10 +480,11 @@ Validation déterministe : tests Go complets, vet, builds Go/frontend, typage et
 13 tests navigateur de transcription réussis. Les fixtures couvrent plusieurs
 pistes avec audio `en-US`, régions numériques, priorité exacte, candidats non
 admissibles, écritures/étiquettes complexes et erreurs conservées.
-Références pour le prochain essai manuel avant fusion : `G2B0YWuJUgI`
+Références de validation manuelle : `G2B0YWuJUgI`
 (régression de l'acquisition déjà validée) et `LLS-D5bKyEE` (plusieurs pistes
-`-orig`, choix attendu `en-orig`, audio conservé `en-US`). Aucune nouvelle
-acquisition réelle n'est revendiquée lors de ce correctif.
+`-orig`, choix attendu `en-orig`, audio conservé `en-US`). L'utilisateur rapporte
+un fonctionnement satisfaisant après le correctif régional ; aucun nouvel essai
+YouTube indépendant par l'agent n'est revendiqué.
 
 Correctif validé après essai manuel : le cas audio `en-US` / caption `en-orig`
 doit être accepté par repli sur une piste originale unique. Les égalités entre
@@ -498,10 +504,9 @@ modifier les fragments ni leur regroupement. Build Go/frontend, typage et les
 16 tests navigateur ciblés transcription/workspace passent, dont le rendu à
 1440 et 375 px et la conservation des chaînes exactes.
 
-État : implémentation terminée et vérifiée automatiquement ; acquisition réelle
-confirmée par l'utilisateur. Validation définitive de 5.3 encore attendue après
-le dernier ajustement de présentation ; aucun nouvel essai manuel du lecteur
-n'est revendiqué ici.
+L'utilisateur a également confirmé le bon fonctionnement de l'affichage fluide.
+Les scénarios lecteur sont couverts par les tests déterministes et StrictMode
+décrits ci-dessous ; aucun nouvel essai manuel indépendant du lecteur n'est revendiqué.
 
 Périmètre validé : workspace desktop note à gauche, lecteur et transcription à
 droite, défilements indépendants ; mobile lecteur, note, transcription avec
@@ -527,7 +532,7 @@ Les tests couvrent aussi réponses tardives, résultat POST incertain, pause non
 confirmée, reprise inattendue masquée, sélection et Undo/Redo de la note pendant
 les interactions, défilements indépendants et ordre mobile jusqu'à 320 px.
 
-Validation locale du 12 octobre 2026 : tests Go, `go test -race ./...`, `go vet ./...`,
+Validation initiale locale du 12 octobre 2026 : tests Go, `go test -race ./...`, `go vet ./...`,
 builds Go et frontend, typage TypeScript, suite navigateur complète (73 tests)
 et collection Postman déterministe (45 requêtes, 135 assertions) réussis.
 Les scénarios lecteur passent également
@@ -544,7 +549,9 @@ aucune refonte de l'éditeur ni optimisation spéculative n'est introduite.
 Hors périmètre : interactions temporelles (étape 6), média local, panneaux avancés,
 gestion de plusieurs pistes/sources, préférences persistantes (sauf le thème
 d'affichage local ajouté pour le confort de développement) et acquisition
-automatique. Aucun changement métier, REST ou de persistance effectué.
+automatique. Le schéma de persistance et les identités sont conservés. Les
+correctifs ont ajusté la politique de sélection et ajouté l'erreur REST
+`409 transcript_selection_ambiguous`, sans changer les payloads de transcription.
 
 ## 8. Étape 6 — Interactions temporelles, citations et références enrichies
 
