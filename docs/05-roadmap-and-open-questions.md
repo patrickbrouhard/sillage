@@ -461,7 +461,9 @@ fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
 ### 5.3 — Lecteur et transcription
 
-État : cadrage validé, implémentation en cours.
+État : implémentation terminée et vérifiée automatiquement ; validation utilisateur
+et essais avec YouTube réel encore à réaliser. Aucune validation manuelle réelle
+du lecteur ou de l'acquisition distante n'est revendiquée ici.
 
 Périmètre validé : workspace desktop note à gauche, lecteur et transcription à
 droite, défilements indépendants ; mobile lecteur, note, transcription avec
@@ -480,13 +482,30 @@ Regroupement de présentation par intervalles 5/10/15/30 s (10 s par défaut), a
 sur zéro, fragments consécutifs et ordre source conservés, espaces exacts et aucun
 bloc visuellement vide. Les timestamps affichent le début réel du premier fragment.
 
-Jalons envisagés : lecture locale et regroupement ; acquisition explicite ; lecteur
-et masquage ; disposition et consolidation. Tests déterministes via Go/SQLite et
-faux yt-dlp enrichi, API lecteur simulée, puis vérifications manuelles YouTube.
+Jalons réalisés : lecture locale et regroupement ; acquisition explicite ; lecteur
+et masquage ; disposition et consolidation. Le faux yt-dlp fournit désormais des
+captions JSON3 pour les parcours frontend/Go/SQLite ; l'API lecteur est simulée.
+Les tests couvrent aussi réponses tardives, résultat POST incertain, pause non
+confirmée, reprise inattendue masquée, sélection et Undo/Redo de la note pendant
+les interactions, défilements indépendants et ordre mobile jusqu'à 320 px.
+
+Validation locale du 12 octobre 2026 : tests Go, `go test -race ./...`, `go vet ./...`,
+builds Go et frontend, typage TypeScript, suite navigateur complète (73 tests)
+et collection Postman déterministe (45 requêtes, 135 assertions) réussis.
+Les scénarios lecteur passent également
+sous Vite/React StrictMode (10 tests ciblés). L'image Docker et le smoke test
+Compose passent : outils, HTTP/SPA, permissions, bind mount, persistance après
+recréation et arrêt propre. Les captures desktop et mobile des parcours simulés
+ont été inspectées. La CI distante n'a pas été lancée depuis cette branche.
+
+Choix locaux documentés dans l'architecture : chargements lecteur bornés à 15 s,
+destruction si pause non confirmée après 1 s, GET à 12 s et POST à 90 s côté client.
+L'avertissement Vite sur la taille du chunk CodeMirror de 5.2 reste présent ;
+aucune refonte de l'éditeur ni optimisation spéculative n'est introduite.
 
 Hors périmètre : interactions temporelles (étape 6), média local, panneaux avancés,
 gestion de plusieurs pistes/sources, préférences persistantes et acquisition
-automatique. Aucun changement métier, REST ou de persistance prévu.
+automatique. Aucun changement métier, REST ou de persistance effectué.
 
 ## 8. Étape 6 — Interactions temporelles, citations et références enrichies
 
@@ -801,7 +820,7 @@ Restent ouverts :
 
 ## 18. Questions ouvertes — frontend
 
-- lecteur YouTube ;
+- évolutions du lecteur YouTube au-delà de l'intégration directe réalisée en 5.3 ;
 - lecteur local ;
 - layout final de la page de travail ;
 - synchronisation player/transcription ;

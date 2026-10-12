@@ -688,6 +688,8 @@ L'architecture doit éviter de dépendre directement d'OpenAI, Ollama ou d'un au
 - aucun SSR ni serveur Node.js permanent, accès local par défaut sans auth ;
 - note Markdown principale et stable, transcription indépendante du lecteur ;
 - lecteur flexible, masquable puis potentiellement redimensionnable/détachable ;
+- en 5.3 : IFrame Player API YouTube directe, pause avant masquage, source commune
+  lecteur/transcription et regroupement temporel de présentation sans changement REST ;
 - stockage Markdown brut, extensions internes autorisées ;
 - références temporelles avec début obligatoire et fin facultative, provenance
   conservée lorsque nécessaire ; insertion rapide et citation partagent la notion ;
@@ -920,4 +922,5 @@ le périmètre fonctionnel est également validé manuellement. Les résultats C
 du dernier commit sont consultables dans GitHub Actions.
 
 Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
-ou mécanisme générique documentaire. Les questions des étapes 5.3 et 6 restent ouvertes.
+ou mécanisme générique documentaire. Le cadrage 5.3 est désormais implémenté
+(voir Product & UX et Architecture) ; les interactions temporelles de 6 restent futures.

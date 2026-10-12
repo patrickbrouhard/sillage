@@ -68,6 +68,15 @@ la bibliothèque par un seul tag. Les descriptions des sources sont repliables.
 La fiche intègre désormais l'édition Markdown, le mode Lecture GFM et une
 sauvegarde protégée contre les écrasements concurrents.
 
+La tranche 5.3 réunit désormais note, lecteur YouTube et transcription dans un
+workspace responsive. Le lecteur se masque avec pause, sans reprise automatique ;
+la transcription locale se consulte indépendamment, se récupère ou s'actualise
+explicitement, et se regroupe par intervalles de 5, 10, 15 ou 30 secondes.
+Les métadonnées complètes restent accessibles dans une section repliable.
+L'implémentation est validée automatiquement ; les essais utilisateur avec YouTube
+réel restent à effectuer. Les timestamps cliquables, citations et synchronisation
+sont réservés à l'étape 6.
+
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
 et leurs liens directs aux vidéos ou leurs publishers de référence. Le catalogue

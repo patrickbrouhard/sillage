@@ -89,8 +89,12 @@ The Markdown note is the stable main workspace area. The player is flexible and
 the transcript is an independent panel. Step 5.2 integrates CodeMirror 6,
 safe GFM reading and autosave with mandatory optimistic revision checks.
 Preserve Markdown exactly, including mixed line endings. Notes use no persistent
-browser drafts. Do not anticipate the player, transcripts or temporal references
-from steps 5.3 and 6.
+browser drafts. Step 5.3 integrates the YouTube IFrame Player API directly and
+the existing local transcript GET / explicit acquisition POST. Both panels use
+the first usable YouTube source in REST order; this is not a persisted primary
+source. Keep the note mounted across layout and player visibility changes.
+Transcript grouping is presentation only and preserves source order and whitespace.
+Temporal interactions, citations and synchronized scrolling remain reserved for step 6.
 
 Do not introduce PostgreSQL, Redis, a vector database, microservices, or another major infrastructure component without a concrete requirement.
 
