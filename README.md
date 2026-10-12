@@ -283,16 +283,16 @@ La provenance de cette tranche est `youtube_auto`.
 
 `VideoSource.original_audio_language` est facultative et n'est pas exposée
 dans le JSON vidéo. L'adapter utilise les formats audio explicitement marqués
-originaux par yt-dlp (`language_preference = 10`), puis à défaut une unique
-clé de caption `*-orig`. Une piste audio simplement « default » ne suffit pas.
-L'acquisition peut renseigner une langue jusque-là inconnue, atomiquement avec
-la transcription ; elle ne rafraîchit pas les autres métadonnées vidéo.
+originaux par yt-dlp (`language_preference = 10`). Une piste audio simplement
+« default » ou une caption `*-orig` ne suffit pas. L'acquisition ne modifie
+jamais la langue audio, même inconnue. Les anciennes valeurs restent conservées.
 
-La langue connue cible sa clé `<langue>-orig`. Sinon, un seul candidat
-original proposant JSON3 est accepté. Plusieurs formats d'une même clé ne sont
-pas plusieurs pistes. Une contradiction avec la langue connue ou plusieurs
-signaux audio originaux contradictoires font échouer la sélection.
-Aucun fallback vers une autre langue, une caption manuelle ou du STT.
+La langue audio enregistrée donne priorité à sa clé `<langue>-orig` admissible.
+Sinon, un seul candidat original proposant JSON3 et une URL HTTPS valide est
+accepté, même dans une autre langue. Plusieurs formats d'une clé ne sont pas
+plusieurs pistes. Aucun candidat signifie indisponibilité ; plusieurs candidats
+sans correspondance exacte signifient ambiguïté. La redétection audio ne
+départage pas les pistes. Aucune traduction, caption manuelle ou STT n'est choisi.
 
 JSON3 reste dans l'adapter. Le domaine utilise seulement :
 
@@ -934,6 +934,7 @@ Il n'existe pas de ressource autonome `/api/v1/transcripts`.
 | 404 | `video_source_not_found` | Source absente ou appartenant à une autre vidéo |
 | 404 | `transcript_not_found` | Aucune acquisition pour la politique actuelle |
 | 404 | `transcript_not_available` | Aucune piste originale JSON3 sélectionnable de façon fiable |
+| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte avec la langue audio enregistrée |
 | 502 | `transcript_fetch_failed` | Échec distant ou contenu distant inexploitable |
 | 504 | `transcript_fetch_timeout` | Délai applicatif dépassé |
 | 500 | `internal_error` | Erreur locale : exécutable indisponible, SQLite, filesystem, snapshot |

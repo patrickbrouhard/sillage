@@ -254,8 +254,10 @@ VideoSource
 ```
 
 La langue métier (`en`, `pt-BR`) est distincte de la clé yt-dlp (`en-orig`).
-`original_audio_language` est facultative sur la source. La sélection refuse
-les ambiguïtés et n'introduit aucun fallback.
+`original_audio_language` est facultative sur la source et provient uniquement
+des signaux audio explicites, jamais des captions. La sélection privilégie la
+clé exacte admissible de la langue enregistrée, puis une unique piste `*-orig`
+admissible, même d'une autre langue. Elle distingue absence et ambiguïté.
 
 L'identité est `(video_source_id, language, provenance)`. Une réacquisition
 préserve l'ID et actualise le contenu et la date uniquement après succès.
@@ -460,6 +462,13 @@ après crash brutal reste possible et acceptée. Historique, File Recovery, supp
 fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
 ### 5.3 — Lecteur et transcription
+
+Correctif validé après essai manuel : le cas audio `en-US` / caption `en-orig`
+doit être accepté par repli sur une piste originale unique. Les égalités entre
+langues audio et transcription sont retirées de la sélection et de la sauvegarde.
+Les captions ne renseignent plus la langue audio, même à l'import ; aucune
+correction automatique des anciennes valeurs n'est prévue. Implémentation et
+validation du correctif en cours.
 
 État : implémentation terminée et vérifiée automatiquement ; validation utilisateur
 et essais avec YouTube réel encore à réaliser. Aucune validation manuelle réelle
@@ -825,6 +834,8 @@ Restent ouverts :
 - layout final de la page de travail ;
 - synchronisation player/transcription ;
 - comportement des timestamps ;
+- possibilité future de sélection manuelle de la piste de transcription, sans
+  catalogue ni persistance supplémentaires dans le correctif de 5.3 ;
 - timeline d'annotations ;
 - raccourcis clavier.
 

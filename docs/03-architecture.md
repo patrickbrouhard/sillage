@@ -255,7 +255,10 @@ Le port `Provider` expose une acquisition normalisée :
 langue du contenu, `TranscriptContent`, octets source opaques à conserver.
 L'adapter yt-dlp découvre les formats audio/captions, sélectionne l'original,
 récupère son JSON3 et le parse. Les options CLI et structures JSON3 restent
-dans cet adapter. Une langue connue contraint la sélection.
+dans cet adapter. La langue audio enregistrée donne priorité à sa clé exacte
+admissible ; sinon seule une piste originale admissible unique est acceptée.
+Les langues audio et transcription peuvent diverger. Ni l'import ni l'acquisition
+ne déduisent la langue audio d'une caption.
 
 Le port `Snapshots` publie un nouveau fichier complet et relit son contenu
 sans réseau. L'adapter filesystem reçoit le parser JSON3 lors de l'assemblage
@@ -263,7 +266,7 @@ dans `cmd/server` ; le service ne choisit ni extension ni parser technique.
 
 Le repository de transcription conserve l'identité stable par
 `(video_source_id, language, provenance)`. Sa transaction actualise le chemin
-et la date et peut renseigner une langue audio encore inconnue. Elle ne reste
+et la date, sans modifier la langue audio ni imposer son égalité avec la transcription. Elle ne reste
 jamais ouverte pendant l'accès distant ou l'écriture du fichier.
 
 ### 5.5 Publication locale
@@ -452,6 +455,7 @@ Il n'existe pas de ressource autonome `/api/v1/transcripts`.
 | 404 | `video_source_not_found` | Source absente ou appartenant à une autre vidéo |
 | 404 | `transcript_not_found` | Aucune acquisition pour la politique actuelle |
 | 404 | `transcript_not_available` | Aucune piste originale JSON3 sélectionnable de façon fiable |
+| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte avec la langue audio enregistrée |
 | 502 | `transcript_fetch_failed` | Échec distant ou contenu distant inexploitable |
 | 504 | `transcript_fetch_timeout` | Délai applicatif dépassé |
 | 500 | `internal_error` | Erreur locale : exécutable indisponible, SQLite, filesystem, snapshot |

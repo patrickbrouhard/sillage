@@ -542,13 +542,16 @@ Dans la sortie structurée YouTube de yt-dlp, les formats audio marqués
 `language_preference = 10` identifient l'original ; la valeur `5` désigne
 seulement le défaut et n'est pas utilisée comme preuve. Plusieurs formats
 de même langue sont regroupés. Des signaux audio originaux contradictoires
-ne permettent pas l'acquisition.
+laissent la langue audio inconnue, sans interdire l'acquisition d'une caption.
 
-À défaut de signal audio explicite, une seule clé `*-orig` peut renseigner
-la langue. Une langue connue cible sa clé ; sinon un unique candidat original
-admissible en JSON3 est accepté. Une contradiction avec une langue connue
-est refusée. Une future évolution de ces conventions doit être vérifiée par
-des fixtures et un essai manuel.
+Les captions ne renseignent jamais la langue audio, à l'import comme à
+l'acquisition. La langue audio enregistrée donne priorité à sa clé `*-orig`
+exacte admissible ; à défaut, un unique candidat original admissible en JSON3
+est accepté, même dans une autre langue. Plusieurs candidats sans correspondance
+exacte donnent `409 transcript_selection_ambiguous`, aucun candidat donne
+`404 transcript_not_available`. La redétection audio ne départage pas les pistes.
+Une future évolution de ces conventions doit être vérifiée par des fixtures
+et un essai manuel. Aucun changement de schéma ni de l'identité des transcriptions.
 
 Référence : [extracteur YouTube de yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube/_video.py),
 notamment `get_language_code_and_preference` et la construction de
@@ -849,7 +852,7 @@ La suppression explicite d'une note reste une évolution UX envisagée, hors de 
 - logging structuré, niveaux et politique de journalisation.
 - politique de conservation/cache des transcriptions ;
 - stockage configurable des snapshots de transcription ;
-- éventuelle sélection explicite d'autres pistes (aucun fallback actuel) ;
+- éventuelle sélection manuelle de pistes, au-delà de la sélection automatique originale actuelle ;
 - éventuel besoin de persister un identifiant de piste provider distinct de la langue.
 
 ## Jalon 3 Web — décisions d'intégration

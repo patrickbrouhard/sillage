@@ -529,19 +529,24 @@ le stocke au format fixe `YYYY-MM-DDTHH:MM:SS.mmmZ`.
 l'audio original. Elle reste absente lorsque les signaux ne permettent pas
 de la déterminer et n'est pas exposée par le DTO vidéo actuel.
 
-L'adapter utilise un signal audio original explicite de yt-dlp ; une piste
-audio par défaut, le titre ou la description ne suffisent pas. À défaut,
-une unique clé de captions `*-orig` peut fournir cette information.
+L'adapter utilise exclusivement un signal audio original explicite de yt-dlp ;
+une piste audio par défaut, le titre, la description ou une caption `*-orig`
+ne permettent pas de renseigner cette information. Des signaux audio
+contradictoires la laissent inconnue.
 
-Une langue connue cible la clé originale correspondante ; sinon une unique
-clé originale admissible en JSON3 est requise. Les différents formats d'une
-clé ne sont pas des candidats distincts. Les contradictions fiables provoquent
-un refus de sélection, sans écraser silencieusement la langue connue.
-Aucun fallback vers une autre langue, des sous-titres manuels ou du STT.
+La langue audio enregistrée donne priorité à sa clé originale exacte si elle
+est admissible. Sinon, une unique clé `*-orig` admissible est sélectionnée,
+même si sa langue diffère. Sans candidat, la transcription est indisponible ;
+avec plusieurs candidats sans correspondance exacte, la sélection est ambiguë.
+Une clé admissible a une langue exploitable et un format JSON3 avec URL HTTPS
+valide, sans identifiants. Plusieurs formats d'une clé ne sont pas plusieurs
+candidats. La langue redétectée pendant l'acquisition ne départage pas les pistes.
+Aucune sélection de traductions, de sous-titres manuels ou de STT.
 
-Lors d'une acquisition réussie, la langue encore inconnue de la source peut
-être renseignée atomiquement avec la transcription. Cela ne rafraîchit pas
-ses autres métadonnées.
+La langue audio et celle de la transcription décrivent des informations distinctes
+et peuvent diverger. L'acquisition ne modifie jamais la langue audio, même inconnue.
+Les valeurs déjà enregistrées sont conservées : leur origine historique n'est
+pas persistée et ne permet pas une correction automatique fiable.
 
 ### 4.4 Acquisition et snapshot
 
