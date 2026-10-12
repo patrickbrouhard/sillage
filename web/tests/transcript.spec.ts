@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { groupTranscript } from '../src/transcriptPresentation'
 
 test('regroupe sans réordonner, découper les mots ou perdre les blancs', () => {

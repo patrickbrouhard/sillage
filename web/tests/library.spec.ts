@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 test('affiche la bibliothèque persistée par Go et SQLite après redémarrage', async ({ page, request }) => {
   const response = await request.get('/api/v1/videos')

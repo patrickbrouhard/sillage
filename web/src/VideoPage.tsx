@@ -5,6 +5,7 @@ import type { Tag, Video, VideoSource } from './api'
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { VideoTranscript } from './VideoTranscript'
+import { YouTubePlayer } from './YouTubePlayer'
 import { formatDuration, httpURL, providerLabel, workSource } from './videoPresentation'
 
 const VideoNote = lazy(() => import('./VideoNote').then(module => ({ default: module.VideoNote })))
@@ -105,6 +106,7 @@ function VideoDetail({ id }: { id: string }) {
           <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote videoID={state.video.id} /></Suspense>
           {source ? <>
             <p className="muted">Source de travail : YouTube · {source.title} · {source.external_id}</p>
+            <YouTubePlayer key={`player-${source.id}`} source={source} />
             <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id} />
           </> : <p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p>}
           {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
