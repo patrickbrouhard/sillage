@@ -1,5 +1,20 @@
 import { expect, test } from './fixtures'
 import { groupTranscript } from '../src/transcriptPresentation'
+import type { Page } from '@playwright/test'
+
+/** Prépare une fiche dont la source est indépendante du contenu de la base de tests. */
+async function mockVideo(page: Page, id = 42) {
+  await page.route(`**/api/v1/videos/${id}`, route => route.fulfill({ json: {
+    id, created_at: '2026-10-12', tags: [], person_ids: [],
+    sources: [{ id: id + 10, provider: 'youtube', external_id: 'abcdefghijk', title: `Vidéo ${id}` }],
+  } }))
+  await page.route(`**/api/v1/videos/${id}/note`, route => route.fulfill({ status: 404, json: { error: { code: 'note_not_found' } } }))
+}
+
+const localTranscript = {
+  language: 'fr', provenance: 'youtube_auto', last_fetched_at: '2026-10-12T10:00:00Z',
+  items: [{ start_ms: 1000, text: 'Contenu enregistré' }],
+}
 
 test('regroupe sans réordonner, découper les mots ou perdre les blancs', () => {
   const items = [
@@ -83,3 +98,68 @@ for (const [code, status, message] of [
     await expect(page.getByText('Texte conservé', { exact: true })).toBeVisible()
   })
 }
+
+test('lecture locale en échec distincte de l’absence, puis reprise sans acquisition', async ({ page }) => {
+  await mockVideo(page)
+  let broken = true
+  let posts = 0
+  await page.route('**/transcript', route => {
+    if (route.request().method() === 'POST') posts++
+    return route.fulfill(broken
+      ? { status: 500, json: { error: { code: 'internal_error' } } }
+      : { json: localTranscript })
+  })
+  await page.goto('/videos/42')
+  await expect(page.getByRole('alert')).toContainText('Impossible de lire la transcription locale')
+  await expect(page.getByText('Aucune transcription enregistrée localement.')).toHaveCount(0)
+  broken = false
+  await page.getByRole('button', { name: 'Relire la transcription locale' }).click()
+  await expect(page.getByText('Contenu enregistré', { exact: true })).toBeVisible()
+  expect(posts).toBe(0)
+})
+
+test('réponse POST perdue : retrouve le contenu local sans relance distante', async ({ page }) => {
+  await mockVideo(page)
+  let saved = false
+  let posts = 0
+  await page.route('**/transcript', route => {
+    if (route.request().method() === 'POST') {
+      posts++; saved = true
+      return route.abort('failed')
+    }
+    return route.fulfill(saved ? { json: localTranscript }
+      : { status: 404, json: { error: { code: 'transcript_not_found' } } })
+  })
+  await page.goto('/videos/42')
+  await expect(page.getByRole('button', { name: 'Récupérer', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Récupérer', exact: true }).click()
+  await expect(page.getByText('Contenu enregistré', { exact: true })).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('l’actualisation n’est pas confirmée')
+  expect(posts).toBe(1)
+})
+
+test('réponse tardive d’une autre fiche ignorée pendant une acquisition', async ({ page }) => {
+  await mockVideo(page)
+  await mockVideo(page, 43)
+  let release!: () => void
+  const pending = new Promise<void>(resolve => { release = resolve })
+  let posts = 0
+  await page.route('**/transcript', async route => {
+    if (route.request().method() === 'POST') {
+      posts++
+      await pending
+      await route.fulfill({ json: { ...localTranscript, items: [{ start_ms: 0, text: 'Ancien résultat' }] } })
+    } else await route.fulfill(route.request().url().includes('/videos/43/')
+      ? { json: localTranscript }
+      : { status: 404, json: { error: { code: 'transcript_not_found' } } })
+  })
+  await page.goto('/videos/42')
+  await page.getByRole('button', { name: 'Récupérer', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Récupérer', exact: true })).toBeDisabled()
+  await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
+  await page.goto('/videos/43')
+  await expect(page.getByText('Contenu enregistré')).toBeVisible()
+  release()
+  await expect(page.getByText('Ancien résultat')).toHaveCount(0)
+  expect(posts).toBe(1)
+})

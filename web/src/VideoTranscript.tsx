@@ -14,6 +14,7 @@ export function VideoTranscript({ videoID, sourceID }: { videoID: number; source
   const operation = useRef<AbortController | null>(null)
   const blocks = useMemo(() => groupTranscript(content?.items ?? [], interval), [content, interval])
 
+  /** Relit localement sans effacer le contenu déjà affiché pendant la requête. */
   async function read() {
     operation.current?.abort()
     const controller = new AbortController()
@@ -38,6 +39,7 @@ export function VideoTranscript({ videoID, sourceID }: { videoID: number; source
     // Le parent associe le panneau à la source ; toute ancienne réponse est annulée.
   }, [videoID, sourceID])
 
+  /** Lance une seule acquisition et vérifie localement les réponses de transport incertaines. */
   async function acquire() {
     if (busy) return
     operation.current?.abort()

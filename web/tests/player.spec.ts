@@ -75,3 +75,54 @@ test('API bloquée puis nouvel essai sans toucher aux autres panneaux', async ({
   await page.getByRole('button', { name: 'Réessayer le lecteur' }).click()
   await expect(page.locator('.youtube-frame iframe')).toBeVisible()
 })
+
+test('masquage avant onReady et événements tardifs ne réactivent pas un lecteur détruit', async ({ page }) => {
+  await page.addInitScript(() => { window.youtubeTest = { players: [], autoReady: false, confirmPause: true } })
+  await page.goto('/videos/42')
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await expect(page.locator('.youtube-frame iframe')).toHaveCount(0)
+  await page.evaluate(() => {
+    const old = window.youtubeTest.players[0]
+    old.options.events.onReady({ target: old })
+    old.options.events.onError({ data: 100 })
+    window.youtubeTest.autoReady = true
+  })
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Afficher le lecteur' }).click()
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  expect(await page.evaluate(() => window.youtubeTest.players.map(player => player.destroyed))).toEqual([true, false])
+})
+
+test('initialisation sans onReady bornée, événements tardifs ignorés puis reprise', async ({ page }) => {
+  await page.addInitScript(() => { window.youtubeTest = { players: [], autoReady: false, confirmPause: true } })
+  await page.clock.install()
+  await page.goto('/videos/42')
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await page.clock.runFor(15_100)
+  await expect(page.getByRole('alert')).toContainText('ne répond pas')
+  await page.evaluate(() => {
+    const old = window.youtubeTest.players[0]
+    old.options.events.onReady({ target: old })
+    window.youtubeTest.autoReady = true
+  })
+  await expect(page.getByRole('alert')).toContainText('ne répond pas')
+  await page.getByRole('button', { name: 'Réessayer le lecteur' }).click()
+  await page.clock.runFor(100)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+})
+
+test('chargement du script sans callback borné et indépendant de la note', async ({ page }) => {
+  await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ contentType: 'application/javascript', body: '' }))
+  await page.clock.install()
+  await page.goto('/videos/42')
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toBeVisible()
+  // Ne pas faire expirer artificiellement le GET de note encore en transit.
+  await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
+  await page.clock.runFor(15_100)
+  await expect(page.getByRole('alert')).toContainText('trop long')
+  await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
+  await expect(page.getByText('Transcription indépendante')).toBeVisible()
+})

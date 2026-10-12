@@ -103,16 +103,22 @@ function VideoDetail({ id }: { id: string }) {
             {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
           </time></p>
           <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
-          <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote videoID={state.video.id} /></Suspense>
-          {source ? <>
-            <p className="muted">Source de travail : YouTube · {source.title} · {source.external_id}</p>
-            <YouTubePlayer key={`player-${source.id}`} source={source} />
-            <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id} />
-          </> : <p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p>}
-          {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
-          {state.video.sources.map((source, index) => (
-            <SourceDetails key={source.id} source={source} index={index} />
-          ))}
+          {source && <p className="work-source">Source de travail : YouTube · {source.title} · {source.external_id}</p>}
+          <div className={`video-workspace${source ? '' : ' without-source'}`}>
+            {source ? <YouTubePlayer key={`player-${source.id}`} source={source} />
+              : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
+            <div className="workspace-note">
+              <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote videoID={state.video.id} /></Suspense>
+            </div>
+            {source && <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id} />}
+          </div>
+          <details className="video-metadata">
+            <summary>Métadonnées et sources</summary>
+            {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
+            {state.video.sources.map((source, index) => (
+              <SourceDetails key={source.id} source={source} index={index} />
+            ))}
+          </details>
         </>
       )}
     </>

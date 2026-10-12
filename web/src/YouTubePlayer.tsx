@@ -24,6 +24,7 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
     let readyTimer: number | undefined
     setReady(false); setMessage('')
 
+    /** Une initialisation en échec ne peut pas être réactivée par un événement tardif. */
     function fail(description: string) {
       if (disposed || failed) return
       failed = true
@@ -88,6 +89,7 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
     }
   }, [source.external_id, source.title, attempt])
 
+  /** Attend une pause confirmée ; le lecteur reste visible tant qu'il peut encore jouer. */
   function toggle() {
     if (hidden) {
       conceal.current = false
