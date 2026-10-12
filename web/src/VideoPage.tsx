@@ -4,7 +4,8 @@ import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
-import { formatDuration, httpURL, providerLabel } from './videoPresentation'
+import { VideoTranscript } from './VideoTranscript'
+import { formatDuration, httpURL, providerLabel, workSource } from './videoPresentation'
 
 const VideoNote = lazy(() => import('./VideoNote').then(module => ({ default: module.VideoNote })))
 
@@ -49,6 +50,7 @@ function VideoDetail({ id }: { id: string }) {
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const location = useLocation()
+  const source = state.status === 'ready' ? workSource(state.video.sources) : undefined
   const origin: unknown = location.state?.library
   // Seul le contexte interne de bibliothèque peut devenir la destination de retour.
   const backTo = typeof origin === 'string' && /^\/\?tag_id=[0-9]+$/.test(origin) ? origin : '/'
@@ -101,6 +103,10 @@ function VideoDetail({ id }: { id: string }) {
           </time></p>
           <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
           <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote videoID={state.video.id} /></Suspense>
+          {source ? <>
+            <p className="muted">Source de travail : YouTube · {source.title} · {source.external_id}</p>
+            <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id} />
+          </> : <p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p>}
           {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
           {state.video.sources.map((source, index) => (
             <SourceDetails key={source.id} source={source} index={index} />

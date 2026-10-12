@@ -1,3 +1,11 @@
+import type { VideoSource } from './api'
+
+/** Choix provisoire de présentation partagé par le lecteur et la transcription. */
+export function workSource(sources: VideoSource[]): VideoSource | undefined {
+  return sources.find(source => source.provider === 'youtube' &&
+    typeof source.external_id === 'string' && /^[a-zA-Z0-9_-]{11}$/.test(source.external_id))
+}
+
 /** Accepte uniquement une URL HTTP(S) absolue, sans identifiants de connexion. */
 export function httpURL(value: string | null | undefined): string | null {
   if (!value) return null

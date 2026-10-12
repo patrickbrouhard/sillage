@@ -1,0 +1,44 @@
+#!/usr/bin/python3
+"""Simule métadonnées et captions, sans accès réseau, pour les parcours Web réels."""
+
+import json
+from pathlib import Path
+import sys
+from urllib.parse import parse_qs, urlparse
+
+
+def main():
+    """Reproduit les deux commandes d'acquisition et les imports existants."""
+    args = sys.argv[1:]
+    if "--load-info-json" in args:
+        output = Path(args[args.index("--output") + 1])
+        caption = {"events": [
+            {"tStartMs": 2960, "segs": [{"utf8": "Bon"}, {"utf8": "jour"},
+                                        {"tOffsetMs": 120, "utf8": " le monde."}]},
+            {"tStartMs": 11000, "segs": [{"utf8": "Deuxième intervalle."}]},
+        ]}
+        (output.parent / "caption.fr-orig.json3").write_text(json.dumps(caption), encoding="utf-8")
+        return
+
+    url = urlparse(args[-1])
+    external_id = parse_qs(url.query).get("v", [url.path.rsplit("/", 1)[-1]])[0]
+    metadata = {
+        "extractor_key": "Youtube", "id": "sillage-test",
+        "title": "Comprendre SQLite et ses transactions", "duration": 125,
+        "channel_id": "UC" + "s" * 22, "channel": "Les ateliers du code",
+        "thumbnail": "http://127.0.0.1:18381/missing-thumbnail.jpg",
+    }
+    if external_id.startswith("sillage-new-"):
+        metadata.update(id=external_id, title="Une nouvelle vidéo pour apprendre",
+                        description="Une description conservée dans SQLite.")
+    if external_id.startswith(("sillage-notes-", "sillage-tags-", "tr")):
+        metadata.update(id=external_id, title=external_id, description="Description pour le classement.")
+    if external_id.startswith("tr"):
+        metadata["automatic_captions"] = {"fr-orig": [{
+            "ext": "json3", "url": "https://example.test/original",
+        }]}
+    print(json.dumps(metadata))
+
+
+if __name__ == "__main__":
+    main()

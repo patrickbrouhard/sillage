@@ -64,28 +64,10 @@ def main():
     server = None
     with tempfile.TemporaryDirectory(prefix="sillage-web-test-") as temporary:
         workspace = Path(temporary)
-        metadata = {
-            "extractor_key": "Youtube",
-            "id": "sillage-test",
-            "title": "Comprendre SQLite et ses transactions",
-            "duration": 125,
-            "channel_id": "UC" + "s" * 22,
-            "channel": "Les ateliers du code",
-            "thumbnail": f"http://127.0.0.1:{PORT}/missing-thumbnail.jpg",
-        }
-        # Métadonnées fixes ; un ID dédié à chaque tentative isole les reprises CI.
+        # Chaque acquisition traverse l'exécutable simulé, puis les adapters réels.
         executable = workspace / "yt-dlp"
         executable.write_text(
-            "#!/usr/bin/python3\nimport json, sys\n"
-            + "metadata = " + repr(metadata) + "\n"
-            + "external_id = sys.argv[-1].rsplit('/', 1)[-1]\n"
-            + "if external_id.startswith('sillage-new-'):\n"
-            + "    metadata.update(id=external_id, title='Une nouvelle vidéo pour apprendre', description='Une description conservée dans SQLite.')\n"
-            + "if external_id.startswith('sillage-notes-'):\n"
-            + "    metadata.update(id=external_id, title=external_id)\n"
-            + "if external_id.startswith('sillage-tags-'):\n"
-            + "    metadata.update(id=external_id, title=external_id, description='Description pour le classement.')\n"
-            + "print(json.dumps(metadata))\n",
+            (ROOT / "tests/web/ytdlp.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         executable.chmod(0o700)
