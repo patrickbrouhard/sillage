@@ -41,6 +41,56 @@ test('regroupe sans réordonner, découper les mots ou perdre les blancs', () =>
   expect(groupTranscript([], 10)).toEqual([])
 })
 
+test('présente des paragraphes fluides sans modifier les fragments sur desktop et mobile', async ({ page }) => {
+  const items = [
+    { start_ms: 1200, text: 'Bon' },
+    { start_ms: 1300, text: 'jour\nami\r\n' },
+    { start_ms: 1400, text: 'Les  mots\trestent séparés et les lignes suivent la largeur disponible. '.repeat(5) },
+    { start_ms: 11000, text: 'Autre\nintervalle.' },
+  ]
+  await mockVideo(page)
+  await page.route('**/transcript', route => route.fulfill({ json: { ...localTranscript, items } }))
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/videos/42')
+  await expect(page.locator('.transcript-block')).toHaveCount(2)
+  const paragraph = page.locator('.transcript-block p').first()
+  const originalText = items.slice(0, 3).map(item => item.text).join('')
+  const desktopBox = await paragraph.boundingBox()
+
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 })
+    expect(await paragraph.textContent()).toBe(originalText)
+    expect(await paragraph.innerText()).toBe(originalText.replace(/\s+/g, ' ').trim())
+    await expect(page.locator('.transcript-time')).toHaveText(['0:01', '0:11'])
+    expect(await page.locator('.transcript-block p').last().textContent()).toBe(items[3].text)
+
+    // Les mots de part et d'autre du saut source tiennent sur la même ligne.
+    // Les lignes suivantes résultent seulement de la largeur du paragraphe.
+    const layout = await paragraph.evaluate(element => {
+      const text = element.firstChild!
+      const word = document.createRange()
+      word.setStart(text, 0); word.setEnd(text, 7)
+      const first = word.getBoundingClientRect()
+      word.setStart(text, 8); word.setEnd(text, 11)
+      const next = word.getBoundingClientRect()
+      const box = element.getBoundingClientRect()
+      return {
+        firstTop: first.top, nextTop: next.top, firstRight: first.right, nextLeft: next.left,
+        height: box.height, width: box.width, lineHeight: parseFloat(getComputedStyle(element).lineHeight),
+        overflow: element.scrollWidth > element.clientWidth,
+      }
+    })
+    expect(layout.nextTop).toBe(layout.firstTop)
+    expect(layout.nextLeft).toBeGreaterThan(layout.firstRight)
+    expect(layout.height).toBeGreaterThan(layout.lineHeight)
+    expect(layout.overflow).toBe(false)
+    if (width === 375) {
+      expect(layout.width).toBeLessThan(desktopBox!.width)
+      expect(layout.height).toBeGreaterThan(desktopBox!.height)
+    }
+  }
+})
+
 test('acquiert via Go/SQLite et relit localement sans POST à ouverture', async ({ page, request }, info) => {
   const externalID = `tr00000000${info.retry}`
   const video = await (await request.post('/api/v1/videos', { data: { url: `https://youtu.be/${externalID}` } })).json()

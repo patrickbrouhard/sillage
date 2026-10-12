@@ -754,7 +754,10 @@ Le regroupement parcourt les items dans leur ordre source et crée des blocs
 consécutifs par intervalle. Les groupes composés uniquement de blancs sont rattachés
 au texte précédent, ou préfixés au premier bloc textuel s'ils sont initiaux, sans
 ligne horodatée dédiée ni changement du timestamp du bloc textuel. Les items restent
-intacts. Le rendu utilise du texte échappé et `white-space: pre-wrap`.
+intacts. Le rendu utilise du texte échappé et `white-space: normal` : chaque bloc
+forme un paragraphe fluide, avec normalisation visuelle des blancs et retour à la
+ligne selon la largeur disponible. Aucune transformation JavaScript des chaînes
+n'est nécessaire ; les données et les règles de regroupement restent inchangées.
 
 Les tests navigateur emploient une IFrame API contrôlée, sans accès à YouTube,
 et un faux yt-dlp exécuté par le backend réel pour acquérir puis relire des snapshots.

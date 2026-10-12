@@ -473,12 +473,18 @@ typage, 76 tests navigateur et Postman (45 requêtes, 135 assertions) réussis.
 L'image Docker reconstruite et le smoke test Compose passent également.
 Les nouveaux parcours déterministes couvrent `en-US` / `en-orig`, l'ambiguïté,
 la conservation du contenu et les acquisitions concurrentes de langues distinctes.
-Un nouvel essai sur la vidéo YouTube réelle reste à effectuer ; ces tests
-ne constituent pas une validation de la disponibilité distante.
+La validation manuelle rapportée par l'utilisateur confirme ensuite l'acquisition
+réelle de `G2B0YWuJUgI` : 5 511 fragments en `en`, avec l'audio conservé en `en-US`.
 
-État : implémentation terminée et vérifiée automatiquement ; validation utilisateur
-et essais avec YouTube réel encore à réaliser. Aucune validation manuelle réelle
-du lecteur ou de l'acquisition distante n'est revendiquée ici.
+Dernier ajustement UX : paragraphes de transcription fluides via CSS, sans
+modifier les fragments ni leur regroupement. Build Go/frontend, typage et les
+16 tests navigateur ciblés transcription/workspace passent, dont le rendu à
+1440 et 375 px et la conservation des chaînes exactes.
+
+État : implémentation terminée et vérifiée automatiquement ; acquisition réelle
+confirmée par l'utilisateur. Validation définitive de 5.3 encore attendue après
+le dernier ajustement de présentation ; aucun nouvel essai manuel du lecteur
+n'est revendiqué ici.
 
 Périmètre validé : workspace desktop note à gauche, lecteur et transcription à
 droite, défilements indépendants ; mobile lecteur, note, transcription avec

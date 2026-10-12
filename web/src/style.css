@@ -148,7 +148,7 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .transcript-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .transcript-toolbar select { font: inherit; padding: .5rem; color: inherit; }
 .transcript-block { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: .75rem; margin: 1rem 0; }
-.transcript-block p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.transcript-block p { margin: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
 .transcript-time { font-variant-numeric: tabular-nums; color: #5b6a62; font-size: .85rem; padding-top: .2rem; }
 .player-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
 .player-toolbar h2 { margin-right: auto; }

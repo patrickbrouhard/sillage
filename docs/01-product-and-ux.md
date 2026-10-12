@@ -379,6 +379,12 @@ en cas de retour temporel : un intervalle peut donc produire plusieurs blocs.
 Les textes sont concaténés exactement, sans espace ajouté. Le timestamp est celui
 du premier fragment réel du bloc. Aucun bloc visuellement vide ni intervalle sans
 texte n'est affiché ; les blancs isolés restent des séparateurs du texte voisin.
+Chaque bloc est affiché comme un paragraphe fluide : les espaces et retours à la
+ligne sont normalisés visuellement par le navigateur, qui adapte les lignes à
+la largeur disponible sur desktop et mobile. Les coupures des sous-titres ne
+sont pas reproduites. Les chaînes regroupées, les fragments REST et les données
+sources conservent leurs espaces exacts ; aucun espace n'est ajouté entre deux
+fragments d'un même mot. Les groupes restent séparés avec leur timestamp.
 Les frontières peuvent couper une phrase ou un mot. Aucun traitement linguistique,
 changement de modèle ou de persistance n'est introduit. Les timestamps ne sont pas
 cliquables ; recherche, synchronisation, citations et insertion du temps attendent 6.
