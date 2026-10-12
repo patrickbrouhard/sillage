@@ -461,11 +461,32 @@ fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
 ### 5.3 — Lecteur et transcription
 
-Premiers workflows réunissant note, lecteur YouTube et transcription automatique
-originale. La transcription est consultable à côté de la note même lorsque le
-lecteur est masqué, notamment pour les contenus principalement audio.
-Premiers ajustements de disposition, sans exiger redimensionnement avancé,
-détachement ou coordination entre fenêtres.
+État : cadrage validé, implémentation en cours.
+
+Périmètre validé : workspace desktop note à gauche, lecteur et transcription à
+droite, défilements indépendants ; mobile lecteur, note, transcription avec
+défilement de page. La note conserve sa session, ses sauvegardes et son historique.
+Métadonnées secondaires repliables. Première source YouTube exploitable dans
+l'ordre REST, commune aux deux outils et identifiable, sans source principale
+persistée ni sélecteur.
+
+IFrame Player API directe et commandes natives, sans lecture automatique.
+Masquage avec pause YouTube, conservation de position dans la fiche, réaffichage
+sans reprise. États d'erreur indépendants et lien externe lorsque disponible.
+GET local à l'ouverture ; acquisition/actualisation par POST explicite uniquement.
+Ancien contenu conservé pendant l'actualisation et ses échecs, erreurs distinctes,
+relecture possible après résultat incertain sans relance automatique du POST.
+Regroupement de présentation par intervalles 5/10/15/30 s (10 s par défaut), ancrés
+sur zéro, fragments consécutifs et ordre source conservés, espaces exacts et aucun
+bloc visuellement vide. Les timestamps affichent le début réel du premier fragment.
+
+Jalons envisagés : lecture locale et regroupement ; acquisition explicite ; lecteur
+et masquage ; disposition et consolidation. Tests déterministes via Go/SQLite et
+faux yt-dlp enrichi, API lecteur simulée, puis vérifications manuelles YouTube.
+
+Hors périmètre : interactions temporelles (étape 6), média local, panneaux avancés,
+gestion de plusieurs pistes/sources, préférences persistantes et acquisition
+automatique. Aucun changement métier, REST ou de persistance prévu.
 
 ## 8. Étape 6 — Interactions temporelles, citations et références enrichies
 
