@@ -467,8 +467,14 @@ Correctif validé après essai manuel : le cas audio `en-US` / caption `en-orig`
 doit être accepté par repli sur une piste originale unique. Les égalités entre
 langues audio et transcription sont retirées de la sélection et de la sauvegarde.
 Les captions ne renseignent plus la langue audio, même à l'import ; aucune
-correction automatique des anciennes valeurs n'est prévue. Implémentation et
-validation du correctif en cours.
+correction automatique des anciennes valeurs n'est prévue. Correctif implémenté
+et validé le 12 octobre 2026 : tests Go avec détection des races, vet, builds,
+typage, 76 tests navigateur et Postman (45 requêtes, 135 assertions) réussis.
+L'image Docker reconstruite et le smoke test Compose passent également.
+Les nouveaux parcours déterministes couvrent `en-US` / `en-orig`, l'ambiguïté,
+la conservation du contenu et les acquisitions concurrentes de langues distinctes.
+Un nouvel essai sur la vidéo YouTube réelle reste à effectuer ; ces tests
+ne constituent pas une validation de la disponibilité distante.
 
 État : implémentation terminée et vérifiée automatiquement ; validation utilisateur
 et essais avec YouTube réel encore à réaliser. Aucune validation manuelle réelle

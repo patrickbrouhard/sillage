@@ -98,6 +98,8 @@ func respondTranscriptError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, 404, "transcript_not_found", "transcript not found")
 	case errors.Is(err, transcript.ErrNotAvailable):
 		writeError(w, 404, "transcript_not_available", "no selectable original automatic caption")
+	case errors.Is(err, transcript.ErrSelectionAmbiguous):
+		writeError(w, 409, "transcript_selection_ambiguous", "multiple selectable original automatic captions")
 	case errors.Is(err, transcript.ErrFetchFailed):
 		log.Printf("transcript fetch failed: %v", err)
 		writeError(w, 502, "transcript_fetch_failed", "transcript fetch failed")

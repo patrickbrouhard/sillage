@@ -66,8 +66,43 @@ test('acquiert via Go/SQLite et relit localement sans POST à ouverture', async 
   expect(posts).toBe(2)
 })
 
+test('acquiert la piste en-orig pour un audio en-US via Go et SQLite', async ({ page, request }, info) => {
+  const video = await (await request.post('/api/v1/videos', {
+    data: { url: `https://youtu.be/tr-region0${info.retry}` },
+  })).json()
+  const url = `/api/v1/videos/${video.id}/sources/${video.sources[0].id}/transcript`
+  await page.goto(`/videos/${video.id}`)
+  await page.getByRole('button', { name: 'Récupérer', exact: true }).click()
+  await expect(page.getByLabel('Texte de la transcription')).toContainText('Bonjour le monde.')
+  expect((await (await request.get(url)).json()).language).toBe('en')
+  await page.reload()
+  await expect(page.getByLabel('Texte de la transcription')).toContainText('Bonjour le monde.')
+})
+
+test('signale une ambiguïté réelle sans acquisition ni relecture automatiques', async ({ page, request }, info) => {
+  const video = await (await request.post('/api/v1/videos', {
+    data: { url: `https://youtu.be/tr-ambigu0${info.retry}` },
+  })).json()
+  let reads = 0
+  let posts = 0
+  page.on('request', req => {
+    if (req.url().endsWith('/transcript')) {
+      if (req.method() === 'GET') reads++
+      if (req.method() === 'POST') posts++
+    }
+  })
+  await page.goto(`/videos/${video.id}`)
+  await page.getByRole('button', { name: 'Récupérer', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Plusieurs transcriptions automatiques originales')
+  expect(reads).toBe(1)
+  expect(posts).toBe(1)
+  const url = `/api/v1/videos/${video.id}/sources/${video.sources[0].id}/transcript`
+  expect((await request.get(url)).status()).toBe(404)
+})
+
 for (const [code, status, message] of [
   ['transcript_not_available', 404, 'Aucune transcription automatique originale'],
+  ['transcript_selection_ambiguous', 409, 'Plusieurs transcriptions automatiques originales'],
   ['transcript_fetch_failed', 502, 'auprès de YouTube'],
   ['transcript_fetch_timeout', 504, 'délai de récupération'],
   ['internal_error', 500, 'erreur interne'],
@@ -78,15 +113,19 @@ for (const [code, status, message] of [
       sources: [{ id: 17, provider: 'youtube', external_id: 'abcdefghijk', title: 'Test' }],
     } }))
     let release!: () => void
+    let reads = 0
     const pending = new Promise<void>(resolve => { release = resolve })
     await page.route('**/transcript', async route => {
       if (route.request().method() === 'POST') {
         await pending
         await route.fulfill({ status, json: { error: { code } } })
-      } else await route.fulfill({ json: {
-        language: 'fr', provenance: 'youtube_auto', last_fetched_at: '2026-10-12T10:00:00Z',
-        items: [{ start_ms: 1234, text: 'Texte conservé' }],
-      } })
+      } else {
+        reads++
+        await route.fulfill({ json: {
+          language: 'fr', provenance: 'youtube_auto', last_fetched_at: '2026-10-12T10:00:00Z',
+          items: [{ start_ms: 1234, text: 'Texte conservé' }],
+        } })
+      }
     })
     await page.goto('/videos/42')
     await expect(page.getByText('Texte conservé', { exact: true })).toBeVisible()
@@ -96,6 +135,7 @@ for (const [code, status, message] of [
     release()
     await expect(page.getByRole('alert')).toContainText(message)
     await expect(page.getByText('Texte conservé', { exact: true })).toBeVisible()
+    expect(reads).toBe(1)
   })
 }
 

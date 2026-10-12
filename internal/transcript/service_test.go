@@ -149,6 +149,15 @@ func TestAcquisitionLifecycle(t *testing.T) {
 }
 
 func TestConcurrentAcquisitions(t *testing.T) {
+	for _, differentLanguages := range []bool{false, true} {
+		t.Run(fmt.Sprintf("different_languages_%t", differentLanguages), func(t *testing.T) {
+			testConcurrentAcquisitions(t, differentLanguages)
+		})
+	}
+}
+
+// testConcurrentAcquisitions vérifie les snapshots distincts et l'identité par langue.
+func testConcurrentAcquisitions(t *testing.T, differentLanguages bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	root := t.TempDir()
@@ -170,6 +179,9 @@ func TestConcurrentAcquisitions(t *testing.T) {
 	snapshots := filesystem.NewTranscripts(filepath.Join(root, "snapshots"), ytdlp.ParseJSON3)
 	for _, text := range []string{"first", "second"} {
 		content := acquisition(t, text)
+		if differentLanguages && text == "second" {
+			content.Language = "fr"
+		}
 		provider := providerFunc(func(ctx context.Context, _ video.VideoSource) (transcript.Acquisition, error) {
 			arrived <- struct{}{}
 			select {
@@ -196,12 +208,78 @@ func TestConcurrentAcquisitions(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if a.Transcript.ID != b.Transcript.ID || a.Transcript.LocalPath == b.Transcript.LocalPath {
+	if (a.Transcript.ID != b.Transcript.ID) != differentLanguages || a.Transcript.LocalPath == b.Transcript.LocalPath {
 		t.Fatal(a, b)
+	}
+	storedVideo, err := videos.Get(ctx, v.ID)
+	if err != nil || storedVideo.Sources[0].OriginalAudioLanguage != "" {
+		t.Fatalf("audio language changed: %#v %v", storedVideo, err)
 	}
 	got, err := transcript.NewService(videos, repo, nil, snapshots).Get(ctx, v.ID, v.Sources[0].ID)
 	if err != nil || (!reflect.DeepEqual(got, a) && !reflect.DeepEqual(got, b)) {
 		t.Fatal(got, err)
+	}
+}
+
+func TestAcquisitionPreservesIndependentAudioLanguage(t *testing.T) {
+	for _, audioLanguage := range []string{"", "en", "en-US"} {
+		t.Run("audio_"+audioLanguage, func(t *testing.T) {
+			ctx := context.Background()
+			root := t.TempDir()
+			db, err := sqlite.Open(ctx, filepath.Join(root, "test.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			videos := sqlite.NewVideoRepository(db)
+			v, err := videos.Create(ctx, video.Video{
+				CreatedAt: time.Now(),
+				Sources: []video.VideoSource{{
+					Provider:              "youtube",
+					ExternalID:            "abc",
+					Title:                 "Test",
+					OriginalAudioLanguage: audioLanguage,
+				}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			current := acquisition(t, "original")
+			var failure error
+			service := transcript.NewService(
+				videos,
+				sqlite.NewTranscriptRepository(db),
+				providerFunc(func(context.Context, video.VideoSource) (transcript.Acquisition, error) {
+					return current, failure
+				}),
+				filesystem.NewTranscripts(filepath.Join(root, "snapshots"), ytdlp.ParseJSON3),
+			)
+			first, err := service.Fetch(ctx, v.ID, v.Sources[0].ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			current.Language = "fr"
+			second, err := service.Fetch(ctx, v.ID, v.Sources[0].ID)
+			if err != nil || second.Transcript.ID == first.Transcript.ID {
+				t.Fatalf("%#v %v", second, err)
+			}
+			third, err := service.Fetch(ctx, v.ID, v.Sources[0].ID)
+			if err != nil || third.Transcript.ID != second.Transcript.ID {
+				t.Fatalf("%#v %v", third, err)
+			}
+			failure = transcript.ErrSelectionAmbiguous
+			if _, err := service.Fetch(ctx, v.ID, v.Sources[0].ID); !errors.Is(err, failure) {
+				t.Fatal(err)
+			}
+			got, err := service.Get(ctx, v.ID, v.Sources[0].ID)
+			if err != nil || !reflect.DeepEqual(got, third) {
+				t.Fatalf("%#v %v", got, err)
+			}
+			stored, err := videos.Get(ctx, v.ID)
+			if err != nil || stored.Sources[0].OriginalAudioLanguage != audioLanguage {
+				t.Fatalf("%#v %v", stored, err)
+			}
+		})
 	}
 }
 

@@ -52,6 +52,7 @@ async function requestTranscript(
     if (!acquiring && response.status === 404 && code === 'transcript_not_found') return null
     const messages: Record<string, string> = {
       transcript_not_available: 'Aucune transcription automatique originale n’a pu être sélectionnée.',
+      transcript_selection_ambiguous: 'Plusieurs transcriptions automatiques originales sont disponibles, mais Sillage ne peut pas encore choisir entre elles.',
       transcript_fetch_failed: 'La transcription n’a pas pu être récupérée auprès de YouTube.',
       transcript_fetch_timeout: 'Le délai de récupération de la transcription est dépassé.',
       video_not_found: 'Cette vidéo n’est plus disponible dans la bibliothèque.',

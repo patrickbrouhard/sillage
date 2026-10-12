@@ -97,21 +97,10 @@ func (c Client) Fetch(ctx context.Context, source video.VideoSource) (transcript
 
 // selectOriginal compte les clés logiques admissibles, et non leurs formats ou URLs.
 func selectOriginal(raw metadata, knownLanguage string) (string, string, error) {
-	detected, conflict := raw.originalLanguage()
-	if conflict {
-		return "", "", transcript.ErrNotAvailable
-	}
-	if knownLanguage != "" && detected != "" && knownLanguage != detected {
-		return "", "", transcript.ErrNotAvailable
-	}
-	language := knownLanguage
-	if language == "" {
-		language = detected
-	}
 	candidates := make(map[string]string)
 	for track, formats := range raw.AutomaticCaptions {
 		lang, ok := strings.CutSuffix(track, "-orig")
-		if !ok || !usableLanguage(lang) || (language != "" && lang != language) {
+		if !ok || !usableLanguage(lang) {
 			continue
 		}
 		for _, format := range formats {
@@ -121,8 +110,16 @@ func selectOriginal(raw metadata, knownLanguage string) (string, string, error) 
 			}
 		}
 	}
-	if len(candidates) != 1 {
+	// La langue enregistrée est une priorité, pas une contrainte : les captions
+	// originales peuvent employer un autre code que les métadonnées audio.
+	if language, ok := candidates[knownLanguage+"-orig"]; knownLanguage != "" && ok {
+		return knownLanguage + "-orig", language, nil
+	}
+	if len(candidates) == 0 {
 		return "", "", transcript.ErrNotAvailable
+	}
+	if len(candidates) > 1 {
+		return "", "", transcript.ErrSelectionAmbiguous
 	}
 	for track, lang := range candidates {
 		return track, lang, nil

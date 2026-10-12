@@ -22,7 +22,7 @@ func NewTranscriptRepository(db *sql.DB) *TranscriptRepository {
 	return &TranscriptRepository{db: db}
 }
 
-// Save conserve l'ID lors d'un rafraîchissement et renseigne la langue audio si absente.
+// Save conserve l'ID lors d'un rafraîchissement sans modifier la langue audio.
 // La transaction reste courte : le fichier a déjà été publié avant cet appel.
 func (r *TranscriptRepository) Save(ctx context.Context, t transcript.Transcript) (transcript.Transcript, error) {
 	if t.VideoSourceID <= 0 || strings.TrimSpace(t.Language) == "" || strings.TrimSpace(t.Provenance) == "" || t.LastFetchedAt.IsZero() {
@@ -34,30 +34,19 @@ func (r *TranscriptRepository) Save(ctx context.Context, t transcript.Transcript
 	}
 	defer tx.Rollback()
 	if t.Provenance == transcript.YouTubeAuto {
-		var language sql.NullString
+		// Audio et transcription restent indépendants, y compris en concurrence.
+		// La transaction vérifie seulement que la source existe encore.
+		var sourceID video.VideoSourceID
 		err := tx.QueryRowContext(ctx, `
-   SELECT original_audio_language
+   SELECT id
    FROM video_sources
    WHERE id = ?
-  `, t.VideoSourceID).Scan(&language)
+  `, t.VideoSourceID).Scan(&sourceID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return transcript.Transcript{}, video.ErrVideoSourceNotFound
 		}
 		if err != nil {
 			return transcript.Transcript{}, err
-		}
-		// Une acquisition concurrente a pu renseigner la langue depuis la lecture du service.
-		if language.Valid && language.String != t.Language {
-			return transcript.Transcript{}, transcript.ErrNotAvailable
-		}
-		if !language.Valid {
-			if _, err := tx.ExecContext(ctx, `
-    UPDATE video_sources
-    SET original_audio_language = ?
-    WHERE id = ?
-   `, t.Language, t.VideoSourceID); err != nil {
-				return transcript.Transcript{}, err
-			}
 		}
 	}
 	err = tx.QueryRowContext(ctx, `

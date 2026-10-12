@@ -12,12 +12,15 @@ def main():
     args = sys.argv[1:]
     if "--load-info-json" in args:
         output = Path(args[args.index("--output") + 1])
+        track = args[args.index("--sub-langs") + 1].removeprefix("^").removesuffix("$")
+        if track not in ("fr-orig", "en-orig"):
+            raise ValueError("Unexpected caption selection")
         caption = {"events": [
             {"tStartMs": 2960, "segs": [{"utf8": "Bon"}, {"utf8": "jour"},
                                         {"tOffsetMs": 120, "utf8": " le monde."}]},
             {"tStartMs": 11000, "segs": [{"utf8": "Deuxième intervalle."}]},
         ]}
-        (output.parent / "caption.fr-orig.json3").write_text(json.dumps(caption), encoding="utf-8")
+        (output.parent / f"caption.{track}.json3").write_text(json.dumps(caption), encoding="utf-8")
         return
 
     url = urlparse(args[-1])
@@ -37,6 +40,11 @@ def main():
         metadata["automatic_captions"] = {"fr-orig": [{
             "ext": "json3", "url": "https://example.test/original",
         }]}
+    if external_id.startswith("tr-region"):
+        metadata["formats"] = [{"language": "en-US", "language_preference": 10, "acodec": "opus"}]
+        metadata["automatic_captions"] = {"en-orig": [{"ext": "json3", "url": "https://example.test/en"}]}
+    if external_id.startswith("tr-ambigu"):
+        metadata["automatic_captions"]["en-orig"] = [{"ext": "json3", "url": "https://example.test/en"}]
     print(json.dumps(metadata))
 
 
