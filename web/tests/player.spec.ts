@@ -52,6 +52,22 @@ test('une pause non confirmée détruit le lecteur avant de le masquer', async (
   expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(-1)
 })
 
+test('une reprise tardive après masquage détruit le lecteur sans lecture en arrière-plan', async ({ page }) => {
+  await page.goto('/videos/42')
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.evaluate(() => {
+    window.youtubeTest.confirmPause = false
+    window.youtubeTest.players.at(-1)!.emitState(1)
+  })
+  await expect(page.locator('.youtube-frame iframe')).toHaveCount(0)
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.destroyed)).toBe(true)
+  await expect(page.getByText('Transcription indépendante')).toBeVisible()
+  await page.getByRole('button', { name: 'Afficher le lecteur' }).click()
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+})
+
 for (const [code, message] of [[100, 'indisponible ou privée'], [101, 'n’autorise pas'], [153, 'identifier cette intégration']] as const) {
   test(`erreur YouTube ${code} isolée et réessai`, async ({ page }) => {
     await page.goto('/videos/42')

@@ -9,6 +9,7 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
   const host = useRef<HTMLDivElement>(null)
   const player = useRef<Player | null>(null)
   const conceal = useRef(false)
+  const concealed = useRef(false)
   const concealTimer = useRef<number | undefined>(undefined)
   const [hidden, setHidden] = useState(false)
   const [hiding, setHiding] = useState(false)
@@ -40,7 +41,11 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
       // Le conteneur appartient à React ; seule son iframe appartient à YouTube.
       const iframe = document.createElement('iframe')
       const params = new URLSearchParams({
-        enablejsapi: '1', origin: window.location.origin, autoplay: '0', controls: '1', playsinline: '1',
+        enablejsapi: '1',
+        origin: window.location.origin,
+        autoplay: '0',
+        controls: '1',
+        playsinline: '1',
       })
       iframe.src = `https://www.youtube.com/embed/${source.external_id}?${params}`
       iframe.title = `Lecteur YouTube : ${source.title}`
@@ -59,9 +64,14 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
         },
         onStateChange: event => {
           if (disposed || failed || !conceal.current) return
-          if ([1, 3].includes(event.data)) event.target.pauseVideo()
+          if ([1, 3].includes(event.data)) {
+            // Une reprise tardive après masquage ne doit pas devenir une lecture en arrière-plan.
+            if (concealed.current) fail('Le lecteur a été arrêté après une reprise inattendue alors qu’il était masqué.')
+            else event.target.pauseVideo()
+          }
           else {
             window.clearTimeout(concealTimer.current)
+            concealed.current = true
             setHidden(true); setHiding(false)
           }
         },
@@ -93,6 +103,7 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
   function toggle() {
     if (hidden) {
       conceal.current = false
+      concealed.current = false
       setHidden(false)
       // Une instance en pause est conservée ; une initialisation interrompue repart sans autoplay.
       if (!player.current) setAttempt(value => value + 1)
@@ -101,18 +112,24 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
     conceal.current = true
     const current = player.current
     if (!current) {
+      concealed.current = true
       setHidden(true)
       // Le nettoyage invalide aussi un chargement et ses événements tardifs.
       setAttempt(value => value + 1)
       return
     }
     current.pauseVideo()
-    if (![1, 3].includes(current.getPlayerState())) { setHidden(true); return }
+    if (![1, 3].includes(current.getPlayerState())) {
+      concealed.current = true
+      setHidden(true)
+      return
+    }
     setHiding(true)
     // En l'absence de confirmation, retirer l'iframe garantit l'arrêt du média.
     // Cette panne exceptionnelle ne garantit pas la restauration de position.
     concealTimer.current = window.setTimeout(() => {
       player.current = null
+      concealed.current = true
       setHidden(true); setHiding(false)
       setAttempt(value => value + 1)
     }, 1_000)
