@@ -15,7 +15,7 @@ func TestOpenMigratesAndConfiguresEveryConnection(t *testing.T) {
 	db := openTestDB(t, filepath.Join(t.TempDir(), "sillage ?# test.db"))
 	ctx := context.Background()
 	var version int
-	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 4 {
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 5 {
 		t.Fatalf("version = %d, error = %v", version, err)
 	}
 	var tables int
@@ -128,7 +128,7 @@ func TestConcurrentOpenMigratesOnce(t *testing.T) {
 	}
 	db := openTestDB(t, path)
 	var version int
-	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 4 {
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 5 {
 		t.Fatalf("version = %d, error = %v", version, err)
 	}
 }

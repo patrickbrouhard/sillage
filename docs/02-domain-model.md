@@ -610,6 +610,7 @@ La note appartient directement à `Video`, jamais à une `VideoSource`.
 | `content_md` | Contenu Markdown brut, stocké en `TEXT` dans SQLite |
 | `created_at` | Date de création de la note |
 | `updated_at` | Date de dernière modification effective |
+| `revision` | Entier positif de version ; migration 0005 : 1 pour les notes existantes, texte et dates préservés |
 
 Aucune note n'est créée automatiquement à l'ajout d'une vidéo. Le premier
 enregistrement la crée ; les suivants remplacent son contenu. Une chaîne vide
@@ -625,12 +626,17 @@ stable ensuite et un contenu strictement inchangé ne modifie pas `updated_at`.
 Un changement d'espace ou de retour à la ligne est une modification effective.
 Les dates suivent la convention UTC à précision milliseconde.
 
-La dernière écriture gagnante est retenue provisoirement pour l'étape 4, sans
-historique ni gestion des conflits. La protection contre les écrasements concurrents est requise en 5.2.
-Le mécanisme de version et la politique d'autosauvegarde restent ouverts ;
-ils ne sont pas implémentés en 5.1.
-Plusieurs notes, l'ajout partiel et la suppression explicite sont hors de cette
-tranche ; la suppression reste une évolution UX envisagée.
+La dernière écriture gagnante était le compromis historique de l'étape 4.
+En 5.2, chaque sauvegarde exige une révision attendue : 0 signifie une note
+absente, une valeur positive désigne la version lue. Comparaison et écriture
+sont atomiques en persistance, pour tous les clients des services applicatifs.
+Une révision obsolète provoque un conflit, même si le contenu proposé est identique.
+Une création reçoit la révision 1 ; une modification effective l'incrémente.
+Une sauvegarde identique avec précondition valide conserve révision et dates.
+La migration des notes existantes initialise leur révision sans transformer le texte.
+
+Ni plusieurs notes, ni ajout partiel, ni suppression explicite, ni historique
+ne sont introduits en 5.2.
 
 ### 5.2 Références temporelles — orientation pour l'étape 6
 

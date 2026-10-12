@@ -30,19 +30,19 @@ func TestNoteLifecycleAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	at := time.Date(2026, 10, 9, 8, 0, 0, 123000000, time.UTC)
-	if _, err := r.Save(ctx, v.ID+1, "lost", at); !errors.Is(err, video.ErrVideoNotFound) {
+	if _, err := r.Save(ctx, v.ID+1, "lost", 0, at); !errors.Is(err, video.ErrVideoNotFound) {
 		t.Fatal(err)
 	}
-	first, err := r.Save(ctx, v.ID, "", at)
+	first, err := r.Save(ctx, v.ID, "", 0, at)
 	if err != nil || !first.Created || first.Note.ContentMD != "" || !first.Note.CreatedAt.Equal(at) || !first.Note.UpdatedAt.Equal(at) {
 		t.Fatalf("%+v %v", first, err)
 	}
 	content := "\t# Café\r\n\n  [12:42] **texte**  \n\x00fin\n"
-	updated, err := r.Save(ctx, v.ID, content, at.Add(time.Second))
+	updated, err := r.Save(ctx, v.ID, content, 1, at.Add(time.Second))
 	if err != nil || updated.Created || updated.Note.ContentMD != content || !updated.Note.CreatedAt.Equal(at) || !updated.Note.UpdatedAt.Equal(at.Add(time.Second)) {
 		t.Fatalf("%+v %v", updated, err)
 	}
-	same, err := r.Save(ctx, v.ID, content, at.Add(time.Hour))
+	same, err := r.Save(ctx, v.ID, content, 2, at.Add(time.Hour))
 	if err != nil || !reflect.DeepEqual(updated, same) {
 		t.Fatalf("%+v %v", same, err)
 	}
@@ -55,7 +55,7 @@ func TestNoteLifecycleAndPersistence(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(got, updated.Note) {
 		t.Fatalf("%+v %v", got, err)
 	}
-	empty, err := r.Save(ctx, v.ID, "", at.Add(2*time.Hour))
+	empty, err := r.Save(ctx, v.ID, "", 2, at.Add(2*time.Hour))
 	if err != nil || empty.Created || empty.Note.ContentMD != "" || !empty.Note.CreatedAt.Equal(at) {
 		t.Fatalf("%+v %v", empty, err)
 	}
@@ -163,7 +163,7 @@ func TestConcurrentNotesAndTags(t *testing.T) {
 			_, err := video.NewTagService(NewTagRepository(db)).Add(ctx, v.ID, []string{name})
 			if err == nil {
 				var result note.SaveResult
-				result, err = NewNoteRepository(db).Save(ctx, v.ID, fmt.Sprint(i), time.Now())
+				result, err = NewNoteRepository(db).Save(ctx, v.ID, fmt.Sprint(i), 0, time.Now())
 				created <- result.Created
 			} else {
 				created <- false
@@ -174,7 +174,7 @@ func TestConcurrentNotesAndTags(t *testing.T) {
 	close(start)
 	creations := 0
 	for range 12 {
-		if err := <-errs; err != nil {
+		if err := <-errs; err != nil && !errors.Is(err, note.ErrConflict) {
 			t.Fatal(err)
 		}
 		if <-created {
@@ -233,7 +233,7 @@ func TestUpgradeFromTranscriptSchemaPreservesData(t *testing.T) {
 	if err != nil || len(v.Sources) != 1 || v.Sources[0].Title != "Preserved" || len(v.Tags) != 0 {
 		t.Fatalf("%+v %v", v, err)
 	}
-	if _, err := NewNoteRepository(db).Save(ctx, 42, "kept", time.Now()); err != nil {
+	if _, err := NewNoteRepository(db).Save(ctx, 42, "kept", 0, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := video.NewTagService(NewTagRepository(db)).Add(ctx, 42, []string{"Go"}); err != nil {
@@ -242,5 +242,90 @@ func TestUpgradeFromTranscriptSchemaPreservesData(t *testing.T) {
 	var snapshot string
 	if err := db.QueryRow("SELECT local_path FROM transcripts").Scan(&snapshot); err != nil || snapshot != "snapshot.json3" {
 		t.Fatalf("%q %v", snapshot, err)
+	}
+}
+
+func TestNoteRevisionCompareAndSwap(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "versions.db")
+	db := openTestDB(t, path)
+	v, err := NewVideoRepository(db).Create(ctx, sampleVideo("revision"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := NewNoteRepository(db)
+	at := time.Now().UTC().Truncate(time.Millisecond)
+	first, err := repo.Save(ctx, v.ID, "a\r\nb\nc", 0, at)
+	if err != nil || first.Note.Revision != 1 {
+		t.Fatalf("%+v %v", first, err)
+	}
+	if _, err := repo.Save(ctx, v.ID, first.Note.ContentMD, 0, at); !errors.Is(err, note.ErrConflict) {
+		t.Fatal(err)
+	}
+	// Deux connexions indépendantes lisent la même version avant toute écriture.
+	other := openTestDB(t, path)
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for _, repository := range []*NoteRepository{repo, NewNoteRepository(other)} {
+		go func(r *NoteRepository) { <-start; _, err := r.Save(ctx, v.ID, "new", 1, at); results <- err }(repository)
+	}
+	close(start)
+	successes, conflicts := 0, 0
+	for range 2 {
+		err := <-results
+		if err == nil {
+			successes++
+		} else if errors.Is(err, note.ErrConflict) {
+			conflicts++
+		} else {
+			t.Fatal(err)
+		}
+	}
+	if successes != 1 || conflicts != 1 {
+		t.Fatalf("%d successes, %d conflicts", successes, conflicts)
+	}
+	got, err := repo.Get(ctx, v.ID)
+	if err != nil || got.Revision != 2 || got.ContentMD != "new" {
+		t.Fatalf("%+v %v", got, err)
+	}
+	same, err := repo.Save(ctx, v.ID, "new", 2, at.Add(time.Hour))
+	if err != nil || !reflect.DeepEqual(same.Note, got) {
+		t.Fatalf("%+v %v", same, err)
+	}
+}
+
+func TestMigrationPreservesExistingNote(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "old-note.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Reproduit le schéma réellement distribué en 5.1, sans ouvrir de données utilisateur.
+	for _, name := range []string{"0001_initial.sql", "0002_transcripts.sql", "0003_notes_tags.sql", "0004_publishers_persons.sql"} {
+		script, err := migrationFiles.ReadFile("migrations/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(string(script)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	content := "\t# original\r\n\n  texte  \n\x00fin"
+	date := "2026-10-09T08:00:00.123Z"
+	if _, err := db.Exec("INSERT INTO videos VALUES (1, ?)", date); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("INSERT INTO notes VALUES (1, ?, ?, ?)", content, date, date); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("PRAGMA user_version = 4"); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	db = openTestDB(t, path)
+	got, err := NewNoteRepository(db).Get(ctx, 1)
+	if err != nil || got.Revision != 1 || got.ContentMD != content || formatDate(got.UpdatedAt) != date {
+		t.Fatalf("%+v %v", got, err)
 	}
 }

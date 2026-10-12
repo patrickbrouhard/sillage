@@ -162,14 +162,37 @@ son indentation et ses retours à la ligne. Une sauvegarde identique ne change
 pas sa date de modification. Les notes appartiennent à la vidéo, indépendamment
 des métadonnées et transcriptions de ses sources.
 
-La dernière écriture gagnante est acceptée provisoirement pour l'étape 4.
-L'étape 5.2 doit protéger les notes contre les écrasements concurrents.
-Le protocole de version, la résolution des conflits et le comportement exact
-de sauvegarde, explicite ou automatique, restent à définir. CodeMirror 6 est
-fortement privilégié ; son intégration n'est pas encore validée.
-La future interface pourra éviter de créer une note vide et envisager une
-suppression explicite lorsqu'une note est vidée ; cette suppression ne fait
-pas partie de l'étape 4.
+L'étape 4 utilisait provisoirement la dernière écriture gagnante. Pour 5.2,
+les décisions suivantes sont actées :
+
+- note principale en Markdown source enrichi, sans WYSIWYG ni Live Preview ;
+- bascule Édition/Lecture dans le même espace ; rendu GFM sécurisé sans HTML brut ;
+- conservation exacte du texte, y compris LF, CRLF et mélanges ; aucune
+  transformation lors d'une bascule ; curseur, sélection et Undo/Redo préservés
+  autant que possible pendant la session ;
+- sauvegarde après 2 s d'inactivité ou 20 s depuis les premières modifications
+  non prises en charge ; aucune écriture périodique sans changement ;
+- Ctrl+S, une seule écriture en cours, saisie toujours possible ;
+- états distincts : en attente, en cours, contenu confirmé, erreur et conflit ;
+- réessais réseau bornés ; relecture après résultat incertain avant toute nouvelle
+  écriture ; une version distante plus récente n'est jamais écrasée automatiquement ;
+- conflit : texte local conservé, autosauvegarde suspendue, consultation des deux
+  versions et choix explicite ; garder le local reste une écriture conditionnelle ;
+- navigation interne (historique inclus) : tentative de sauvegarde puis choix de
+  rester ou quitter si le contenu n'est pas confirmé ; avertissement navigateur
+  disponible lors d'une fermeture/recharge, sans présumer une sauvegarde tardive ;
+- aucune création à l'ouverture, note vide autorisée, aucune suppression ;
+- une erreur de lecture n'est jamais assimilée à une note absente.
+
+CodeMirror 6 est intégré et vérifié automatiquement en 5.2 ; le périmètre
+fonctionnel de cette étape est validé manuellement.
+Les 20 s sont un objectif de déclenchement, pas une garantie en cas de requête
+en cours, onglet suspendu ou serveur indisponible. Sans brouillon persistant,
+la perte des dernières modifications après un crash brutal est une limite acceptée.
+
+Sont exclus : historique, File Recovery, brouillons navigateur persistants,
+fusion automatique, collaboration temps réel, lecteur et interactions temporelles.
+Aucune nouvelle étape de récupération historique n'est prévue.
 
 Le Markdown est choisi parce qu'il est :
 
@@ -178,6 +201,22 @@ Le Markdown est choisi parce qu'il est :
 - lisible en texte brut ;
 - adapté aux liens, images et structures légères ;
 - cohérent avec une base de connaissances personnelle.
+
+### Retours de validation 5.2 — pistes UX révisables
+
+Ces observations ne bloquent pas la validation fonctionnelle et ne demandent
+aucune modification visuelle immédiate ni nouvelle étape de roadmap :
+
+- le bouton « Enregistrer la note » reste provisoirement disponible ; sa présence
+  définitive sera réévaluée avec l'autosauvegarde et Ctrl+S ;
+- la révision et l'heure du dernier contenu confirmé sont utiles au développement ;
+  un indicateur plus discret et des diagnostics facultatifs ou un mode développement
+  sont des pistes non actées ;
+- le rendu Édition/Lecture mérite une finition ultérieure : couleurs, espacements,
+  blocs de code, coloration syntaxique et présentation générale ;
+- la note précède actuellement la vignette et les informations ; la disposition
+  sera réexaminée avec l'arrivée du lecteur et de la transcription, sans figer
+  maintenant le workspace.
 
 ### 6.2 Première passe : préserver le flow
 

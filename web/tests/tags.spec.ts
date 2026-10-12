@@ -15,6 +15,8 @@ const fixture: Video = {
 /** Ouvre l'éditeur après sa relecture initiale des associations. */
 async function openEditor(page: Page) {
   await page.getByRole('button', { name: /^(Gérer les tags|Ajouter des tags)$/ }).click()
+  // Le champ est brièvement actif avant l'effet de relecture : attendre son résultat.
+  await expect(page.getByRole('dialog').getByRole('status')).toHaveText('Associations actualisées.')
   await expect(page.getByRole('combobox', { name: 'Rechercher ou ajouter un tag' })).toBeEnabled()
 }
 
@@ -27,13 +29,15 @@ async function mockDetail(page: Page) {
 }
 
 test('classe deux vidéos via Go/SQLite et conserve les associations partagées', async ({ page, request }, info) => {
+  // La base est partagée entre workers et tentatives ; chaque exécution garde ses données.
+  const run = `${info.repeatEachIndex}-${info.retry}`
   const ids: number[] = []
   for (const suffix of ['a', 'b']) {
-    const response = await request.post('/api/v1/videos', { data: { url: `https://youtu.be/sillage-tags-${info.retry}-${suffix}` } })
+    const response = await request.post('/api/v1/videos', { data: { url: `https://youtu.be/sillage-tags-${run}-${suffix}` } })
     expect(response.status()).toBe(201)
     ids.push((await response.json()).id)
   }
-  const name = `Classement Straße ${info.retry}`
+  const name = `Classement Straße ${run}`
   await page.goto(`/videos/${ids[0]}`)
   await openEditor(page)
   const input = page.getByRole('combobox', { name: 'Rechercher ou ajouter un tag' })
@@ -56,7 +60,9 @@ test('classe deux vidéos via Go/SQLite et conserve les associations partagées'
 
   await page.goto(`/videos/${ids[1]}`)
   await openEditor(page)
-  await input.fill('Classement Straße')
+  await input.fill(name)
+  // Le catalogue charge indépendamment des associations ; choisir une suggestion présente.
+  await expect(page.getByRole('option', { name, exact: true })).toBeVisible()
   await input.press('ArrowDown')
   await expect(page.getByRole('option', { name, exact: true })).toHaveAttribute('aria-selected', 'true')
   await input.press('Enter')
@@ -66,7 +72,7 @@ test('classe deux vidéos via Go/SQLite et conserve les associations partagées'
   await expect(page.locator('.video-card')).toHaveCount(2)
   await page.reload()
   await expect(page.getByLabel('Filtrer par tag')).toHaveValue(filterURL!.split('=')[1])
-  await page.getByRole('link', { name: `Consulter : sillage-tags-${info.retry}-a` }).click()
+  await page.getByRole('link', { name: `Consulter : sillage-tags-${run}-a` }).click()
   await page.reload()
   await page.getByRole('link', { name: /Revenir à la bibliothèque/ }).click()
   await expect(page).toHaveURL(filterURL!)
@@ -74,11 +80,11 @@ test('classe deux vidéos via Go/SQLite et conserve les associations partagées'
   await expect(page).toHaveURL(`/videos/${ids[0]}`)
   await openEditor(page)
   await page.getByRole('button', { name: `Retirer le tag ${name} de cette vidéo` }).click()
-  await expect(page.getByRole('status')).toContainText('Tag retiré')
+  await expect(page.getByRole('dialog').getByRole('status')).toContainText('Tag retiré')
   await page.getByRole('button', { name: 'Fermer', exact: true }).click()
   await page.getByRole('link', { name: /Revenir à la bibliothèque/ }).click()
   await expect(page.locator('.video-card')).toHaveCount(1)
-  await expect(page.getByRole('link', { name: `Consulter : sillage-tags-${info.retry}-b` })).toBeVisible()
+  await expect(page.getByRole('link', { name: `Consulter : sillage-tags-${run}-b` })).toBeVisible()
   await page.getByRole('button', { name: 'Retirer le filtre' }).click()
   await expect(page).toHaveURL('/')
   await page.goBack()
@@ -110,6 +116,7 @@ test('autocomplétion clavier, Échap et fermeture native préservent le focus',
   const input = page.getByRole('combobox', { name: 'Rechercher ou ajouter un tag' })
   await expect(input).toBeFocused()
   await input.fill('progra')
+  await expect(page.getByRole('option', { name: 'Programmation', exact: true })).toBeVisible()
   await input.press('ArrowDown')
   await expect(page.getByRole('option', { name: 'Programmation', exact: true })).toHaveAttribute('aria-selected', 'true')
   await input.press('ArrowDown')

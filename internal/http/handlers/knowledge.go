@@ -23,7 +23,7 @@ type NoteService interface {
 	// Get distingue la note absente de la vidéo absente.
 	Get(context.Context, video.VideoID) (note.Note, error)
 	// Save crée ou remplace le contenu brut sans modifier les sauvegardes identiques.
-	Save(context.Context, video.VideoID, string) (note.SaveResult, error)
+	Save(context.Context, video.VideoID, string, int64) (note.SaveResult, error)
 }
 
 // TagService expose le catalogue et les associations indépendamment de HTTP.
@@ -50,12 +50,13 @@ func NewKnowledgeHandler(notes NoteService, tags TagService) *KnowledgeHandler {
 type noteResponse struct {
 	VideoID   video.VideoID `json:"video_id"`
 	ContentMD string        `json:"content_md"`
+	Revision  int64         `json:"revision"`
 	CreatedAt time.Time     `json:"created_at"`
 	UpdatedAt time.Time     `json:"updated_at"`
 }
 
 func toNoteResponse(n note.Note) noteResponse {
-	return noteResponse{VideoID: n.VideoID, ContentMD: n.ContentMD, CreatedAt: n.CreatedAt.UTC(), UpdatedAt: n.UpdatedAt.UTC()}
+	return noteResponse{VideoID: n.VideoID, Revision: n.Revision, ContentMD: n.ContentMD, CreatedAt: n.CreatedAt.UTC(), UpdatedAt: n.UpdatedAt.UTC()}
 }
 
 type tagResponse struct {
@@ -96,16 +97,17 @@ func (h *KnowledgeHandler) PutNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		ContentMD *string `json:"content_md"`
+		ContentMD        *string `json:"content_md"`
+		ExpectedRevision *int64  `json:"expected_revision"`
 	}
 	if !readKnowledgeJSON(w, r, 1024*1024, &input) {
 		return
 	}
-	if input.ContentMD == nil {
-		writeError(w, 400, "bad_request", "content_md must be a string")
+	if input.ContentMD == nil || input.ExpectedRevision == nil || *input.ExpectedRevision < 0 {
+		writeError(w, 400, "bad_request", "content_md and a non-negative expected_revision are required")
 		return
 	}
-	result, err := h.notes.Save(r.Context(), video.VideoID(id), *input.ContentMD)
+	result, err := h.notes.Save(r.Context(), video.VideoID(id), *input.ContentMD, *input.ExpectedRevision)
 	if err != nil {
 		respondKnowledgeError(w, r, err)
 		return
@@ -245,6 +247,8 @@ func respondKnowledgeError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, 400, "bad_request", "invalid request")
 	case errors.Is(err, video.ErrVideoNotFound):
 		writeError(w, 404, "video_not_found", "video not found")
+	case errors.Is(err, note.ErrConflict):
+		writeError(w, 409, "note_conflict", "note has changed since it was read")
 	case errors.Is(err, note.ErrNotFound):
 		writeError(w, 404, "note_not_found", "note not found")
 	default:

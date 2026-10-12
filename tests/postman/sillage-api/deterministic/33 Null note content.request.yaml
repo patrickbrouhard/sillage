@@ -5,7 +5,7 @@ headers:
   Content-Type: application/json
 body:
   type: text
-  content: "{\"content_md\": null}"
+  content: "{\"expected_revision\": 0, \"content_md\": null}"
 scripts:
   - type: afterResponse
     code: |-

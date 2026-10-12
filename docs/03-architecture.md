@@ -490,10 +490,14 @@ dans le JSON. Les limites sont des choix locaux révisables.
 | `GET` | `/api/v1/videos/{id}/note` | `200` si la note existe |
 | `PUT` | `/api/v1/videos/{id}/note` | `201` à la création, `200` ensuite, même sans changement |
 
-Le `PUT` exige un champ `content_md` de type chaîne ; la chaîne vide est acceptée.
+En 5.2, le `PUT` exige `content_md` (chaîne, vide acceptée) et
+`expected_revision` (entier non négatif, obligatoire). 0 attend une note absente.
+Les anciens clients sans précondition sont refusés par `400 bad_request`.
+Une version obsolète retourne `409 note_conflict` sans écriture.
+Aucun ETag ni If-Match parallèle n'est introduit.
 La création retourne aussi `Location: /api/v1/videos/{id}/note`.
 Les réponses réussies des deux opérations contiennent `video_id`, `content_md`,
-`created_at` et `updated_at`. Le contenu de la note n'est pas intégré aux
+`created_at`, `updated_at` et `revision` positive. Le contenu de la note n'est pas intégré aux
 représentations générales de `Video`.
 
 - Vidéo inexistante : `404 video_not_found`.
@@ -501,8 +505,11 @@ représentations générales de `Video`.
 - Identifiant invalide ou `content_md` absent, `null` ou de type invalide :
   `400 bad_request`.
 
-Aucune route de suppression, d'ajout partiel, d'historique ou de résolution
-des conflits n'est prévue dans cette tranche.
+Aucune route de suppression, d'ajout partiel ou d'historique n'est prévue.
+La résolution d'un conflit réutilise GET et PUT conditionnel ; aucune écriture forcée.
+Le service exige la révision attendue et SQLite la compare sous son verrou de
+transaction immédiate, y compris à la création. Une lecture HTTP préalable seule
+ne constitue pas une protection.
 
 #### Tags et associations
 
@@ -687,16 +694,26 @@ Les routes API, les assets et les routes SPA doivent être séparés : le repli 
 `index.html` ne doit jamais masquer une erreur API ou un asset absent. Seul le
 répertoire frontend est public, jamais celui des données.
 
-Le jalon 2 utilise React Router en mode déclaratif pour `/`, `/videos/new`
+En 5.1, le jalon 2 utilisait React Router en mode déclaratif pour `/`, `/videos/new`
 et `/videos/:videoId`. Les cartes et retours sont des liens ; la fiche relit
 REST indépendamment de la navigation précédente. Les lectures sont annulées
 au démontage et leurs réponses tardives ignorées. Le formulaire lance un seul
 POST par soumission explicite et distingue 201/200 sans modifier AddVideo.
 L'état reste local aux pages ; aucune bibliothèque de store n'est ajoutée.
-CodeMirror 6 est une préférence forte pour 5.2, pas encore
-une intégration validée. La concurrence des notes sera traitée dans les services
-et la persistance en 5.2, avec une traduction HTTP appropriée ; une coordination
-entre onglets seule ne suffirait pas à protéger les autres clients.
+En 5.2, un data router React Router permet le blocage des navigations internes
+et de l'historique pendant la confirmation des sauvegardes. CodeMirror 6 est
+intégré directement et reste monté, masqué pendant la lecture GFM chargée à la demande.
+Le séparateur structurel de l'éditeur est LF : les CR existants restent dans le
+document, ce qui conserve aussi les fins de ligne mixtes. Entrée insère un LF.
+
+Une session locale par note gère le contenu courant, la dernière version confirmée,
+les temporisations et une unique écriture en cours. Elle est détruite à la sortie ;
+aucun brouillon n'est persisté dans le navigateur. Les requêtes ont un délai de
+12 secondes. Les reprises réseau sont limitées à deux, après 1 puis 3 secondes,
+avec relecture de l'état serveur après un résultat incertain. Ces valeurs sont
+des choix locaux révisables. Les conflits suspendent l'autosauvegarde ; le choix
+local reste conditionnel sur la version serveur consultée. Le service et SQLite
+assurent la protection pour tous les clients, indépendamment de cette session React.
 
 La fiche 5.1 ne fige pas le workspace ultérieur : note stable, transcription
 indépendante et lecteur flexible. Les références temporelles relèvent de 6.

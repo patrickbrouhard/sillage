@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { formatDuration, httpURL, providerLabel } from './videoPresentation'
+
+const VideoNote = lazy(() => import('./VideoNote').then(module => ({ default: module.VideoNote })))
 
 type DetailState =
   | { status: 'loading' }
@@ -98,6 +100,7 @@ function VideoDetail({ id }: { id: string }) {
             {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
           </time></p>
           <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
+          <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote videoID={state.video.id} /></Suspense>
           {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
           {state.video.sources.map((source, index) => (
             <SourceDetails key={source.id} source={source} index={index} />

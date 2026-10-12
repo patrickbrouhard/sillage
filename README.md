@@ -65,7 +65,8 @@ L'interface Web permet de consulter la bibliothèque et les fiches, d'ajouter un
 vidéo YouTube et de retrouver un doublon. Les tags vidéo peuvent être ajoutés et
 retirés dans une modale avec autocomplétion, puis utilisés pour naviguer et filtrer
 la bibliothèque par un seul tag. Les descriptions des sources sont repliables.
-L'édition des notes reste disponible via REST, sans éditeur Web à ce stade.
+La fiche intègre désormais l'édition Markdown, le mode Lecture GFM et une
+sauvegarde protégée contre les écrasements concurrents.
 
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
@@ -384,8 +385,9 @@ avec React Router pour la navigation. Go sert déjà les fichiers compilés en
 production locale, sans serveur Node.js permanent. Ils sont également distribués avec le
 binaire dans une même image Docker. L'accès reste
 local par défaut.
-Les autres bibliothèques seront choisies selon les besoins. CodeMirror 6 est
-fortement privilégié pour 5.2, sans intégration encore validée.
+CodeMirror 6 est intégré directement pour l'édition ; react-markdown et remark-gfm
+assurent la lecture GFM sans interprétation du HTML brut. Les autres bibliothèques
+seront choisies selon les besoins.
 
 Une version desktop reste envisageable, mais sa technologie n'est pas arrêtée.
 
@@ -663,8 +665,9 @@ La fiche affiche les métadonnées de toutes les sources, leurs publishers,
 durées, descriptions en texte brut et liens HTTP(S), ainsi que les tags directs
 de la vidéo. Le titre d'en-tête utilise provisoirement la première source.
 La date affichée est celle de l'ajout dans Sillage, pas celle de publication.
-Les personnes ne sont pas déduites des publishers. Aucun lecteur, éditeur ni
-panneau de transcription n'est introduit.
+Les personnes ne sont pas déduites des publishers. L'éditeur de notes est décrit
+dans la section 5.2 ci-dessous ; aucun lecteur ni panneau de transcription
+n'est introduit.
 
 Les tags de la fiche ouvrent la bibliothèque filtrée (`/?tag_id=7`). Le retour
 à une bibliothèque filtrée conserve ce contexte ; un accès direct à une fiche
@@ -947,7 +950,7 @@ Exemples pour une vidéo existante :
 ```bash
 curl -X PUT http://127.0.0.1:8080/api/v1/videos/42/note \
   -H 'Content-Type: application/json' \
-  --data '{"content_md":"# À retenir\n\n  [12:42] Une idée.  \n"}'
+  --data '{"content_md":"# À retenir\n\n  [12:42] Une idée.  \n","expected_revision":0}'
 
 curl -X POST http://127.0.0.1:8080/api/v1/videos/42/tags \
   -H 'Content-Type: application/json' \
@@ -958,7 +961,13 @@ curl 'http://127.0.0.1:8080/api/v1/videos?tag_id=7'
 curl -X DELETE http://127.0.0.1:8080/api/v1/videos/42/tags/7
 ```
 
-GET et PUT de note retournent `video_id`, `content_md`, `created_at` et `updated_at`.
+GET et PUT de note retournent `video_id`, `content_md`, `revision`, `created_at`
+et `updated_at`. Chaque PUT exige `expected_revision` : 0 attend une note absente,
+sinon utiliser la révision positive obtenue par GET ou PUT. Une révision obsolète
+retourne `409 note_conflict`, sans modifier la note. La comparaison et l'écriture
+sont atomiques. Une modification effective incrémente la révision ; une sauvegarde
+identique avec une précondition valide ne change ni révision ni dates.
+**Rupture de contrat :** les anciens PUT sans précondition sont refusés par 400.
 Le premier enregistrement crée la note, y compris avec `content_md: ""` ; son absence
 reste distincte d'une note vide. À la création les dates sont identiques ; ensuite
 `created_at` reste stable et une sauvegarde identique ne change aucune date.
@@ -989,16 +998,53 @@ Limites et erreurs des nouvelles routes :
   (`415 unsupported_media_type` sinon) ;
 - objet JSON unique, sans champs inconnus ; UTF-8 invalide ou échappements Unicode
   non appariés refusés, sans remplacement silencieux (`400 bad_request`) ;
+- `expected_revision` obligatoire pour une note, entier non négatif ;
 - `content_md` obligatoire, chaîne non nulle ; `names` obligatoire, tableau non vide
   de chaînes non nulles ; noms non vides après trim et limités à 200 points de code ;
 - identifiants strictement positifs ; `tag_id` vide, invalide ou répété refusé par `400` ;
 - vidéo absente : `404 video_not_found` ; note absente sur vidéo existante : `404 note_not_found` ;
 - erreur locale : `500 internal_error`, sans diagnostic technique exposé.
 
-Aucun quota métier de tags par vidéo. La dernière écriture gagnante des notes reste
-provisoire et sera réexaminée avec l'UI à l'étape 5. Suppression de note, historique,
-conflits, renommage/suppression globale des tags, recherche et combinaisons de filtres
-restent hors périmètre. Les timestamps interactifs et annotations attendent l'étape 6.
+Aucun quota métier de tags par vidéo. Les notes sont protégées par révision depuis
+5.2. Suppression de note, historique, renommage/suppression globale des tags,
+recherche et combinaisons de filtres restent hors périmètre. Les timestamps interactifs et annotations attendent l'étape 6.
+
+### Notes Markdown dans la fiche — étape 5.2
+
+La note occupe l'espace principal de la fiche. Les modes Édition et Lecture
+partagent cet espace ; la bascule conserve le document, la sélection et Undo/Redo.
+Le mode Lecture prend en charge GFM et ignore le HTML brut. Une erreur de lecture
+affiche une erreur, jamais un éditeur vide. Ouvrir une fiche ne crée pas de note ;
+le bouton Enregistrer permet notamment de créer explicitement une note vide.
+
+Les modifications sont enregistrées après 2 secondes d'inactivité ou déclenchent
+une sauvegarde après 20 secondes de saisie continue. Ctrl+S (Cmd+S sur macOS)
+et le bouton Enregistrer permettent de sauvegarder immédiatement. Une seule
+écriture s'exécute à la fois, sans bloquer la saisie. L'indicateur distingue les
+modifications en attente, l'enregistrement, le dernier contenu confirmé et les erreurs.
+
+Une réponse incertaine entraîne une relecture avant toute nouvelle écriture.
+Les reprises automatiques sont limitées à deux, puis restent manuelles. En cas de
+conflit, le texte local est conservé et l'autosauvegarde suspendue ; les deux
+versions sont consultables, avec choix explicite. Conserver la version locale
+reste une écriture conditionnelle et peut rencontrer un nouveau conflit.
+
+Les liens internes et précédent/suivant tentent de sauvegarder avant de quitter ;
+si le contenu reste non confirmé, un dialogue permet de rester ou de quitter.
+Le rechargement et la fermeture utilisent l'avertissement standard du navigateur,
+lorsqu'il est disponible. Il n'y a pas de brouillon persistant : un crash brutal
+peut perdre les dernières modifications, notamment hors connexion.
+
+LF, CRLF et fins de ligne mixtes existantes sont conservés exactement.
+Les nouvelles lignes saisies avec Entrée utilisent LF ; les séparateurs existants
+ne sont pas normalisés. La migration 0005 attribue la révision 1 aux notes existantes
+sans modifier leur texte ni leurs dates. Effectuer une sauvegarde à froid avant
+la mise à jour, comme décrit dans la section Docker ; adapter les clients REST
+à la précondition obligatoire.
+
+Les tests navigateur utilisent Go et SQLite isolés : conservation du contenu,
+temporisations, réponses perdues, conflits entre deux pages, navigation et
+rendu sécurisé. Aucun accès YouTube réel n'est requis.
 
 ### API des publishers et personnes
 
@@ -1146,8 +1192,9 @@ L'étape Web est découpée en jalons validables :
 - **5.1 — bibliothèque utilisable et distribuable** : liste, ajout et détail,
   tags vidéo et filtre unique, navigation, build servi par Go ; distribution
   Docker et consolidation terminés ; les quatre jalons sont testés et validés ;
-- **5.2 — éditeur Markdown et sauvegarde fiable** : protection contre les
-  écrasements concurrents ; politique d'autosauvegarde encore ouverte ;
+- **5.2 — éditeur Markdown et sauvegarde fiable** : implémenté et testé localement,
+  périmètre fonctionnel validé manuellement ; édition/lecture GFM,
+  autosauvegarde 2 s/20 s, conflits et navigation protégée ;
 - **5.3 — lecteur et transcription** : consultation avec la note comme zone
   principale et la transcription indépendante de la visibilité du lecteur ;
 - **6 — interactions temporelles** : références avec début et fin facultative,
@@ -1208,8 +1255,9 @@ IA intégrée
 
 Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une CI
 GitHub Actions réussie. Le jalon 4 est lui aussi terminé et validé manuellement
-et en CI : l'étape 5.1 est clôturée. L'étape suivante est 5.2, consacrée à
-l'éditeur Markdown et à la sauvegarde fiable.
+et en CI : l'étape 5.1 est clôturée. L'étape 5.2 est implémentée et vérifiée
+localement, et son périmètre fonctionnel est validé manuellement. L'étape 5.3
+(lecteur et transcription) n'est pas commencée.
 
 ### API HTTP réalisée
 

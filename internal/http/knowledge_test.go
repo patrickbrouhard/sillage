@@ -51,7 +51,7 @@ func knowledgeAPI(t *testing.T) (http.Handler, *sql.DB) {
 func TestNotesAndTagsREST(t *testing.T) {
 	h, _ := knowledgeAPI(t)
 	assertError(t, request(h, "GET", "/api/v1/videos/1/note", "", ""), 404, "note_not_found")
-	put := request(h, "PUT", "/api/v1/videos/1/note", `{"content_md":""}`, "application/json")
+	put := request(h, "PUT", "/api/v1/videos/1/note", `{"expected_revision":0,"content_md":""}`, "application/json")
 	if put.Code != 201 || put.Header().Get("Location") != "/api/v1/videos/1/note" {
 		t.Fatal(put.Code, put.Body.String())
 	}
@@ -59,11 +59,11 @@ func TestNotesAndTagsREST(t *testing.T) {
 	if err := json.Unmarshal(put.Body.Bytes(), &first); err != nil {
 		t.Fatal(err)
 	}
-	if len(first) != 4 || first["content_md"] != "" || first["created_at"] != first["updated_at"] || first["video_id"] != float64(1) {
+	if len(first) != 5 || first["content_md"] != "" || first["created_at"] != first["updated_at"] || first["video_id"] != float64(1) {
 		t.Fatal(first)
 	}
 	content := "\t# Café\r\n\n  [12:42]  \n\x00😀\n"
-	body, _ := json.Marshal(map[string]string{"content_md": content})
+	body, _ := json.Marshal(map[string]any{"expected_revision": 1, "content_md": content})
 	put = request(h, "PUT", "/api/v1/videos/1/note", string(body), "application/json; charset=utf-8")
 	if put.Code != 200 || put.Header().Get("Location") != "" {
 		t.Fatal(put.Code, put.Body.String())
@@ -75,6 +75,7 @@ func TestNotesAndTagsREST(t *testing.T) {
 	if updated["content_md"] != content || updated["created_at"] != first["created_at"] {
 		t.Fatal(updated)
 	}
+	body, _ = json.Marshal(map[string]any{"content_md": content, "expected_revision": 2})
 	identical := request(h, "PUT", "/api/v1/videos/1/note", string(body), "application/json")
 	get := request(h, "GET", "/api/v1/videos/1/note", "", "")
 	if identical.Code != 200 || get.Code != 200 || identical.Body.String() != put.Body.String() || get.Body.String() != put.Body.String() {
@@ -154,11 +155,11 @@ func TestKnowledgeRESTValidation(t *testing.T) {
 		code               string
 	}{
 		{"GET", "/api/v1/videos/999/note", "", 404, "video_not_found"},
-		{"PUT", "/api/v1/videos/999/note", `{"content_md":"x"}`, 404, "video_not_found"},
+		{"PUT", "/api/v1/videos/999/note", `{"expected_revision":0,"content_md":"x"}`, 404, "video_not_found"},
 		{"POST", "/api/v1/videos/999/tags", `{"names":["Go"]}`, 404, "video_not_found"},
 		{"DELETE", "/api/v1/videos/999/tags/1", "", 404, "video_not_found"},
 		{"DELETE", "/api/v1/videos/1/tags/0", "", 400, "bad_request"},
-		{"PUT", "/api/v1/videos/0/note", `{"content_md":"x"}`, 400, "bad_request"},
+		{"PUT", "/api/v1/videos/0/note", `{"expected_revision":0,"content_md":"x"}`, 400, "bad_request"},
 		{"GET", "/api/v1/videos/abc/note", "", 400, "bad_request"},
 		{"POST", "/api/v1/videos/9223372036854775808/tags", `{"names":["Go"]}`, 400, "bad_request"},
 	} {
@@ -169,7 +170,7 @@ func TestKnowledgeRESTValidation(t *testing.T) {
 	for _, query := range []string{"", "0", "-1", "no", "9223372036854775808", "1&tag_id=2", "%GG", "1;bad"} {
 		assertError(t, request(h, "GET", "/api/v1/videos?tag_id="+query, "", ""), 400, "bad_request")
 	}
-	for _, body := range []string{"", "null", "[]", "{}", `{"content_md":null}`, `{"content_md":3}`, `{"content_md":"x","extra":1}`, `{"content_md":"x"}{}`, `{"content_md":"\ud800"}`, `{"content_md":"\udc00"}`, "{\"content_md\":\"\xff\"}"} {
+	for _, body := range []string{`{"content_md":"x"}`, `{"content_md":"x","expected_revision":-1}`, `{"content_md":"x","expected_revision":null}`, "", "null", "[]", "{}", `{"expected_revision":0,"content_md":null}`, `{"expected_revision":0,"content_md":3}`, `{"expected_revision":0,"content_md":"x","extra":1}`, `{"expected_revision":0,"content_md":"x"}{}`, `{"expected_revision":0,"content_md":"\ud800"}`, `{"expected_revision":0,"content_md":"\udc00"}`, "{\"content_md\":\"\xff\"}"} {
 		assertError(t, request(h, "PUT", "/api/v1/videos/1/note", body, "application/json"), 400, "bad_request")
 	}
 	for _, body := range []string{"null", "[]", "{}", `{"names":null}`, `{"names":[]}`, `{"names":"Go"}`, `{"names":[null]}`, `{"names":[1]}`, `{"names":[" "]}`, `{"names":["Go"],"extra":1}`, `{"names":["` + strings.Repeat("é", 201) + `"]}`} {
@@ -179,7 +180,7 @@ func TestKnowledgeRESTValidation(t *testing.T) {
 		method, path, body string
 		limit              int
 	}{
-		{"PUT", "/api/v1/videos/1/note", `{"content_md":"\ud83d\ude00\\ud800"}`, 1024 * 1024},
+		{"PUT", "/api/v1/videos/1/note", `{"expected_revision":0,"content_md":"\ud83d\ude00\\ud800"}`, 1024 * 1024},
 		{"POST", "/api/v1/videos/1/tags", `{"names":["` + strings.Repeat("é", 200) + `"]}`, 64 * 1024},
 	} {
 		for _, ct := range []string{"", "text/plain", "application/json; charset"} {
@@ -204,4 +205,28 @@ func TestKnowledgeRESTValidation(t *testing.T) {
 	}
 	assertError(t, request(h, "GET", "/api/v1/videos/1/note", "", ""), 500, "internal_error")
 	assertError(t, request(h, "GET", "/api/v1/tags", "", ""), 500, "internal_error")
+}
+
+func TestNotePreconditionsHTTP(t *testing.T) {
+	h, _ := knowledgeAPI(t)
+	path := "/api/v1/videos/1/note"
+	assertError(t, request(h, "PUT", path, `{"content_md":"legacy"}`, "application/json"), 400, "bad_request")
+	first := request(h, "PUT", path, `{"content_md":"first","expected_revision":0}`, "application/json")
+	if first.Code != 201 {
+		t.Fatal(first.Code, first.Body.String())
+	}
+	for _, body := range []string{
+		`{"content_md":"stale","expected_revision":0}`,
+		`{"content_md":"first","expected_revision":0}`,
+		`{"content_md":"future","expected_revision":99}`,
+	} {
+		assertError(t, request(h, "PUT", path, body, "application/json"), 409, "note_conflict")
+	}
+	same := request(h, "PUT", path, `{"content_md":"first","expected_revision":1}`, "application/json")
+	if same.Code != 200 || same.Body.String() != first.Body.String() {
+		t.Fatal(same.Body.String())
+	}
+	if got := request(h, "GET", path, "", ""); got.Body.String() != first.Body.String() {
+		t.Fatal(got.Body.String())
+	}
 }

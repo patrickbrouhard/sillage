@@ -41,7 +41,7 @@ peut être différée. Les mentions « implémenté » décrivent le code dispon
 | SDK MCP | SDK Go officiel | Préféré |
 | Frontend Web | React, TypeScript et Vite ; SPA sans SSR | Acté pour 5.1 |
 | Distribution Web | fichiers statiques servis par Go, avec le binaire dans Docker | Acté |
-| Éditeur Markdown | CodeMirror 6 | Fortement privilégié, intégration à valider en 5.2 |
+| Éditeur Markdown | CodeMirror 6 | Intégré directement et testé en 5.2 |
 | Références temporelles | début obligatoire, fin facultative, provenance conservée si nécessaire | Orientation actée pour 6 |
 | Syntaxe des références | liens Markdown avec URI `sillage://` | Candidate privilégiée, format ouvert |
 | Desktop | possibilité future, Wails à évaluer | Ouvert |
@@ -56,7 +56,7 @@ peut être différée. Les mentions « implémenté » décrivent le code dispon
 | Note principale | zéro ou une par vidéo, `video_id` clé primaire, Markdown brut en SQLite `TEXT` | Acté et implémenté pour l'étape 4 |
 | Identité des tags | NFC + comparaison Unicode insensible à la casse, accents significatifs | Acté pour l'étape 4, mécanisme technique libre |
 | REST des tags | enveloppe `tags`, ordre `id` croissant dans toutes les réponses | Acté et implémenté pour l'étape 4 |
-| Écritures concurrentes des notes | dernière écriture gagnante | Provisoire pour l'étape 4, à réexaminer à l'étape 5 |
+| Écritures concurrentes des notes | révision entière et précondition atomique | Acté pour 5.2 ; remplace le compromis de l'étape 4 |
 | Publication et personnes | `Publisher`, `Person`, relations explicites sans rôles | Acté et implémenté à l'étape 4 bis |
 | Identité des publishers YouTube | `channel_id` obligatoire, nom facultatif | Acté et implémenté |
 | Tags universels | catalogue unique, aucune propagation | Acté et implémenté |
@@ -394,9 +394,9 @@ Le contrat et les limites des requêtes sont documentés dans `03-architecture.m
 Un changement de règle d'identité Unicode devra examiner les collisions entre
 tags déjà persistés ; remplacer le mécanisme technique doit préserver cette règle.
 
-La dernière écriture gagnante des notes est un compromis limité à l'étape 4.
-L'étape 5 devra réexaminer l'autosauvegarde, les onglets concurrents, la prévention
-des pertes de modifications et les éventuels mécanismes de résolution des conflits.
+La dernière écriture gagnante était le compromis de l'étape 4, remplacé en 5.2
+par la révision attendue et sa vérification atomique, y compris à la création.
+L'autosauvegarde et la résolution explicite des conflits réutilisent cette garantie.
 
 ### 5.7 Publishers, personnes et tags universels — étape 4 bis
 
@@ -696,7 +696,7 @@ L'architecture doit éviter de dépendre directement d'OpenAI, Ollama ou d'un au
 
 ### Préférences révisables
 
-CodeMirror 6 est fortement privilégié pour 5.2, sans intégration encore validée.
+CodeMirror 6 est intégré directement en 5.2, avec lecture react-markdown et remark-gfm.
 Les URI `sillage://` dans des liens Markdown sont la syntaxe candidate pour 6.
 La première source REST sert provisoirement à présenter les cartes en 5.1,
 sans devenir une règle métier de source principale.
@@ -704,7 +704,7 @@ sans devenir une règle métier de source principale.
 ### Questions ouvertes
 
 Bibliothèques complémentaires selon les besoins, layout final, protocole de
-concurrence des notes, politique d'autosauvegarde, format exact des références,
+format exact des références,
 copie adaptée et formats d'export/sauvegarde. Ces questions ne justifient pas
 d'anticiper les étapes 5.2, 5.3 et 6 en 5.1.
 
@@ -826,17 +826,13 @@ Après l'étape 4 bis : politique explicite de rafraîchissement des publishers
 leurs références, identification des comptes d'autres providers. Les rôles,
 organisations et collaborations détaillées ne sont pas des exigences acquises.
 
-Rendez-vous explicite à l'étape 5 : réexaminer les écritures concurrentes des
-notes avec l'autosauvegarde, les onglets concurrents, la prévention des pertes
-de modifications et les éventuels mécanismes de résolution des conflits.
-La suppression explicite d'une note reste une évolution UX envisagée,
-hors de l'étape 4.
+La concurrence et l'autosauvegarde des notes sont traitées en 5.2.
+La suppression explicite d'une note reste une évolution UX envisagée, hors de 5.2.
 
 - Goose ou autre outil de migrations dédié ;
 - WAL SQLite ;
 - stratégie de tests d'intégration avec `yt-dlp` ;
 - lecteur vidéo ;
-- éditeur Markdown ;
 - système de jobs ;
 - politique de cache ;
 - politique de téléchargement/rétention ;
@@ -903,3 +899,25 @@ explicitement plus tard, éventuellement depuis les paramètres. La préférence
 de garder la version stable intégrée comme repli, avec activation volontaire d'une
 autre version. Sélection, vérification, permissions, mises à jour et retour arrière
 restent à définir ; aucun mécanisme d'override n'est implémenté au jalon 4.
+
+## Étape 5.2 — décisions et implémentation
+
+Décisions actées : révision entière dans le modèle et JSON, expected_revision
+obligatoire (0 = absence attendue), 409 en cas de conflit, sans ETags.
+Markdown exact, GFM sécurisé sans HTML brut, bascule source/lecture, sauvegarde
+après 2 s d'inactivité et maximum 20 s de saisie continue. Les règles UX et de
+réconciliation réseau sont détaillées dans Product & UX et Architecture.
+
+Choix techniques implémentés : CodeMirror 6 intégré directement ; react-markdown
+avec remark-gfm et HTML brut ignoré ; data router React Router pour bloquer les
+navigations. Le maintien de l'éditeur monté préserve son état entre les modes.
+Les fins de ligne LF, CRLF et mixtes sont vérifiées par les tests navigateur ;
+aucune normalisation des séparateurs existants n'est introduite.
+
+Choix locaux révisables : délai réseau de 12 s, deux reprises après 1 puis 3 s,
+composants et messages. La vérification automatique locale est réussie ;
+le périmètre fonctionnel est également validé manuellement. Les résultats CI
+du dernier commit sont consultables dans GitHub Actions.
+
+Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
+ou mécanisme générique documentaire. Les questions des étapes 5.3 et 6 restent ouvertes.

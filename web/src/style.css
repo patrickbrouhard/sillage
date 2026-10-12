@@ -126,3 +126,21 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 @media (max-width: 600px) {
   .tag-dialog { padding: 18px; }
 }
+
+.video-note { margin: 2rem 0; }
+.markdown-editor { border: 1px solid var(--border, #bbb); border-radius: .5rem; margin: 1rem 0; background: white; color: #222; }
+.markdown-editor .cm-content { min-height: 16rem; padding: 1rem; }
+.markdown-editor .cm-focused { outline: 2px solid #36665b; }
+
+.note-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; }
+.note-toolbar [aria-pressed=true] { outline: 2px solid #36665b; }
+.markdown-reading { min-height: 16rem; overflow-wrap: anywhere; padding: 1rem; }
+.markdown-reading img { max-width: 100%; }
+.markdown-reading pre { overflow-x: auto; }
+.markdown-reading table { border-collapse: collapse; display: block; overflow-x: auto; }
+.markdown-reading td, .markdown-reading th { border: 1px solid #aaa; padding: .4rem; }
+
+.note-conflict { border: 1px solid #a64d30; border-radius: .5rem; padding: 1rem; }
+.note-conflict pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 16rem; overflow: auto; }
+.note-navigation { max-width: min(32rem, 90vw); border-radius: .75rem; border: 1px solid #aaa; padding: 1.5rem; }
+.note-navigation::backdrop { background: #0007; }

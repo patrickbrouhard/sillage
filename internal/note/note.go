@@ -13,9 +13,13 @@ import (
 // ErrNotFound distingue une note absente d'une note enregistrée vide.
 var ErrNotFound = errors.New("note not found")
 
+// ErrConflict indique que la note a changé depuis la lecture du client.
+var ErrConflict = errors.New("note revision conflict")
+
 // Note appartient directement à une vidéo et conserve le texte fourni.
 type Note struct {
 	VideoID   video.VideoID
+	Revision  int64
 	ContentMD string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -31,8 +35,8 @@ type SaveResult struct {
 type Repository interface {
 	// Get retourne ErrNotFound ou video.ErrVideoNotFound selon la ressource absente.
 	Get(context.Context, video.VideoID) (Note, error)
-	// Save préserve created_at et les deux dates lorsque le contenu est identique.
-	Save(context.Context, video.VideoID, string, time.Time) (SaveResult, error)
+	// Save compare la révision attendue atomiquement et préserve created_at et les deux dates lorsque le contenu est identique.
+	Save(context.Context, video.VideoID, string, int64, time.Time) (SaveResult, error)
 }
 
 // Service expose les sauvegardes locales indépendamment de HTTP et du stockage.
@@ -50,9 +54,9 @@ func (s *Service) Get(ctx context.Context, id video.VideoID) (Note, error) {
 }
 
 // Save accepte le texte vide et refuse le texte non UTF-8 sans jamais le transformer.
-func (s *Service) Save(ctx context.Context, id video.VideoID, content string) (SaveResult, error) {
-	if id <= 0 || !utf8.ValidString(content) {
+func (s *Service) Save(ctx context.Context, id video.VideoID, content string, expectedRevision int64) (SaveResult, error) {
+	if id <= 0 || expectedRevision < 0 || !utf8.ValidString(content) {
 		return SaveResult{}, video.ErrInvalidInput
 	}
-	return s.repository.Save(ctx, id, content, time.Now().UTC().Truncate(time.Millisecond))
+	return s.repository.Save(ctx, id, content, expectedRevision, time.Now().UTC().Truncate(time.Millisecond))
 }

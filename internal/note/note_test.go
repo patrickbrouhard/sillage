@@ -15,11 +15,11 @@ func TestServiceValidationWithoutHTTP(t *testing.T) {
 		if _, err := s.Get(context.Background(), id); !errors.Is(err, video.ErrInvalidInput) {
 			t.Fatal(err)
 		}
-		if _, err := s.Save(context.Background(), id, ""); !errors.Is(err, video.ErrInvalidInput) {
+		if _, err := s.Save(context.Background(), id, "", 0); !errors.Is(err, video.ErrInvalidInput) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.Save(context.Background(), 1, "\xff"); !errors.Is(err, video.ErrInvalidInput) {
+	if _, err := s.Save(context.Background(), 1, "\xff", 0); !errors.Is(err, video.ErrInvalidInput) {
 		t.Fatal(err)
 	}
 }
@@ -29,7 +29,7 @@ func TestServicePreservesContentAndRepositoryErrors(t *testing.T) {
 	for _, content := range []string{"", "  # Café\r\n\ttexte  \n"} {
 		r := repositoryStub{t: t, content: content, failure: failure}
 		s := NewService(r)
-		if _, err := s.Save(context.Background(), 7, content); !errors.Is(err, failure) {
+		if _, err := s.Save(context.Background(), 7, content, 0); !errors.Is(err, failure) {
 			t.Fatal(err)
 		}
 		if _, err := s.Get(context.Background(), 7); !errors.Is(err, failure) {
@@ -51,8 +51,8 @@ func (r repositoryStub) Get(_ context.Context, id video.VideoID) (Note, error) {
 	return Note{}, r.failure
 }
 
-func (r repositoryStub) Save(_ context.Context, id video.VideoID, content string, at time.Time) (SaveResult, error) {
-	if id != 7 || content != r.content || at.IsZero() || at.Location() != time.UTC || at.Nanosecond()%1_000_000 != 0 {
+func (r repositoryStub) Save(_ context.Context, id video.VideoID, content string, expectedRevision int64, at time.Time) (SaveResult, error) {
+	if expectedRevision != 0 || id != 7 || content != r.content || at.IsZero() || at.Location() != time.UTC || at.Nanosecond()%1_000_000 != 0 {
 		r.t.Fatalf("unexpected save: %d %q %v", id, content, at)
 	}
 	return SaveResult{}, r.failure
