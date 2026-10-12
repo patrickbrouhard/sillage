@@ -3,7 +3,14 @@ import { EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+
+// Les couleurs suivent le CSS sans recréer l'état, l'historique ou la sélection.
+// Les distinctions typographiques du Markdown sont conservées dans les deux modes.
+const highlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map(style => ({
+  ...style,
+  ...(style.color ? { color: `light-dark(${style.color}, var(--syntax))` } : {}),
+})))
 
 interface Props {
   initial: string
@@ -28,7 +35,7 @@ export function MarkdownEditor({ initial, active, onChange, onSave }: Props) {
           // LF est le seul séparateur structurel : CR reste dans le texte.
           // Ainsi CRLF et les mélanges traversent édition et historique sans normalisation.
           EditorState.lineSeparator.of('\n'),
-          history(), markdown(), syntaxHighlighting(defaultHighlightStyle),
+          history(), markdown(), syntaxHighlighting(highlightStyle),
           EditorView.lineWrapping,
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
           keymap.of([

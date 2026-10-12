@@ -525,7 +525,8 @@ L'avertissement Vite sur la taille du chunk CodeMirror de 5.2 reste présent ;
 aucune refonte de l'éditeur ni optimisation spéculative n'est introduite.
 
 Hors périmètre : interactions temporelles (étape 6), média local, panneaux avancés,
-gestion de plusieurs pistes/sources, préférences persistantes et acquisition
+gestion de plusieurs pistes/sources, préférences persistantes (sauf le thème
+d'affichage local ajouté pour le confort de développement) et acquisition
 automatique. Aucun changement métier, REST ou de persistance effectué.
 
 ## 8. Étape 6 — Interactions temporelles, citations et références enrichies
@@ -840,6 +841,17 @@ Restent ouverts :
 - noms de fichiers.
 
 ## 18. Questions ouvertes — frontend
+
+Le thème Clair / Sombre / Système est ajouté avec des variables CSS et un choix
+local au navigateur. L'évaluation d'un éventuel framework CSS (par exemple
+Tailwind) reste une question ouverte pour un futur travail d'interface ; aucun
+framework ni adoption future n'est décidé par cet ajout.
+
+Ajout de confort validé automatiquement : 80 tests navigateur, tests Go, vet,
+builds et typage réussis. Les tests couvrent le suivi dynamique du système,
+le choix conservé après rechargement, le stockage refusé et la session de note
+(sélection, Undo/Redo, sauvegarde) pendant les changements de thème. Captures
+sombres de la bibliothèque, du workspace et de l'écran étroit inspectées.
 
 - évolutions du lecteur YouTube au-delà de l'intégration directe réalisée en 5.3 ;
 - lecteur local ;

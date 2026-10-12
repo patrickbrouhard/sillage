@@ -6,6 +6,20 @@ Ce document décrit l'expérience utilisateur visée.
 
 Il ne définit pas le schéma de données ni l'architecture logicielle. Les concepts métier nécessaires à cette UX sont détaillés dans `02-domain-model.md`.
 
+### Confort d'affichage
+
+Un sélecteur dans l'en-tête propose Clair, Sombre et Système (par défaut).
+Système suit les changements du système d'exploitation. Le choix est mémorisé
+localement dans ce navigateur ; si le stockage est indisponible, le changement
+reste utilisable pour la page courante. Cette seule préférence d'affichage fait
+exception au report des préférences persistantes : aucun compte ni stockage serveur.
+Les panneaux, formulaires, dialogues, états de focus, l'éditeur et la lecture
+Markdown suivent le thème sans remonter la session de note. Le contenu intégré
+par YouTube conserve son apparence propre.
+
+La réalisation utilise des variables CSS et les contrôles natifs, sans refonte
+graphique ni ajout d'un framework CSS.
+
 ## 2. Vue d'ensemble du workflow
 
 Le workflow principal est :
