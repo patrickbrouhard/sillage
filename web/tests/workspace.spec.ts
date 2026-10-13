@@ -23,7 +23,7 @@ test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions 
   await expect(editor).toHaveCSS('color', 'rgb(224, 232, 245)')
   await page.screenshot({ path: info.outputPath('workspace-dark.png'), fullPage: true })
   await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
-  await page.getByLabel('Intervalle').selectOption('30')
+  await page.getByRole('searchbox').fill('Bonjour')
   await page.setViewportSize({ width: 375, height: 812 })
   await page.getByRole('button', { name: /Aller à .* dans le lecteur/ }).first().click()
   await expect(page.locator('.youtube-frame iframe')).toBeVisible()
