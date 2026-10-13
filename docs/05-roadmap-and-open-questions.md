@@ -638,7 +638,10 @@ chevauchantes et accents conservés ; compteur 0 / 0 pour une saisie vide ou
 sans résultat. Actualisation réussie : requête conservée, résultats recalculés et
 premier résultat sélectionné ; échec : contenu et sélection conservés.
 Le défilement reste local au texte sur desktop ; sur mobile, il suit la page.
-Validation manuelle de 6.3 encore à effectuer, sans fusion dans master.
+Validation manuelle complète de 6.3 confirmée par l'utilisateur : tous les scénarios
+recommandés sont passés. F5 réinitialise normalement la recherche ; le bouton
+« Actualiser » de transcription conserve la requête et recalcule ses résultats.
+Aucune fusion dans master.
 
 Validation locale du 13 octobre 2026 : 113 tests navigateur réussis, dont 9
 nouveaux tests de recherche. Couverture des frontières de fragments et blocs,
@@ -655,7 +658,7 @@ sans installation ni changement de configuration du dépôt.
 L'avertissement Vite existant sur le chunk CodeMirror supérieur à 500 ko subsiste.
 Aucun nouvel essai YouTube réel, CI distante ou build Docker revendiqué.
 
-Vérifications manuelles restantes pour 6.3 :
+Vérifications manuelles de 6.3 effectuées et validées par l’utilisateur :
 - rechercher une expression traversant deux blocs et un mot coupé entre fragments ;
 - parcourir les résultats dans les deux sens, y compris les retours premier/dernier ;
 - vérifier les surlignages en clair/sombre et le défilement sur desktop/mobile ;
@@ -679,9 +682,61 @@ Vérification en lecture seule sur la transcription locale de la vidéo 1 :
 Le serveur Go conserve index.html en mémoire : après reconstruction du frontend,
 redémarrer le serveur de développement puis recharger la page pour charger ce build.
 
+### 6.4 — Sélection et citation de transcription : décisions actées
+
+Cadrage accepté le 14 octobre 2026, avant implémentation. Tranche entièrement
+frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
+persisté. Les références restent inertes en Lecture jusqu'à 6.5 ; aucun end_ms.
+
+Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
+ou tactile, partielle ou traversant plusieurs fragments/blocs, y compris les mark
+de recherche. Aucun système personnalisé de sélection. Les timestamps sont exclus
+de la sélection de texte et du texte copié, mais restent des boutons accessibles.
+La copie native d'une sélection valide produit seulement du texte continu :
+concaténation dans l'ordre source sans séparateur ajouté, suites de blancs réduites
+à un espace, blancs de bord retirés. Les copies hors sélection valide ne sont pas
+interceptées. Les fragments et timestamps sources restent intacts.
+
+Un bouton stable « Citer dans la note » est activé pour un passage valide.
+Le passage est conservé avant le transfert de focus, puis invalidé au changement
+de vidéo/source, au remplacement effectif de transcription ou lorsque la recherche
+rend la sélection obsolète. Aucune citation différée ou remplacement silencieux
+du passage. Aucun bouton flottant dans cette tranche.
+
+Le début vient du premier fragment contenant du texte réellement retenu après
+nettoyage, même si ses timestamps ne sont pas monotones. Ni timestamp systématique
+du bloc, ni interpolation à l'intérieur d'un fragment. Le texte est échappé pour
+rester littéral en Markdown. Format :
+
+```markdown
+> They may not agree with those arguments.
+
+— [0:21](sillage://videos/5/sources/5?start_ms=21000)
+```
+
+En Édition, une note vide (zéro caractère) accepte l'insertion à zéro. Une note
+non vide, y compris seulement des espaces, exige un emplacement choisi explicitement
+par l'utilisateur. Un focus automatique ne suffit pas. La position persiste après
+perte du focus ; une sélection de note reçoit l'insertion après sa borne supérieure
+sans remplacement. En Lecture ou sans emplacement choisi : message explicatif,
+sans bascule, insertion automatique ou mise en attente ; recommencer ensuite
+la sélection de transcription. Le remplacement de la version éditée invalide
+l'emplacement choisi.
+
+Insertion dans la session CodeMirror existante, avec les séparateurs LF nécessaires
+pour isoler le bloc, une ligne vide entre citation et référence et un curseur après
+le bloc. Citation, référence et séparateurs constituent un seul Undo/Redo et utilisent
+l'autosauvegarde, les révisions et les conflits existants. Aucun ordre au lecteur.
+Dans les listes, tableaux ou blocs de code, l'insertion reste textuelle : aucune
+restructuration ou recherche automatique d'un autre emplacement. Le rendu peut
+donc dépendre du contexte Markdown ; c'est une limite acceptée.
+
+Le bouton flottant et les finitions graphiques sont différés. La navigation au
+curseur et les menus tactiles natifs dépendent du navigateur : des essais réels
+de sélection et de copier-coller seront nécessaires. 6.4 n'est pas validée manuellement.
+
 ### Tranches suivantes — à cadrer
 
-- sélection d'un passage pour une citation Markdown ;
 - référence avec début obligatoire et fin facultative, bornes ajustables ;
 - provenance temporelle conservée lorsque nécessaire ;
 - rendu enrichi dans l'éditeur et navigation vers le lecteur.

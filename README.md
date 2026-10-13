@@ -1255,7 +1255,7 @@ L'étape Web est découpée en jalons validables :
 - **6.2 — insertion du temps courant** : implémentée, testée et validée
   manuellement ; lien Markdown avec vidéo, source et millisecondes explicites ;
 - **6.3 — recherche dans la transcription** : implémentée et testée localement,
-  validation manuelle à effectuer ; recherche continue entre fragments et blocs,
+  validation manuelle complète confirmée ; recherche continue entre fragments et blocs,
   navigation circulaire et surlignages, sans action automatique sur le lecteur ;
   regroupement fixé à 10 secondes ;
 - **Suite de 6 — interactions temporelles** : références avec début et fin facultative,
@@ -1345,7 +1345,7 @@ a ensuite été validé manuellement par l'utilisateur. Aucun déploiement reven
 La tranche 6.3 est implémentée et validée localement : 113 tests navigateur,
 tests Go complets et race, vet, typage, builds Go/frontend et collection Postman
 déterministe (45 requêtes, 135 assertions). Captures clair/sombre et mobile
-inspectées. La validation manuelle reste à effectuer ; voir la checklist dans
+inspectées. La validation manuelle de 6.3 est confirmée ; voir les scénarios dans
 `docs/05-roadmap-and-open-questions.md`. Aucun nouvel essai YouTube réel,
 CI distante ou build Docker revendiqué. La segmentation naturelle des blocs
 reste une investigation future, distincte de cette recherche locale.

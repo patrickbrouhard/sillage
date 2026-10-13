@@ -984,3 +984,14 @@ Elle illustre seulement la séparation souhaitée entre :
 9. Le système de fichiers ne définit pas l'identité des objets métier.
 10. Une abstraction n'est introduite que si elle protège une vraie frontière ou répond à un besoin concret.
 11. Les contraintes de la base renforcent les invariants applicatifs ; elles ne sont pas remplacées par un simple « check puis insert ».
+
+### Citation de transcription 6.4 — cadrage frontend
+
+La sélection DOM sera traduite en offsets du texte continu, en parcourant uniquement
+les paragraphes de transcription (mark inclus) ; le fragment du premier caractère
+non blanc fournit le start_ms. Copie et citation partagent l'extraction normalisée,
+sans modifier le modèle source. La commande traverse la fiche vers la session de note,
+sans dépendance envers le lecteur ni API supplémentaire. CodeMirror distingue
+l'emplacement choisi des focus automatiques, conserve sa sélection et réalise
+l'insertion comme transaction isolée. Voir Product & UX et roadmap pour le contrat,
+les refus et les limites de contexte Markdown. Implémentation à réaliser.

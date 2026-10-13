@@ -977,3 +977,13 @@ Aucun endpoint, changement du domaine, de la persistance ou moteur global.
 Acquisition, actualisation, édition des notes et insertion temporelle conservées.
 La segmentation naturelle, la synchronisation continue, les citations (6.4)
 et la navigation depuis le Markdown restent hors périmètre.
+
+### Citation 6.4 — décisions du 14 octobre 2026
+
+Extraction et copie de texte continu depuis une sélection native de transcription ;
+blancs réduits seulement dans l'extrait, timestamps exclus, mark transparents.
+Bouton stable, position d'insertion explicitement choisie pour les notes non vides,
+transaction CodeMirror isolée et autosauvegarde existante. Citation Markdown littérale,
+ligne vide avant la référence sillage:// avec start_ms du premier fragment retenu,
+sans end_ms. Aucun objet métier, endpoint, dépendance ou changement de persistance.
+Bouton flottant, sélection personnalisée, plages et navigation inverse différés.
