@@ -460,10 +460,13 @@ Acquisition, actualisation, édition des notes et insertion temporelle conservé
 La segmentation naturelle, la synchronisation continue, les citations (6.4)
 et la navigation depuis le Markdown restent hors périmètre.
 
-La recherche est littérale : pas d'expressions régulières, de suppression des accents
-ou de normalisation des espaces. Les occurrences sont non chevauchantes, de gauche
+La recherche est littérale hors équivalence des blancs : pas d'expressions régulières
+ni de suppression des accents. Un espace saisi correspond aussi aux sauts de ligne,
+tabulations et suites de blancs du texte source, sans modifier ce dernier. Les occurrences sont non chevauchantes, de gauche
 à droite. Une saisie vide n'affiche aucun résultat. Le compteur indique le résultat
 actif et le total (0 / 0 sans correspondance) ; les deux commandes sont alors désactivées.
+Entrée dans le champ passe au résultat suivant avec retour circulaire, sans déplacer
+le focus ni commander le lecteur ; la validation IME est ignorée.
 Les blancs sources restent exacts, même si CSS les réduit visuellement dans les
 paragraphes. Une actualisation réussie conserve la requête, recalcule les occurrences
 et sélectionne la première ; pendant l'opération ou après un échec, le contenu

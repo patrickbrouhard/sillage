@@ -633,8 +633,8 @@ Acquisition, actualisation, édition des notes et insertion temporelle conservé
 La segmentation naturelle, la synchronisation continue, les citations (6.4)
 et la navigation depuis le Markdown restent hors périmètre.
 
-Implémentation terminée après ce cadrage. Recherche littérale, occurrences non
-chevauchantes, accents et blancs exacts ; compteur 0 / 0 pour une saisie vide ou
+Implémentation terminée après ce cadrage. Recherche littérale hors équivalence des blancs, occurrences non
+chevauchantes et accents conservés ; compteur 0 / 0 pour une saisie vide ou
 sans résultat. Actualisation réussie : requête conservée, résultats recalculés et
 premier résultat sélectionné ; échec : contenu et sélection conservés.
 Le défilement reste local au texte sur desktop ; sur mobile, il suit la page.
@@ -662,6 +662,22 @@ Vérifications manuelles restantes pour 6.3 :
 - confirmer que lecture, pause et lecteur masqué restent inchangés, puis tester un timestamp ;
 - actualiser la transcription, changer de vidéo et vérifier l'édition/Undo et `+ Temps`.
 
+
+### Retour manuel 6.3 — Entrée et blancs de transcription
+
+Entrée dans le champ sélectionne le résultat suivant avec retour circulaire,
+sans transfert du focus ni commande lecteur. La validation de composition IME
+ne déclenche pas cette navigation.
+L'exemple réel `thought about` contient `thought\nabout` dans les fragments :
+les suites de blancs de la saisie correspondent désormais aux suites de blancs
+sources, sans modifier le contenu ni décaler les surlignages. Cela remplace
+l'exigence initiale de blancs identiques pour la recherche uniquement.
+
+Validation : 116 tests navigateur réussis, typage, tests Go, vet et builds réussis.
+Vérification en lecture seule sur la transcription locale de la vidéo 1 :
+5 occurrences de `stuff` et 1 de `thought about`.
+Le serveur Go conserve index.html en mémoire : après reconstruction du frontend,
+redémarrer le serveur de développement puis recharger la page pour charger ce build.
 
 ### Tranches suivantes — à cadrer
 

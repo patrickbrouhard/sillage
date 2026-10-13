@@ -101,7 +101,8 @@ Citations, plages, synchronisation et navigation inverse restent hors de 6.2.
 En 6.3, le champ de recherche parcourt le texte continu déjà chargé, sans casse
 et sans requête réseau. Les expressions traversant fragments et blocs sont
 surlignées ; compteur et précédent/suivant circulaires font défiler le résultat actif.
-La recherche est littérale (accents et blancs conservés), sans occurrences
+Entrée dans le champ passe au résultat suivant avec retour au premier.
+La recherche conserve les accents et traite les suites de blancs comme équivalentes, sans occurrences
 chevauchantes. Elle ne commande jamais le lecteur ; les timestamps restent
 l'action explicite. Changer de vidéo/source la réinitialise. Le sélecteur
 d'intervalle est supprimé : présentation fixe à 10 secondes.

@@ -46,7 +46,7 @@ test('recherche continue, littérale et Unicode avec indices exacts et espaces c
   expect(findTranscriptMatches('😀 ÉTÉ [a.*] İ fin', '[a.*]')).toEqual([{ start: 7, end: 12 }])
   expect(findTranscriptMatches('😀 ÉTÉ [a.*] İ fin', 'été')).toEqual([{ start: 3, end: 6 }])
   expect(findTranscriptMatches('İ fin', 'fin')).toEqual([{ start: 2, end: 5 }])
-  expect(findTranscriptMatches('a  b', 'a b')).toEqual([])
+  expect(findTranscriptMatches('a  b', 'a b')).toEqual([{ start: 0, end: 4 }])
   expect(findTranscriptMatches('aaaa', 'aa')).toEqual([{ start: 0, end: 2 }, { start: 2, end: 4 }])
   expect(findTranscriptMatches('texte', '')).toEqual([])
 })
@@ -177,13 +177,13 @@ test('un échec d’actualisation conserve la recherche et sa sélection', async
 
 test('une occurrence unique peut être retrouvée après un défilement manuel', async ({ page }) => {
   await prepare(page)
-  await page.getByRole('searchbox').fill('  Bonjour')
+  await page.getByRole('searchbox').fill('bonjour le monde. Du')
   await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 1')
   const panel = page.locator('.transcript-content')
   await panel.evaluate(element => { element.scrollTop = element.scrollHeight })
-  await expect(page.locator('mark')).not.toBeInViewport()
+  await expect(page.locator('mark').first()).not.toBeInViewport()
   await page.getByRole('button', { name: 'Occurrence suivante' }).click()
-  await expect(page.locator('mark')).toBeInViewport()
+  await expect(page.locator('mark').first()).toBeInViewport()
   await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 1')
 })
 
@@ -203,4 +203,55 @@ test('une actualisation remplace les occurrences disparues sans perdre la requê
   await page.getByRole('searchbox').fill('nouveau')
   await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 1')
   await expect(page.locator('mark')).toHaveText(['Nouveau'])
+})
+
+
+test('Entrée parcourt cinq occurrences en boucle sans quitter le champ ni commander le lecteur', async ({ page }) => {
+  await prepare(page)
+  await page.route('**/transcript', route => route.fulfill({ json: {
+    language: 'en', provenance: 'youtube_auto', last_fetched_at: '2026-10-13T11:00:00Z',
+    items: [{ start_ms: 0, text: 'stuff stuff stuff stuff stuff' }],
+  } }))
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
+  await expect(page.locator('.transcript-block')).toHaveCount(1)
+  const search = page.getByRole('searchbox')
+  await search.fill('stuff')
+  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 5')
+  for (const index of [2, 3, 4, 5, 1]) {
+    await search.press('Enter')
+    await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText(index + ' / 5')
+    await expect(search).toBeFocused()
+  }
+  await search.fill('absent')
+  await search.press('Enter')
+  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('0 / 0')
+  expect(await page.evaluate(() => window.youtubeTest.players[0].navigationCalls)).toEqual([])
+})
+
+test('retrouve thought about séparé par un saut source entre deux blocs', async ({ page }) => {
+  await prepare(page)
+  const fragments = [
+    { start_ms: 39920, text: ' thought' },
+    { start_ms: 40110, text: '\n' },
+    { start_ms: 40120, text: 'about' },
+    { start_ms: 40360, text: ' it' },
+  ]
+  await page.route('**/transcript', route => route.fulfill({ json: {
+    language: 'en', provenance: 'youtube_auto', last_fetched_at: '2026-10-13T11:00:00Z',
+    items: fragments,
+  } }))
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
+  await expect(page.locator('.transcript-block')).toHaveCount(2)
+  await page.getByRole('searchbox').fill('thought about')
+  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 1')
+  expect(await page.locator('mark').allTextContents()).toEqual(['thought', '\nabout'])
+  expect((await page.locator('.transcript-block p').allTextContents()).join(''))
+    .toBe(fragments.map(item => item.text).join(''))
+})
+
+test('les blancs équivalents conservent les indices source sans inventer de séparateurs', () => {
+  expect(findTranscriptMatches('Thought\r\n  \tabout', 'thought about')).toEqual([{ start: 0, end: 17 }])
+  expect(findTranscriptMatches('thought about', 'thought\nabout')).toEqual([{ start: 0, end: 13 }])
+  expect(findTranscriptMatches('thoughtabout', 'thought about')).toEqual([])
+  expect(findTranscriptMatches('été', 'ete')).toEqual([])
 })

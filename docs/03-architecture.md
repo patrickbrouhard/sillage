@@ -786,9 +786,10 @@ Les essais avec YouTube réel restent complémentaires aux validations détermin
 `TranscriptText` reçoit les fragments chargés et regroupe leur présentation à
 10 secondes. La recherche utilise leur concaténation exacte dans l'ordre source,
 indépendamment des blocs. `findTranscriptMatches` échappe la saisie puis utilise
-une expression régulière Unicode insensible à la casse pour obtenir des intervalles
+une expression régulière Unicode insensible à la casse, avec chaque suite de blancs
+de la requête remplacée par `\s+`, pour obtenir des intervalles
 UTF-16 dans le texte original, sans conversion préalable susceptible de déplacer
-les indices. Les occurrences sont littérales et non chevauchantes.
+les indices. Les occurrences sont littérales hors équivalence des blancs et non chevauchantes.
 
 `highlightTranscript` parcourt les blocs et les occurrences dans l'ordre pour
 projeter ces intervalles en portions de texte exactes. Une occurrence traversant

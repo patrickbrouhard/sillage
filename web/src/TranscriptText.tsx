@@ -46,7 +46,14 @@ export function TranscriptText({ items, onNavigate }: {
     <div className="transcript-search">
       <label><span className="sr-only">Rechercher dans la transcription</span>
         <input type="search" placeholder="Rechercher dans la transcription" value={query}
-          onChange={event => setQuery(event.target.value)} />
+          onChange={event => setQuery(event.target.value)}
+          onKeyDown={event => {
+            // Entrée de validation IME ne doit pas déclencher une navigation.
+            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+              event.preventDefault()
+              navigate(1)
+            }
+          }} />
       </label>
       <span role="status" aria-label="Occurrences">{matches.length ? active + 1 : 0} / {matches.length}</span>
       <button className="button" disabled={!matches.length} onClick={() => navigate(-1)}

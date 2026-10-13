@@ -6,11 +6,13 @@ export interface TranscriptMatch {
   end: number
 }
 
-/** Recherche littérale Unicode sans casse, sans normaliser les blancs ni les accents. */
+/** Recherche Unicode sans casse : les blancs sont équivalents, les accents conservés. */
 export function findTranscriptMatches(text: string, query: string): TranscriptMatch[] {
   if (!query) return []
   // Échapper la saisie conserve une recherche littérale et les indices du texte source.
-  const expression = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu')
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // Rechercher les blancs dans le texte original conserve les indices malgré leur longueur.
+  const expression = new RegExp(escaped.replace(/\s+/g, '\\s+'), 'giu')
   return Array.from(text.matchAll(expression), match => ({
     start: match.index,
     end: match.index + match[0].length,
