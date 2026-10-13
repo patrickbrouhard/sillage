@@ -557,7 +557,8 @@ correctifs ont ajusté la politique de sélection et ajouté l'erreur REST
 
 ### 6.1 — Navigation de la transcription vers le lecteur YouTube
 
-Implémentée sur une branche dédiée ; validation manuelle et fusion restent à faire.
+Implémentée et validée manuellement par l'utilisateur. L'étape 6 se poursuit sur
+la même branche, sans fusion intermédiaire obligatoire dans master.
 Les timestamps des blocs sont activables au clavier et transmettent leur début
 réel au lecteur de la même source. Lecture et pause sont préservées ; avant le
 premier démarrage et après la fin, seul le point de départ est préparé. Le lecteur
@@ -574,17 +575,38 @@ complets, `go vet ./...`, builds Go/frontend et typage TypeScript réussis.
 Aucun essai YouTube réel ni exécution de CI distante revendiqués. L'avertissement
 Vite existant sur le chunk CodeMirror supérieur à 500 ko reste présent.
 
+### 6.2 — Insertion du temps courant
+
+Implémentée ; validation manuelle encore à effectuer, sans fusion automatique.
+Format acté : `[12:42](sillage://videos/5/sources/5?start_ms=762345)`, autorité logique
+`videos`, vidéo et source explicites, millisecondes conservées et `end_ms` réservé.
+`+ Temps` insère au curseur ou après la sélection sans l'effacer, ajoute un espace,
+rend le focus et forme une action Undo/Redo indépendante. L'autosauvegarde existante
+reste utilisée, sans modification REST/SQLite ni création d'Annotation.
+
+Lecture, pause et fin autorisent une position valide ; zéro est accepté. Masqué
+en pause, le lecteur reste masqué. Non démarré, cued, buffering, masquage en cours,
+chargement, erreur et destruction refusent l'insertion sans action différée.
+Le bouton est désactivé en Lecture ; le libellé des liens y reste sans interaction.
+La précision effective dépend de YouTube ; la copie du Markdown est autonome
+dans la même base, sans garantie de résolution dans une autre base indépendante.
+
+Validation locale du 13 octobre 2026 : 100 tests navigateur réussis, dont 9 nouveaux
+parcours d'insertion avec API YouTube contrôlée et persistance Go/SQLite réelle.
+Tests Go complets, vet, builds Go/frontend et typage TypeScript réussis. L'avertissement
+Vite sur le chunk CodeMirror reste présent. Pas de nouvelle CI distante ni de
+reconstruction Docker ; aucun essai YouTube réel de 6.2 revendiqué.
+
 ### Tranches suivantes — à cadrer
 
-- insertion rapide du temps courant dans la note ;
 - recherche et navigation dans la transcription ;
 - sélection d'un passage pour une citation Markdown ;
 - référence avec début obligatoire et fin facultative, bornes ajustables ;
 - provenance temporelle conservée lorsque nécessaire ;
 - rendu enrichi dans l'éditeur et navigation vers le lecteur.
 
-Les liens Markdown contenant des URI `sillage://` sont la syntaxe candidate
-privilégiée ; le format exact doit être expérimenté avant validation.
+Le format des liens Markdown `sillage://` est acté en 6.2 ; les plages, leur
+interface et la navigation inverse restent à implémenter dans les tranches suivantes.
 Insertion rapide et citation enrichie peuvent partager la même référence.
 La relation aux annotations structurées reste ouverte.
 

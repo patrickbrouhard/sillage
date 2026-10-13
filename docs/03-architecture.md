@@ -794,6 +794,41 @@ sans lecture de `cueVideoById`. Les tests couvrent les six états natifs, clavie
 clics répétés, fractions de seconde, masquage, erreurs, absence de commande différée
 et conservation de la session de note.
 
+### Insertion du temps courant 6.2
+
+La fiche compose une référence à partir de sa vidéo, de sa source de travail
+et d'une lecture synchrone `getCurrentTimeMs()` du lecteur. L'adapter YouTube
+appelle `getCurrentTime()` seulement pour une instance prête, hors masquage en
+cours, dans les états ended (0), playing (1) ou paused (2). Un lecteur masqué
+conservé en pause reste utilisable sans réaffichage. Les états unstarted (-1),
+cued (5), buffering (3) et inconnus sont refusés ; un départ préparé par 6.1
+n'est jamais substitué à la position courante. Les valeurs non finies, négatives
+ou hors des entiers sûrs en millisecondes sont refusées. Zéro reste valide.
+La conversion utilise `Math.round(seconds * 1000)` ; elle conserve la précision
+fournie sans garantir une précision réelle de mesure à la milliseconde.
+Aucune lecture, pause, navigation, acquisition ou commande différée n'est déclenchée.
+
+Le constructeur spécifique `temporalReference` produit uniquement
+`[libellé](sillage://videos/{videoID}/sources/{sourceID}?start_ms={milliseconds})`.
+L'autorité est `videos`, le chemin commence par l'identifiant vidéo. Aucun parseur
+général ni résolution de références n'est nécessaire. `end_ms` reste réservé.
+
+`VideoNote` demande l'insertion via une commande impérative du `MarkdownEditor`
+existant. Une transaction insère à `selection.main.to`, sans remplacer la
+sélection, ajoute un espace de continuation, place le curseur après celui-ci,
+puis rend le focus. `isolateHistory.of('full')` sépare l'action des frappes voisines
+et des autres insertions. L'écouteur `docChanged` alimente la session et ses délais
+d'autosauvegarde existants, y compris sa suspension en cas d'erreur ou conflit.
+Ni `initial`, ni l'état complet de l'éditeur ne sont réinjectés. Les fins de ligne
+mixtes restent intactes. Le bouton est désactivé en mode Lecture.
+
+Le filtre standard de react-markdown neutralise actuellement les URI `sillage:` ;
+le composant de lien affiche alors un simple span. Ce comportement est couvert
+par les tests et conservé en 6.2 : aucune ouverture externe et aucune modification
+du Markdown persisté. La future 6.5 devra valider les références avant de les
+autoriser uniquement comme destinations de liens internes, conserver le filtre
+standard pour les autres URL et vérifier la relation vidéo/source lors de la résolution.
+
 ## 11. Desktop futur
 
 Une version desktop reste une possibilité, notamment avec un outil adapté à Go tel que Wails.

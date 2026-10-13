@@ -97,7 +97,14 @@ Transcript grouping is presentation only and preserves source order and whitespa
 Step 6.1 connects transcript timestamp buttons to the same YouTube player, preserving
 playback/pause and preparing unstarted or ended videos without autoplay. Navigation
 is immediate only: unavailable players require another explicit click, never a queued
-command. Citations, note timestamps and synchronized scrolling remain future work.
+command. Step 6.2 inserts `[12:42](sillage://videos/5/sources/5?start_ms=762345)`:
+`videos` is the logical authority, both Sillage IDs are explicit, milliseconds
+are preserved, and `end_ms` is reserved. Insert after the CodeMirror selection
+without replacing it, as an isolated undo transaction with normal autosave.
+Read current time only in ready playing/paused/ended states, including a hidden
+paused instance; reject cued, unstarted, buffering and unavailable states without
+deferred work or player commands. Reading mode keeps references inert until 6.5.
+Citations, ranges and synchronized scrolling remain future work.
 
 Do not introduce PostgreSQL, Redis, a vector database, microservices, or another major infrastructure component without a concrete requirement.
 

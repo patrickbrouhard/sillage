@@ -43,7 +43,7 @@ peut être différée. Les mentions « implémenté » décrivent le code dispon
 | Distribution Web | fichiers statiques servis par Go, avec le binaire dans Docker | Acté |
 | Éditeur Markdown | CodeMirror 6 | Intégré directement et testé en 5.2 |
 | Références temporelles | début obligatoire, fin facultative, provenance conservée si nécessaire | Orientation actée pour 6 |
-| Syntaxe des références | liens Markdown avec URI `sillage://` | Candidate privilégiée, format ouvert |
+| Syntaxe des références | `[12:42](sillage://videos/5/sources/5?start_ms=762345)` | Acté en 6.2 ; `end_ms` réservé |
 | Desktop | possibilité future, Wails à évaluer | Ouvert |
 | IA intégrée | fournisseur à choisir | Ouvert |
 | STT local | moteur à choisir si besoin | Ouvert |
@@ -706,17 +706,33 @@ L'architecture doit éviter de dépendre directement d'OpenAI, Ollama ou d'un au
 - copie ordinaire préservant les informations utiles ; copie adaptée et export
   de consultation distincts d'une sauvegarde métier réimportable.
 
+### Références Markdown — décision 6.2
+
+Le format acté est `[12:42](sillage://videos/5/sources/5?start_ms=762345)`.
+`videos` est une autorité logique, pas un segment du chemin. Les identifiants
+vidéo/source sont toujours explicites pour conserver la provenance après copie
+entre notes de la même base. Le format ne dépend pas de l'hôte Web, mais ne résout
+pas les identités entre bases indépendantes. Pas de versionnement ni de protocole
+système enregistré. `start_ms` conserve les millisecondes ; le libellé `m:ss` ou
+`h:mm:ss` reste une présentation. `end_ms` est réservé aux futures plages.
+
+Insertion par transaction CodeMirror isolée dans l'historique, après la sélection
+sans remplacement, puis focus rendu. L'autosauvegarde et la persistance opaque
+existantes restent seules responsables de l'enregistrement. Aucun changement
+REST/SQLite, aucune Annotation ni nouvelle dépendance. Le temps est lu au clic,
+sans synchronisation continue et sans commande au lecteur. Seuls lecture, pause
+et fin avec position valide sont acceptées ; les états transitoires, non démarré
+et cued sont refusés. Le rendu Lecture reste inerte jusqu'à 6.5.
+
 ### Préférences révisables
 
 CodeMirror 6 est intégré directement en 5.2, avec lecture react-markdown et remark-gfm.
-Les URI `sillage://` dans des liens Markdown sont la syntaxe candidate pour 6.
 La première source REST sert provisoirement à présenter les cartes en 5.1,
 sans devenir une règle métier de source principale.
 
 ### Questions ouvertes
 
-Bibliothèques complémentaires selon les besoins, layout final, protocole de
-format exact des références,
+Bibliothèques complémentaires selon les besoins, layout final, rendu enrichi des références,
 copie adaptée et formats d'export/sauvegarde. Ces questions ne justifient pas
 d'anticiper les étapes 5.2, 5.3 et 6 en 5.1.
 

@@ -1,12 +1,15 @@
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useBlocker } from 'react-router'
 import { MarkdownEditor } from './MarkdownEditor'
+import type { MarkdownEditorHandle } from './MarkdownEditor'
 import { NoteSession } from './noteSession'
 
 const MarkdownReading = lazy(() => import('./MarkdownReading').then(module => ({ default: module.MarkdownReading })))
 
 /** Présente une note locale et son état confirmé, avec modes partageant la même source. */
-export function VideoNote({ videoID }: { videoID: number }) {
+export function VideoNote({ videoID, getTimeReference }: { videoID: number; getTimeReference: () => string }) {
+  const editor = useRef<MarkdownEditorHandle>(null)
+  const [insertionError, setInsertionError] = useState('')
   const [session] = useState(() => new NoteSession(videoID))
   const state = useSyncExternalStore(session.subscribe, session.snapshot)
   const [reading, setReading] = useState(false)
@@ -62,6 +65,18 @@ export function VideoNote({ videoID }: { videoID: number }) {
     : session.dirty ? 'Modifications en attente'
     : state.confirmed ? 'Enregistré' : 'Aucune note enregistrée'
 
+  /** Lit le temps au clic et laisse la transaction CodeMirror déclencher la sauvegarde normale. */
+  function insertTime() {
+    try {
+      if (!editor.current || reading) throw new Error('L’éditeur n’est pas disponible.')
+      const reference = getTimeReference()
+      editor.current.insert(reference + ' ')
+      setInsertionError('')
+    } catch (error) {
+      setInsertionError(error instanceof Error ? error.message : 'Temps indisponible : aucune référence insérée.')
+    }
+  }
+
   return <section className="video-note" aria-labelledby="note-title">
     <h2 id="note-title">Note</h2>
     {!state.loaded ? <>
@@ -71,11 +86,20 @@ export function VideoNote({ videoID }: { videoID: number }) {
       <div className="note-toolbar" aria-label="Mode de la note">
         <button className="button" aria-pressed={!reading} onClick={() => setReading(false)}>Édition</button>
         <button className="button" aria-pressed={reading} onClick={() => setReading(true)}>Lecture</button>
+        <button className="button" disabled={reading || initial === null} onClick={insertTime}>+ Temps</button>
         <button className="button" disabled={state.phase === 'conflict'}
           onClick={() => void session.save(true)}>{state.phase === 'error' ? 'Réessayer la sauvegarde' : 'Enregistrer la note'}</button>
       </div>
+      {insertionError && <p role="alert">{insertionError}</p>}
       <div hidden={reading}>
-        {initial !== null && <MarkdownEditor key={initial.version} initial={initial.content} active={!reading} onChange={session.change} onSave={() => void session.save(true)} />}
+        {initial !== null && <MarkdownEditor
+          ref={editor}
+          key={initial.version}
+          initial={initial.content}
+          active={!reading}
+          onChange={session.change}
+          onSave={() => void session.save(true)}
+        />}
       </div>
       {reading && <Suspense fallback={<p>Préparation de la lecture…</p>}><MarkdownReading content={state.content} /></Suspense>}
       <p role="status" aria-label="État de la note">{status}</p>

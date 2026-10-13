@@ -7,6 +7,8 @@ import type { YouTubePlayer as Player } from './youtubeApi'
 
 /** Commande immédiate du lecteur de la source de travail, sans file d'attente. */
 export interface YouTubePlayerHandle {
+  /** Lit les millisecondes courantes ou signale une position indisponible, sans commande différée. */
+  getCurrentTimeMs(): number
   /** Retourne une explication si la commande ne peut pas être transmise. */
   navigate(startMs: number): string
 }
@@ -27,6 +29,27 @@ export function YouTubePlayer({ source, ref }: { source: VideoSource; ref: Ref<Y
   const url = httpURL(source.canonical_url)
 
   useImperativeHandle(ref, () => ({
+    getCurrentTimeMs() {
+      const current = player.current
+      if (!current || !ready || hiding) {
+        throw new Error('Temps indisponible : le lecteur doit être prêt et son masquage terminé.')
+      }
+      try {
+        // Un départ préparé par cueVideoById n'est pas une position de lecture confirmée.
+        // Le buffering peut aussi correspondre à un repositionnement encore en cours.
+        if (![0, 1, 2].includes(current.getPlayerState())) {
+          throw new Error('unavailable')
+        }
+        const seconds = current.getCurrentTime()
+        const milliseconds = Math.round(seconds * 1000)
+        if (!Number.isFinite(seconds) || seconds < 0 || !Number.isSafeInteger(milliseconds)) {
+          throw new Error('unavailable')
+        }
+        return milliseconds
+      } catch {
+        throw new Error('Temps indisponible : démarrez la vidéo ou attendez la fin du chargement avant de réessayer.')
+      }
+    },
     navigate(startMs) {
       // Ne jamais annuler la garantie d'arrêt d'un masquage encore en cours.
       if (hiding) return 'Mise en pause du lecteur en cours. Activez à nouveau le timestamp après son arrêt.'

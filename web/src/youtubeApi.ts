@@ -1,5 +1,7 @@
 /** Surface officielle utilisée par le lecteur, sans abstraction de fournisseurs. */
 export interface YouTubePlayer {
+  /** Lit la position courante en secondes sans agir sur la lecture. */
+  getCurrentTime(): number
   /** Déplace la lecture ; seul l'état paused garantit l'absence de démarrage. */
   seekTo(seconds: number, allowSeekAhead: boolean): void
   /** Prépare un départ sans lancer la vidéo, notamment depuis un état cued ou ended. */

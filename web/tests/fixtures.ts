@@ -13,6 +13,7 @@ interface MockPlayer {
   options: YouTubeOptions
   pauseVideo(): void
   getPlayerState(): number
+  getCurrentTime(): number
   destroy(): void
   emitState(state: number): void
 }
@@ -46,6 +47,7 @@ function installYouTubeMock() {
       if (window.youtubeTest.confirmPause) this.emitState(2)
     }
     getPlayerState() { return this.state }
+    getCurrentTime() { return this.position }
     /** Reproduit le démarrage réel de seekTo hors de l'état paused. */
     seekTo(seconds: number, allowSeekAhead: boolean) {
       this.navigationCalls.push({ command: 'seek', seconds, allowSeekAhead })

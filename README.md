@@ -83,8 +83,20 @@ ou Espace) : déplacement dans le lecteur de la même source, lecture/pause pré
 et réaffichage du lecteur masqué. Avant la première lecture ou après la fin, seul
 le départ est préparé, sans lancement automatique. Si le lecteur n'est pas prêt,
 un message demande un nouveau clic ; aucune commande n'est mise en attente.
-La note et l'acquisition de transcription restent indépendantes. Citations,
-insertion du temps dans la note et synchronisation restent pour la suite de 6.
+La note et l'acquisition de transcription restent indépendantes. 6.1 est validée
+manuellement ; le travail de l'étape 6 continue sur la même branche.
+
+En 6.2, `+ Temps` insère en mode Édition un lien tel que
+`[12:42](sillage://videos/5/sources/5?start_ms=762345)` au curseur ou après une sélection,
+sans supprimer son texte. L'insertion conserve les millisecondes, rend le focus,
+est annulable indépendamment et suit l'autosauvegarde normale. Le lecteur ne reçoit
+aucune commande ; un lecteur masqué en pause reste masqué. Lecture, pause et fin
+sont acceptées avec une position valide ; les états non démarré, cued, buffering
+et indisponibles demandent de réessayer sans rien insérer. Le mode Lecture affiche
+le libellé sans interaction. `videos` est l'autorité logique de l'URI ; les deux
+identifiants Sillage rendent le Markdown autonome entre notes d'une même base,
+sans résolution universelle entre bases. `end_ms` est réservé aux plages futures.
+Citations, plages, synchronisation et navigation inverse restent hors de 6.2.
 
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
@@ -1221,10 +1233,12 @@ L'étape Web est découpée en jalons validables :
 - **5.3 — lecteur et transcription** : terminée, testée localement et fusionnée
   après retours manuels positifs ; note principale, transcription
   indépendante du lecteur, paragraphes fluides et thèmes clair/sombre/système ;
-- **6.1 — navigation transcription → lecteur** : implémentée et testée,
-  en attente de validation manuelle ; aucun démarrage automatique ni commande différée ;
+- **6.1 — navigation transcription → lecteur** : implémentée, testée et validée
+  manuellement ; aucun démarrage automatique ni commande différée ;
+- **6.2 — insertion du temps courant** : implémentée et testée, en attente de
+  validation manuelle ; lien Markdown avec vidéo, source et millisecondes explicites ;
 - **Suite de 6 — interactions temporelles** : références avec début et fin facultative,
-  citations et rendu enrichi ; syntaxe candidate `sillage://` à expérimenter.
+  citations et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
 
 La gestion complète des publishers et personnes reste hors de 5.1. La première
 source REST sert provisoirement à présenter une carte, sans créer de source
@@ -1288,11 +1302,16 @@ positifs de l'utilisateur. La vérification finale locale comprend 80 tests navi
 les tests Go, vet, build Go et typage ; aucune nouvelle exécution de CI distante
 n'est revendiquée pour cette branche.
 
-La tranche 6.1 est implémentée sur une branche dédiée, sans fusion automatique.
+La tranche 6.1 est implémentée et validée manuellement sur une branche dédiée, sans fusion automatique.
 Validation locale : 91 tests navigateur déterministes, tests Go complets,
-`go vet ./...`, builds Go/frontend et typage TypeScript réussis. Les essais avec
-YouTube réel et la validation manuelle restent à effectuer. Le lecteur peut se
+`go vet ./...`, builds Go/frontend et typage TypeScript réussis. Le lecteur peut se
 positionner sur l'image clé précédente ; la précision effective dépend de YouTube.
+
+La tranche 6.2 poursuit cette branche : 100 tests navigateur déterministes, tests
+Go complets, vet, builds Go/frontend et typage TypeScript réussis. Les 9 nouveaux
+parcours couvrent l'insertion, les sélections, Undo/Redo, l'autosauvegarde, les
+millisecondes et les états du lecteur, sans YouTube réel. La validation manuelle
+de 6.2 reste à effectuer ; aucune CI distante ni reconstruction Docker revendiquée.
 
 ### API HTTP réalisée
 

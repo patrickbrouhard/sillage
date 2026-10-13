@@ -245,30 +245,33 @@ aucune modification visuelle immédiate ni nouvelle étape de roadmap :
   sera réexaminée avec l'arrivée du lecteur et de la transcription, sans figer
   maintenant le workspace.
 
-### 6.2 Première passe : préserver le flow
+### 6.2 Insertion du temps courant — tranche 6.2
 
-Les timestamps interactifs décrits ci-dessous et les annotations structurées
-de la section 6.4 sont réservés à l'étape 6. L'étape 4 conserve uniquement
-le Markdown brut, sans parsing ni rendu.
+Le bouton `+ Temps` de la barre de note insère une référence en mode Édition,
+au curseur ou après le texte sélectionné, quel que soit le sens de sélection.
+Aucun texte sélectionné n'est remplacé. Un espace suit la référence ; le curseur
+et le focus reviennent après cet espace pour poursuivre immédiatement la rédaction.
+L'insertion forme une action Undo/Redo indépendante et suit l'autosauvegarde normale.
+Le lecteur et la session d'édition ne sont ni interrompus ni remontés.
 
 Pendant la lecture, l'utilisateur doit pouvoir noter une idée sans quitter mentalement la vidéo.
 
 Action centrale :
 
 ```text
-[ + timestamp ]
+[ + Temps ]
 ```
 
 À l'instant courant, l'application insère par exemple :
 
 ```markdown
-[12:42]
+[12:42](sillage://videos/5/sources/5?start_ms=762345)
 ```
 
 L'utilisateur écrit immédiatement :
 
 ```markdown
-[12:42] Cette distinction pourrait être utile pour le projet X.
+[12:42](sillage://videos/5/sources/5?start_ms=762345) Cette distinction pourrait être utile pour le projet X.
 ```
 
 Cette opération doit être extrêmement rapide.
@@ -276,6 +279,19 @@ Cette opération doit être extrêmement rapide.
 Pas de modal.
 Pas de formulaire obligatoire.
 Pas de validation complexe.
+
+Le temps est lu au clic, arrondi à la milliseconde ; le libellé utilise `m:ss`
+ou `h:mm:ss` sans afficher la fraction. Lecture, pause et fin de vidéo permettent
+l'insertion si la position est valide, y compris zéro. Un lecteur masqué en pause
+reste masqué. Avant la première lecture, en état `cued`, en buffering, pendant
+le masquage, avant disponibilité ou après erreur/destruction, aucune référence
+n'est insérée : un message invite à réessayer. Aucune action n'est différée.
+Une exception de lecture du temps n'envoie aucune commande au lecteur.
+
+En mode Lecture, `+ Temps` est désactivé et le libellé reste sans interaction ;
+le Markdown source conserve l'URI complète. Le rendu enrichi et la navigation
+inverse attendent 6.5. Dans un contexte de code Markdown, l'insertion reste du
+texte de code : aucun déplacement automatique ni analyse générale du document.
 
 ### 6.3 Références temporelles et citations — orientation pour l'étape 6
 
@@ -285,9 +301,11 @@ transcription sont deux workflows pouvant utiliser cette même notion.
 La provenance temporelle doit être conservée lorsque nécessaire pour retrouver
 la bonne source ; sa représentation précise reste à expérimenter.
 
-Les liens Markdown contenant une URI `sillage://` sont la syntaxe candidate
-privilégiée, pas un format arrêté. Les exemples `[12:42]` illustrent l'intention
-d'usage, sans constituer un contrat de parsing.
+Le format des liens est acté en 6.2 :
+`[12:42](sillage://videos/5/sources/5?start_ms=762345)`.
+La vidéo et la source sont toujours explicites ; `videos` est l'autorité logique
+de l'URI. `end_ms` est réservé aux plages futures, sans être produit ni interprété
+en 6.2. Le libellé ne détermine jamais la position structurée.
 
 Le Markdown brut peut contenir des extensions propres à Sillage. La compatibilité
 fonctionnelle avec des applications externes n'est pas prioritaire. La copie

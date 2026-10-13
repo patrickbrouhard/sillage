@@ -7,6 +7,7 @@ import { VideoThumbnail } from './VideoThumbnail'
 import { VideoTranscript } from './VideoTranscript'
 import { YouTubePlayer } from './YouTubePlayer'
 import type { YouTubePlayerHandle } from './YouTubePlayer'
+import { temporalReference } from './temporalReference'
 import { formatDuration, httpURL, providerLabel, workSource } from './videoPresentation'
 
 const VideoNote = lazy(() => import('./VideoNote').then(module => ({ default: module.VideoNote })))
@@ -110,7 +111,11 @@ function VideoDetail({ id }: { id: string }) {
             {source ? <YouTubePlayer key={`player-${source.id}`} source={source} ref={player} />
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
-              <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote videoID={state.video.id} /></Suspense>
+              <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote videoID={state.video.id}
+                getTimeReference={() => {
+                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur YouTube disponible.')
+                  return temporalReference(state.video.id, source.id, player.current.getCurrentTimeMs())
+                }} /></Suspense>
             </div>
             {source && <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id}
               onNavigate={startMs => player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.'} />}

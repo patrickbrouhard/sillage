@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useImperativeHandle, useRef } from 'react'
+import type { Ref } from 'react'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, isolateHistory } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 
@@ -13,19 +14,41 @@ const highlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map(sty
 })))
 
 interface Props {
+  ref: Ref<MarkdownEditorHandle>
   initial: string
   active: boolean
   onChange: (content: string) => void
   onSave: () => void
 }
 
+/** Action ponctuelle sur la session existante, sans remplacer son état. */
+export interface MarkdownEditorHandle {
+  /** Insère après la sélection sans effacer son texte, puis rend le focus au curseur. */
+  insert(text: string): void
+}
+
 /** Garde l'état CodeMirror stable ; seules les actions utilisateur modifient le texte. */
-export function MarkdownEditor({ initial, active, onChange, onSave }: Props) {
+export function MarkdownEditor({ initial, active, onChange, onSave, ref }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
   const wasActive = useRef(active)
   const callbacks = useRef({ onChange, onSave })
   callbacks.current = { onChange, onSave }
+  useImperativeHandle(ref, () => ({
+    insert(text) {
+      const view = editor.current
+      if (!view || !active) throw new Error('Passez en mode Édition pour insérer une référence.')
+      // La borne supérieure reste la même quel que soit le sens de la sélection.
+      const position = view.state.selection.main.to
+      view.dispatch({
+        changes: { from: position, insert: text },
+        selection: { anchor: position + text.length },
+        annotations: isolateHistory.of('full'),
+        scrollIntoView: true,
+      })
+      view.focus()
+    },
+  }))
   useEffect(() => {
     const view = new EditorView({
       parent: host.current!,
