@@ -403,8 +403,22 @@ sont pas reproduites. Les chaînes regroupées, les fragments REST et les donné
 sources conservent leurs espaces exacts ; aucun espace n'est ajouté entre deux
 fragments d'un même mot. Les groupes restent séparés avec leur timestamp.
 Les frontières peuvent couper une phrase ou un mot. Aucun traitement linguistique,
-changement de modèle ou de persistance n'est introduit. Les timestamps ne sont pas
-cliquables ; recherche, synchronisation, citations et insertion du temps attendent 6.
+changement de modèle ou de persistance n'est introduit.
+
+En 6.1, chaque timestamp est un bouton accessible au clavier (Entrée ou Espace).
+Il demande au lecteur YouTube de rejoindre le `start_ms` réel du bloc, sans
+arrondir à la seconde affichée. Une lecture en cours continue ; une vidéo en pause
+reste en pause. Avant la première lecture ou après la fin, le point de départ est
+préparé sans démarrage automatique. Un lecteur masqué est réaffiché.
+Pendant un masquage en cours, la garantie d'arrêt reste prioritaire : un message
+invite à renouveler l'action après l'arrêt. Si le lecteur est indisponible ou pas
+encore prêt, le message explique que la navigation n'a pas eu lieu ; le timestamp
+doit être activé à nouveau une fois le lecteur prêt. Aucune commande n'est différée.
+La commande envoyée n'est pas présentée comme une position confirmée par YouTube.
+La note conserve sa session, sa sélection, son historique et son autosauvegarde.
+Le clic ne déclenche ni acquisition de transcription ni insertion dans la note.
+Recherche, synchronisation continue, défilement/surlignage automatiques, citations
+et insertion du temps restent pour les tranches suivantes.
 
 ### 8.3 Stockage et évolutions
 

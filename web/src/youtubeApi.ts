@@ -1,5 +1,9 @@
 /** Surface officielle utilisée par le lecteur, sans abstraction de fournisseurs. */
 export interface YouTubePlayer {
+  /** Déplace la lecture ; seul l'état paused garantit l'absence de démarrage. */
+  seekTo(seconds: number, allowSeekAhead: boolean): void
+  /** Prépare un départ sans lancer la vidéo, notamment depuis un état cued ou ended. */
+  cueVideoById(options: { videoId: string; startSeconds: number }): void
   /** Suspend la lecture sans changer volontairement la position. */
   pauseVideo(): void
   /** Retourne l'état natif pour confirmer l'arrêt avant de masquer l'iframe. */

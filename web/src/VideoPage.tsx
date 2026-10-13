@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
@@ -6,6 +6,7 @@ import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { VideoTranscript } from './VideoTranscript'
 import { YouTubePlayer } from './YouTubePlayer'
+import type { YouTubePlayerHandle } from './YouTubePlayer'
 import { formatDuration, httpURL, providerLabel, workSource } from './videoPresentation'
 
 const VideoNote = lazy(() => import('./VideoNote').then(module => ({ default: module.VideoNote })))
@@ -48,6 +49,7 @@ function SourceDetails({ source, index }: { source: VideoSource; index: number }
 
 /** Relit une fiche par son identité Sillage, sans dépendre de la navigation précédente. */
 function VideoDetail({ id }: { id: string }) {
+  const player = useRef<YouTubePlayerHandle>(null)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const location = useLocation()
@@ -105,12 +107,13 @@ function VideoDetail({ id }: { id: string }) {
           <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
           {source && <p className="work-source">Source de travail : YouTube · {source.title} · {source.external_id}</p>}
           <div className={`video-workspace${source ? '' : ' without-source'}`}>
-            {source ? <YouTubePlayer key={`player-${source.id}`} source={source} />
+            {source ? <YouTubePlayer key={`player-${source.id}`} source={source} ref={player} />
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
               <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote videoID={state.video.id} /></Suspense>
             </div>
-            {source && <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id} />}
+            {source && <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id}
+              onNavigate={startMs => player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.'} />}
           </div>
           <details className="video-metadata">
             <summary>Métadonnées et sources</summary>

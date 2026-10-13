@@ -466,10 +466,10 @@ fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
 ### 5.3 — Lecteur et transcription
 
-État : terminée et prête à fusionner dans `master`, après les retours manuels
-positifs de l'utilisateur sur les correctifs de transcription. Vérification
+État : terminée et fusionnée dans `master`, selon la confirmation de l'utilisateur
+au démarrage de 6.1, après les retours manuels positifs sur la transcription. Vérification
 finale locale : 80 tests navigateur, tests Go complets, vet, build Go et typage
-réussis. La fusion reste à effectuer ; la CI distante n'est pas revendiquée ici.
+réussis. La CI distante n'est pas revendiquée ici.
 
 Complément régional implémenté : après filtrage, priorité exacte puis générique
 pour les seules étiquettes simples langue-région, puis repli unique ou erreurs
@@ -554,6 +554,27 @@ correctifs ont ajusté la politique de sélection et ajouté l'erreur REST
 `409 transcript_selection_ambiguous`, sans changer les payloads de transcription.
 
 ## 8. Étape 6 — Interactions temporelles, citations et références enrichies
+
+### 6.1 — Navigation de la transcription vers le lecteur YouTube
+
+Implémentée sur une branche dédiée ; validation manuelle et fusion restent à faire.
+Les timestamps des blocs sont activables au clavier et transmettent leur début
+réel au lecteur de la même source. Lecture et pause sont préservées ; avant le
+premier démarrage et après la fin, seul le point de départ est préparé. Le lecteur
+masqué est réaffiché sans reprise automatique. Un lecteur non prêt ou indisponible
+demande un nouveau clic explicite, sans commande en attente ni faux succès.
+Un masquage en cours conserve sa garantie d'arrêt.
+
+La tranche ne modifie ni transcription, ni note, ni contrat REST, ni domaine,
+ni SQLite. Tests déterministes avec IFrame API simulée, sans YouTube réel.
+La précision effective reste celle du lecteur YouTube et de ses images clés.
+
+Validation locale du 13 octobre 2026 : 91 tests navigateur réussis, tests Go
+complets, `go vet ./...`, builds Go/frontend et typage TypeScript réussis.
+Aucun essai YouTube réel ni exécution de CI distante revendiqués. L'avertissement
+Vite existant sur le chunk CodeMirror supérieur à 500 ko reste présent.
+
+### Tranches suivantes — à cadrer
 
 - insertion rapide du temps courant dans la note ;
 - recherche et navigation dans la transcription ;
@@ -881,7 +902,7 @@ sombres de la bibliothèque, du workspace et de l'écran étroit inspectées.
 - lecteur local ;
 - layout final de la page de travail ;
 - synchronisation player/transcription ;
-- comportement des timestamps ;
+- comportement des références temporelles au-delà du clic transcription → lecteur de 6.1 ;
 - possibilité future de sélection manuelle de la piste de transcription, sans
   catalogue ni persistance supplémentaires dans le correctif de 5.3 ;
 - timeline d'annotations ;

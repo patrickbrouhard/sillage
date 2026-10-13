@@ -5,7 +5,12 @@ import { groupTranscript } from './transcriptPresentation'
 import { formatDuration } from './videoPresentation'
 
 /** Garde le dernier contenu consultable indépendamment des opérations et de leurs erreurs. */
-export function VideoTranscript({ videoID, sourceID }: { videoID: number; sourceID: number }) {
+export function VideoTranscript({ videoID, sourceID, onNavigate }: {
+  videoID: number
+  sourceID: number
+  onNavigate: (startMs: number) => string
+}) {
+  const [navigationMessage, setNavigationMessage] = useState('')
   const [content, setContent] = useState<Transcript | null | undefined>()
   const [busy, setBusy] = useState<'read' | 'fetch' | null>('read')
   const [message, setMessage] = useState('')
@@ -74,6 +79,7 @@ export function VideoTranscript({ videoID, sourceID }: { videoID: number; source
 
   return <section className="video-transcript" aria-labelledby="transcript-title">
     <h2 id="transcript-title">Transcription</h2>
+    <p role="status">{navigationMessage}</p>
     <div className="transcript-toolbar">
       <button className="button" disabled={busy !== null} onClick={() => void acquire()}>
         {content ? 'Actualiser' : 'Récupérer'}
@@ -93,7 +99,11 @@ export function VideoTranscript({ videoID, sourceID }: { videoID: number; source
       </p>
       <div className="transcript-content" tabIndex={0} aria-label="Texte de la transcription">
         {blocks.map((block, index) => <div className="transcript-block" key={index}>
-          <span className="transcript-time">{formatDuration(block.start_ms)}</span>
+          <button type="button" className="transcript-time"
+            aria-label={`Aller à ${formatDuration(block.start_ms)} dans le lecteur`}
+            onClick={() => setNavigationMessage(onNavigate(block.start_ms))}>
+            {formatDuration(block.start_ms)}
+          </button>
           <p>{block.text}</p>
         </div>)}
       </div>

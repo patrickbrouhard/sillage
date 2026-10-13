@@ -766,6 +766,34 @@ Les tests navigateur emploient une IFrame API contrôlée, sans accès à YouTub
 et un faux yt-dlp exécuté par le backend réel pour acquérir puis relire des snapshots.
 Les essais avec YouTube réel restent complémentaires aux validations déterministes.
 
+### Navigation transcription → YouTube 6.1
+
+La fiche relie le callback de la transcription à une commande impérative du lecteur
+YouTube de la même source. La commande reçoit les millisecondes du bloc ; seul le
+lecteur les convertit en secondes (`start_ms / 1000`, sans arrondi). Aucun état
+temporel ne traverse la session de note et aucune file de commandes n'est créée.
+
+Selon la [sémantique officielle de l'IFrame API](https://developers.google.com/youtube/iframe_api_reference#seekTo),
+`seekTo(seconds, true)` conserve la pause uniquement depuis l'état `paused` (2).
+Il est utilisé depuis `playing` (1), `paused` (2) et `buffering` (3), ce dernier
+prolongeant la lecture en cours de chargement. Depuis `unstarted` (-1), `ended` (0)
+ou `video cued` (5), `cueVideoById({videoId, startSeconds})` prépare le départ sans
+lecture. Un état inconnu refuse la commande. Aucun `playVideo()` n'est ajouté.
+YouTube peut viser l'image clé précédente : transmettre la valeur exacte ne
+garantit pas une précision de lecture à la milliseconde.
+
+Le lecteur masqué est réaffiché avant navigation ; un masquage dont la pause n'est
+pas confirmée garde priorité. Sans instance prête, le clic est refusé explicitement
+et n'est jamais rejoué après chargement, réessai ou changement de fiche. Une
+exception de commande passe par le même arrêt et la même invalidation des événements
+tardifs qu'une erreur YouTube. L'UI n'annonce pas de succès confirmé à partir d'une
+commande sans accusé de position. Ni REST, ni domaine, ni SQLite ne changent.
+
+Le double navigateur reproduit le démarrage de `seekTo` hors pause et la préparation
+sans lecture de `cueVideoById`. Les tests couvrent les six états natifs, clavier,
+clics répétés, fractions de seconde, masquage, erreurs, absence de commande différée
+et conservation de la session de note.
+
 ## 11. Desktop futur
 
 Une version desktop reste une possibilité, notamment avec un outil adapté à Go tel que Wails.

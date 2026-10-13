@@ -94,7 +94,10 @@ the existing local transcript GET / explicit acquisition POST. Both panels use
 the first usable YouTube source in REST order; this is not a persisted primary
 source. Keep the note mounted across layout and player visibility changes.
 Transcript grouping is presentation only and preserves source order and whitespace.
-Temporal interactions, citations and synchronized scrolling remain reserved for step 6.
+Step 6.1 connects transcript timestamp buttons to the same YouTube player, preserving
+playback/pause and preparing unstarted or ended videos without autoplay. Navigation
+is immediate only: unavailable players require another explicit click, never a queued
+command. Citations, note timestamps and synchronized scrolling remain future work.
 
 Do not introduce PostgreSQL, Redis, a vector database, microservices, or another major infrastructure component without a concrete requirement.
 

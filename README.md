@@ -73,11 +73,18 @@ workspace responsive. Le lecteur se masque avec pause, sans reprise automatique 
 la transcription locale se consulte indépendamment, se récupère ou s'actualise
 explicitement, et se regroupe par intervalles de 5, 10, 15 ou 30 secondes.
 Les métadonnées complètes restent accessibles dans une section repliable.
-La tranche est terminée, vérifiée automatiquement et prête à fusionner après
+La tranche est terminée, vérifiée automatiquement et fusionnée après
 les retours manuels positifs de l'utilisateur, y compris sur les correctifs
 d'acquisition et de présentation. Le thème Clair / Sombre / Système utilise une
-palette bleu nuit et une préférence locale au navigateur. Les timestamps cliquables,
-citations et synchronisation sont réservés à l'étape 6.
+palette bleu nuit et une préférence locale au navigateur.
+
+La tranche 6.1 ajoute les timestamps cliquables de transcription (également Entrée
+ou Espace) : déplacement dans le lecteur de la même source, lecture/pause préservées
+et réaffichage du lecteur masqué. Avant la première lecture ou après la fin, seul
+le départ est préparé, sans lancement automatique. Si le lecteur n'est pas prêt,
+un message demande un nouveau clic ; aucune commande n'est mise en attente.
+La note et l'acquisition de transcription restent indépendantes. Citations,
+insertion du temps dans la note et synchronisation restent pour la suite de 6.
 
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
@@ -1211,10 +1218,12 @@ L'étape Web est découpée en jalons validables :
 - **5.2 — éditeur Markdown et sauvegarde fiable** : implémenté et testé localement,
   périmètre fonctionnel validé manuellement ; édition/lecture GFM,
   autosauvegarde 2 s/20 s, conflits et navigation protégée ;
-- **5.3 — lecteur et transcription** : terminée, testée localement et prête à
-  fusionner après retours manuels positifs ; note principale, transcription
+- **5.3 — lecteur et transcription** : terminée, testée localement et fusionnée
+  après retours manuels positifs ; note principale, transcription
   indépendante du lecteur, paragraphes fluides et thèmes clair/sombre/système ;
-- **6 — interactions temporelles** : références avec début et fin facultative,
+- **6.1 — navigation transcription → lecteur** : implémentée et testée,
+  en attente de validation manuelle ; aucun démarrage automatique ni commande différée ;
+- **Suite de 6 — interactions temporelles** : références avec début et fin facultative,
   citations et rendu enrichi ; syntaxe candidate `sillage://` à expérimenter.
 
 La gestion complète des publishers et personnes reste hors de 5.1. La première
@@ -1274,10 +1283,16 @@ Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une
 GitHub Actions réussie. Le jalon 4 est lui aussi terminé et validé manuellement
 et en CI : l'étape 5.1 est clôturée. L'étape 5.2 est implémentée et vérifiée
 localement, et son périmètre fonctionnel est validé manuellement. L'étape 5.3
-(lecteur et transcription) est terminée et prête à fusionner, avec retours manuels
+(lecteur et transcription) est terminée et fusionnée, avec retours manuels
 positifs de l'utilisateur. La vérification finale locale comprend 80 tests navigateur,
 les tests Go, vet, build Go et typage ; aucune nouvelle exécution de CI distante
 n'est revendiquée pour cette branche.
+
+La tranche 6.1 est implémentée sur une branche dédiée, sans fusion automatique.
+Validation locale : 91 tests navigateur déterministes, tests Go complets,
+`go vet ./...`, builds Go/frontend et typage TypeScript réussis. Les essais avec
+YouTube réel et la validation manuelle restent à effectuer. Le lecteur peut se
+positionner sur l'image clé précédente ; la précision effective dépend de YouTube.
 
 ### API HTTP réalisée
 
