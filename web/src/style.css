@@ -216,6 +216,8 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .theme-selector select { font: inherit; padding: .45rem; border-radius: 6px; }
 select, input, textarea { background-color: var(--input); color: var(--text); border-color: var(--border); }
 ::selection { background: var(--selection); color: var(--text); }
+/* Sans drawSelection, le caret est natif ; le thème clair interne de CodeMirror le force sinon en noir. */
+.markdown-editor .cm-content { caret-color: var(--text); }
 .markdown-editor .cm-cursor { border-left-color: var(--text); }
 .markdown-editor .cm-selectionBackground { background: var(--selection) !important; }
 .markdown-reading pre, .markdown-reading code { background: var(--tag); }
