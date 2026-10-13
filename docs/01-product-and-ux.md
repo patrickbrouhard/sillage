@@ -411,7 +411,7 @@ de tous sous-titres. Après résultat POST incertain, une relecture locale peut
 retrouver le contenu publié ; aucun POST n'est relancé automatiquement.
 
 Les fragments sont regroupés en présentation par intervalles fixes ancrés sur zéro,
-de 10 secondes par défaut, réglables à 5, 10, 15 ou 30 secondes sans persistance.
+de 10 secondes fixes depuis 6.3, sans sélecteur ni préférence.
 Chaque fragment est affecté selon start_ms, sans découpe ; seuls les fragments
 consécutifs du même intervalle sont réunis. L'ordre source reste prioritaire, même
 en cas de retour temporel : un intervalle peut donc produire plusieurs blocs.
@@ -439,8 +439,8 @@ doit être activé à nouveau une fois le lecteur prêt. Aucune commande n'est d
 La commande envoyée n'est pas présentée comme une position confirmée par YouTube.
 La note conserve sa session, sa sélection, son historique et son autosauvegarde.
 Le clic ne déclenche ni acquisition de transcription ni insertion dans la note.
-Recherche, synchronisation continue, défilement/surlignage automatiques, citations
-et insertion du temps restent pour les tranches suivantes.
+La recherche locale est cadrée en 6.3 ci-dessous ; l'insertion du temps est
+implémentée en 6.2. Synchronisation continue et citations restent futures.
 
 ### 8.3 Stockage et évolutions
 
@@ -652,3 +652,21 @@ la gestion des tags ; un panneau « Informations » ou « Métadonnées » pourr
 regrouper les propriétés secondaires. La disposition du workspace reste ouverte.
 Séparer simplement l'éditeur de tags de son conteneur suffit pour ce jalon :
 aucun système générique de panneaux, modales ou onglets n'est prévu.
+
+### Recherche locale dans la transcription — tranche 6.3
+
+Décisions actées : recherche textuelle insensible à la casse dans le contenu déjà
+chargé, sans requête supplémentaire. Le texte continu concatène exactement les
+fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
+Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
+Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
+avec distinction du résultat actif et défilement vers celui-ci.
+Changer de vidéo ou de source réinitialise la recherche.
+La navigation des résultats ne commande jamais le lecteur : les timestamps
+cliquables restent l'action explicite pour rejoindre un instant.
+Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
+préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
+Aucun endpoint, changement du domaine, de la persistance ou moteur global.
+Acquisition, actualisation, édition des notes et insertion temporelle conservées.
+La segmentation naturelle, la synchronisation continue, les citations (6.4)
+et la navigation depuis le Markdown restent hors périmètre.

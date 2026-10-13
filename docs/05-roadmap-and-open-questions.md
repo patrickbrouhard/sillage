@@ -577,7 +577,7 @@ Vite existant sur le chunk CodeMirror supérieur à 500 ko reste présent.
 
 ### 6.2 — Insertion du temps courant
 
-Implémentée ; validation manuelle encore à effectuer, sans fusion automatique.
+Implémentée et validée manuellement par l'utilisateur, sans fusion automatique.
 Format acté : `[12:42](sillage://videos/5/sources/5?start_ms=762345)`, autorité logique
 `videos`, vidéo et source explicites, millisecondes conservées et `end_ms` réservé.
 `+ Temps` insère au curseur ou après la sélection sans l'effacer, ajoute un espace,
@@ -612,12 +612,32 @@ Validation locale : 104 tests navigateur, tests Go complets, vet, typage et buil
 Go/frontend réussis. Collage CRLF/CR/mixte simulé, caret en fin de ligne, Undo/Redo,
 autosauvegarde, réconciliation après réponse perdue et insertion temporelle couverts.
 Pas de migration ni de modification des notes de développement par ce correctif.
-La validation manuelle du collage Windows reste à effectuer ; aucune nouvelle
+Le correctif LF a été validé manuellement par l'utilisateur ; aucune nouvelle
 CI distante ni reconstruction Docker revendiquée.
+
+
+### Recherche locale dans la transcription — tranche 6.3
+
+Décisions actées : recherche textuelle insensible à la casse dans le contenu déjà
+chargé, sans requête supplémentaire. Le texte continu concatène exactement les
+fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
+Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
+Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
+avec distinction du résultat actif et défilement vers celui-ci.
+Changer de vidéo ou de source réinitialise la recherche.
+La navigation des résultats ne commande jamais le lecteur : les timestamps
+cliquables restent l'action explicite pour rejoindre un instant.
+Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
+préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
+Aucun endpoint, changement du domaine, de la persistance ou moteur global.
+Acquisition, actualisation, édition des notes et insertion temporelle conservées.
+La segmentation naturelle, la synchronisation continue, les citations (6.4)
+et la navigation depuis le Markdown restent hors périmètre.
+
+Cadrage enregistré avant implémentation ; validations 6.3 à renseigner.
 
 ### Tranches suivantes — à cadrer
 
-- recherche et navigation dans la transcription ;
 - sélection d'un passage pour une citation Markdown ;
 - référence avec début obligatoire et fin facultative, bornes ajustables ;
 - provenance temporelle conservée lorsque nécessaire ;
@@ -998,3 +1018,21 @@ Quand plusieurs directions sont possibles :
 4. seulement ensuite généraliser.
 
 Ne pas construire aujourd'hui une abstraction destinée à une fonctionnalité hypothétique de demain si le modèle actuel permet de l'ajouter plus tard proprement.
+
+### Découpage naturel des transcriptions — investigation future hors 6.3
+
+YouTube affiche des blocs de durées variables, contrairement aux intervalles fixes
+de Sillage. Étudier l'influence possible de la ponctuation, des pauses, de la durée
+et de la longueur des blocs. La ponctuation paraît importante mais n'explique pas
+tous les découpages observés. Aucune hypothèse de reconnaissance des interlocuteurs
+n'est démontrée.
+
+Comparer sur des exemples concrets les frontières affichées par YouTube aux
+informations JSON3 : `tStartMs`, `dDurationMs`, `tOffsetMs`, événements et fragments.
+Déterminer si les blocs correspondent aux segments JSON3 ou à un autre regroupement.
+Évaluer ensuite l'intérêt pour Sillage de phrases ou d'unités de sens ; aucune
+méthode de segmentation n'est décidée ni implémentée en 6.3.
+
+Référence : [E2E Segmenter: Joint Segmenting and Decoding for Long-Form ASR — Google Research](https://research.google/pubs/e2e-segmenter-joint-segmenting-and-decoding-for-long-form-asr/).
+Ce papier est une piste de recherche sur la segmentation de la parole, et non une
+explication vérifiée de l'algorithme de l'interface YouTube.

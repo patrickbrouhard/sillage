@@ -959,3 +959,21 @@ Elle illustre seulement la séparation souhaitée entre :
 9. Le système de fichiers ne définit pas l'identité des objets métier.
 10. Une abstraction n'est introduite que si elle protège une vraie frontière ou répond à un besoin concret.
 11. Les contraintes de la base renforcent les invariants applicatifs ; elles ne sont pas remplacées par un simple « check puis insert ».
+
+### Recherche locale dans la transcription — tranche 6.3
+
+Décisions actées : recherche textuelle insensible à la casse dans le contenu déjà
+chargé, sans requête supplémentaire. Le texte continu concatène exactement les
+fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
+Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
+Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
+avec distinction du résultat actif et défilement vers celui-ci.
+Changer de vidéo ou de source réinitialise la recherche.
+La navigation des résultats ne commande jamais le lecteur : les timestamps
+cliquables restent l'action explicite pour rejoindre un instant.
+Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
+préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
+Aucun endpoint, changement du domaine, de la persistance ou moteur global.
+Acquisition, actualisation, édition des notes et insertion temporelle conservées.
+La segmentation naturelle, la synchronisation continue, les citations (6.4)
+et la navigation depuis le Markdown restent hors périmètre.
