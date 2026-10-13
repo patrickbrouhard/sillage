@@ -12,7 +12,7 @@ async function openNote(page: Page, request: APIRequestContext, content = 'Avant
   const editor = page.getByRole('textbox', { name: 'Note Markdown' })
   await expect(editor).toBeVisible()
   await expect(page.locator('.youtube-frame iframe')).toBeVisible()
-  return { editor, noteURL, video, content }
+  return { editor, noteURL, video, content: content.replace(/\r\n?/g, '\n') }
 }
 
 for (const state of [0, 1, 2]) {

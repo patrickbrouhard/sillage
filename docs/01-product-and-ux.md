@@ -184,8 +184,12 @@ le cadrage et l'implémentation sont terminés : une vidéo
 possède zéro ou une note persistée, créée au premier enregistrement seulement.
 Une note absente et une note enregistrée vide sont deux états distincts.
 
-Le contenu est conservé et restitué sans transformation, y compris ses espaces,
-son indentation et ses retours à la ligne. Une sauvegarde identique ne change
+LF (`\n`) est la convention canonique des notes Markdown : à l'enregistrement,
+CRLF et CR deviennent LF, sans modifier les autres caractères, espaces ou indentations.
+Cette décision remplace la conservation exacte des séparateurs décidée en 5.2.
+Aucune migration ni écriture à la lecture des anciennes notes n'est effectuée.
+Leur prochaine sauvegarde explicite, ou une édition suivie d'autosauvegarde,
+peut les normaliser. Une sauvegarde identique après normalisation ne change
 pas sa date de modification. Les notes appartiennent à la vidéo, indépendamment
 des métadonnées et transcriptions de ses sources.
 
@@ -194,8 +198,8 @@ les décisions suivantes sont actées :
 
 - note principale en Markdown source enrichi, sans WYSIWYG ni Live Preview ;
 - bascule Édition/Lecture dans le même espace ; rendu GFM sécurisé sans HTML brut ;
-- conservation exacte du texte, y compris LF, CRLF et mélanges ; aucune
-  transformation lors d'une bascule ; curseur, sélection et Undo/Redo préservés
+- conservation du Markdown hors normalisation des fins de ligne en LF ; aucune
+  écriture lors d'une bascule ; curseur, sélection et Undo/Redo préservés
   autant que possible pendant la session ;
 - sauvegarde après 2 s d'inactivité ou 20 s depuis les premières modifications
   non prises en charge ; aucune écriture périodique sans changement ;

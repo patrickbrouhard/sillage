@@ -3,9 +3,11 @@ import { test, expect } from './fixtures'
 for (const [name, original] of [
   ['LF', '# titre\n\ntexte  \n'],
   ['CRLF', '# titre\r\n\r\ntexte  \r\n'],
+  ['CR', '# titre\r\rtexte  \r'],
   ['mixte', '# titre\r\n\ntexte  \nfin\r\n'],
 ]) {
-  test(`note ${name} : édition, Undo/Redo et sauvegarde préservent le texte exact`, async ({ page, request }) => {
+  test(`note ${name} : édition, Undo/Redo et sauvegarde conservent le Markdown en LF`, async ({ page, request }) => {
+    const canonical = original.replace(/\r\n?/g, '\n')
     const added = await request.post('/api/v1/videos', { data: { url: `https://youtu.be/sillage-notes-${name}-${test.info().retry}` } })
     const video = await added.json()
     const url = `/api/v1/videos/${video.id}/note`
@@ -17,13 +19,13 @@ for (const [name, original] of [
     await page.keyboard.press('Control+End')
     await page.keyboard.type('suite')
     await page.keyboard.press('Control+s')
-    await expect.poll(async () => (await (await request.get(url)).json()).content_md).toBe(original + 'suite')
+    await expect.poll(async () => (await (await request.get(url)).json()).content_md).toBe(canonical + 'suite')
     await page.keyboard.press('Control+z')
     await page.keyboard.press('Control+s')
-    await expect.poll(async () => (await (await request.get(url)).json()).content_md).toBe(original)
+    await expect.poll(async () => (await (await request.get(url)).json()).content_md).toBe(canonical)
     await page.keyboard.press('Control+Shift+z')
     await page.keyboard.press('Control+s')
-    await expect.poll(async () => (await (await request.get(url)).json()).content_md).toBe(original + 'suite')
+    await expect.poll(async () => (await (await request.get(url)).json()).content_md).toBe(canonical + 'suite')
     // Un autre client gagne ; le brouillon local reste visible et n'écrase rien.
     const current = await (await request.get(url)).json()
     await request.put(url, { data: { content_md: 'serveur', expected_revision: current.revision } })
@@ -34,6 +36,79 @@ for (const [name, original] of [
     await expect(editor).toContainText('suite locale')
   })
 }
+
+test('collage Windows et mixte : LF, caret en fin de ligne, Undo/Redo et persistance', async ({ page, request }) => {
+  const { id } = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/sillage-notes-paste-lf' } })).json()
+  const url = `/api/v1/videos/${id}/note`
+  await page.goto(`/videos/${id}`)
+  const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+  await editor.click()
+  const copied = '```go\r\n\tFROM tags\r\n\treturn readTags(rows)\r}\n```  '
+  const canonical = '```go\n\tFROM tags\n\treturn readTags(rows)\n}\n```  '
+  // Reproduit le texte reçu de Windows par l'événement de collage, sans dépendre du presse-papiers hôte.
+  await editor.evaluate((element, text) => {
+    const clipboardData = new DataTransfer()
+    clipboardData.setData('text/plain', text)
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }))
+  }, copied)
+  await expect(editor.locator('.cm-line')).toHaveText(canonical.split('\n'))
+  for (const line of ['FROM tags', 'return readTags(rows)']) {
+    await editor.locator('.cm-line').filter({ hasText: line }).click()
+    await page.keyboard.press('End')
+    const caret = await editor.evaluate(() => {
+      const selection = window.getSelection()!
+      return { text: selection.focusNode?.textContent, height: selection.getRangeAt(0).getBoundingClientRect().height }
+    })
+    expect(caret.text).not.toContain('\r')
+    expect(caret.height).toBeGreaterThan(0)
+    await page.keyboard.press('ArrowRight')
+    expect(await editor.evaluate(() => window.getSelection()!.focusNode?.textContent)).not.toBe(caret.text)
+  }
+  await page.keyboard.press('Control+z')
+  await expect(editor).toHaveText('')
+  await page.keyboard.press('Control+Shift+Z')
+  await expect(editor.locator('.cm-line')).toHaveText(canonical.split('\n'))
+  await expect.poll(async () => {
+    const response = await request.get(url)
+    return response.ok() ? (await response.json()).content_md : null
+  }).toBe(canonical)
+  await expect(page.getByLabel('État de la note')).toHaveText('Enregistré')
+})
+
+test('note historique : lecture et départ sans écriture, sauvegarde explicite LF et réponse perdue réconciliée', async ({ page }) => {
+  let stored = { video_id: 1, content_md: 'Avant\r\nMilieu\rFin\n', revision: 7, created_at: '2026-10-01T10:00:00Z', updated_at: '2026-10-01T10:00:00Z' }
+  let writes = 0
+  await page.route('**/api/v1/videos/1/note', async route => {
+    if (route.request().method() === 'PUT') {
+      writes++
+      const body = route.request().postDataJSON()
+      expect(body).toEqual({ content_md: 'Avant\nMilieu\nFin\n', expected_revision: 7 })
+      stored = { ...stored, content_md: body.content_md, revision: 8 }
+      await route.abort('failed')
+    } else await route.fulfill({ json: stored })
+  })
+  await page.clock.install()
+  await page.goto('/videos/1')
+  const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+  await expect(editor).toBeVisible()
+  await expect(editor.locator('.cm-line')).toHaveText(['Avant', 'Milieu', 'Fin', ''])
+  await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+  await page.clock.runFor(25_000)
+  await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
+  await expect(page).toHaveURL('/')
+  expect(writes).toBe(0)
+  expect(stored.content_md).toBe('Avant\r\nMilieu\rFin\n')
+  await page.goBack()
+  await page.getByRole('button', { name: 'Édition', exact: true }).click()
+  await expect(editor).toBeVisible()
+  await page.getByRole('button', { name: 'Enregistrer la note', exact: true }).click()
+  await expect.poll(() => writes).toBe(1)
+  await page.clock.runFor(5_000)
+  await expect(page.getByLabel('État de la note')).toHaveText('Enregistré')
+  await page.clock.runFor(25_000)
+  expect(writes).toBe(1)
+  expect(stored.revision).toBe(8)
+})
 
 test('une lecture échouée ne présente jamais un éditeur vide', async ({ page }) => {
   await page.route('**/api/v1/videos/1/note', route => route.fulfill({ status: 500, json: { error: { code: 'internal_error' } } }))
@@ -115,10 +190,10 @@ test('lecture GFM sûre, texte mixte et historique conservés à la bascule', as
   await editor.focus()
   await page.keyboard.press('Control+z')
   await page.keyboard.press('Control+s')
-  expect((await (await request.get(url)).json()).content_md).toBe(content)
+  expect((await (await request.get(url)).json()).content_md).toBe(content.replace(/\r\n?/g, '\n'))
   await page.keyboard.press('Control+Shift+z')
   await page.keyboard.press('Control+s')
-  await expect.poll(async () => (await (await request.get(url)).json()).content_md).toBe(content + 'suite')
+  await expect.poll(async () => (await (await request.get(url)).json()).content_md).toBe(content.replace(/\r\n?/g, '\n') + 'suite')
 })
 
 test('une réponse perdue est relue sans doubler une écriture et sans perdre la saisie suivante', async ({ page, request }) => {

@@ -628,14 +628,22 @@ Aucune note n'est créée automatiquement à l'ajout d'une vidéo. Le premier
 enregistrement la crée ; les suivants remplacent son contenu. Une chaîne vide
 est acceptée, y compris à la création : note absente et note vide sont distinctes.
 
-Le Markdown est restitué à l'identique : indentation, espaces, retours à la ligne,
-lignes vides et syntaxes particulières sont préservés. Aucun parsing, rendu HTML,
-reformatage ni interprétation des timestamps n'intervient dans la persistance.
+LF est le séparateur canonique : le service applicatif normalise CRLF et CR en LF
+avant persistance, indépendamment du client (Web, REST ou futur MCP). Les autres
+caractères, espaces, indentations, lignes vides et syntaxes sont conservés.
+Aucun parsing, rendu HTML ou interprétation des timestamps n'intervient dans la persistance.
+Cette décision remplace explicitement la préservation des séparateurs de 5.2.
+Les notes existantes ne sont pas migrées ; leur lecture retourne le contenu stocké
+sans normalisation ni écriture. Un enregistrement ultérieur peut les normaliser.
 Cette représentation laisse possibles de futures syntaxes internes et leur export.
 
 À la création, `created_at` et `updated_at` sont identiques. `created_at` reste
 stable ensuite et un contenu strictement inchangé ne modifie pas `updated_at`.
-Un changement d'espace ou de retour à la ligne est une modification effective.
+Un changement d'espace ou l'ajout d'un saut de ligne est une modification effective.
+Les variantes LF/CRLF/CR soumises donnent le même contenu canonique : une fois
+enregistré en LF, leur sauvegarde conserve révision et dates. La première
+normalisation d'une ancienne note est une modification effective. Une précondition
+obsolète reste refusée même si le contenu normalisé serait identique.
 Les dates suivent la convention UTC à précision milliseconde.
 
 La dernière écriture gagnante était le compromis historique de l'étape 4.

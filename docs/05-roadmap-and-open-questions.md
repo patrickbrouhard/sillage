@@ -350,7 +350,7 @@ et les décisions techniques ; ils ne deviennent pas des contraintes permanentes
 ### Validation réalisée
 
 Les tests Go couvrent les migrations depuis le schéma précédent, la réouverture,
-les dates et le Markdown exact, l'identité Unicode, la concurrence, le rollback
+les dates et le Markdown (désormais canonique en LF à la sauvegarde), l'identité Unicode, la concurrence, le rollback
 des créations et associations, les erreurs REST et les interactions avec vidéos
 et transcriptions. Les acquisitions de test sont simulées, sans accès à YouTube.
 La collection Postman déterministe complète les validations sur une base vide :
@@ -455,11 +455,11 @@ commit, consultable dans GitHub Actions. Jalons réalisés :
    avertissement de fermeture et consolidation des parcours Go/SQLite/Web/Docker.
 
 Aucune note créée à l'ouverture ; note vide conservée. Aucun HTML brut exécuté,
-aucune transformation du Markdown ni normalisation silencieuse des fins de ligne.
+aucune transformation du Markdown hors normalisation des fins de ligne en LF à la sauvegarde.
 La précondition attendue est obligatoire pour tous les clients ; une résolution
 reste conditionnelle. Les détails sont actés dans Product & UX, Modèle et Architecture.
 
-CodeMirror 6 est intégré ; la conservation LF/CRLF/mixte est testée. Les choix
+CodeMirror 6 est intégré ; la normalisation LF/CRLF/CR/mixte est testée. Les choix
 locaux de présentation et les deux reprises réseau automatiques sont révisables. Sans brouillon persistant, une perte
 après crash brutal reste possible et acceptée. Historique, File Recovery, suppression,
 fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
@@ -597,6 +597,24 @@ Tests Go complets, vet, builds Go/frontend et typage TypeScript réussis. L'aver
 Vite sur le chunk CodeMirror reste présent. Pas de nouvelle CI distante ni de
 reconstruction Docker ; aucun essai YouTube réel de 6.2 revendiqué.
 
+### Correctif de fins de ligne — LF canonique
+
+Décision actée après 6.2 : CRLF et CR deviennent LF à la sauvegarde, les autres
+caractères restant inchangés. Elle remplace la conservation exacte des séparateurs
+de 5.2. CodeMirror utilise le découpage natif, sans correctif spécial du caret.
+Le service applicatif garantit la règle pour tous les clients. Pas de migration,
+de normalisation par GET ni d'écriture automatique à la seule ouverture/départ.
+Une sauvegarde explicite ou une édition suivie d'autosauvegarde normalise une
+ancienne note avec la précondition habituelle. Les variantes de séparateurs sont
+ensuite des no-op ; la première normalisation constitue une nouvelle révision.
+
+Validation locale : 104 tests navigateur, tests Go complets, vet, typage et builds
+Go/frontend réussis. Collage CRLF/CR/mixte simulé, caret en fin de ligne, Undo/Redo,
+autosauvegarde, réconciliation après réponse perdue et insertion temporelle couverts.
+Pas de migration ni de modification des notes de développement par ce correctif.
+La validation manuelle du collage Windows reste à effectuer ; aucune nouvelle
+CI distante ni reconstruction Docker revendiquée.
+
 ### Tranches suivantes — à cadrer
 
 - recherche et navigation dans la transcription ;
@@ -610,7 +628,7 @@ interface et la navigation inverse restent à implémenter dans les tranches sui
 Insertion rapide et citation enrichie peuvent partager la même référence.
 La relation aux annotations structurées reste ouverte.
 
-Le Markdown brut reste stocké sans transformation et peut contenir des extensions
+Le Markdown brut reste stocké sans transformation hors normalisation LF et peut contenir des extensions
 internes. La copie ordinaire préserve les informations utiles ; copie adaptée et
 export peuvent convertir les références. L'export Markdown de consultation est
 distinct d'une sauvegarde réimportable de toutes les données métier.

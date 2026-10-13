@@ -365,8 +365,9 @@ Il reste ouvert et pourra être évalué lorsque l'API introduira de vraies lect
 Les invariants fonctionnels sont définis dans [le modèle métier](02-domain-model.md),
 sections 5 et 9. Ils sont actés et implémentés.
 
-- Stocker le Markdown directement dans une colonne `TEXT`, sans transformation,
-  parsing ni rendu ; préserver exactement le contenu après relecture et redémarrage.
+- Stocker le Markdown dans une colonne `TEXT`, sans parsing ni rendu ; le service
+  normalise uniquement CRLF et CR en LF avant sauvegarde. La relecture restitue
+  le contenu stocké sans modification, y compris pour les anciennes notes.
 - Distinguer note absente et note vide ; conserver les dates lors d'une sauvegarde
   identique et utiliser UTC à précision milliseconde pour les modifications effectives.
 - Garantir en persistance l'unicité concurrente des tags selon leur identité
@@ -932,15 +933,22 @@ restent à définir ; aucun mécanisme d'override n'est implémenté au jalon 4.
 
 Décisions actées : révision entière dans le modèle et JSON, expected_revision
 obligatoire (0 = absence attendue), 409 en cas de conflit, sans ETags.
-Markdown exact, GFM sécurisé sans HTML brut, bascule source/lecture, sauvegarde
+Markdown préservé hors normalisation LF, GFM sécurisé sans HTML brut, bascule source/lecture, sauvegarde
 après 2 s d'inactivité et maximum 20 s de saisie continue. Les règles UX et de
 réconciliation réseau sont détaillées dans Product & UX et Architecture.
 
 Choix techniques implémentés : CodeMirror 6 intégré directement ; react-markdown
 avec remark-gfm et HTML brut ignoré ; data router React Router pour bloquer les
 navigations. Le maintien de l'éditeur monté préserve son état entre les modes.
-Les fins de ligne LF, CRLF et mixtes sont vérifiées par les tests navigateur ;
-aucune normalisation des séparateurs existants n'est introduite.
+La décision initiale de préserver exactement LF/CRLF est remplacée : LF est
+canonique pour les notes. CRLF et CR sont normalisés avant persistance dans le
+service applicatif, sans transformation des autres caractères. CodeMirror utilise
+son traitement natif des séparateurs, notamment lors des collages Windows.
+Pas de migration des notes temporaires existantes ni de modification par GET.
+L'ancienne version reste inchangée jusqu'à un enregistrement explicite ou une
+édition suivie d'autosauvegarde. La session compare en LF pour éviter toute
+écriture due à la seule ouverture ou au départ de la fiche. Révisions, conflits,
+réconciliation après réponse perdue et Undo/Redo sont conservés et testés.
 
 Choix locaux révisables : délai réseau de 12 s, deux reprises après 1 puis 3 s,
 composants et messages. La vérification automatique locale est réussie ;

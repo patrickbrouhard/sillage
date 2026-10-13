@@ -88,7 +88,13 @@ Keep local access as the default while authentication is absent.
 The Markdown note is the stable main workspace area. The player is flexible and
 the transcript is an independent panel. Step 5.2 integrates CodeMirror 6,
 safe GFM reading and autosave with mandatory optimistic revision checks.
-Preserve Markdown exactly, including mixed line endings. Notes use no persistent
+LF is canonical for notes: normalize CRLF and CR to LF in the application service
+before persistence, preserving every other character. This supersedes the 5.2
+mixed-line-ending preservation decision. Do not migrate existing notes or change
+them on GET. CodeMirror uses native line splitting and LF serialization; opening
+or leaving a legacy note must not trigger a normalization write. Explicit saving
+or normal editing/autosave may normalize it under the usual revision checks.
+Notes use no persistent
 browser drafts. Step 5.3 integrates the YouTube IFrame Player API directly and
 the existing local transcript GET / explicit acquisition POST. Both panels use
 the first usable YouTube source in REST order; this is not a persisted primary

@@ -55,9 +55,7 @@ export function MarkdownEditor({ initial, active, onChange, onSave, ref }: Props
       state: EditorState.create({
         doc: initial,
         extensions: [
-          // LF est le seul séparateur structurel : CR reste dans le texte.
-          // Ainsi CRLF et les mélanges traversent édition et historique sans normalisation.
-          EditorState.lineSeparator.of('\n'),
+          // Le découpage natif accepte CRLF, CR et LF ; la sérialisation produit du LF.
           history(), markdown(), syntaxHighlighting(highlightStyle),
           EditorView.lineWrapping,
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),

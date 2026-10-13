@@ -6,6 +6,7 @@ test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions 
   const noteURL = `/api/v1/videos/${video.id}/note`
   const transcriptURL = `/api/v1/videos/${video.id}/sources/${video.sources[0].id}/transcript`
   const original = '# Titre\r\n\nTexte\r\n'
+  const canonical = '# Titre\n\nTexte\n'
   await request.put(noteURL, { data: { content_md: original, expected_revision: 0 } })
   await request.post(transcriptURL)
   await page.setViewportSize({ width: 1440, height: 1000 })
@@ -31,14 +32,14 @@ test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions 
   await editor.focus()
   await page.keyboard.type('remplacement')
   await page.keyboard.press('Control+s')
-  await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(original + 'remplacement')
+  await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(canonical + 'remplacement')
   await page.keyboard.press('Control+z')
   await page.keyboard.press('Control+s')
-  await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(original + 'suite')
+  await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(canonical + 'suite')
   // Une vraie frappe avec Maj produit « Z » ; « z » simulerait un événement incohérent.
   await page.keyboard.press('Control+Shift+Z')
   await page.keyboard.press('Control+s')
-  await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(original + 'remplacement')
+  await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(canonical + 'remplacement')
 })
 
 test('défilements indépendants, espace libéré et ordre mobile sans remontage', async ({ page, request }, info) => {

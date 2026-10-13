@@ -710,8 +710,22 @@ L'état reste local aux pages ; aucune bibliothèque de store n'est ajoutée.
 En 5.2, un data router React Router permet le blocage des navigations internes
 et de l'historique pendant la confirmation des sauvegardes. CodeMirror 6 est
 intégré directement et reste monté, masqué pendant la lecture GFM chargée à la demande.
-Le séparateur structurel de l'éditeur est LF : les CR existants restent dans le
-document, ce qui conserve aussi les fins de ligne mixtes. Entrée insère un LF.
+CodeMirror utilise son découpage natif CRLF/CR/LF et sa sérialisation LF, y compris
+pour les collages Windows. L'ancien `lineSeparator.of('\n')` est retiré : il laissait
+des CR dans le document et créait des positions de caret invisibles en fin de ligne.
+La session travaille sur une représentation LF et compare avec la version LF du
+contenu confirmé, tout en gardant la réponse serveur originale et sa révision.
+Ainsi, ouvrir une ancienne note, changer de mode ou quitter la fiche ne déclenche
+aucune écriture de normalisation. Un enregistrement explicite peut la normaliser
+même sans édition visible ; les éditions continuent à utiliser l'autosauvegarde.
+Le choix de la version serveur après conflit applique la même représentation locale.
+
+Le service applicatif Go normalise CRLF puis CR en LF avant d'appeler le port de
+persistance. SQLite compare ce contenu canonique sous la précondition de révision
+existante ; les variantes de séparateurs n'incrémentent pas une note déjà canonique.
+La première normalisation d'une ancienne note incrémente sa révision. Les GET ne
+transforment rien et aucune migration n'est ajoutée. Les réponses de sauvegarde LF
+permettent la réconciliation après réponse perdue, sans seconde écriture automatique.
 
 Une session locale par note gère le contenu courant, la dernière version confirmée,
 les temporisations et une unique écriture en cours. Elle est détruite à la sortie ;
@@ -819,8 +833,8 @@ sélection, ajoute un espace de continuation, place le curseur après celui-ci,
 puis rend le focus. `isolateHistory.of('full')` sépare l'action des frappes voisines
 et des autres insertions. L'écouteur `docChanged` alimente la session et ses délais
 d'autosauvegarde existants, y compris sa suspension en cas d'erreur ou conflit.
-Ni `initial`, ni l'état complet de l'éditeur ne sont réinjectés. Les fins de ligne
-mixtes restent intactes. Le bouton est désactivé en mode Lecture.
+Ni `initial`, ni l'état complet de l'éditeur ne sont réinjectés. La note suit la
+convention LF canonique. Le bouton est désactivé en mode Lecture.
 
 Le filtre standard de react-markdown neutralise actuellement les URI `sillage:` ;
 le composant de lien affiche alors un simple span. Ce comportement est couvert

@@ -48,6 +48,47 @@ func knowledgeAPI(t *testing.T) (http.Handler, *sql.DB) {
 	return h, db
 }
 
+func TestNoteCanonicalLineEndingsAndLegacyRevision(t *testing.T) {
+	h, db := knowledgeAPI(t)
+	legacy := "\t# Café\r\n\n  texte  \rfin\r\n"
+	canonical := "\t# Café\n\n  texte  \nfin\n"
+	at := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	// Le port de stockage simule une note historique sans passer par la nouvelle politique d'écriture.
+	if _, err := sqlite.NewNoteRepository(db).Save(context.Background(), 1, legacy, 0, at); err != nil {
+		t.Fatal(err)
+	}
+	get := request(h, "GET", "/api/v1/videos/1/note", "", "")
+	var got struct {
+		Content  string `json:"content_md"`
+		Revision int64  `json:"revision"`
+	}
+	if err := json.Unmarshal(get.Body.Bytes(), &got); err != nil || got.Content != legacy || got.Revision != 1 {
+		t.Fatalf("legacy read changed: %s, %v", get.Body.String(), err)
+	}
+	var stored string
+	if err := db.QueryRow("SELECT content_md FROM notes WHERE video_id = 1").Scan(&stored); err != nil || stored != legacy {
+		t.Fatalf("legacy storage changed: %q, %v", stored, err)
+	}
+	var previous string
+	for _, content := range []string{legacy, canonical, strings.ReplaceAll(canonical, "\n", "\r\n"), strings.ReplaceAll(canonical, "\n", "\r")} {
+		body, _ := json.Marshal(map[string]any{"content_md": content, "expected_revision": got.Revision})
+		put := request(h, "PUT", "/api/v1/videos/1/note", string(body), "application/json")
+		if err := json.Unmarshal(put.Body.Bytes(), &got); err != nil || put.Code != 200 || got.Content != canonical || got.Revision != 2 {
+			t.Fatalf("canonical save failed: %s, %v", put.Body.String(), err)
+		}
+		// Les variantes de séparateurs sont des no-op après la première normalisation.
+		if previous != "" && put.Body.String() != previous {
+			t.Fatal("identical canonical content changed revision or dates")
+		}
+		previous = put.Body.String()
+	}
+	body, _ := json.Marshal(map[string]any{"content_md": legacy, "expected_revision": 1})
+	assertError(t, request(h, "PUT", "/api/v1/videos/1/note", string(body), "application/json"), 409, "note_conflict")
+	if err := db.QueryRow("SELECT content_md FROM notes WHERE video_id = 1").Scan(&stored); err != nil || stored != canonical {
+		t.Fatalf("canonical storage differs: %q, %v", stored, err)
+	}
+}
+
 func TestNotesAndTagsREST(t *testing.T) {
 	h, _ := knowledgeAPI(t)
 	assertError(t, request(h, "GET", "/api/v1/videos/1/note", "", ""), 404, "note_not_found")
@@ -72,7 +113,7 @@ func TestNotesAndTagsREST(t *testing.T) {
 	if err := json.Unmarshal(put.Body.Bytes(), &updated); err != nil {
 		t.Fatal(err)
 	}
-	if updated["content_md"] != content || updated["created_at"] != first["created_at"] {
+	if updated["content_md"] != strings.ReplaceAll(content, "\r\n", "\n") || updated["created_at"] != first["created_at"] {
 		t.Fatal(updated)
 	}
 	body, _ = json.Marshal(map[string]any{"content_md": content, "expected_revision": 2})

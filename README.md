@@ -1007,7 +1007,12 @@ Le premier enregistrement crée la note, y compris avec `content_md: ""` ; son a
 reste distincte d'une note vide. À la création les dates sont identiques ; ensuite
 `created_at` reste stable et une sauvegarde identique ne change aucune date.
 La création fournit `Location: /api/v1/videos/{id}/note`.
-Le Markdown est conservé exactement, sans trim, parsing, rendu ou normalisation.
+Le service applicatif normalise uniquement CRLF et CR vers LF avant sauvegarde,
+sans trim, parsing, rendu ni modification des autres caractères. Cette convention
+remplace la conservation exacte des séparateurs de 5.2. Aucune migration des notes
+existantes ni modification à leur lecture : GET restitue le contenu stocké.
+La première normalisation d'une ancienne note incrémente sa révision ; les variantes
+de séparateurs sont ensuite des sauvegardes identiques, sous précondition valide.
 Le contenu des notes n'est pas inclus dans les réponses vidéo générales.
 
 Les réponses du catalogue et de l'ajout de tags utilisent `{"tags":[{"id":3,"name":"Go"}]}`.
@@ -1070,9 +1075,12 @@ Le rechargement et la fermeture utilisent l'avertissement standard du navigateur
 lorsqu'il est disponible. Il n'y a pas de brouillon persistant : un crash brutal
 peut perdre les dernières modifications, notamment hors connexion.
 
-LF, CRLF et fins de ligne mixtes existantes sont conservés exactement.
-Les nouvelles lignes saisies avec Entrée utilisent LF ; les séparateurs existants
-ne sont pas normalisés. La migration 0005 attribue la révision 1 aux notes existantes
+LF est désormais canonique pour les notes. CodeMirror traite naturellement les
+collages LF/CRLF/CR et les documents mixtes. La session compare les contenus en LF
+sans écrire à l'ouverture, au changement de mode ou au départ de la fiche.
+Une sauvegarde explicite, ou une édition suivie d'autosauvegarde, peut normaliser
+une ancienne note. Aucun traitement spécifique du caret ni migration de contenu.
+La migration historique 0005 attribue la révision 1 aux notes existantes
 sans modifier leur texte ni leurs dates. Effectuer une sauvegarde à froid avant
 la mise à jour, comme décrit dans la section Docker ; adapter les clients REST
 à la précondition obligatoire.
@@ -1286,7 +1294,7 @@ IA intégrée
 * idempotence par identité externe ;
 * API HTTP : ajout, liste et détail, DTO et erreurs JSON ;
 * acquisition et lecture locale des transcriptions automatiques originales YouTube ;
-* notes Markdown exactes, tags partagés et filtre par tag, persistants et disponibles via REST ;
+* notes Markdown canoniques en LF, tags partagés et filtre par tag, persistants et disponibles via REST ;
 * publishers, personnes et associations avec les tags partagés via REST ;
 * bibliothèque Web React/TypeScript/Vite, ajout YouTube avec détection des doublons
   et fiches vidéo navigables ;
@@ -1312,6 +1320,13 @@ Go complets, vet, builds Go/frontend et typage TypeScript réussis. Les 9 nouvea
 parcours couvrent l'insertion, les sélections, Undo/Redo, l'autosauvegarde, les
 millisecondes et les états du lecteur, sans YouTube réel. La validation manuelle
 de 6.2 reste à effectuer ; aucune CI distante ni reconstruction Docker revendiquée.
+
+Le correctif LF canonique est validé localement par 104 tests navigateur, les tests
+Go complets, vet, typage et builds Go/frontend. Les tests couvrent les collages
+CRLF/CR/mélangés, la visibilité du caret en fin de ligne, les révisions, les anciennes
+notes sans écriture à la lecture et la réconciliation après réponse perdue.
+Le collage est simulé à l'entrée navigateur ; aucun nouveau test manuel VS Code/Windows
+ni déploiement n'est revendiqué. L'avertissement Vite sur le chunk CodeMirror subsiste.
 
 ### API HTTP réalisée
 
