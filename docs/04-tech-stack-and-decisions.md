@@ -957,11 +957,12 @@ du dernier commit sont consultables dans GitHub Actions.
 
 Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
 ou mécanisme générique documentaire. Le cadrage 5.3 est désormais implémenté
-(voir Product & UX et Architecture) ; les interactions temporelles de 6 restent futures.
+(voir Product & UX et Architecture). Les tranches 6.1 à 6.3 sont implémentées ;
+citations, plages et navigation depuis le Markdown restent futures.
 
 ### Recherche locale dans la transcription — tranche 6.3
 
-Décisions actées : recherche textuelle insensible à la casse dans le contenu déjà
+Décisions implémentées en 6.3 : recherche textuelle insensible à la casse dans le contenu déjà
 chargé, sans requête supplémentaire. Le texte continu concatène exactement les
 fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
 Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.

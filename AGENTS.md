@@ -110,6 +110,11 @@ without replacing it, as an isolated undo transaction with normal autosave.
 Read current time only in ready playing/paused/ended states, including a hidden
 paused instance; reject cued, unstarted, buffering and unavailable states without
 deferred work or player commands. Reading mode keeps references inert until 6.5.
+Step 6.3 searches the exact continuous transcript text locally, ignoring case,
+across fragment and display-block boundaries. Highlight occurrences and scroll to
+the active result with circular previous/next navigation, without player commands.
+Reset search on video/source changes. Presentation grouping is fixed at 10 seconds,
+without a selector or user preference. Natural segmentation is future research.
 Citations, ranges and synchronized scrolling remain future work.
 
 Do not introduce PostgreSQL, Redis, a vector database, microservices, or another major infrastructure component without a concrete requirement.

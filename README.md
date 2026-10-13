@@ -71,7 +71,7 @@ sauvegarde protégée contre les écrasements concurrents.
 La tranche 5.3 réunit désormais note, lecteur YouTube et transcription dans un
 workspace responsive. Le lecteur se masque avec pause, sans reprise automatique ;
 la transcription locale se consulte indépendamment, se récupère ou s'actualise
-explicitement, et se regroupe par intervalles de 5, 10, 15 ou 30 secondes.
+explicitement, et se regroupe par intervalles fixes de 10 secondes depuis 6.3.
 Les métadonnées complètes restent accessibles dans une section repliable.
 La tranche est terminée, vérifiée automatiquement et fusionnée après
 les retours manuels positifs de l'utilisateur, y compris sur les correctifs
@@ -97,6 +97,14 @@ le libellé sans interaction. `videos` est l'autorité logique de l'URI ; les de
 identifiants Sillage rendent le Markdown autonome entre notes d'une même base,
 sans résolution universelle entre bases. `end_ms` est réservé aux plages futures.
 Citations, plages, synchronisation et navigation inverse restent hors de 6.2.
+
+En 6.3, le champ de recherche parcourt le texte continu déjà chargé, sans casse
+et sans requête réseau. Les expressions traversant fragments et blocs sont
+surlignées ; compteur et précédent/suivant circulaires font défiler le résultat actif.
+La recherche est littérale (accents et blancs conservés), sans occurrences
+chevauchantes. Elle ne commande jamais le lecteur ; les timestamps restent
+l'action explicite. Changer de vidéo/source la réinitialise. Le sélecteur
+d'intervalle est supprimé : présentation fixe à 10 secondes.
 
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
@@ -1243,8 +1251,12 @@ L'étape Web est découpée en jalons validables :
   indépendante du lecteur, paragraphes fluides et thèmes clair/sombre/système ;
 - **6.1 — navigation transcription → lecteur** : implémentée, testée et validée
   manuellement ; aucun démarrage automatique ni commande différée ;
-- **6.2 — insertion du temps courant** : implémentée et testée, en attente de
-  validation manuelle ; lien Markdown avec vidéo, source et millisecondes explicites ;
+- **6.2 — insertion du temps courant** : implémentée, testée et validée
+  manuellement ; lien Markdown avec vidéo, source et millisecondes explicites ;
+- **6.3 — recherche dans la transcription** : implémentée et testée localement,
+  validation manuelle à effectuer ; recherche continue entre fragments et blocs,
+  navigation circulaire et surlignages, sans action automatique sur le lecteur ;
+  regroupement fixé à 10 secondes ;
 - **Suite de 6 — interactions temporelles** : références avec début et fin facultative,
   citations et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
 
@@ -1318,15 +1330,24 @@ positionner sur l'image clé précédente ; la précision effective dépend de Y
 La tranche 6.2 poursuit cette branche : 100 tests navigateur déterministes, tests
 Go complets, vet, builds Go/frontend et typage TypeScript réussis. Les 9 nouveaux
 parcours couvrent l'insertion, les sélections, Undo/Redo, l'autosauvegarde, les
-millisecondes et les états du lecteur, sans YouTube réel. La validation manuelle
-de 6.2 reste à effectuer ; aucune CI distante ni reconstruction Docker revendiquée.
+millisecondes et les états du lecteur, sans YouTube réel dans ces tests.
+La validation manuelle de 6.2 a été confirmée par l'utilisateur ; aucune CI distante
+ni reconstruction Docker revendiquée.
 
 Le correctif LF canonique est validé localement par 104 tests navigateur, les tests
 Go complets, vet, typage et builds Go/frontend. Les tests couvrent les collages
 CRLF/CR/mélangés, la visibilité du caret en fin de ligne, les révisions, les anciennes
 notes sans écriture à la lecture et la réconciliation après réponse perdue.
-Le collage est simulé à l'entrée navigateur ; aucun nouveau test manuel VS Code/Windows
-ni déploiement n'est revendiqué. L'avertissement Vite sur le chunk CodeMirror subsiste.
+Le collage est simulé à l'entrée navigateur dans ces tests ; le correctif LF
+a ensuite été validé manuellement par l'utilisateur. Aucun déploiement revendiqué. L'avertissement Vite sur le chunk CodeMirror subsiste.
+
+La tranche 6.3 est implémentée et validée localement : 113 tests navigateur,
+tests Go complets et race, vet, typage, builds Go/frontend et collection Postman
+déterministe (45 requêtes, 135 assertions). Captures clair/sombre et mobile
+inspectées. La validation manuelle reste à effectuer ; voir la checklist dans
+`docs/05-roadmap-and-open-questions.md`. Aucun nouvel essai YouTube réel,
+CI distante ou build Docker revendiqué. La segmentation naturelle des blocs
+reste une investigation future, distincte de cette recherche locale.
 
 ### API HTTP réalisée
 

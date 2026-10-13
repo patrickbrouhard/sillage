@@ -439,8 +439,37 @@ doit être activé à nouveau une fois le lecteur prêt. Aucune commande n'est d
 La commande envoyée n'est pas présentée comme une position confirmée par YouTube.
 La note conserve sa session, sa sélection, son historique et son autosauvegarde.
 Le clic ne déclenche ni acquisition de transcription ni insertion dans la note.
-La recherche locale est cadrée en 6.3 ci-dessous ; l'insertion du temps est
+La recherche locale est implémentée en 6.3 ci-dessous ; l'insertion du temps est
 implémentée en 6.2. Synchronisation continue et citations restent futures.
+
+### Recherche locale dans la transcription — tranche 6.3
+
+Implémentée en 6.3 : recherche textuelle insensible à la casse dans le contenu déjà
+chargé, sans requête supplémentaire. Le texte continu concatène exactement les
+fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
+Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
+Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
+avec distinction du résultat actif et défilement vers celui-ci.
+Changer de vidéo ou de source réinitialise la recherche.
+La navigation des résultats ne commande jamais le lecteur : les timestamps
+cliquables restent l'action explicite pour rejoindre un instant.
+Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
+préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
+Aucun endpoint, changement du domaine, de la persistance ou moteur global.
+Acquisition, actualisation, édition des notes et insertion temporelle conservées.
+La segmentation naturelle, la synchronisation continue, les citations (6.4)
+et la navigation depuis le Markdown restent hors périmètre.
+
+La recherche est littérale : pas d'expressions régulières, de suppression des accents
+ou de normalisation des espaces. Les occurrences sont non chevauchantes, de gauche
+à droite. Une saisie vide n'affiche aucun résultat. Le compteur indique le résultat
+actif et le total (0 / 0 sans correspondance) ; les deux commandes sont alors désactivées.
+Les blancs sources restent exacts, même si CSS les réduit visuellement dans les
+paragraphes. Une actualisation réussie conserve la requête, recalcule les occurrences
+et sélectionne la première ; pendant l'opération ou après un échec, le contenu
+conservé reste consultable avec la sélection courante.
+Sur desktop, seul le texte de la transcription défile ; sur mobile, les résultats
+participent au défilement normal de la page. La recherche n'est pas persistée.
 
 ### 8.3 Stockage et évolutions
 
@@ -652,21 +681,3 @@ la gestion des tags ; un panneau « Informations » ou « Métadonnées » pourr
 regrouper les propriétés secondaires. La disposition du workspace reste ouverte.
 Séparer simplement l'éditeur de tags de son conteneur suffit pour ce jalon :
 aucun système générique de panneaux, modales ou onglets n'est prévu.
-
-### Recherche locale dans la transcription — tranche 6.3
-
-Décisions actées : recherche textuelle insensible à la casse dans le contenu déjà
-chargé, sans requête supplémentaire. Le texte continu concatène exactement les
-fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
-Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
-Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
-avec distinction du résultat actif et défilement vers celui-ci.
-Changer de vidéo ou de source réinitialise la recherche.
-La navigation des résultats ne commande jamais le lecteur : les timestamps
-cliquables restent l'action explicite pour rejoindre un instant.
-Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
-préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
-Aucun endpoint, changement du domaine, de la persistance ou moteur global.
-Acquisition, actualisation, édition des notes et insertion temporelle conservées.
-La segmentation naturelle, la synchronisation continue, les citations (6.4)
-et la navigation depuis le Markdown restent hors périmètre.

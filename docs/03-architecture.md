@@ -768,7 +768,8 @@ un POST automatique ; un contenu retrouvé ne prouve pas à lui seul le succès 
 l'actualisation demandée. Les réponses abandonnées ne modifient pas la fiche suivante.
 
 Le regroupement parcourt les items dans leur ordre source et crée des blocs
-consécutifs par intervalle. Les groupes composés uniquement de blancs sont rattachés
+consécutifs par intervalle fixe de 10 secondes depuis 6.3. Les groupes composés
+uniquement de blancs sont rattachés
 au texte précédent, ou préfixés au premier bloc textuel s'ils sont initiaux, sans
 ligne horodatée dédiée ni changement du timestamp du bloc textuel. Les items restent
 intacts. Le rendu utilise du texte échappé et `white-space: normal` : chaque bloc
@@ -779,6 +780,29 @@ n'est nécessaire ; les données et les règles de regroupement restent inchang�
 Les tests navigateur emploient une IFrame API contrôlée, sans accès à YouTube,
 et un faux yt-dlp exécuté par le backend réel pour acquérir puis relire des snapshots.
 Les essais avec YouTube réel restent complémentaires aux validations déterministes.
+
+### Recherche locale de transcription 6.3
+
+`TranscriptText` reçoit les fragments chargés et regroupe leur présentation à
+10 secondes. La recherche utilise leur concaténation exacte dans l'ordre source,
+indépendamment des blocs. `findTranscriptMatches` échappe la saisie puis utilise
+une expression régulière Unicode insensible à la casse pour obtenir des intervalles
+UTF-16 dans le texte original, sans conversion préalable susceptible de déplacer
+les indices. Les occurrences sont littérales et non chevauchantes.
+
+`highlightTranscript` parcourt les blocs et les occurrences dans l'ordre pour
+projeter ces intervalles en portions de texte exactes. Une occurrence traversant
+plusieurs blocs garde le même indice et le même état actif dans chaque portion.
+React échappe le texte des éléments `mark` ; aucun HTML de transcription n'est injecté.
+Le contenu, les blocs et les résultats sont dérivés en mémoire, sans dépendance ajoutée.
+
+La sélection repart de zéro quand la requête ou le contenu reçu change. La session
+de recherche est associée aux IDs vidéo/source ; aucun état navigateur persistant.
+Le défilement vise la première portion active : scroll du conteneur sur desktop,
+défilement de page sur mobile. Aucun focus n'est transféré au résultat ni commande
+lecteur émise ; seul le callback des timestamps conserve la navigation 6.1.
+Acquisition et gestion des erreurs restent dans `VideoTranscript`.
+Aucun changement REST, domaine ou SQLite ; aucune segmentation linguistique.
 
 ### Navigation transcription → YouTube 6.1
 
@@ -959,21 +983,3 @@ Elle illustre seulement la séparation souhaitée entre :
 9. Le système de fichiers ne définit pas l'identité des objets métier.
 10. Une abstraction n'est introduite que si elle protège une vraie frontière ou répond à un besoin concret.
 11. Les contraintes de la base renforcent les invariants applicatifs ; elles ne sont pas remplacées par un simple « check puis insert ».
-
-### Recherche locale dans la transcription — tranche 6.3
-
-Décisions actées : recherche textuelle insensible à la casse dans le contenu déjà
-chargé, sans requête supplémentaire. Le texte continu concatène exactement les
-fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
-Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
-Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
-avec distinction du résultat actif et défilement vers celui-ci.
-Changer de vidéo ou de source réinitialise la recherche.
-La navigation des résultats ne commande jamais le lecteur : les timestamps
-cliquables restent l'action explicite pour rejoindre un instant.
-Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
-préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
-Aucun endpoint, changement du domaine, de la persistance ou moteur global.
-Acquisition, actualisation, édition des notes et insertion temporelle conservées.
-La segmentation naturelle, la synchronisation continue, les citations (6.4)
-et la navigation depuis le Markdown restent hors périmètre.

@@ -521,7 +521,7 @@ sans reprise. États d'erreur indépendants et lien externe lorsque disponible.
 GET local à l'ouverture ; acquisition/actualisation par POST explicite uniquement.
 Ancien contenu conservé pendant l'actualisation et ses échecs, erreurs distinctes,
 relecture possible après résultat incertain sans relance automatique du POST.
-Regroupement de présentation par intervalles 5/10/15/30 s (10 s par défaut), ancrés
+Regroupement initial par intervalles 5/10/15/30 s (remplacé en 6.3 par 10 s fixes), ancrés
 sur zéro, fragments consécutifs et ordre source conservés, espaces exacts et aucun
 bloc visuellement vide. Les timestamps affichent le début réel du premier fragment.
 
@@ -615,8 +615,7 @@ Pas de migration ni de modification des notes de développement par ce correctif
 Le correctif LF a été validé manuellement par l'utilisateur ; aucune nouvelle
 CI distante ni reconstruction Docker revendiquée.
 
-
-### Recherche locale dans la transcription — tranche 6.3
+### 6.3 — Recherche et navigation dans la transcription
 
 Décisions actées : recherche textuelle insensible à la casse dans le contenu déjà
 chargé, sans requête supplémentaire. Le texte continu concatène exactement les
@@ -634,7 +633,35 @@ Acquisition, actualisation, édition des notes et insertion temporelle conservé
 La segmentation naturelle, la synchronisation continue, les citations (6.4)
 et la navigation depuis le Markdown restent hors périmètre.
 
-Cadrage enregistré avant implémentation ; validations 6.3 à renseigner.
+Implémentation terminée après ce cadrage. Recherche littérale, occurrences non
+chevauchantes, accents et blancs exacts ; compteur 0 / 0 pour une saisie vide ou
+sans résultat. Actualisation réussie : requête conservée, résultats recalculés et
+premier résultat sélectionné ; échec : contenu et sélection conservés.
+Le défilement reste local au texte sur desktop ; sur mobile, il suit la page.
+Validation manuelle de 6.3 encore à effectuer, sans fusion dans master.
+
+Validation locale du 13 octobre 2026 : 113 tests navigateur réussis, dont 9
+nouveaux tests de recherche. Couverture des frontières de fragments et blocs,
+des indices Unicode, des espaces exacts, du surlignage, du retour circulaire,
+du défilement, des changements vidéo/source, des actualisations et de l'absence
+de réseau ou de commande lecteur. Les parcours existants couvrent aussi notes,
+Undo/Redo, autosauvegarde, insertion temporelle et normalisation LF.
+`make test`, `go test -race ./...`, `make build` et la collection Postman
+déterministe (45 requêtes, 135 assertions) réussissent. Aucun Go modifié à formater.
+Les captures desktop clair/sombre et mobile ont été inspectées.
+Chromium utilise les bibliothèques déjà présentes dans
+`/tmp/sillage-browser-libs/usr/lib/x86_64-linux-gnu` via `LD_LIBRARY_PATH`,
+sans installation ni changement de configuration du dépôt.
+L'avertissement Vite existant sur le chunk CodeMirror supérieur à 500 ko subsiste.
+Aucun nouvel essai YouTube réel, CI distante ou build Docker revendiqué.
+
+Vérifications manuelles restantes pour 6.3 :
+- rechercher une expression traversant deux blocs et un mot coupé entre fragments ;
+- parcourir les résultats dans les deux sens, y compris les retours premier/dernier ;
+- vérifier les surlignages en clair/sombre et le défilement sur desktop/mobile ;
+- confirmer que lecture, pause et lecteur masqué restent inchangés, puis tester un timestamp ;
+- actualiser la transcription, changer de vidéo et vérifier l'édition/Undo et `+ Temps`.
+
 
 ### Tranches suivantes — à cadrer
 
@@ -968,6 +995,24 @@ sombres de la bibliothèque, du workspace et de l'écran étroit inspectées.
 - timeline d'annotations ;
 - raccourcis clavier.
 
+### Découpage naturel des transcriptions — investigation future hors 6.3
+
+YouTube affiche des blocs de durées variables, contrairement aux intervalles fixes
+de Sillage. Étudier l'influence possible de la ponctuation, des pauses, de la durée
+et de la longueur des blocs. La ponctuation paraît importante mais n'explique pas
+tous les découpages observés. Aucune hypothèse de reconnaissance des interlocuteurs
+n'est démontrée.
+
+Comparer sur des exemples concrets les frontières affichées par YouTube aux
+informations JSON3 : `tStartMs`, `dDurationMs`, `tOffsetMs`, événements et fragments.
+Déterminer si les blocs correspondent aux segments JSON3 ou à un autre regroupement.
+Évaluer ensuite l'intérêt pour Sillage de phrases ou d'unités de sens ; aucune
+méthode de segmentation n'est décidée ni implémentée en 6.3.
+
+Référence : [E2E Segmenter: Joint Segmenting and Decoding for Long-Form ASR — Google Research](https://research.google/pubs/e2e-segmenter-joint-segmenting-and-decoding-for-long-form-asr/).
+Ce papier est une piste de recherche sur la segmentation de la parole, et non une
+explication vérifiée de l'algorithme de l'interface YouTube.
+
 ## 19. Questions ouvertes — API
 
 Le contrat de la tranche initiale est arrêté (voir étape 2 et README).
@@ -1018,21 +1063,3 @@ Quand plusieurs directions sont possibles :
 4. seulement ensuite généraliser.
 
 Ne pas construire aujourd'hui une abstraction destinée à une fonctionnalité hypothétique de demain si le modèle actuel permet de l'ajouter plus tard proprement.
-
-### Découpage naturel des transcriptions — investigation future hors 6.3
-
-YouTube affiche des blocs de durées variables, contrairement aux intervalles fixes
-de Sillage. Étudier l'influence possible de la ponctuation, des pauses, de la durée
-et de la longueur des blocs. La ponctuation paraît importante mais n'explique pas
-tous les découpages observés. Aucune hypothèse de reconnaissance des interlocuteurs
-n'est démontrée.
-
-Comparer sur des exemples concrets les frontières affichées par YouTube aux
-informations JSON3 : `tStartMs`, `dDurationMs`, `tOffsetMs`, événements et fragments.
-Déterminer si les blocs correspondent aux segments JSON3 ou à un autre regroupement.
-Évaluer ensuite l'intérêt pour Sillage de phrases ou d'unités de sens ; aucune
-méthode de segmentation n'est décidée ni implémentée en 6.3.
-
-Référence : [E2E Segmenter: Joint Segmenting and Decoding for Long-Form ASR — Google Research](https://research.google/pubs/e2e-segmenter-joint-segmenting-and-decoding-for-long-form-asr/).
-Ce papier est une piste de recherche sur la segmentation de la parole, et non une
-explication vérifiée de l'algorithme de l'interface YouTube.
