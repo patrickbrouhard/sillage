@@ -253,3 +253,10 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 @media (max-width: 600px) {
   .quote-callout { padding: .7rem; }
 }
+
+/* Bordure sans déplacement du texte ; les lignes repliées gardent toute leur hauteur. */
+.markdown-editor .cm-markdown-quote { box-shadow: inset 2px 0 var(--label); }
+.markdown-editor .cm-markdown-callout { background-color: color-mix(in srgb, var(--label) 6%, transparent); }
+.markdown-editor .cm-callout-marker { color: var(--label); font-weight: 700; }
+.markdown-editor .cm-callout-uri, .markdown-editor .cm-callout-uri * { color: var(--muted); }
+.markdown-editor .cm-callout-label, .markdown-editor .cm-callout-label * { color: var(--label); font-weight: 600; }

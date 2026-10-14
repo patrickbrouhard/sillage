@@ -2,7 +2,7 @@ import type { Blockquote, Root } from 'mdast'
 import type { Parent } from 'unist'
 import type { Processor } from 'unified'
 import type { VFile } from 'vfile'
-import { parseTemporalReference } from './temporalReference'
+import { parseCalloutHeader } from './calloutHeader'
 
 interface Header {
   start: number
@@ -70,19 +70,16 @@ export function remarkCallouts(this: Processor) {
             const literal = source.slice(position.start.offset).split(/\r\n|\r|\n/, 1)[0]
             // « quote:autre » reste inconnu ; une déclaration connue incomplète est neutralisée.
             if (/^\[!quote(?=\]|[ \t(]|$)|^\[!quote:tr(?=\]|[ \t(]|$)/.test(literal)) {
-              const ordinary = /^\[!quote\](?:[ \t]+(.*?))?[ \t]*$/.exec(literal)
-              // La première parenthèse fermante termine l'URI ; les suivantes appartiennent au titre littéral.
-              const transcript = /^\[!quote:tr\]\(([^()\r\n]*)\)(?:[ \t]+(.*?))?[ \t]*$/.exec(literal)
+              const header = parseCalloutHeader(literal)
               preserveContinuations(quote)
               collectCrossingLinks(quote, position.start.offset, position.start.offset + literal.length)
               headers.set(quoteStart, {
                 start: position.start.offset,
                 end: position.start.offset + literal.length,
                 literal,
-                title: transcript?.[2]?.trim(),
-                attribution: !quoted && ordinary ? ordinary[1] ?? '' : undefined,
-                uri: !quoted && transcript && parseTemporalReference(transcript[1])
-                  ? transcript[1] : undefined,
+                title: header?.kind === 'quote:tr' ? header.title : undefined,
+                attribution: !quoted && header?.kind === 'quote' ? header.attribution : undefined,
+                uri: !quoted && header?.kind === 'quote:tr' ? header.uri : undefined,
               })
             }
           }
