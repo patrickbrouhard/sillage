@@ -237,3 +237,18 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .temporal-reference { font: inherit; color: var(--label); background: transparent; border: 0; padding: .1em .2em; text-decoration: underline; cursor: pointer; }
 .temporal-reference:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .temporal-message { font-size: .9em; }
+
+/* Les citations partagent les couleurs des thèmes sans modifier le Markdown édité. */
+.quote-callout { margin: 1rem 0; padding: .85rem 1rem; border: 1px solid var(--border); border-left: 3px solid var(--label); border-radius: .5rem; background: var(--tag); min-width: 0; }
+.quote-callout-header { display: flex; align-items: flex-start; gap: .65rem; color: var(--label); }
+.quote-callout-icon { width: 1.3rem; height: 1.3rem; flex: none; margin-top: .15rem; }
+.quote-callout-attribution { min-width: 0; font-weight: 600; white-space: pre-wrap; }
+.quote-callout-action { margin-left: auto; min-width: 0; text-align: right; }
+.quote-callout-action .temporal-reference { white-space: nowrap; }
+.quote-callout-action .temporal-message { display: block; text-align: left; color: var(--text); }
+.quote-callout-body > :first-child { margin-top: .65rem; }
+.quote-callout-body > :last-child { margin-bottom: 0; }
+.quote-callout-body blockquote { margin-inline: .5rem 0; padding-left: .75rem; border-left: 2px solid var(--border); }
+@media (max-width: 600px) {
+  .quote-callout { padding: .7rem; }
+}
