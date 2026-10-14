@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Link, Route, Routes, useLocation } from 'react-router'
+import { Link, Route, Routes, useLocation, useMatch } from 'react-router'
 import { Library } from './Library'
 import { AddVideo } from './AddVideo'
 import { VideoPage } from './VideoPage'
@@ -8,6 +8,7 @@ import { ThemeSelector } from './ThemeSelector'
 /** Assemble les pages sans déplacer l'état des acquisitions dans un store global. */
 export function App() {
   const location = useLocation()
+  const videoPage = Boolean(useMatch('/videos/:videoId')) && location.pathname !== '/videos/new'
   const main = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -19,11 +20,11 @@ export function App() {
   return (
     <>
       <a className="skip-link" href="#main">Aller au contenu</a>
-      <header className="site-header">
+      <header className={`site-header${videoPage ? ' site-header-compact' : ''}`}>
         <Link className="brand" to="/" aria-label="Sillage, accueil">
           <span className="brand-mark" aria-hidden="true">≈</span>Sillage
         </Link>
-        <span className="header-caption">Une trace de ce qui compte.</span>
+        {!videoPage && <span className="header-caption">Une trace de ce qui compte.</span>}
         <ThemeSelector />
       </header>
       <main id="main" ref={main} tabIndex={-1}>

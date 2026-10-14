@@ -38,6 +38,7 @@ button { font: inherit; }
 }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 27px; font-weight: 750; text-decoration: none; letter-spacing: -1px; }
 .brand-mark { display: grid; place-items: center; background: var(--accent); color: #fff; width: 39px; height: 39px; border-radius: 12px; font-size: 32px; }
+.site-header.site-header-compact { min-height: 64px; padding-block: 10px; }
 .header-caption { font-size: 13px; color: var(--muted); }
 main { max-width: 1400px; margin: 0 auto; padding: 56px max(6vw, 24px) 64px; min-height: calc(100vh - 160px); }
 .page-heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 36px; }
@@ -115,8 +116,9 @@ main:focus { outline: none; }
 }
 
 /* Les outils de classement restent secondaires à la consultation. */
-.video-tags { margin: 22px 0 30px; }
-.video-tags .detail-tags { margin: 0 0 14px; }
+.video-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 12px 0 16px; }
+.video-tags .detail-tags { margin: 0; }
+.video-tags > .button { padding: 7px 12px; }
 .detail-tags a { display: inline-block; padding: 4px; text-underline-offset: 3px; }
 summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .library-filter { margin-bottom: 24px; }
@@ -181,7 +183,9 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .youtube-frame iframe { display: block; border: 0; width: 100%; height: 100%; min-height: 200px; }
 
 /* Un seul arbre React : la grille change les positions, jamais les sessions. */
-.work-source { color: var(--muted); font-size: .85rem; overflow-wrap: anywhere; }
+.work-source { color: var(--muted); font-size: .85rem; font-weight: 400; }
+main:has(.video-workspace) { padding-top: 16px; }
+main:has(.video-workspace) .back-link { margin-bottom: 12px; }
 .video-workspace { display: grid; gap: 1rem; }
 .video-workspace > * { min-width: 0; }
 .workspace-note, .video-player, .video-transcript {
@@ -195,10 +199,8 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .video-metadata > summary { font-size: 1rem; }
 
 @media (min-width: 1100px) {
-  main:has(.video-workspace) { max-width: 1720px; padding: 24px 32px 40px; }
-  main:has(.video-workspace) .back-link { margin-bottom: 16px; }
+  main:has(.video-workspace) { max-width: 1720px; padding: 16px 32px 40px; }
   main:has(.video-workspace) .video-title { font-size: 1.8rem; }
-  main:has(.video-workspace) .video-tags { margin: 12px 0; }
   .video-workspace {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
