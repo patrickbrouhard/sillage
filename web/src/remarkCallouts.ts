@@ -10,6 +10,7 @@ interface Header {
   literal: string
   attribution?: string
   uri?: string
+  title?: string
 }
 
 /** Enrichit seulement les deux citations, sans modifier la source ni réserver les variantes inconnues. */
@@ -70,13 +71,15 @@ export function remarkCallouts(this: Processor) {
             // « quote:autre » reste inconnu ; une déclaration connue incomplète est neutralisée.
             if (/^\[!quote(?=\]|[ \t(]|$)|^\[!quote:tr(?=\]|[ \t(]|$)/.test(literal)) {
               const ordinary = /^\[!quote\](?:[ \t]+(.*?))?[ \t]*$/.exec(literal)
-              const transcript = /^\[!quote:tr\]\(([^\r\n]*)\)[ \t]*$/.exec(literal)
+              // La première parenthèse fermante termine l'URI ; les suivantes appartiennent au titre littéral.
+              const transcript = /^\[!quote:tr\]\(([^()\r\n]*)\)(?:[ \t]+(.*?))?[ \t]*$/.exec(literal)
               preserveContinuations(quote)
               collectCrossingLinks(quote, position.start.offset, position.start.offset + literal.length)
               headers.set(quoteStart, {
                 start: position.start.offset,
                 end: position.start.offset + literal.length,
                 literal,
+                title: transcript?.[2]?.trim(),
                 attribution: !quoted && ordinary ? ordinary[1] ?? '' : undefined,
                 uri: !quoted && transcript && parseTemporalReference(transcript[1])
                   ? transcript[1] : undefined,
@@ -136,7 +139,11 @@ export function remarkCallouts(this: Processor) {
               quote.data = {
                 ...quote.data,
                 hProperties: header.uri !== undefined
-                  ? { 'data-callout': 'quote:tr', 'data-reference': header.uri }
+                  ? {
+                    'data-callout': 'quote:tr',
+                    'data-reference': header.uri,
+                    'data-title': header.title ?? '',
+                  }
                   : { 'data-callout': 'quote', 'data-attribution': header.attribution! },
               }
             } else {

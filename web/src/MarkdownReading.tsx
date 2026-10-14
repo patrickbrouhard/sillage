@@ -42,6 +42,7 @@ export function MarkdownReading({ content, onNavigate }: {
       const reference = kind === 'quote:tr' && typeof uri === 'string'
         ? parseTemporalReference(uri) : null
       if (reference) return <QuoteCallout transcript
+        title={String(node?.properties['data-title'] ?? '')}
         action={<TimeButton key={String(uri)} reference={reference} onNavigate={onNavigate}>
           {formatDuration(reference.startMs)}
         </TimeButton>}>{children}</QuoteCallout>

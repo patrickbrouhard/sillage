@@ -41,11 +41,11 @@ for (const newline of ['\n', '\r\n', '\r']) {
 
 const invalid = [
   '[!quote:tr]', '[!quote:tr', '[!quote:tr]()', '[!quote:tr](',
-  '[!quote:tr](https://example.org)', '[!quote:tr](mailto:a@example.org)',
-  '[!quote:tr](javascript:alert(1))', '[!quote:tr](' + uri + '&end_ms=50000)',
+  '[!quote:tr](https://example.org)', '[!quote:tr](https://example.org) Titre', '[!quote:tr](mailto:a@example.org)',
+  '[!quote:tr](javascript:alert(1))', '[!quote:tr](' + uri + '&end_ms=50000)', '[!quote:tr](' + uri + '&end_ms=50000) Titre',
   '[!quote:tr](' + uri.replace('/42/', '/042/') + ')',
   '[!quote:tr](' + uri.replace('40360', '9007199254740992') + ')',
-  '[!quote:tr](' + uri + ') suite', '[!quote:tr](' + uri + ' "titre")',
+  '[!quote:tr](' + uri + ')sans-espace', '[!quote:tr](' + uri + ' "titre")',
   '[!quote:tr](<' + uri + '>)',
   '[!quote](https://example.org)', '[!quote]sans-espace',
   '[!quote:tr][ref]', '[!quote:tr] [lien](https://example.org)',
@@ -137,6 +137,7 @@ for (const state of [-1, 0, 1, 2, 3, 5]) {
     await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
     await page.evaluate(state => window.youtubeTest.players.at(-1)!.emitState(state), state)
     const button = page.getByLabel('Lecture de la note').getByRole('button')
+    await expect(page.locator('.quote-callout-title')).toHaveText('Transcription')
     await expect(button).toHaveText('0:40')
     await expect(button).toHaveAccessibleDescription('Aller à 0:40 dans le lecteur')
     await button.focus()
@@ -153,7 +154,7 @@ for (const state of [-1, 0, 1, 2, 3, 5]) {
 }
 
 test('callouts : identités différentes reconnues, message et focus conservés après sauvegarde', async ({ page }) => {
-  await openReading(page, citation.replace('/42/', '/43/') + '\n\n' + citation.replace('/17?', '/18?'))
+  await openReading(page, citation.replace('/42/', '/43/').replace(')\n', ') Autre vidéo\n') + '\n\n' + citation.replace('/17?', '/18?').replace(')\n', ') Autre source\n'))
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
   await page.route('**/note', async route => {
@@ -213,13 +214,14 @@ for (const width of [375, 1440]) {
       await page.emulateMedia({ colorScheme: theme })
       await openReading(page, [
         '> [!quote] *Aristote* [attribution](https://example.org)\n> L’homme est par nature un animal politique.',
-        citation,
+        citation.replace(')\n', ') Les limites des **modèles** (raisonnement) — ' + 'TitreTrèsLong'.repeat(8) + '\n'),
+        '> [!quote:tr](' + uri + ') \t\n> Sans titre personnalisé',
         '> [!quote:tr](https://example.org/interdit)\n> [Corps](https://example.org/body)',
         '> Ancien extrait\n\n— [0:40](' + uri + ')',
         '> [!quote:tr](' + uri + ')\n> ![Image](' + uri + ') <script>interdit()</script>',
       ].join('\n\n'))
       const reading = page.getByLabel('Lecture de la note')
-      await expect(reading.locator('.quote-callout')).toHaveCount(3)
+      await expect(reading.locator('.quote-callout')).toHaveCount(4)
       await expect(reading.locator('.quote-callout').first()).toHaveAccessibleName('Citation')
       await expect(reading.locator('.quote-callout').nth(1)).toHaveAccessibleName('Citation de transcription')
       await expect(reading.locator('.quote-callout-attribution')).toHaveText('*Aristote* [attribution](https://example.org)')
@@ -227,7 +229,13 @@ for (const width of [375, 1440]) {
       await expect(reading.getByRole('link')).toHaveAttribute('href', 'https://example.org/body')
       await expect(reading.getByRole('link')).toHaveAttribute('rel', 'noopener noreferrer')
       await expect(reading.locator('script, img[src^="sillage:"]')).toHaveCount(0)
-      await expect(reading.getByRole('button')).toHaveCount(3)
+      await expect(reading.getByRole('button')).toHaveCount(4)
+      await expect(reading.locator('.quote-callout-title').nth(1)).toHaveText('Transcription')
+      await expect(reading.locator('.quote-callout-title').first()).toContainText('**modèles** (raisonnement)')
+      const titleBounds = await reading.locator('.quote-callout-title').first().boundingBox()
+      const timeBounds = await reading.getByRole('button').first().boundingBox()
+      expect(titleBounds!.x + titleBounds!.width).toBeLessThanOrEqual(timeBounds!.x)
+      expect(Math.abs(titleBounds!.y - timeBounds!.y)).toBeLessThan(8)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       await reading.scrollIntoViewIfNeeded()
       await reading.screenshot({ path: info.outputPath('callouts.png') })
@@ -276,4 +284,35 @@ test('continuations paresseuses : le corps reste cité, même dans une liste', (
   expect(multiple).toContain('second')
   expect(multiple).not.toContain('href="https://example.org/inert"')
   expect(multiple).toContain('suite intérieure')
+})
+
+test('titres de transcription : texte littéral, séparateur et limite de ligne', () => {
+  for (const separator of [' ', '\t']) {
+    for (const newline of ['\n', '\r\n', '\r']) {
+      const title = '**Idée** [lien](https://example.org) <img src=x> &amp; (suite)'
+      const html = render('> [!quote:tr](' + uri + ')' + separator + title + newline + '> **Corps** [lien](https://example.org/body)')
+      expect(html).toContain('data-callout="quote:tr"')
+      expect(html).toContain('data-title="**Idée** [lien](https://example.org) &lt;img src=x&gt; &amp;amp; (suite)"')
+      expect(html).toContain('<strong>Corps</strong>')
+      expect(html.match(/<a /g)).toHaveLength(1)
+      expect(html).not.toContain('<img')
+    }
+  }
+  for (const suffix of ['', ' ', '\t \t', ' \u00a0']) {
+    expect(render('> [!quote:tr](' + uri + ')' + suffix + '\n> corps')).toContain('data-title=""')
+  }
+  const nested = render('> classique\n>\n> > [!quote:tr](' + uri + ') Titre')
+  expect(nested).not.toContain('data-callout=')
+  expect(nested).not.toContain('<a ')
+  expect(render('> \\[!quote:tr](' + uri + ') Titre')).not.toContain('data-callout=')
+})
+
+test('titre personnalisé : texte littéral et navigation', async ({ page }) => {
+  await openReading(page, citation.replace(')\n', ') **Titre** [lien](https://example.org)\n'))
+  const reading = page.getByLabel('Lecture de la note')
+  await expect(reading.locator('.quote-callout-title')).toHaveText('**Titre** [lien](https://example.org)')
+  await expect(reading.getByRole('link')).toHaveCount(0)
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  await reading.getByRole('button').click()
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls.at(-1)?.seconds)).toBe(40.36)
 })

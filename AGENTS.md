@@ -177,7 +177,9 @@ Before considering a code change complete:
 Reading recognizes only unescaped lowercase quote and quote:tr headers on the first
 content line of a blockquote without a blockquote ancestor. Lists are allowed;
 nested callout headers remain literal and inert. Quote attribution is plain text;
-quote:tr accepts only a canonical URI and no extra header text. Invalid known headers
+quote:tr accepts a canonical URI followed by an optional plain-text title on the same
+line, separated by spaces/tabs. Missing or whitespace-only titles display
+“Transcription”; generated citations still omit the title. Invalid known headers
 are inert, including links crossing into the body; unknown markers retain normal
 Markdown behavior. QuoteCallout shares presentation only; reuse TimeButton and 6.5
 navigation. Preserve raw notes, GFM, shared definitions, URL filtering, editor session

@@ -1025,3 +1025,10 @@ restent inertes, les marqueurs inconnus conservent le Markdown normal.
 URI canonique et TimeButton/contrôles 6.5 réutilisés. Provenance déclarée seulement,
 contenu librement éditable. Les détails du contrat et des replis sont dans Product & UX.
 UX 1.2 est réservé aux décorations CodeMirror ; il n'est pas livré ici.
+
+Complément validé le 15 octobre 2026 : quote:tr accepte un titre facultatif en
+texte simple après la parenthèse fermante, séparé par espace/tabulation et limité
+à l'en-tête. Un titre absent ou blanc affiche « Transcription ». Ceci remplace
+l'interdiction initiale de texte supplémentaire. Le titre reste dans le Markdown,
+sans objet métier ; l'insertion automatique continue à ne produire aucun titre.
+Validation URI, replis, navigation 6.5 et citations ordinaires inchangés.

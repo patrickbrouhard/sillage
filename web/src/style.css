@@ -242,8 +242,9 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .quote-callout { margin: 1rem 0; padding: .85rem 1rem; border: 1px solid var(--border); border-left: 3px solid var(--label); border-radius: .5rem; background: var(--tag); min-width: 0; }
 .quote-callout-header { display: flex; align-items: flex-start; gap: .65rem; color: var(--label); }
 .quote-callout-icon { width: 1.3rem; height: 1.3rem; flex: none; margin-top: .15rem; }
-.quote-callout-attribution { min-width: 0; font-weight: 600; white-space: pre-wrap; }
-.quote-callout-action { margin-left: auto; min-width: 0; text-align: right; }
+.quote-callout-title { flex: 1; }
+.quote-callout-title, .quote-callout-attribution { min-width: 0; font-weight: 600; white-space: pre-wrap; }
+.quote-callout-action { margin-left: auto; min-width: 0; flex-shrink: 0; max-width: 50%; text-align: right; }
 .quote-callout-action .temporal-reference { white-space: nowrap; }
 .quote-callout-action .temporal-message { display: block; text-align: left; color: var(--text); }
 .quote-callout-body > :first-child { margin-top: .65rem; }

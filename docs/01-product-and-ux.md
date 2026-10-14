@@ -774,7 +774,8 @@ aucun système générique de panneaux, modales ou onglets n'est prévu.
 
 ### UX 1.1 — Callouts de citation en Lecture
 
-Contrat validé le 14 octobre 2026. Deux formes seulement, sans moteur générique :
+Contrat validé le 14 octobre 2026, titre facultatif ajouté le 15 octobre 2026.
+Deux formes seulement, sans moteur générique :
 
 ~~~markdown
 > [!quote] Aristote
@@ -798,7 +799,12 @@ leur en-tête connu reste visible et inerte. Aucun enrichissement dans les blocs
 - [!quote] accepte une attribution facultative, séparée par espace ou tabulation,
   rendue littéralement : pas d'emphase, de lien ni d'entité HTML interprétée dans l'attribution.
 - [!quote:tr](URI) accepte uniquement la référence directe canonique, validée par
-  parseTemporalReference : aucun titre Markdown, texte supplémentaire, paramètre end_ms,
+  parseTemporalReference, suivie facultativement d'un titre séparé par espace ou
+  tabulation, limité à la ligne d'en-tête. Le titre est du texte simple, comme
+  l'attribution : caractères Markdown et HTML littéraux. Sans titre ou avec
+  uniquement des blancs, afficher « Transcription ». Cette règle remplace
+  l'interdiction initiale de texte après l'URI.
+  Aucun titre Markdown à l'intérieur des parenthèses du lien, paramètre end_ms,
   lien par référence ou destination répartie sur plusieurs lignes.
 - Les blancs de fin d'en-tête sont tolérés. Une ligne citée vide après l'en-tête
   est facultative ; un corps vide est accepté.
@@ -813,7 +819,10 @@ leur en-tête connu reste visible et inerte. Aucun enrichissement dans les blocs
 
 Les deux formes partagent un cadre, un en-tête et un corps, avec pictogrammes
 distincts et désignations accessibles « Citation » / « Citation de transcription ».
-Aucun de ces libellés n'est systématiquement visible. Le timestamp est calculé
+Pour quote:tr, le pictogramme est suivi à gauche du titre personnalisé ou de
+« Transcription ». Les titres longs reviennent à la ligne, y compris sur écran
+étroit. La citation ordinaire garde son attribution facultative, sans libellé ajouté.
+Le timestamp est calculé
 depuis start_ms et placé en haut à droite ; sa description accessible indique
 l'action et le temps. Clair/Sombre/Système et écrans étroits sont pris en charge.
 
@@ -823,9 +832,17 @@ Toutes les garanties de disponibilité, pause, absence de commande différée et
 défilement conditionnel de 6.5 sont réutilisées.
 
 « Citer dans la note » génère désormais l'en-tête quote:tr suivi du texte échappé
-sur une ligne citée, sans duplication du timestamp en libellé Markdown. Extraction,
+sur une ligne citée, sans titre personnalisé ni duplication du timestamp en libellé
+Markdown. L’utilisateur peut compléter le titre en Édition. Extraction,
 premier fragment retenu, choix explicite de la position, sélection préservée, Undo/Redo
 isolé, séparateurs extérieurs, autosauvegarde et conflits sont inchangés.
 Les anciennes citations ne sont ni migrées ni requalifiées ; leur référence séparée
 reste activable. L'insertion temporelle rapide conserve son format 6.2.
 Les décorations CodeMirror restent réservées à UX 1.2 ; aucun Live Preview.
+
+Exemple avec titre personnalisé (UX 1.1, 15 octobre 2026) :
+
+~~~markdown
+> [!quote:tr](sillage://videos/6/sources/6?start_ms=40360) Les limites des modèles de raisonnement
+> decision models. So, when you go to ollama.com.
+~~~

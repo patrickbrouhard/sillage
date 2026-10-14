@@ -998,6 +998,25 @@ Validation manuelle attendue avant fusion :
 - essayer une ancienne citation, une URI invalide et une référence d'autre source ;
 - vérifier le focus et le retour près du timestamp avec lecteur masqué ou indisponible.
 
+### Complément UX 1.1 — Titres de transcription, 15 octobre 2026
+
+Titre facultatif en texte simple après l'URI, séparé par espace/tabulation,
+limité à la ligne. « Transcription » par défaut si absent ou blanc.
+Le titre apparaît près du pictogramme ; le timestamp reste à droite.
+L'insertion reste sans titre personnalisé. Aucun changement de validation URI,
+de persistance, de navigation ou d'éditeur. Remplace l'interdiction initiale
+de tout texte après l'URI.
+
+Validation du 15 octobre 2026 : make test et make test-web réussis (208 tests Web,
+tests Go, go vet, typage et builds). Cas couverts : titres absents/blancs, espaces
+et tabulations, CR/LF/CRLF, Markdown et HTML littéraux, parenthèses dans les titres,
+URI invalides avec titre, imbrications, titre long, navigation et stabilité pendant
+la sauvegarde. Captures vérifiées à 375 et 1440 px, en clair et sombre, sans
+débordement ni recouvrement du timestamp. Insertion automatique sans titre conservée.
+Même environnement WSL que ci-dessus ; avertissement Vite préexistant inchangé.
+Reste à confirmer manuellement l'équilibre visuel avec des titres réels et la
+navigation YouTube réelle, avant fusion.
+
 ### UX 1.2 — Confort d'édition, non implémenté
 
 Décorations légères CodeMirror, syntaxe entièrement visible et éditable.

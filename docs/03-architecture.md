@@ -1050,7 +1050,11 @@ Cette seconde analyse ne relance pas les transformations Remark ; le plugin
 s'insère après remark-gfm dans la chaîne actuelle, sans second renderer du corps.
 
 Les propriétés temporaires du blockquote indiquent seulement sa forme et
-l'attribution ou l'URI validée. QuoteCallout partage la présentation et reçoit
+l'attribution ou l'URI validée avec son titre facultatif en texte simple.
+QuoteCallout affiche « Transcription » lorsque le titre manque ou ne contient
+que des blancs. La reconnaissance sépare la destination du titre avant validation ;
+les parenthèses et syntaxes Markdown du titre restent littérales.
+QuoteCallout partage la présentation et reçoit
 une action React ; il ne parse aucun Markdown, ne valide aucune URI et ne commande
 pas le lecteur. MarkdownReading réutilise TimeButton, parseTemporalReference
 et le callback 6.5 existants, avec des composants stables pendant la sauvegarde.
