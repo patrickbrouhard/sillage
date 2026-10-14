@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
+import type { Ref } from 'react'
 import { useBlocker } from 'react-router'
 import { MarkdownEditor } from './MarkdownEditor'
 import type { MarkdownEditorHandle } from './MarkdownEditor'
@@ -6,14 +7,31 @@ import { NoteSession } from './noteSession'
 
 const MarkdownReading = lazy(() => import('./MarkdownReading').then(module => ({ default: module.MarkdownReading })))
 
+/** Expose seulement l'insertion de citation à la fiche, sans reconstruire la session. */
+export interface VideoNoteHandle {
+  /** Refuse la lecture ou une session indisponible avant toute modification. */
+  insertCitation(markdown: string): void
+}
+
 /** Présente une note locale et son état confirmé, avec modes partageant la même source. */
-export function VideoNote({ videoID, getTimeReference }: { videoID: number; getTimeReference: () => string }) {
+export function VideoNote({ videoID, getTimeReference, ref }: {
+  videoID: number
+  getTimeReference: () => string
+  ref?: Ref<VideoNoteHandle>
+}) {
   const editor = useRef<MarkdownEditorHandle>(null)
   const [insertionError, setInsertionError] = useState('')
   const [session] = useState(() => new NoteSession(videoID))
   const state = useSyncExternalStore(session.subscribe, session.snapshot)
   const [reading, setReading] = useState(false)
   const [initial, setInitial] = useState<{ content: string; version: number } | null>(null)
+  useImperativeHandle(ref, () => ({
+    insertCitation(markdown) {
+      if (reading) throw new Error('Passez en Édition, placez le curseur dans la note, puis recommencez la sélection de transcription.')
+      if (!editor.current) throw new Error('La note n’est pas disponible. Recommencez la sélection une fois prête.')
+      editor.current.insertCitation(markdown)
+    },
+  }))
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
     session.unconfirmed && (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search))
   const leaveDialog = useRef<HTMLDialogElement>(null)

@@ -7,6 +7,8 @@ import { VideoThumbnail } from './VideoThumbnail'
 import { VideoTranscript } from './VideoTranscript'
 import { YouTubePlayer } from './YouTubePlayer'
 import type { YouTubePlayerHandle } from './YouTubePlayer'
+import type { VideoNoteHandle } from './VideoNote'
+import { transcriptCitation } from './transcriptSelection'
 import { temporalReference } from './temporalReference'
 import { formatDuration, httpURL, providerLabel, workSource } from './videoPresentation'
 
@@ -50,6 +52,7 @@ function SourceDetails({ source, index }: { source: VideoSource; index: number }
 
 /** Relit une fiche par son identité Sillage, sans dépendre de la navigation précédente. */
 function VideoDetail({ id }: { id: string }) {
+  const note = useRef<VideoNoteHandle>(null)
   const player = useRef<YouTubePlayerHandle>(null)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
@@ -111,13 +114,17 @@ function VideoDetail({ id }: { id: string }) {
             {source ? <YouTubePlayer key={`player-${source.id}`} source={source} ref={player} />
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
-              <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote videoID={state.video.id}
+              <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote ref={note} videoID={state.video.id}
                 getTimeReference={() => {
                   if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur YouTube disponible.')
                   return temporalReference(state.video.id, source.id, player.current.getCurrentTimeMs())
                 }} /></Suspense>
             </div>
             {source && <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id}
+              onCite={excerpt => {
+                if (!note.current) throw new Error('La note est en cours de chargement. Recommencez la sélection une fois prête.')
+                note.current.insertCitation(transcriptCitation(excerpt, state.video.id, source.id))
+              }}
               onNavigate={startMs => player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.'} />}
           </div>
           <details className="video-metadata">

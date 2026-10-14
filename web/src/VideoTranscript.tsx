@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { fetchTranscript, getTranscript, TranscriptError } from './transcriptApi'
+import type { TranscriptExcerpt } from './transcriptSelection'
 import type { Transcript } from './transcriptApi'
 import { TranscriptText } from './TranscriptText'
 
 /** Garde le dernier contenu consultable indépendamment des opérations et de leurs erreurs. */
-export function VideoTranscript({ videoID, sourceID, onNavigate }: {
+export function VideoTranscript({ videoID, sourceID, onNavigate, onCite }: {
   videoID: number
   sourceID: number
   onNavigate: (startMs: number) => string
+  onCite: (excerpt: TranscriptExcerpt) => void
 }) {
   const [navigationMessage, setNavigationMessage] = useState('')
   const [content, setContent] = useState<Transcript | null | undefined>()
@@ -91,7 +93,7 @@ export function VideoTranscript({ videoID, sourceID, onNavigate }: {
       <p className="muted">Transcription automatique · {content.language} · Acquisition du{' '}
         <time dateTime={content.last_fetched_at}>{new Date(content.last_fetched_at).toLocaleString('fr-FR')}</time>
       </p>
-      <TranscriptText key={`${videoID}:${sourceID}`} items={content.items}
+      <TranscriptText key={`${videoID}:${sourceID}`} items={content.items} onCite={onCite}
         onNavigate={startMs => setNavigationMessage(onNavigate(startMs))} />
     </>}
   </section>

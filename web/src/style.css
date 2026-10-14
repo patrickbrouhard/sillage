@@ -173,7 +173,7 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .transcript-content .transcript-match-active { background: #194c91; color: #fff; outline: 2px solid #194c91; }
 .transcript-block { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: .75rem; margin: 1rem 0; }
 .transcript-block p { margin: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
-.transcript-time { font: inherit; font-variant-numeric: tabular-nums; color: var(--label); font-size: .85rem; padding: .2rem; border: 0; background: transparent; align-self: start; text-align: left; text-decoration: underline; cursor: pointer; }
+.transcript-time { user-select: none; -webkit-user-select: none; font: inherit; font-variant-numeric: tabular-nums; color: var(--label); font-size: .85rem; padding: .2rem; border: 0; background: transparent; align-self: start; text-align: left; text-decoration: underline; cursor: pointer; }
 .player-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
 .player-toolbar h2 { margin-right: auto; }
 .player-toolbar a { font-size: .85rem; }
@@ -209,7 +209,9 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
   .video-player { grid-area: player; }
   .youtube-frame:has(iframe) { height: clamp(200px, 28dvh, 340px); aspect-ratio: auto; }
   .video-transcript { grid-area: transcript; display: flex; flex-direction: column; min-height: 0; overflow: auto; }
-  .transcript-content { overflow: auto; min-height: 0; flex: 1; }
+  /* Les commandes restent accessibles même lorsque les messages réduisent la hauteur disponible. */
+  .video-transcript > :not(.transcript-content) { flex-shrink: 0; }
+  .transcript-content { overflow: auto; min-height: 6rem; flex: 1; }
   .without-source { grid-template-rows: minmax(0, 1fr); grid-template-areas: "note player"; }
 }
 

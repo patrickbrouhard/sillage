@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { TranscriptItem } from './transcriptApi'
 import { groupTranscript } from './transcriptPresentation'
 import { findTranscriptMatches, highlightTranscript } from './transcriptSearch'
+import { selectedTranscript } from './transcriptSelection'
+import type { TranscriptExcerpt } from './transcriptSelection'
 import { formatDuration } from './videoPresentation'
 
 /** Recherche dans le contenu chargé ; seule l'action sur un timestamp appelle le lecteur. */
-export function TranscriptText({ items, onNavigate }: {
+export function TranscriptText({ items, onNavigate, onCite }: {
   items: TranscriptItem[]
   onNavigate: (startMs: number) => void
+  onCite: (excerpt: TranscriptExcerpt) => void
 }) {
   const [query, setQuery] = useState('')
   const blocks = useMemo(() => groupTranscript(items, 10), [items])
@@ -18,6 +21,69 @@ export function TranscriptText({ items, onNavigate }: {
   // Toute nouvelle saisie ou actualisation repart de la première occurrence.
   const active = selection.matches === matches ? selection.index : 0
   const container = useRef<HTMLDivElement>(null)
+
+  const citeButton = useRef<HTMLButtonElement>(null)
+  const [excerpt, setExcerpt] = useState<{ parts: typeof parts; value: TranscriptExcerpt } | null>(null)
+  const [citationMessage, setCitationMessage] = useState('')
+  const validExcerpt = excerpt?.parts === parts ? excerpt.value : null
+
+  useLayoutEffect(() => {
+    // Un changement de contenu ou de recherche rend les anciennes bornes DOM caduques.
+    setExcerpt(null)
+    setCitationMessage('')
+    const selection = window.getSelection()
+    if (selection?.anchorNode && container.current?.contains(selection.anchorNode)) selection.removeAllRanges()
+  }, [parts])
+
+  useEffect(() => {
+    /** Conserve l'extrait pendant le transfert vers le bouton, jamais vers un autre outil. */
+    function updateSelection() {
+      const panel = container.current
+      const value = panel && selectedTranscript(panel, items)
+      if (value) setExcerpt({ parts, value })
+      else if (document.activeElement !== citeButton.current) setExcerpt(null)
+    }
+    /** Un clic hors du texte abandonne l'action, sauf sur son bouton dédié. */
+    function dismiss(event: Event) {
+      const target = event.target
+      if (target instanceof Node && !citeButton.current?.contains(target) && !container.current?.contains(target)) {
+        setExcerpt(null)
+      }
+    }
+    /** La copie native utilise la plage vivante, jamais un extrait mémorisé devenu invisible. */
+    function copy(event: ClipboardEvent) {
+      const target = event.target
+      if (target instanceof Element && target.closest('input, textarea, [contenteditable=true]')) return
+      const panel = container.current
+      const value = panel && selectedTranscript(panel, items)
+      if (!value || !event.clipboardData) return
+      event.clipboardData.setData('text/plain', value.text)
+      event.preventDefault()
+    }
+    document.addEventListener('selectionchange', updateSelection)
+    document.addEventListener('pointerdown', dismiss)
+    document.addEventListener('focusin', dismiss)
+    document.addEventListener('copy', copy)
+    return () => {
+      document.removeEventListener('selectionchange', updateSelection)
+      document.removeEventListener('pointerdown', dismiss)
+      document.removeEventListener('focusin', dismiss)
+      document.removeEventListener('copy', copy)
+    }
+  }, [items, parts])
+
+  /** Consomme une sélection une seule fois, même si l'insertion doit être refusée. */
+  function cite() {
+    if (!validExcerpt) return
+    setExcerpt(null)
+    window.getSelection()?.removeAllRanges()
+    try {
+      onCite(validExcerpt)
+      setCitationMessage('Citation insérée dans la note.')
+    } catch (error) {
+      setCitationMessage(error instanceof Error ? error.message : 'Impossible d’insérer la citation.')
+    }
+  }
 
   useEffect(() => {
     const panel = container.current
@@ -60,7 +126,10 @@ export function TranscriptText({ items, onNavigate }: {
         aria-label="Occurrence précédente">Précédent</button>
       <button className="button" disabled={!matches.length} onClick={() => navigate(1)}
         aria-label="Occurrence suivante">Suivant</button>
+      <button type="button" className="button" ref={citeButton} disabled={!validExcerpt}
+        onClick={cite}>Citer dans la note</button>
     </div>
+    {citationMessage && <p role="status">{citationMessage}</p>}
     <div className="transcript-content" ref={container} tabIndex={0} aria-label="Texte de la transcription">
       {blocks.map((block, index) => <div className="transcript-block" key={index}>
         <button type="button" className="transcript-time"
@@ -68,7 +137,7 @@ export function TranscriptText({ items, onNavigate }: {
           onClick={() => onNavigate(block.start_ms)}>
           {formatDuration(block.start_ms)}
         </button>
-        <p>{parts[index].map((part, partIndex) => part.matchIndex === undefined
+        <p data-transcript-text>{parts[index].map((part, partIndex) => part.matchIndex === undefined
           ? part.text
           : <mark key={partIndex} data-match-index={part.matchIndex}
             className={part.matchIndex === active ? 'transcript-match-active' : undefined}
