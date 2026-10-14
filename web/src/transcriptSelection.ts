@@ -1,5 +1,5 @@
 import type { TranscriptItem } from './transcriptApi'
-import { temporalReference } from './temporalReference'
+import { temporalReferenceURI } from './temporalReference'
 
 /** Extrait autonome lié au premier fragment contenant un caractère retenu. */
 export interface TranscriptExcerpt {
@@ -72,5 +72,5 @@ export function transcriptCitation(excerpt: TranscriptExcerpt, videoID: number, 
     .replace(/&(?=(?:#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);)/g, '\\&')
     .replace(/^(#{1,6}(?= |$)|>|[-+](?= |$)|-(?=(?: *-){2,} *$))/, '\\$&')
     .replace(/^([0-9]{1,9})([.)])(?= |$)/, '$1\\$2')
-  return '> ' + escaped + '\n\n— ' + temporalReference(videoID, sourceID, excerpt.startMs)
+  return '> [!quote:tr](' + temporalReferenceURI(videoID, sourceID, excerpt.startMs) + ')\n> ' + escaped
 }

@@ -5,6 +5,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { remarkCallouts } from '../src/remarkCallouts'
 
 const fragments = [
   { start_ms: 0, text: 'Préambule ' },
@@ -77,10 +78,12 @@ test('extraction partielle, blancs et ordre source sans interpolation', () => {
   expect(fragments).toEqual(copy)
 })
 
-test('Markdown littéral, attribution séparée et référence sans fin', () => {
+test('Markdown littéral, en-tête de transcription et référence sans libellé ni fin', () => {
   const markdown = transcriptCitation({ text: selectedText, startMs: 1234 }, 5, 7)
-  const html = renderToStaticMarkup(createElement(ReactMarkdown, { remarkPlugins: [remarkGfm], skipHtml: true }, markdown))
-  expect(html).toContain('</blockquote>\n<p>— ')
+  const html = renderToStaticMarkup(createElement(ReactMarkdown, { remarkPlugins: [remarkGfm, remarkCallouts], skipHtml: true }, markdown))
+  expect(html).toContain('data-callout="quote:tr"')
+  expect(markdown).toMatch(/^> \[!quote:tr\]\(sillage:\/\/videos\/5\/sources\/7\?start_ms=1234\)\n> /)
+  expect(markdown).not.toContain('[0:01]')
   expect(html).not.toMatch(/<(strong|em|code|b)>/)
   expect(html).toContain('[ami] *fort* &lt;b&gt; &amp;amp;')
   expect(html).toContain('https://example.org</a>') // GFM conserve ses autoliens sans changer les mots.
@@ -119,6 +122,17 @@ test('note absente : citation à zéro, autosauvegarde et lecteur inchangé', as
     const p = window.youtubeTest.players.at(-1)!
     return { state: p.state, pauses: p.pauseCalls, calls: p.navigationCalls, position: p.position }
   })).toEqual(before)
+  await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+  const callout = page.locator('.quote-callout')
+  await expect(callout).toHaveAccessibleName('Citation de transcription')
+  await expect(callout.locator('.quote-callout-body')).toHaveText(selectedText)
+  await expect(callout.getByRole('button')).toHaveText('0:01')
+  await callout.getByRole('button').click()
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls.at(-1)?.seconds)).toBe(1.234)
+  await page.reload()
+  await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+  await expect(page.locator('.quote-callout-body')).toHaveText(selectedText)
+  expect(await saved(request, noteURL)).toBe(expected)
 })
 
 for (const content of ['Note existante', '   ']) {
@@ -392,7 +406,7 @@ test('une plage mêlant transcription et autre panneau est refusée', async ({ p
 test('échappement limité et fidélité du paragraphe GFM cité', () => {
   const ordinary = "So, when you go to ollama.com, you can see... C'est (simple) : oui ! A & B > C."
   expect(transcriptCitation({ text: ordinary, startMs: 0 }, 1, 2))
-    .toBe('> ' + ordinary + '\n\n— [0:00](sillage://videos/1/sources/2?start_ms=0)')
+    .toBe('> [!quote:tr](sillage://videos/1/sources/2?start_ms=0)\n> ' + ordinary)
 
   const examples = [
     ordinary,
@@ -408,14 +422,15 @@ test('échappement limité et fidélité du paragraphe GFM cité', () => {
   ]
   for (const text of examples) {
     const result = renderToStaticMarkup(createElement(ReactMarkdown, {
-      remarkPlugins: [remarkGfm], skipHtml: true,
+      remarkPlugins: [remarkGfm, remarkCallouts], skipHtml: true,
     }, transcriptCitation({ text, startMs: 0 }, 1, 2)))
     // Le renderer React échappe le HTML attendu, indépendamment du parseur Markdown.
     const paragraph = renderToStaticMarkup(createElement('p', null, text))
     // Les autoliens GFM sont admis ; aucune autre structure ne doit apparaître.
     const withoutAutolinks = result.replace(/<a\b[^>]*>|<\/a>/g, '')
-    expect(withoutAutolinks, text).toContain('<blockquote>\n' + paragraph + '\n</blockquote>')
-    expect(result, text).toContain('</blockquote>\n<p>— ')
+    expect(withoutAutolinks, text).toContain('\n' + paragraph + '\n</blockquote>')
+    expect(result, text).toContain('data-callout="quote:tr"')
+    expect(result, text).not.toContain('— ')
   }
 })
 
