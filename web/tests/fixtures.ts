@@ -6,10 +6,14 @@ interface MockPlayer {
   position: number
   destroyed: boolean
   pauseCalls: number
+  navigationCalls: { command: 'seek' | 'cue'; seconds: number; videoId?: string; allowSeekAhead?: boolean }[]
+  seekTo(seconds: number, allowSeekAhead: boolean): void
+  cueVideoById(options: { videoId: string; startSeconds: number }): void
   iframe: HTMLIFrameElement
   options: YouTubeOptions
   pauseVideo(): void
   getPlayerState(): number
+  getCurrentTime(): number
   destroy(): void
   emitState(state: number): void
 }
@@ -32,6 +36,7 @@ function installYouTubeMock() {
     position = 0
     destroyed = false
     pauseCalls = 0
+    navigationCalls: MockPlayer['navigationCalls'] = []
     constructor(public iframe: HTMLIFrameElement, public options: YouTubeOptions) {
       iframe.src = 'about:blank'
       window.youtubeTest.players.push(this)
@@ -42,6 +47,19 @@ function installYouTubeMock() {
       if (window.youtubeTest.confirmPause) this.emitState(2)
     }
     getPlayerState() { return this.state }
+    getCurrentTime() { return this.position }
+    /** Reproduit le démarrage réel de seekTo hors de l'état paused. */
+    seekTo(seconds: number, allowSeekAhead: boolean) {
+      this.navigationCalls.push({ command: 'seek', seconds, allowSeekAhead })
+      this.position = seconds
+      this.emitState(this.state === 2 ? 2 : 1)
+    }
+    /** Prépare uniquement le départ, sans simuler une lecture. */
+    cueVideoById({ videoId, startSeconds }: { videoId: string; startSeconds: number }) {
+      this.navigationCalls.push({ command: 'cue', seconds: startSeconds, videoId })
+      this.position = startSeconds
+      this.emitState(5)
+    }
     destroy() { this.destroyed = true; this.state = 0; this.iframe.remove() }
     emitState(state: number) { this.state = state; this.options.events.onStateChange({ target: this, data: state }) }
   }

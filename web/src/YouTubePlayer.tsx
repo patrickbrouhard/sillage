@@ -1,13 +1,23 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import type { Ref } from 'react'
 import type { VideoSource } from './api'
 import { httpURL } from './videoPresentation'
 import { loadYouTubeAPI } from './youtubeApi'
 import type { YouTubePlayer as Player } from './youtubeApi'
 
+/** Commande immédiate du lecteur de la source de travail, sans file d'attente. */
+export interface YouTubePlayerHandle {
+  /** Lit les millisecondes courantes ou signale une position indisponible, sans commande différée. */
+  getCurrentTimeMs(): number
+  /** Retourne une explication si la commande ne peut pas être transmise. */
+  navigate(startMs: number): string
+}
+
 /** Présente un lecteur YouTube isolé ; une pause confirmée précède son masquage. */
-export function YouTubePlayer({ source }: { source: VideoSource }) {
+export function YouTubePlayer({ source, ref }: { source: VideoSource; ref: Ref<YouTubePlayerHandle> }) {
   const host = useRef<HTMLDivElement>(null)
   const player = useRef<Player | null>(null)
+  const failPlayer = useRef<((description: string) => void) | null>(null)
   const conceal = useRef(false)
   const concealed = useRef(false)
   const concealTimer = useRef<number | undefined>(undefined)
@@ -16,7 +26,70 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
   const [ready, setReady] = useState(false)
   const [message, setMessage] = useState('')
   const [attempt, setAttempt] = useState(0)
+  const [navigation, setNavigation] = useState(0)
+
+  useLayoutEffect(() => {
+    if (!navigation || !host.current) return
+    // La commande et le réaffichage sont déjà commités. Seule la page défile,
+    // jamais les panneaux internes ; aucun travail n'attend onReady.
+    const bounds = host.current.getBoundingClientRect()
+    const viewport = window.visualViewport
+    const top = viewport?.offsetTop ?? 0
+    const height = viewport?.height ?? window.innerHeight
+    const delta = bounds.height > height || bounds.top < top
+      ? bounds.top - top
+      : bounds.bottom > top + height ? bounds.bottom - top - height : 0
+    if (delta) window.scrollBy({ top: delta, behavior: 'instant' })
+  }, [navigation])
   const url = httpURL(source.canonical_url)
+
+  useImperativeHandle(ref, () => ({
+    getCurrentTimeMs() {
+      const current = player.current
+      if (!current || !ready || hiding) {
+        throw new Error('Temps indisponible : le lecteur doit être prêt et son masquage terminé.')
+      }
+      try {
+        // Un départ préparé par cueVideoById n'est pas une position de lecture confirmée.
+        // Le buffering peut aussi correspondre à un repositionnement encore en cours.
+        if (![0, 1, 2].includes(current.getPlayerState())) {
+          throw new Error('unavailable')
+        }
+        const seconds = current.getCurrentTime()
+        const milliseconds = Math.round(seconds * 1000)
+        if (!Number.isFinite(seconds) || seconds < 0 || !Number.isSafeInteger(milliseconds)) {
+          throw new Error('unavailable')
+        }
+        return milliseconds
+      } catch {
+        throw new Error('Temps indisponible : démarrez la vidéo ou attendez la fin du chargement avant de réessayer.')
+      }
+    },
+    navigate(startMs) {
+      // Ne jamais annuler la garantie d'arrêt d'un masquage encore en cours.
+      if (hiding) return 'Mise en pause du lecteur en cours. Activez à nouveau le timestamp après son arrêt.'
+      if (hidden) toggle()
+      const current = player.current
+      if (!current || !ready) return 'Navigation non effectuée : le lecteur est indisponible ou pas encore prêt. Activez à nouveau le timestamp une fois le lecteur prêt.'
+      try {
+        const state = current.getPlayerState()
+        const seconds = startMs / 1000
+        if ([1, 2, 3].includes(state)) current.seekTo(seconds, true)
+        // seekTo démarre depuis cued, unstarted ou ended : préparer seulement le départ.
+        else if ([-1, 0, 5].includes(state)) current.cueVideoById({
+          videoId: source.external_id!,
+          startSeconds: seconds,
+        })
+        else return 'Navigation non effectuée : état du lecteur inconnu. Réessayez lorsque le lecteur est prêt.'
+        setNavigation(value => value + 1)
+        return ''
+      } catch {
+        // Une commande en échec ne laisse pas une instance potentiellement active.
+        failPlayer.current?.('La commande YouTube a échoué. Réessayez le lecteur.')
+        return 'Navigation non effectuée : la commande YouTube a échoué.'
+      }
+    },
+  }))
 
   useEffect(() => {
     let disposed = false
@@ -35,6 +108,7 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
       host.current?.replaceChildren()
       setReady(false); setMessage(description)
     }
+    failPlayer.current = fail
 
     void loadYouTubeAPI().then(api => {
       if (disposed || conceal.current || !host.current) return
@@ -91,6 +165,7 @@ export function YouTubePlayer({ source }: { source: VideoSource }) {
 
     return () => {
       disposed = true
+      failPlayer.current = null
       window.clearTimeout(readyTimer)
       window.clearTimeout(concealTimer.current)
       instance?.destroy()

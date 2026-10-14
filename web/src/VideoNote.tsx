@@ -1,16 +1,39 @@
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
+import type { Ref } from 'react'
 import { useBlocker } from 'react-router'
 import { MarkdownEditor } from './MarkdownEditor'
+import type { MarkdownEditorHandle } from './MarkdownEditor'
+import type { TemporalReference } from './temporalReference'
 import { NoteSession } from './noteSession'
 
 const MarkdownReading = lazy(() => import('./MarkdownReading').then(module => ({ default: module.MarkdownReading })))
 
+/** Expose seulement l'insertion de citation à la fiche, sans reconstruire la session. */
+export interface VideoNoteHandle {
+  /** Refuse la lecture ou une session indisponible avant toute modification. */
+  insertCitation(markdown: string): void
+}
+
 /** Présente une note locale et son état confirmé, avec modes partageant la même source. */
-export function VideoNote({ videoID }: { videoID: number }) {
+export function VideoNote({ videoID, getTimeReference, onNavigate, ref }: {
+  videoID: number
+  getTimeReference: () => string
+  onNavigate: (reference: TemporalReference) => string
+  ref?: Ref<VideoNoteHandle>
+}) {
+  const editor = useRef<MarkdownEditorHandle>(null)
+  const [insertionError, setInsertionError] = useState('')
   const [session] = useState(() => new NoteSession(videoID))
   const state = useSyncExternalStore(session.subscribe, session.snapshot)
   const [reading, setReading] = useState(false)
   const [initial, setInitial] = useState<{ content: string; version: number } | null>(null)
+  useImperativeHandle(ref, () => ({
+    insertCitation(markdown) {
+      if (reading) throw new Error('Passez en Édition, placez le curseur dans la note, puis recommencez la sélection de transcription.')
+      if (!editor.current) throw new Error('La note n’est pas disponible. Recommencez la sélection une fois prête.')
+      editor.current.insertCitation(markdown)
+    },
+  }))
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
     session.unconfirmed && (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search))
   const leaveDialog = useRef<HTMLDialogElement>(null)
@@ -62,6 +85,18 @@ export function VideoNote({ videoID }: { videoID: number }) {
     : session.dirty ? 'Modifications en attente'
     : state.confirmed ? 'Enregistré' : 'Aucune note enregistrée'
 
+  /** Lit le temps au clic et laisse la transaction CodeMirror déclencher la sauvegarde normale. */
+  function insertTime() {
+    try {
+      if (!editor.current || reading) throw new Error('L’éditeur n’est pas disponible.')
+      const reference = getTimeReference()
+      editor.current.insert(reference + ' ')
+      setInsertionError('')
+    } catch (error) {
+      setInsertionError(error instanceof Error ? error.message : 'Temps indisponible : aucune référence insérée.')
+    }
+  }
+
   return <section className="video-note" aria-labelledby="note-title">
     <h2 id="note-title">Note</h2>
     {!state.loaded ? <>
@@ -71,13 +106,22 @@ export function VideoNote({ videoID }: { videoID: number }) {
       <div className="note-toolbar" aria-label="Mode de la note">
         <button className="button" aria-pressed={!reading} onClick={() => setReading(false)}>Édition</button>
         <button className="button" aria-pressed={reading} onClick={() => setReading(true)}>Lecture</button>
+        <button className="button" disabled={reading || initial === null} onClick={insertTime}>+ Temps</button>
         <button className="button" disabled={state.phase === 'conflict'}
           onClick={() => void session.save(true)}>{state.phase === 'error' ? 'Réessayer la sauvegarde' : 'Enregistrer la note'}</button>
       </div>
+      {insertionError && <p role="alert">{insertionError}</p>}
       <div hidden={reading}>
-        {initial !== null && <MarkdownEditor key={initial.version} initial={initial.content} active={!reading} onChange={session.change} onSave={() => void session.save(true)} />}
+        {initial !== null && <MarkdownEditor
+          ref={editor}
+          key={initial.version}
+          initial={initial.content}
+          active={!reading}
+          onChange={session.change}
+          onSave={() => void session.save(true)}
+        />}
       </div>
-      {reading && <Suspense fallback={<p>Préparation de la lecture…</p>}><MarkdownReading content={state.content} /></Suspense>}
+      {reading && <Suspense fallback={<p>Préparation de la lecture…</p>}><MarkdownReading content={state.content} onNavigate={onNavigate} /></Suspense>}
       <p role="status" aria-label="État de la note">{status}</p>
       {state.phase === 'conflict' && <div className="note-conflict" role="region" aria-label="Résolution du conflit">
         <p>L’autosauvegarde est suspendue. Choisissez explicitement la version à conserver.</p>

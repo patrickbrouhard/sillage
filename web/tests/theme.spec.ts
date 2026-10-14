@@ -1,5 +1,43 @@
 import { expect, test } from './fixtures'
 
+test('le caret natif suit les thèmes sans remonter l’éditeur ni perdre son historique', async ({ page, request }, info) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trcaret0001' } })).json()
+  await page.goto(`/videos/${video.id}`)
+  const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+  await expect(editor).toBeVisible()
+  const node = await editor.elementHandle()
+  await editor.click()
+  await page.keyboard.type('Texte')
+  for (const [theme, color, background] of [
+    ['light', 'rgb(36, 52, 77)', 'rgb(255, 255, 255)'],
+    ['dark', 'rgb(224, 232, 245)', 'rgb(16, 28, 48)'],
+  ]) {
+    await page.getByLabel('Thème', { exact: true }).selectOption(theme)
+    await editor.focus()
+    // L'éditeur utilise le caret natif : sa couleur effective doit contraster avec le fond.
+    await expect(editor).toHaveCSS('caret-color', color)
+    await expect(editor.locator('.cm-line').first()).toHaveCSS('caret-color', color)
+    await expect(page.locator('.markdown-editor')).toHaveCSS('background-color', background)
+    expect(await node!.evaluate(element => element === document.querySelector('.cm-content'))).toBe(true)
+    await editor.screenshot({ path: info.outputPath(`caret-${theme}.png`), caret: 'initial' })
+  }
+  await page.keyboard.press('Control+z')
+  await expect(editor).toHaveText('')
+  await page.keyboard.press('Control+Shift+Z')
+  await expect(editor).toHaveText('Texte')
+  await page.keyboard.press('Shift+Home')
+  await page.getByLabel('Thème', { exact: true }).selectOption('system')
+  await page.emulateMedia({ colorScheme: 'light' })
+  await expect(editor).toHaveCSS('caret-color', 'rgb(36, 52, 77)')
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await expect(editor).toHaveCSS('caret-color', 'rgb(224, 232, 245)')
+  await editor.focus()
+  await page.keyboard.type('Remplacement')
+  await expect(editor).toHaveText('Remplacement')
+  await page.keyboard.press('Control+s')
+  await expect.poll(async () => (await (await request.get(`/api/v1/videos/${video.id}/note`)).json()).content_md).toBe('Remplacement')
+})
+
 test('suit le système et mémorise les choix explicites sans dépendre du système', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/')

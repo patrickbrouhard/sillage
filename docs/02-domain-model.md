@@ -628,14 +628,22 @@ Aucune note n'est créée automatiquement à l'ajout d'une vidéo. Le premier
 enregistrement la crée ; les suivants remplacent son contenu. Une chaîne vide
 est acceptée, y compris à la création : note absente et note vide sont distinctes.
 
-Le Markdown est restitué à l'identique : indentation, espaces, retours à la ligne,
-lignes vides et syntaxes particulières sont préservés. Aucun parsing, rendu HTML,
-reformatage ni interprétation des timestamps n'intervient dans la persistance.
+LF est le séparateur canonique : le service applicatif normalise CRLF et CR en LF
+avant persistance, indépendamment du client (Web, REST ou futur MCP). Les autres
+caractères, espaces, indentations, lignes vides et syntaxes sont conservés.
+Aucun parsing, rendu HTML ou interprétation des timestamps n'intervient dans la persistance.
+Cette décision remplace explicitement la préservation des séparateurs de 5.2.
+Les notes existantes ne sont pas migrées ; leur lecture retourne le contenu stocké
+sans normalisation ni écriture. Un enregistrement ultérieur peut les normaliser.
 Cette représentation laisse possibles de futures syntaxes internes et leur export.
 
 À la création, `created_at` et `updated_at` sont identiques. `created_at` reste
 stable ensuite et un contenu strictement inchangé ne modifie pas `updated_at`.
-Un changement d'espace ou de retour à la ligne est une modification effective.
+Un changement d'espace ou l'ajout d'un saut de ligne est une modification effective.
+Les variantes LF/CRLF/CR soumises donnent le même contenu canonique : une fois
+enregistré en LF, leur sauvegarde conserve révision et dates. La première
+normalisation d'une ancienne note est une modification effective. Une précondition
+obsolète reste refusée même si le contenu normalisé serait identique.
 Les dates suivent la convention UTC à précision milliseconde.
 
 La dernière écriture gagnante était le compromis historique de l'étape 4.
@@ -650,7 +658,7 @@ La migration des notes existantes initialise leur révision sans transformer le 
 Ni plusieurs notes, ni ajout partiel, ni suppression explicite, ni historique
 ne sont introduits en 5.2.
 
-### 5.2 Références temporelles — orientation pour l'étape 6
+### 5.2 Références temporelles — format acté en 6.2
 
 Les références restent du texte opaque pour la persistance. Le Markdown brut
 peut accueillir des extensions propres à Sillage, sans compatibilité
@@ -661,10 +669,21 @@ et citation enrichie peuvent partager cette notion sans nécessiter chacune une
 entité `Annotation`. La provenance temporelle doit être conservée lorsque
 nécessaire : les timelines de plusieurs sources ne sont pas interchangeables.
 
-Une syntaxe de liens Markdown contenant des URI `sillage://` est fortement
-privilégiée. Son format exact, l'identification de la provenance et la relation
-avec les annotations restent à expérimenter avant validation. Aucun schéma ni
-parseur n'est introduit en 5.1.
+Le format produit est `[12:42](sillage://videos/5/sources/5?start_ms=762345)`.
+`videos` est l'autorité logique, `/5/sources/5` le chemin ; les deux identifiants
+sont internes à Sillage et présents même si la note appartient déjà à cette vidéo.
+La source est celle effectivement utilisée par le lecteur, sans déduire une
+timeline de référence ni une source principale persistée. Les identifiants générés
+sont des entiers positifs représentables exactement par le frontend ; `start_ms`
+est un entier non négatif. Le libellé est une présentation, jamais une position
+à parser. `end_ms` est réservé pour une fin future strictement postérieure au début ;
+aucune plage n'est produite en 6.2. La relation aux annotations reste ouverte.
+
+La référence reste autonome après copie de son Markdown dans une autre note de
+la même base. Les identifiants ne sont pas universels : aucune résolution entre
+bases indépendantes n'est garantie. La copie du seul libellé rendu ne garantit
+pas la conservation de l'URI. Aucun identifiant d'installation, versionnement,
+nouvelle entité ou mécanisme de résolution n'est introduit.
 
 La copie ordinaire doit préserver les informations utiles. Copie adaptée et
 export pourront convertir les références. Un export Markdown de consultation

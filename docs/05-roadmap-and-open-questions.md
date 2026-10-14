@@ -350,7 +350,7 @@ et les décisions techniques ; ils ne deviennent pas des contraintes permanentes
 ### Validation réalisée
 
 Les tests Go couvrent les migrations depuis le schéma précédent, la réouverture,
-les dates et le Markdown exact, l'identité Unicode, la concurrence, le rollback
+les dates et le Markdown (désormais canonique en LF à la sauvegarde), l'identité Unicode, la concurrence, le rollback
 des créations et associations, les erreurs REST et les interactions avec vidéos
 et transcriptions. Les acquisitions de test sont simulées, sans accès à YouTube.
 La collection Postman déterministe complète les validations sur une base vide :
@@ -455,21 +455,21 @@ commit, consultable dans GitHub Actions. Jalons réalisés :
    avertissement de fermeture et consolidation des parcours Go/SQLite/Web/Docker.
 
 Aucune note créée à l'ouverture ; note vide conservée. Aucun HTML brut exécuté,
-aucune transformation du Markdown ni normalisation silencieuse des fins de ligne.
+aucune transformation du Markdown hors normalisation des fins de ligne en LF à la sauvegarde.
 La précondition attendue est obligatoire pour tous les clients ; une résolution
 reste conditionnelle. Les détails sont actés dans Product & UX, Modèle et Architecture.
 
-CodeMirror 6 est intégré ; la conservation LF/CRLF/mixte est testée. Les choix
+CodeMirror 6 est intégré ; la normalisation LF/CRLF/CR/mixte est testée. Les choix
 locaux de présentation et les deux reprises réseau automatiques sont révisables. Sans brouillon persistant, une perte
 après crash brutal reste possible et acceptée. Historique, File Recovery, suppression,
 fusion automatique, collaboration, lecteur et fonctions temporelles sont exclus.
 
 ### 5.3 — Lecteur et transcription
 
-État : terminée et prête à fusionner dans `master`, après les retours manuels
-positifs de l'utilisateur sur les correctifs de transcription. Vérification
+État : terminée et fusionnée dans `master`, selon la confirmation de l'utilisateur
+au démarrage de 6.1, après les retours manuels positifs sur la transcription. Vérification
 finale locale : 80 tests navigateur, tests Go complets, vet, build Go et typage
-réussis. La fusion reste à effectuer ; la CI distante n'est pas revendiquée ici.
+réussis. La CI distante n'est pas revendiquée ici.
 
 Complément régional implémenté : après filtrage, priorité exacte puis générique
 pour les seules étiquettes simples langue-région, puis repli unique ou erreurs
@@ -521,7 +521,7 @@ sans reprise. États d'erreur indépendants et lien externe lorsque disponible.
 GET local à l'ouverture ; acquisition/actualisation par POST explicite uniquement.
 Ancien contenu conservé pendant l'actualisation et ses échecs, erreurs distinctes,
 relecture possible après résultat incertain sans relance automatique du POST.
-Regroupement de présentation par intervalles 5/10/15/30 s (10 s par défaut), ancrés
+Regroupement initial par intervalles 5/10/15/30 s (remplacé en 6.3 par 10 s fixes), ancrés
 sur zéro, fragments consécutifs et ordre source conservés, espaces exacts et aucun
 bloc visuellement vide. Les timestamps affichent le début réel du premier fragment.
 
@@ -555,19 +555,397 @@ correctifs ont ajusté la politique de sélection et ajouté l'erreur REST
 
 ## 8. Étape 6 — Interactions temporelles, citations et références enrichies
 
-- insertion rapide du temps courant dans la note ;
-- recherche et navigation dans la transcription ;
-- sélection d'un passage pour une citation Markdown ;
+### 6.1 — Navigation de la transcription vers le lecteur YouTube
+
+Implémentée et validée manuellement par l'utilisateur. L'étape 6 se poursuit sur
+la même branche, sans fusion intermédiaire obligatoire dans master.
+Les timestamps des blocs sont activables au clavier et transmettent leur début
+réel au lecteur de la même source. Lecture et pause sont préservées ; avant le
+premier démarrage et après la fin, seul le point de départ est préparé. Le lecteur
+masqué est réaffiché sans reprise automatique. Un lecteur non prêt ou indisponible
+demande un nouveau clic explicite, sans commande en attente ni faux succès.
+Un masquage en cours conserve sa garantie d'arrêt.
+
+La tranche ne modifie ni transcription, ni note, ni contrat REST, ni domaine,
+ni SQLite. Tests déterministes avec IFrame API simulée, sans YouTube réel.
+La précision effective reste celle du lecteur YouTube et de ses images clés.
+
+Validation locale du 13 octobre 2026 : 91 tests navigateur réussis, tests Go
+complets, `go vet ./...`, builds Go/frontend et typage TypeScript réussis.
+Aucun essai YouTube réel ni exécution de CI distante revendiqués. L'avertissement
+Vite existant sur le chunk CodeMirror supérieur à 500 ko reste présent.
+
+### 6.2 — Insertion du temps courant
+
+Implémentée et validée manuellement par l'utilisateur, sans fusion automatique.
+Format acté : `[12:42](sillage://videos/5/sources/5?start_ms=762345)`, autorité logique
+`videos`, vidéo et source explicites, millisecondes conservées et `end_ms` réservé.
+`+ Temps` insère au curseur ou après la sélection sans l'effacer, ajoute un espace,
+rend le focus et forme une action Undo/Redo indépendante. L'autosauvegarde existante
+reste utilisée, sans modification REST/SQLite ni création d'Annotation.
+
+Lecture, pause et fin autorisent une position valide ; zéro est accepté. Masqué
+en pause, le lecteur reste masqué. Non démarré, cued, buffering, masquage en cours,
+chargement, erreur et destruction refusent l'insertion sans action différée.
+Le bouton est désactivé en Lecture ; le libellé des liens y reste sans interaction.
+La précision effective dépend de YouTube ; la copie du Markdown est autonome
+dans la même base, sans garantie de résolution dans une autre base indépendante.
+
+Validation locale du 13 octobre 2026 : 100 tests navigateur réussis, dont 9 nouveaux
+parcours d'insertion avec API YouTube contrôlée et persistance Go/SQLite réelle.
+Tests Go complets, vet, builds Go/frontend et typage TypeScript réussis. L'avertissement
+Vite sur le chunk CodeMirror reste présent. Pas de nouvelle CI distante ni de
+reconstruction Docker ; aucun essai YouTube réel de 6.2 revendiqué.
+
+### Correctif de fins de ligne — LF canonique
+
+Décision actée après 6.2 : CRLF et CR deviennent LF à la sauvegarde, les autres
+caractères restant inchangés. Elle remplace la conservation exacte des séparateurs
+de 5.2. CodeMirror utilise le découpage natif, sans correctif spécial du caret.
+Le service applicatif garantit la règle pour tous les clients. Pas de migration,
+de normalisation par GET ni d'écriture automatique à la seule ouverture/départ.
+Une sauvegarde explicite ou une édition suivie d'autosauvegarde normalise une
+ancienne note avec la précondition habituelle. Les variantes de séparateurs sont
+ensuite des no-op ; la première normalisation constitue une nouvelle révision.
+
+Validation locale : 104 tests navigateur, tests Go complets, vet, typage et builds
+Go/frontend réussis. Collage CRLF/CR/mixte simulé, caret en fin de ligne, Undo/Redo,
+autosauvegarde, réconciliation après réponse perdue et insertion temporelle couverts.
+Pas de migration ni de modification des notes de développement par ce correctif.
+Le correctif LF a été validé manuellement par l'utilisateur ; aucune nouvelle
+CI distante ni reconstruction Docker revendiquée.
+
+### 6.3 — Recherche et navigation dans la transcription
+
+Décisions actées : recherche textuelle insensible à la casse dans le contenu déjà
+chargé, sans requête supplémentaire. Le texte continu concatène exactement les
+fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
+Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
+Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
+avec distinction du résultat actif et défilement vers celui-ci.
+Changer de vidéo ou de source réinitialise la recherche.
+La navigation des résultats ne commande jamais le lecteur : les timestamps
+cliquables restent l'action explicite pour rejoindre un instant.
+Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
+préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
+Aucun endpoint, changement du domaine, de la persistance ou moteur global.
+Acquisition, actualisation, édition des notes et insertion temporelle conservées.
+La segmentation naturelle, la synchronisation continue, les citations (6.4)
+et la navigation depuis le Markdown restent hors périmètre.
+
+Implémentation terminée après ce cadrage. Recherche littérale hors équivalence des blancs, occurrences non
+chevauchantes et accents conservés ; compteur 0 / 0 pour une saisie vide ou
+sans résultat. Actualisation réussie : requête conservée, résultats recalculés et
+premier résultat sélectionné ; échec : contenu et sélection conservés.
+Le défilement reste local au texte sur desktop ; sur mobile, il suit la page.
+Validation manuelle complète de 6.3 confirmée par l'utilisateur : tous les scénarios
+recommandés sont passés. F5 réinitialise normalement la recherche ; le bouton
+« Actualiser » de transcription conserve la requête et recalcule ses résultats.
+Aucune fusion dans master.
+
+Validation locale du 13 octobre 2026 : 113 tests navigateur réussis, dont 9
+nouveaux tests de recherche. Couverture des frontières de fragments et blocs,
+des indices Unicode, des espaces exacts, du surlignage, du retour circulaire,
+du défilement, des changements vidéo/source, des actualisations et de l'absence
+de réseau ou de commande lecteur. Les parcours existants couvrent aussi notes,
+Undo/Redo, autosauvegarde, insertion temporelle et normalisation LF.
+`make test`, `go test -race ./...`, `make build` et la collection Postman
+déterministe (45 requêtes, 135 assertions) réussissent. Aucun Go modifié à formater.
+Les captures desktop clair/sombre et mobile ont été inspectées.
+Chromium utilise les bibliothèques déjà présentes dans
+`/tmp/sillage-browser-libs/usr/lib/x86_64-linux-gnu` via `LD_LIBRARY_PATH`,
+sans installation ni changement de configuration du dépôt.
+L'avertissement Vite existant sur le chunk CodeMirror supérieur à 500 ko subsiste.
+Aucun nouvel essai YouTube réel, CI distante ou build Docker revendiqué.
+
+Vérifications manuelles de 6.3 effectuées et validées par l’utilisateur :
+- rechercher une expression traversant deux blocs et un mot coupé entre fragments ;
+- parcourir les résultats dans les deux sens, y compris les retours premier/dernier ;
+- vérifier les surlignages en clair/sombre et le défilement sur desktop/mobile ;
+- confirmer que lecture, pause et lecteur masqué restent inchangés, puis tester un timestamp ;
+- actualiser la transcription, changer de vidéo et vérifier l'édition/Undo et `+ Temps`.
+
+
+### Retour manuel 6.3 — Entrée et blancs de transcription
+
+Entrée dans le champ sélectionne le résultat suivant avec retour circulaire,
+sans transfert du focus ni commande lecteur. La validation de composition IME
+ne déclenche pas cette navigation.
+L'exemple réel `thought about` contient `thought\nabout` dans les fragments :
+les suites de blancs de la saisie correspondent désormais aux suites de blancs
+sources, sans modifier le contenu ni décaler les surlignages. Cela remplace
+l'exigence initiale de blancs identiques pour la recherche uniquement.
+
+Validation : 116 tests navigateur réussis, typage, tests Go, vet et builds réussis.
+Vérification en lecture seule sur la transcription locale de la vidéo 1 :
+5 occurrences de `stuff` et 1 de `thought about`.
+Le serveur Go conserve index.html en mémoire : après reconstruction du frontend,
+redémarrer le serveur de développement puis recharger la page pour charger ce build.
+
+### 6.4 — Sélection et citation de transcription
+
+Cadrage consigné avant le code le 14 octobre 2026, puis implémenté et testé
+localement. Retours manuels utilisateur satisfaisants, puis correctifs ciblés de clôture
+(voir le bilan 6.4 dans la roadmap). Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
+persisté. Aucun end_ms. L'activation en Lecture est désormais fournie par 6.5.
+
+Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
+ou tactile, partielle ou traversant plusieurs fragments/blocs, y compris les mark
+de recherche. Aucun système personnalisé de sélection. Les timestamps sont exclus
+de la sélection de texte et du texte copié, mais restent des boutons accessibles.
+La copie native d'une sélection valide produit seulement du texte continu :
+concaténation dans l'ordre source sans séparateur ajouté, suites de blancs réduites
+à un espace, blancs de bord retirés. Les copies hors sélection valide ne sont pas
+interceptées. Les fragments et timestamps sources restent intacts.
+
+Un bouton stable « Citer dans la note » est activé pour un passage valide.
+Le passage est conservé avant le transfert de focus, puis invalidé au changement
+de vidéo/source, au remplacement effectif de transcription ou lorsque la recherche
+rend la sélection obsolète. Aucune citation différée ou remplacement silencieux
+du passage. Un clic ou un transfert de focus vers un autre outil abandonne
+l'extrait mémorisé ; le transfert vers « Citer dans la note » le conserve.
+L'action consomme la sélection, y compris en cas de refus. Les sélections vides,
+composées uniquement de blancs, multiples ou débordant hors de la transcription
+ne sont pas acceptées. Aucun bouton flottant dans cette tranche.
+
+Le début vient du premier fragment contenant du texte réellement retenu après
+nettoyage, même si ses timestamps ne sont pas monotones. Ni timestamp systématique
+du bloc, ni interpolation à l'intérieur d'un fragment. Le texte est échappé pour
+rester littéral en Markdown. Format :
+
+```markdown
+> They may not agree with those arguments.
+
+— [0:21](sillage://videos/5/sources/5?start_ms=21000)
+```
+
+En Édition, une note vide (zéro caractère) accepte l'insertion à zéro. Une note
+non vide, y compris seulement des espaces, exige un emplacement choisi explicitement
+par l'utilisateur. Un focus automatique ne suffit pas. La position persiste après
+perte du focus ; une sélection de note reçoit l'insertion après sa borne supérieure
+sans remplacement. En Lecture ou sans emplacement choisi : message explicatif,
+sans bascule, insertion automatique ou mise en attente ; recommencer ensuite
+la sélection de transcription. Le remplacement de la version éditée invalide
+l'emplacement choisi.
+
+Insertion dans la session CodeMirror existante, avec les séparateurs LF nécessaires
+pour isoler le bloc, une ligne vide entre citation et référence et un curseur après
+la référence et sa ligne vide finale. Les sauts LF déjà présents sont réutilisés ;
+aucun caractère existant n’est retiré. Citation, référence et séparateurs constituent un seul Undo/Redo et utilisent
+l'autosauvegarde, les révisions et les conflits existants. Aucun ordre au lecteur.
+Dans les listes, tableaux ou blocs de code, l'insertion reste textuelle : aucune
+restructuration ou recherche automatique d'un autre emplacement. Le rendu peut
+donc dépendre du contexte Markdown ; c'est une limite acceptée. L'échappement protège
+les syntaxes inline, les entités et les marqueurs de bloc en début de paragraphe,
+sans ajouter d'antislashs à la ponctuation ordinaire. Les URL littérales
+peuvent toujours être reconnues par les autoliens GFM du mode Lecture, sans changer
+leur libellé.
+
+Le bouton flottant et les finitions graphiques sont différés. La navigation au
+curseur et les menus tactiles natifs dépendent du navigateur. Le bilan manuel,
+les confirmations complémentaires et les pistes UX sont consignés dans la roadmap.
+
+#### Validation automatisée de 6.4 — 14 octobre 2026
+
+- make test-web : 139 tests Playwright réussis, dont 23 nouveaux tests pour 6.4 ;
+  build frontend et serveur réussi.
+- make test : tests Go complets, go vet, build des packages et typage TypeScript réussis.
+- go test -race ./... : réussi.
+- Collection Postman déterministe : 45 requêtes et 135 assertions réussies.
+- git diff --check : réussi ; captures desktop et écran étroit inspectées.
+
+Les tests couvrent extraits partiels, fragments séparant un mot, blocs multiples,
+blancs, timestamps non monotones, recherche active, sélections inversées, bornes
+DOM sur éléments, copie native Chromium et absence d'interception hors transcription.
+Ils vérifient aussi note absente/vide/non vide/espaces seuls, refus en Lecture,
+focus automatique, position explicite et sélection de note, séparateurs existants,
+échappement Markdown, Undo/Redo isolé, autosauvegarde, conflits avec conservation
+du local ou adoption du serveur, invalidations et absence de commande au lecteur.
+La suite existante couvre toujours recherche, navigation temporelle, insertion
++ Temps et garanties de sauvegarde. Le bouton supplémentaire a révélé un écrasement
+des barres d'outils sur un panneau court ; le CSS empêche désormais ce chevauchement
+et conserve un espace de texte défilable.
+
+L'application n'a pas de nouvelle dépendance. Chromium utilise temporairement
+libnspr4/libnss3 extraites sous /tmp pour les tests WSL, sans configuration projet
+ou installation système supplémentaire. L'avertissement Vite sur le chunk CodeMirror
+supérieur à 500 kB subsiste. Aucun build Docker, CI distante ni nouvel essai YouTube
+réel revendiqué. Les sélections sont en majorité construites via les API DOM ;
+un glisser de souris et Ctrl+C sont également exercés dans Chromium. L'écran étroit
+est un viewport de test, pas une validation tactile sur appareil réel.
+
+#### Clôture de 6.4 après retours manuels
+
+Les tests manuels effectués par l'utilisateur sont satisfaisants. Deux retours
+ont motivé un correctif limité : échappements trop envahissants en Édition et
+Ctrl+Shift+Z sans effet sous Windows. La tranche 6.4 est achevée dans son périmètre ;
+les confirmations ciblées ci-dessous restent à réaliser sur le build corrigé,
+sans prétendre que chaque plateforme ou appareil a été validé manuellement.
+
+L'échappement est désormais adapté au paragraphe d'une citation sur une seule
+ligne : virgules, points, apostrophes et ponctuation ordinaire restent lisibles.
+Les syntaxes inline (emphase, liens/images, code, barré), antislashs, chevrons ouvrants,
+entités HTML et débuts pouvant produire titres, listes, séparateurs ou citations
+imbriquées restent protégés. Le texte garde son sens littéral dans le rendu GFM ;
+ses autoliens ordinaires restent admis. Aucun changement du rendu sécurisé,
+du Markdown déjà enregistré ou du modèle de données.
+
+Vérification du code installé : @codemirror/commands 6.11.1 fournit Ctrl+Z pour
+Undo et Ctrl+Y pour Redo sur Windows/Linux ; Ctrl+Shift+Z est fourni par défaut
+sur Linux seulement (Cmd+Shift+Z sur macOS). L'absence sur Windows correspond
+donc à la keymap par défaut, pas à l'historique isolé des citations.
+Sillage ajoute Ctrl+Shift+Z directement dans sa keymap CodeMirror avec la commande
+redo existante. Ctrl+Y et les raccourcis macOS restent conservés ; aucun gestionnaire
+global ni reconstruction de l'éditeur.
+
+Validation du correctif : 142 tests Playwright réussis, dont 26 dans le fichier
+citation ; make test, go test -race ./..., typage et builds réussis.
+Les nouveaux tests comparent le texte rendu pour les syntaxes Markdown/HTML,
+vérifient l'absence d'échappements ordinaires et exercent Ctrl+Z puis les deux Redo
+sur texte ordinaire et citation, en conservant deux étapes d'historique distinctes
+et la sauvegarde. Les variantes Linux et Win32 de la détection CodeMirror sont
+testées dans Chromium Linux : la variante Win32 est une simulation, pas une
+validation native Windows. Aucun essai manuel de Ctrl+Y ni du nouveau Ctrl+Shift+Z
+sous Windows n'est encore confirmé. Les validations initiales restent ci-dessus.
+
+Après reconstruction, redémarrage du serveur et rechargement, confirmations ciblées :
+
+- Citer une phrase avec ponctuation ordinaire puis du Markdown/HTML ; vérifier
+  la lisibilité en Édition et la fidélité en Lecture.
+- Sous Windows, saisir du texte ordinaire puis vérifier Ctrl+Z/Ctrl+Y et
+  Ctrl+Z/Ctrl+Shift+Z ; répéter avec une citation, qui doit rester une seule étape.
+- Confirmer ces raccourcis sur toute autre plateforme réellement utilisée.
+  Ne pas déduire une validation tactile ou clavier native des seuls tests automatisés.
+
+Les finitions graphiques et le bouton flottant sont différés ; segmentation
+naturelle et plages restent des investigations futures. Le rendu/navigation
+des références relève de 6.5 ; l'étude plus large du mode Édition ci-dessous
+n'est pas engagée par cette clôture.
+
+### 6.5 — Navigation depuis les références Markdown
+
+Décisions documentées avant le code, puis implémentées et testées localement.
+État initial vérifié sur feat/transcript-player-navigation : le commit ed966be
+contient l'échappement réduit, la keymap Ctrl+Shift+Z et le bilan de clôture 6.4.
+Les confirmations manuelles Windows du correctif restent distinctes des tests simulés.
+
+Le format accepté est exclusivement sillage://videos/{videoID}/sources/{sourceID}?start_ms={milliseconds},
+avec identifiants entiers sûrs positifs et temps entier sûr non négatif.
+Chiffres décimaux canoniques, sans zéros initiaux sauf zéro pour le temps.
+Refus des encodages alternatifs, segments, fragments et paramètres supplémentaires
+ou dupliqués, y compris end_ms. Le libellé ne détermine jamais la position.
+
+En Lecture seulement, un lien valide devient un bouton natif discret.
+Une référence invalide reste du texte inerte sans alerte à l'ouverture.
+L'autorisation ciblée dans react-markdown concerne uniquement le href des liens ;
+le filtre par défaut reste appliqué ailleurs, notamment aux images. HTML brut
+toujours ignoré. Liens ordinaires et navigation protégée inchangés.
+
+La fiche compare vidéo et source de travail réelles. Autre vidéo/source ou lecteur
+indisponible : message accessible près de l'action, sans changement de fiche/source,
+ni confusion avec la sauvegarde. La note n'est jamais modifiée ; sélection et
+historique CodeMirror restent intacts. Le focus reste sur le bouton activé.
+
+Note et transcription partagent player.navigate : lecture/pause préservées,
+départ préparé sans autoplay pour les états non démarré/terminé/cued,
+masquage en cours respecté, aucune commande différée. Une commande acceptée
+n'est pas une confirmation du timestamp exact par YouTube.
+Un lecteur masqué indisponible peut être réaffiché/réinitialisé comme en 6.1,
+mais le refus n'entraîne ni défilement volontaire ni navigation ultérieure.
+
+Après commande acceptée et réaffichage DOM effectif seulement, mesurer la zone
+vidéo : aucun défilement si visible, déplacement minimal pour la montrer entièrement,
+ou alignement du début si trop grande. Défilement instantané de la page, sans
+déplacer le focus ni les défilements internes de note/transcription.
+Aucune action tardive après changement de fiche.
+
+Frontend uniquement : aucun changement REST/SQLite/domaine. Live Preview,
+activation en Édition, plages, changement de source/vidéo et confirmation restent
+hors périmètre. Une confirmation future d'ouverture d'une autre fiche/source est
+une piste, pas une fonctionnalité actée. Le périmètre fonctionnel de 6.5 est
+terminé et validé manuellement ; voir le bilan de clôture ci-dessous.
+
+#### Validation automatisée et limites de 6.5
+
+162 tests Playwright réussis, dont 20 nouveaux scénarios de navigation temporelle ;
+make test (tests Go, vet, build et typage), go test -race ./... et build frontend/serveur
+réussis. Collection Postman déterministe : 45 requêtes, 135 assertions réussies.
+git diff --check réussi. Capture des messages de refus inspectée.
+Le test existant de + Temps attend désormais un bouton en Lecture.
+
+Couverture : URI non canoniques, limites numériques et paramètres refusés,
+filtrage liens/images/HTML, liens ordinaires, identités distinctes, absence de source,
+états du lecteur, masquage en cours, instance masquée conservée ou indisponible,
+exception, absence de commande tardive, focus et sélection/Undo de la note.
+Un test termine une sauvegarde déjà engagée après activation : bouton et focus
+conservés, sans remontage. Les deux origines sont testées pour le défilement,
+aux largeurs 1440 et 375, avec zone visible, partiellement visible, hors écran
+ou trop grande, et préférence reduced-motion.
+
+Les tests de défilement placent la page explicitement, focalisent sans scroll,
+puis activent par click DOM : Playwright ne met pas l'action en visibilité.
+Ils mesurent la page et les scrollTop internes avant/après. Ce mécanisme teste
+le comportement applicatif, pas la gestuelle tactile réelle. Les commandes
+YouTube restent simulées ; aucune précision réelle de seek n'est revendiquée.
+Le navigateur peut limiter le déplacement en fin de document. Un échec ne lance
+aucun scroll applicatif, mais le réaffichage peut naturellement modifier le layout.
+Aucun nouvel essai YouTube réel, build Docker ou CI distante revendiqué.
+L'avertissement Vite existant sur le chunk CodeMirror reste présent.
+
+#### Clôture et validation manuelle de 6.5
+
+L'utilisateur confirme des essais satisfaisants : activation des références en
+Lecture, cohérence avec la transcription, états lecture/pause/masquage,
+défilement conditionnel, préservation de l'édition et de la sauvegarde,
+refus de navigation vers d'autres vidéos/sources et fonctionnement des liens ordinaires.
+
+Plusieurs références réelles ont été testées sur /videos/6 : rejet des paramètres
+supplémentaires, end_ms, identifiants incorrects, valeurs numériques invalides et
+encodages alternatifs, sans problème constaté. Cette validation couvre les essais
+rapportés ; aucune confirmation supplémentaire sur appareils tactiles ou autres
+environnements n'est revendiquée.
+
+Dernier correctif limité au rendu Markdown des notes : les liens HTTP(S) vers
+une origine externe s'ouvrent dans un nouvel onglet avec target="_blank" et
+rel="noopener noreferrer", aussi bien les liens explicites que les autoliens GFM.
+Les liens de même origine restent dans le même onglet via React Router ;
+mailto garde le comportement natif et les références Sillage leur activation locale.
+Le filtrage des URL dangereuses et invalides reste inchangé.
+
+Validation automatisée du correctif : suite de 162 tests Playwright réussie,
+make test (tests Go, vet, build et typage) et build frontend/serveur réussis.
+Le test de rendu couvre HTTP/HTTPS, lien explicite/autolien, même origine absolue,
+lien interne relatif et mailto. Il ouvre réellement deux onglets Chromium sur une
+destination interceptée localement, vérifie l'absence d'opener et le maintien de
+la fiche d'origine. Les scénarios de sécurité et de navigation temporelle restent
+dans la suite complète.
+
+6.5 est terminée et validée manuellement pour son périmètre fonctionnel.
+Seul le nouveau comportement d'ouverture externe attend une ultime confirmation
+utilisateur : après build, redémarrage et rechargement, cliquer dans une note sur
+un lien Web explicite puis une URL GFM, vérifier le nouvel onglet et la conservation
+de la fiche ; vérifier qu'un lien interne reste dans Sillage et qu'une référence
+temporelle continue d'activer le lecteur. Ce correctif n'est pas encore déclaré
+validé manuellement. Les confirmations du correctif 6.4 restent consignées plus haut.
+
+Restent des pistes différées, sans décision technique définitive : confirmation
+avant ouverture d'une autre vidéo/source, présentation enrichie en Édition
+éventuellement inspirée du Live Preview, finitions graphiques des références,
+plages début/fin et interactions avancées avec le lecteur.
+
+### Tranches suivantes — à cadrer
+
 - référence avec début obligatoire et fin facultative, bornes ajustables ;
 - provenance temporelle conservée lorsque nécessaire ;
 - rendu enrichi dans l'éditeur et navigation vers le lecteur.
 
-Les liens Markdown contenant des URI `sillage://` sont la syntaxe candidate
-privilégiée ; le format exact doit être expérimenté avant validation.
+Le format des liens Markdown `sillage://` est acté en 6.2 ; les plages, leur
+interface restent à étudier ; la navigation vers le lecteur courant est implémentée
+en 6.5. L'ouverture d'une autre fiche/source reste future.
 Insertion rapide et citation enrichie peuvent partager la même référence.
 La relation aux annotations structurées reste ouverte.
 
-Le Markdown brut reste stocké sans transformation et peut contenir des extensions
+Le Markdown brut reste stocké sans transformation hors normalisation LF et peut contenir des extensions
 internes. La copie ordinaire préserve les informations utiles ; copie adaptée et
 export peuvent convertir les références. L'export Markdown de consultation est
 distinct d'une sauvegarde réimportable de toutes les données métier.
@@ -881,11 +1259,43 @@ sombres de la bibliothèque, du workspace et de l'écran étroit inspectées.
 - lecteur local ;
 - layout final de la page de travail ;
 - synchronisation player/transcription ;
-- comportement des timestamps ;
+- comportement des références temporelles au-delà du clic transcription → lecteur de 6.1 ;
 - possibilité future de sélection manuelle de la piste de transcription, sans
   catalogue ni persistance supplémentaires dans le correctif de 5.3 ;
 - timeline d'annotations ;
 - raccourcis clavier.
+
+### Présentation Markdown plus naturelle en Édition — piste UX à étudier
+
+Étudier une présentation inspirée, par exemple, du Live Preview d'Obsidian pour
+rendre moins envahissants la syntaxe Markdown, les échappements nécessaires,
+les longues URI sillage:// et les références temporelles ou autres éléments enrichis.
+Des décorations CodeMirror ou une autre solution adaptée pourraient être comparées.
+
+Il s'agit d'une piste UX, sans décision d'architecture ni implémentation actuelle,
+et non d'une refonte engagée pour 6.4 ou automatiquement incluse en 6.5.
+Toute expérimentation devra préserver le Markdown brut comme source de vérité,
+les positions du curseur et sélections, Undo/Redo, l'autosauvegarde et la lisibilité
+de l'application sans IA. Évaluer la révélation de la syntaxe pendant l'édition,
+l'accessibilité et les interactions de sélection avant de retenir une solution.
+
+### Découpage naturel des transcriptions — investigation future hors 6.3
+
+YouTube affiche des blocs de durées variables, contrairement aux intervalles fixes
+de Sillage. Étudier l'influence possible de la ponctuation, des pauses, de la durée
+et de la longueur des blocs. La ponctuation paraît importante mais n'explique pas
+tous les découpages observés. Aucune hypothèse de reconnaissance des interlocuteurs
+n'est démontrée.
+
+Comparer sur des exemples concrets les frontières affichées par YouTube aux
+informations JSON3 : `tStartMs`, `dDurationMs`, `tOffsetMs`, événements et fragments.
+Déterminer si les blocs correspondent aux segments JSON3 ou à un autre regroupement.
+Évaluer ensuite l'intérêt pour Sillage de phrases ou d'unités de sens ; aucune
+méthode de segmentation n'est décidée ni implémentée en 6.3.
+
+Référence : [E2E Segmenter: Joint Segmenting and Decoding for Long-Form ASR — Google Research](https://research.google/pubs/e2e-segmenter-joint-segmenting-and-decoding-for-long-form-asr/).
+Ce papier est une piste de recherche sur la segmentation de la parole, et non une
+explication vérifiée de l'algorithme de l'interface YouTube.
 
 ## 19. Questions ouvertes — API
 

@@ -710,8 +710,22 @@ L'état reste local aux pages ; aucune bibliothèque de store n'est ajoutée.
 En 5.2, un data router React Router permet le blocage des navigations internes
 et de l'historique pendant la confirmation des sauvegardes. CodeMirror 6 est
 intégré directement et reste monté, masqué pendant la lecture GFM chargée à la demande.
-Le séparateur structurel de l'éditeur est LF : les CR existants restent dans le
-document, ce qui conserve aussi les fins de ligne mixtes. Entrée insère un LF.
+CodeMirror utilise son découpage natif CRLF/CR/LF et sa sérialisation LF, y compris
+pour les collages Windows. L'ancien `lineSeparator.of('\n')` est retiré : il laissait
+des CR dans le document et créait des positions de caret invisibles en fin de ligne.
+La session travaille sur une représentation LF et compare avec la version LF du
+contenu confirmé, tout en gardant la réponse serveur originale et sa révision.
+Ainsi, ouvrir une ancienne note, changer de mode ou quitter la fiche ne déclenche
+aucune écriture de normalisation. Un enregistrement explicite peut la normaliser
+même sans édition visible ; les éditions continuent à utiliser l'autosauvegarde.
+Le choix de la version serveur après conflit applique la même représentation locale.
+
+Le service applicatif Go normalise CRLF puis CR en LF avant d'appeler le port de
+persistance. SQLite compare ce contenu canonique sous la précondition de révision
+existante ; les variantes de séparateurs n'incrémentent pas une note déjà canonique.
+La première normalisation d'une ancienne note incrémente sa révision. Les GET ne
+transforment rien et aucune migration n'est ajoutée. Les réponses de sauvegarde LF
+permettent la réconciliation après réponse perdue, sans seconde écriture automatique.
 
 Une session locale par note gère le contenu courant, la dernière version confirmée,
 les temporisations et une unique écriture en cours. Elle est détruite à la sortie ;
@@ -754,7 +768,8 @@ un POST automatique ; un contenu retrouvé ne prouve pas à lui seul le succès 
 l'actualisation demandée. Les réponses abandonnées ne modifient pas la fiche suivante.
 
 Le regroupement parcourt les items dans leur ordre source et crée des blocs
-consécutifs par intervalle. Les groupes composés uniquement de blancs sont rattachés
+consécutifs par intervalle fixe de 10 secondes depuis 6.3. Les groupes composés
+uniquement de blancs sont rattachés
 au texte précédent, ou préfixés au premier bloc textuel s'ils sont initiaux, sans
 ligne horodatée dédiée ni changement du timestamp du bloc textuel. Les items restent
 intacts. Le rendu utilise du texte échappé et `white-space: normal` : chaque bloc
@@ -765,6 +780,89 @@ n'est nécessaire ; les données et les règles de regroupement restent inchang�
 Les tests navigateur emploient une IFrame API contrôlée, sans accès à YouTube,
 et un faux yt-dlp exécuté par le backend réel pour acquérir puis relire des snapshots.
 Les essais avec YouTube réel restent complémentaires aux validations déterministes.
+
+### Recherche locale de transcription 6.3
+
+`TranscriptText` reçoit les fragments chargés et regroupe leur présentation à
+10 secondes. La recherche utilise leur concaténation exacte dans l'ordre source,
+indépendamment des blocs. `findTranscriptMatches` échappe la saisie puis utilise
+une expression régulière Unicode insensible à la casse, avec chaque suite de blancs
+de la requête remplacée par `\s+`, pour obtenir des intervalles
+UTF-16 dans le texte original, sans conversion préalable susceptible de déplacer
+les indices. Les occurrences sont littérales hors équivalence des blancs et non chevauchantes.
+
+`highlightTranscript` parcourt les blocs et les occurrences dans l'ordre pour
+projeter ces intervalles en portions de texte exactes. Une occurrence traversant
+plusieurs blocs garde le même indice et le même état actif dans chaque portion.
+React échappe le texte des éléments `mark` ; aucun HTML de transcription n'est injecté.
+Le contenu, les blocs et les résultats sont dérivés en mémoire, sans dépendance ajoutée.
+
+La sélection repart de zéro quand la requête ou le contenu reçu change. La session
+de recherche est associée aux IDs vidéo/source ; aucun état navigateur persistant.
+Le défilement vise la première portion active : scroll du conteneur sur desktop,
+défilement de page sur mobile. Aucun focus n'est transféré au résultat ni commande
+lecteur émise ; seul le callback des timestamps conserve la navigation 6.1.
+Acquisition et gestion des erreurs restent dans `VideoTranscript`.
+Aucun changement REST, domaine ou SQLite ; aucune segmentation linguistique.
+
+### Navigation transcription → YouTube 6.1
+
+La fiche relie le callback de la transcription à une commande impérative du lecteur
+YouTube de la même source. La commande reçoit les millisecondes du bloc ; seul le
+lecteur les convertit en secondes (`start_ms / 1000`, sans arrondi). Aucun état
+temporel ne traverse la session de note et aucune file de commandes n'est créée.
+
+Selon la [sémantique officielle de l'IFrame API](https://developers.google.com/youtube/iframe_api_reference#seekTo),
+`seekTo(seconds, true)` conserve la pause uniquement depuis l'état `paused` (2).
+Il est utilisé depuis `playing` (1), `paused` (2) et `buffering` (3), ce dernier
+prolongeant la lecture en cours de chargement. Depuis `unstarted` (-1), `ended` (0)
+ou `video cued` (5), `cueVideoById({videoId, startSeconds})` prépare le départ sans
+lecture. Un état inconnu refuse la commande. Aucun `playVideo()` n'est ajouté.
+YouTube peut viser l'image clé précédente : transmettre la valeur exacte ne
+garantit pas une précision de lecture à la milliseconde.
+
+Le lecteur masqué est réaffiché avant navigation ; un masquage dont la pause n'est
+pas confirmée garde priorité. Sans instance prête, le clic est refusé explicitement
+et n'est jamais rejoué après chargement, réessai ou changement de fiche. Une
+exception de commande passe par le même arrêt et la même invalidation des événements
+tardifs qu'une erreur YouTube. L'UI n'annonce pas de succès confirmé à partir d'une
+commande sans accusé de position. Ni REST, ni domaine, ni SQLite ne changent.
+
+Le double navigateur reproduit le démarrage de `seekTo` hors pause et la préparation
+sans lecture de `cueVideoById`. Les tests couvrent les six états natifs, clavier,
+clics répétés, fractions de seconde, masquage, erreurs, absence de commande différée
+et conservation de la session de note.
+
+### Insertion du temps courant 6.2
+
+La fiche compose une référence à partir de sa vidéo, de sa source de travail
+et d'une lecture synchrone `getCurrentTimeMs()` du lecteur. L'adapter YouTube
+appelle `getCurrentTime()` seulement pour une instance prête, hors masquage en
+cours, dans les états ended (0), playing (1) ou paused (2). Un lecteur masqué
+conservé en pause reste utilisable sans réaffichage. Les états unstarted (-1),
+cued (5), buffering (3) et inconnus sont refusés ; un départ préparé par 6.1
+n'est jamais substitué à la position courante. Les valeurs non finies, négatives
+ou hors des entiers sûrs en millisecondes sont refusées. Zéro reste valide.
+La conversion utilise `Math.round(seconds * 1000)` ; elle conserve la précision
+fournie sans garantir une précision réelle de mesure à la milliseconde.
+Aucune lecture, pause, navigation, acquisition ou commande différée n'est déclenchée.
+
+Le constructeur spécifique `temporalReference` produit uniquement
+`[libellé](sillage://videos/{videoID}/sources/{sourceID}?start_ms={milliseconds})`.
+L'autorité est `videos`, le chemin commence par l'identifiant vidéo. Aucun parseur
+général ni résolution de références n'est nécessaire. `end_ms` reste réservé.
+
+`VideoNote` demande l'insertion via une commande impérative du `MarkdownEditor`
+existant. Une transaction insère à `selection.main.to`, sans remplacer la
+sélection, ajoute un espace de continuation, place le curseur après celui-ci,
+puis rend le focus. `isolateHistory.of('full')` sépare l'action des frappes voisines
+et des autres insertions. L'écouteur `docChanged` alimente la session et ses délais
+d'autosauvegarde existants, y compris sa suspension en cas d'erreur ou conflit.
+Ni `initial`, ni l'état complet de l'éditeur ne sont réinjectés. La note suit la
+convention LF canonique. Le bouton est désactivé en mode Lecture.
+
+Le rendu initialement inerte de 6.2 est remplacé par l'activation contrôlée
+de 6.5 en Lecture seulement (voir ci-dessous), sans modification du Markdown persisté.
 
 ## 11. Desktop futur
 
@@ -882,3 +980,58 @@ Elle illustre seulement la séparation souhaitée entre :
 9. Le système de fichiers ne définit pas l'identité des objets métier.
 10. Une abstraction n'est introduite que si elle protège une vraie frontière ou répond à un besoin concret.
 11. Les contraintes de la base renforcent les invariants applicatifs ; elles ne sont pas remplacées par un simple « check puis insert ».
+
+### Citation de transcription 6.4 — implémentation frontend
+
+La sélection DOM est traduite en offsets du texte continu, en parcourant uniquement
+les paragraphes de transcription (mark inclus) ; le fragment du premier caractère
+non blanc fournit le start_ms. Copie et citation partagent l'extraction normalisée,
+sans modifier le modèle source. La commande traverse la fiche vers la session de note,
+sans dépendance envers le lecteur ni API supplémentaire. CodeMirror distingue
+l'emplacement choisi des focus automatiques, conserve sa sélection et réalise
+l'insertion comme transaction isolée. Voir Product & UX et roadmap pour le contrat,
+les refus et les limites de contexte Markdown.
+
+Le module transcriptSelection traduit les bornes de Range en offsets UTF-16,
+en ignorant les boutons de timestamp. Les bornes normalisées de Range couvrent
+aussi les sélections inversées et les éléments mark. L'extrait mémorisé est lié
+à la version du rendu ; une nouvelle recherche ou un remplacement effectif
+l'invalide. L'événement copy utilise la sélection vivante et fournit text/plain,
+sans intercepter les copies de champs ou de l'éditeur. Il ne nécessite aucune
+permission Clipboard API dans l'application.
+
+VideoPage construit la référence avec les identifiants de la fiche/source,
+puis appelle l'action impérative de VideoNote vers MarkdownEditor.
+L'éditeur mémorise le choix explicite par geste de pointeur, navigation clavier
+ou transaction utilisateur ; les focus et insertions programmatiques ne suffisent
+pas. Ce choix est réinitialisé avec une nouvelle version d'éditeur, conservé lors
+des pertes de focus et des bascules Lecture/Édition. L'insertion utilise la borne
+supérieure de la sélection CodeMirror et isolateHistory, sans changer NoteSession
+ni son protocole de sauvegarde. Les séparateurs LF sont ajoutés uniquement selon
+le texte adjacent, sans analyse du contexte Markdown.
+
+
+### Navigation temporelle Markdown 6.5
+
+parseTemporalReference est un parseur pur du format canonique produit par Sillage :
+validation de la structure entière puis des entiers sûrs, sans normalisation d'URI.
+MarkdownReading autorise ces seules URI sur les href de liens via urlTransform,
+et délègue les autres attributs/URL au filtre standard de react-markdown.
+Le composant de lien devient un bouton natif pour une référence valide ; aucun
+href sillage:// n'est envoyé au navigateur. Les liens de même origine restent
+des Link React Router. Les autres liens HTTP(S) reçoivent target="_blank" et
+rel="noopener noreferrer" ; les autres protocoles autorisés, dont mailto,
+gardent leur comportement natif. Ce traitement commun couvre les autoliens GFM.
+Le libellé reste le nom accessible ; une description donne le temps structuré.
+
+VideoDetail vérifie les identités vidéo/source de travail et appelle la même
+fonction navigate que la transcription. Les refus sont présentés près du bouton
+dans une région status ; ils ne passent pas par NoteSession. Les composants de lien
+restent stables lors des mises à jour de sauvegarde pour préserver le focus.
+
+YouTubePlayer conserve son protocole immédiat. Une commande transmise incrémente
+un état local qui déclenche une mesure en useLayoutEffect, après réaffichage DOM.
+La zone youtube-frame est comparée au viewport visuel ; window.scrollBy instantané
+déplace seulement la page du delta nécessaire. Aucune attente onReady, animation,
+file d'attente, focus d'iframe ou synchronisation continue n'est ajoutée.
+Une fiche démontée ne conserve aucun travail de défilement différé.

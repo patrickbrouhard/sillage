@@ -88,13 +88,49 @@ Keep local access as the default while authentication is absent.
 The Markdown note is the stable main workspace area. The player is flexible and
 the transcript is an independent panel. Step 5.2 integrates CodeMirror 6,
 safe GFM reading and autosave with mandatory optimistic revision checks.
-Preserve Markdown exactly, including mixed line endings. Notes use no persistent
+LF is canonical for notes: normalize CRLF and CR to LF in the application service
+before persistence, preserving every other character. This supersedes the 5.2
+mixed-line-ending preservation decision. Do not migrate existing notes or change
+them on GET. CodeMirror uses native line splitting and LF serialization; opening
+or leaving a legacy note must not trigger a normalization write. Explicit saving
+or normal editing/autosave may normalize it under the usual revision checks.
+Notes use no persistent
 browser drafts. Step 5.3 integrates the YouTube IFrame Player API directly and
 the existing local transcript GET / explicit acquisition POST. Both panels use
 the first usable YouTube source in REST order; this is not a persisted primary
 source. Keep the note mounted across layout and player visibility changes.
 Transcript grouping is presentation only and preserves source order and whitespace.
-Temporal interactions, citations and synchronized scrolling remain reserved for step 6.
+Step 6.1 connects transcript timestamp buttons to the same YouTube player, preserving
+playback/pause and preparing unstarted or ended videos without autoplay. Navigation
+is immediate only: unavailable players require another explicit click, never a queued
+command. Step 6.2 inserts `[12:42](sillage://videos/5/sources/5?start_ms=762345)`:
+`videos` is the logical authority, both Sillage IDs are explicit, milliseconds
+are preserved, and `end_ms` is reserved. Insert after the CodeMirror selection
+without replacing it, as an isolated undo transaction with normal autosave.
+Read current time only in ready playing/paused/ended states, including a hidden
+paused instance; reject cued, unstarted, buffering and unavailable states without
+deferred work or player commands. Step 6.5 activates strictly validated references in Reading mode only.
+Step 6.3 searches the exact continuous transcript text locally, ignoring case,
+across fragment and display-block boundaries. Highlight occurrences and scroll to
+the active result with circular previous/next navigation, without player commands.
+Reset search on video/source changes. Presentation grouping is fixed at 10 seconds,
+without a selector or user preference. Natural segmentation is future research.
+Step 6.4 extracts native transcript selections across fragments, blocks and search marks.
+Copy only transcript text, collapsing whitespace in the excerpt without adding fragment
+separators. A stable citation button inserts escaped Markdown followed by a blank line
+and the 6.2 reference, using the first retained fragment's start_ms, without end_ms.
+Nonempty notes require an explicitly chosen editor position; automatic focus is insufficient.
+Insert after the selection without replacing text, in one isolated undo transaction with
+normal autosave. Reading mode refuses; empty editing notes may insert at zero.
+Invalidate stale excerpts, preserve them during focus transfer to the citation button,
+and never command the player. Step 6.5 accepts only canonical sillage:// links with safe positive video/source IDs
+and a safe nonnegative start_ms; reject extra parameters including end_ms.
+Allow these only for Markdown link hrefs, retain default URL filtering elsewhere.
+Render native buttons, compare with the current video/work source, and share
+player.navigate with transcript timestamps. After accepted navigation only,
+measure the revealed video and scroll the page instantly if necessary, preserving
+focus and inner panel scroll positions. No deferred player command.
+Ranges and synchronized scrolling remain future work.
 
 Do not introduce PostgreSQL, Redis, a vector database, microservices, or another major infrastructure component without a concrete requirement.
 

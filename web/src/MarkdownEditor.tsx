@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useImperativeHandle, useRef } from 'react'
+import type { Ref } from 'react'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, isolateHistory, redo } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 
@@ -13,36 +14,93 @@ const highlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map(sty
 })))
 
 interface Props {
+  ref: Ref<MarkdownEditorHandle>
   initial: string
   active: boolean
   onChange: (content: string) => void
   onSave: () => void
 }
 
+/** Action ponctuelle sur la session existante, sans remplacer son état. */
+export interface MarkdownEditorHandle {
+  /** Insère après la sélection sans effacer son texte, puis rend le focus au curseur. */
+  insert(text: string): void
+  /** Insère un bloc uniquement à un emplacement choisi, sauf pour un document vide. */
+  insertCitation(markdown: string): void
+}
+
 /** Garde l'état CodeMirror stable ; seules les actions utilisateur modifient le texte. */
-export function MarkdownEditor({ initial, active, onChange, onSave }: Props) {
+export function MarkdownEditor({ initial, active, onChange, onSave, ref }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
   const wasActive = useRef(active)
+  const explicitPosition = useRef(false)
   const callbacks = useRef({ onChange, onSave })
   callbacks.current = { onChange, onSave }
+  /** Ajoute uniquement du texte ; les séparateurs de bloc font partie du même Undo. */
+  function insert(text: string, citation = false) {
+    const view = editor.current
+    if (!view || !active) throw new Error('Passez en mode Édition pour insérer une référence.')
+    if (citation && view.state.doc.length && !explicitPosition.current) {
+      throw new Error('Placez le curseur dans la note, puis recommencez la sélection de transcription.')
+    }
+    const position = view.state.selection.main.to
+    let existingBreaks = 0
+    if (citation) {
+      const before = view.state.sliceDoc(0, position)
+      const after = view.state.sliceDoc(position)
+      const preceding = before.match(/\n*$/)![0].length
+      existingBreaks = Math.min(2, after.match(/^\n*/)![0].length)
+      const prefix = position ? '\n'.repeat(Math.max(0, 2 - preceding)) : ''
+      text = prefix + text + '\n'.repeat(2 - existingBreaks)
+    }
+    view.dispatch({
+      changes: { from: position, insert: text },
+      selection: { anchor: position + text.length + existingBreaks },
+      annotations: isolateHistory.of('full'),
+      scrollIntoView: true,
+    })
+    view.focus()
+  }
+  useImperativeHandle(ref, () => ({
+    insert: text => insert(text),
+    insertCitation: markdown => insert(markdown, true),
+  }))
   useEffect(() => {
+    explicitPosition.current = false
     const view = new EditorView({
       parent: host.current!,
       state: EditorState.create({
         doc: initial,
         extensions: [
-          // LF est le seul séparateur structurel : CR reste dans le texte.
-          // Ainsi CRLF et les mélanges traversent édition et historique sans normalisation.
-          EditorState.lineSeparator.of('\n'),
+          // Le découpage natif accepte CRLF, CR et LF ; la sérialisation produit du LF.
           history(), markdown(), syntaxHighlighting(highlightStyle),
           EditorView.lineWrapping,
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
           keymap.of([
             { key: 'Mod-s', run: () => { callbacks.current.onSave(); return true } },
+            // CodeMirror ne fournit Ctrl+Shift+Z que sous Linux par défaut.
+            { key: 'Ctrl-Shift-z', run: redo, preventDefault: true },
             ...defaultKeymap, ...historyKeymap,
           ]),
+          EditorView.domEventHandlers({
+            pointerdown(event) {
+              if (event.button === 0 && event.target instanceof Element && event.target.closest('.cm-content')) {
+                explicitPosition.current = true
+              }
+            },
+            keydown(event) {
+              if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) {
+                explicitPosition.current = true
+              }
+            },
+          }),
           EditorView.updateListener.of((update) => {
+            // Une saisie ou sélection utilisateur compte ; focus et insertion programmatiques non.
+            if (update.view.hasFocus && update.transactions.some(transaction =>
+              ['select', 'input', 'delete', 'undo', 'redo'].some(event => transaction.isUserEvent(event)))) {
+              explicitPosition.current = true
+            }
             if (update.docChanged) callbacks.current.onChange(update.state.sliceDoc())
           }),
         ],

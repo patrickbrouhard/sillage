@@ -71,13 +71,41 @@ sauvegarde protégée contre les écrasements concurrents.
 La tranche 5.3 réunit désormais note, lecteur YouTube et transcription dans un
 workspace responsive. Le lecteur se masque avec pause, sans reprise automatique ;
 la transcription locale se consulte indépendamment, se récupère ou s'actualise
-explicitement, et se regroupe par intervalles de 5, 10, 15 ou 30 secondes.
+explicitement, et se regroupe par intervalles fixes de 10 secondes depuis 6.3.
 Les métadonnées complètes restent accessibles dans une section repliable.
-La tranche est terminée, vérifiée automatiquement et prête à fusionner après
+La tranche est terminée, vérifiée automatiquement et fusionnée après
 les retours manuels positifs de l'utilisateur, y compris sur les correctifs
 d'acquisition et de présentation. Le thème Clair / Sombre / Système utilise une
-palette bleu nuit et une préférence locale au navigateur. Les timestamps cliquables,
-citations et synchronisation sont réservés à l'étape 6.
+palette bleu nuit et une préférence locale au navigateur.
+
+La tranche 6.1 ajoute les timestamps cliquables de transcription (également Entrée
+ou Espace) : déplacement dans le lecteur de la même source, lecture/pause préservées
+et réaffichage du lecteur masqué. Avant la première lecture ou après la fin, seul
+le départ est préparé, sans lancement automatique. Si le lecteur n'est pas prêt,
+un message demande un nouveau clic ; aucune commande n'est mise en attente.
+La note et l'acquisition de transcription restent indépendantes. 6.1 est validée
+manuellement ; le travail de l'étape 6 continue sur la même branche.
+
+En 6.2, `+ Temps` insère en mode Édition un lien tel que
+`[12:42](sillage://videos/5/sources/5?start_ms=762345)` au curseur ou après une sélection,
+sans supprimer son texte. L'insertion conserve les millisecondes, rend le focus,
+est annulable indépendamment et suit l'autosauvegarde normale. Le lecteur ne reçoit
+aucune commande ; un lecteur masqué en pause reste masqué. Lecture, pause et fin
+sont acceptées avec une position valide ; les états non démarré, cued, buffering
+et indisponibles demandent de réessayer sans rien insérer. Le mode Lecture affiche
+le libellé sans interaction. `videos` est l'autorité logique de l'URI ; les deux
+identifiants Sillage rendent le Markdown autonome entre notes d'une même base,
+sans résolution universelle entre bases. `end_ms` est réservé aux plages futures.
+Citations, plages, synchronisation et navigation inverse restent hors de 6.2.
+
+En 6.3, le champ de recherche parcourt le texte continu déjà chargé, sans casse
+et sans requête réseau. Les expressions traversant fragments et blocs sont
+surlignées ; compteur et précédent/suivant circulaires font défiler le résultat actif.
+Entrée dans le champ passe au résultat suivant avec retour au premier.
+La recherche conserve les accents et traite les suites de blancs comme équivalentes, sans occurrences
+chevauchantes. Elle ne commande jamais le lecteur ; les timestamps restent
+l'action explicite. Changer de vidéo/source la réinitialise. Le sélecteur
+d'intervalle est supprimé : présentation fixe à 10 secondes.
 
 L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
 une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
@@ -988,7 +1016,12 @@ Le premier enregistrement crée la note, y compris avec `content_md: ""` ; son a
 reste distincte d'une note vide. À la création les dates sont identiques ; ensuite
 `created_at` reste stable et une sauvegarde identique ne change aucune date.
 La création fournit `Location: /api/v1/videos/{id}/note`.
-Le Markdown est conservé exactement, sans trim, parsing, rendu ou normalisation.
+Le service applicatif normalise uniquement CRLF et CR vers LF avant sauvegarde,
+sans trim, parsing, rendu ni modification des autres caractères. Cette convention
+remplace la conservation exacte des séparateurs de 5.2. Aucune migration des notes
+existantes ni modification à leur lecture : GET restitue le contenu stocké.
+La première normalisation d'une ancienne note incrémente sa révision ; les variantes
+de séparateurs sont ensuite des sauvegardes identiques, sous précondition valide.
 Le contenu des notes n'est pas inclus dans les réponses vidéo générales.
 
 Les réponses du catalogue et de l'ajout de tags utilisent `{"tags":[{"id":3,"name":"Go"}]}`.
@@ -1051,9 +1084,12 @@ Le rechargement et la fermeture utilisent l'avertissement standard du navigateur
 lorsqu'il est disponible. Il n'y a pas de brouillon persistant : un crash brutal
 peut perdre les dernières modifications, notamment hors connexion.
 
-LF, CRLF et fins de ligne mixtes existantes sont conservés exactement.
-Les nouvelles lignes saisies avec Entrée utilisent LF ; les séparateurs existants
-ne sont pas normalisés. La migration 0005 attribue la révision 1 aux notes existantes
+LF est désormais canonique pour les notes. CodeMirror traite naturellement les
+collages LF/CRLF/CR et les documents mixtes. La session compare les contenus en LF
+sans écrire à l'ouverture, au changement de mode ou au départ de la fiche.
+Une sauvegarde explicite, ou une édition suivie d'autosauvegarde, peut normaliser
+une ancienne note. Aucun traitement spécifique du caret ni migration de contenu.
+La migration historique 0005 attribue la révision 1 aux notes existantes
 sans modifier leur texte ni leurs dates. Effectuer une sauvegarde à froid avant
 la mise à jour, comme décrit dans la section Docker ; adapter les clients REST
 à la précondition obligatoire.
@@ -1211,11 +1247,24 @@ L'étape Web est découpée en jalons validables :
 - **5.2 — éditeur Markdown et sauvegarde fiable** : implémenté et testé localement,
   périmètre fonctionnel validé manuellement ; édition/lecture GFM,
   autosauvegarde 2 s/20 s, conflits et navigation protégée ;
-- **5.3 — lecteur et transcription** : terminée, testée localement et prête à
-  fusionner après retours manuels positifs ; note principale, transcription
+- **5.3 — lecteur et transcription** : terminée, testée localement et fusionnée
+  après retours manuels positifs ; note principale, transcription
   indépendante du lecteur, paragraphes fluides et thèmes clair/sombre/système ;
-- **6 — interactions temporelles** : références avec début et fin facultative,
-  citations et rendu enrichi ; syntaxe candidate `sillage://` à expérimenter.
+- **6.1 — navigation transcription → lecteur** : implémentée, testée et validée
+  manuellement ; aucun démarrage automatique ni commande différée ;
+- **6.2 — insertion du temps courant** : implémentée, testée et validée
+  manuellement ; lien Markdown avec vidéo, source et millisecondes explicites ;
+- **6.3 — recherche dans la transcription** : implémentée et testée localement,
+  validation manuelle complète confirmée ; recherche continue entre fragments et blocs,
+  navigation circulaire et surlignages, sans action automatique sur le lecteur ;
+  regroupement fixé à 10 secondes ;
+- **6.4 — sélection et citation de transcription** : implémentée et testée localement,
+  retours manuels satisfaisants et correctifs de clôture livrés ; copie continue et citation au premier fragment
+  retenu, insertion contrôlée dans la note et Undo/Redo isolé ;
+- **6.5 — références Markdown vers le lecteur** : terminée et validée manuellement
+  pour son périmètre fonctionnel ; boutons en Lecture, URI strictes, identité
+  vidéo/source contrôlée et défilement conditionnel partagé avec la transcription ;
+- **Suite de 6 — interactions temporelles** : plages éventuelles et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
 
 La gestion complète des publishers et personnes reste hors de 5.1. La première
 source REST sert provisoirement à présenter une carte, sans créer de source
@@ -1263,7 +1312,7 @@ IA intégrée
 * idempotence par identité externe ;
 * API HTTP : ajout, liste et détail, DTO et erreurs JSON ;
 * acquisition et lecture locale des transcriptions automatiques originales YouTube ;
-* notes Markdown exactes, tags partagés et filtre par tag, persistants et disponibles via REST ;
+* notes Markdown canoniques en LF, tags partagés et filtre par tag, persistants et disponibles via REST ;
 * publishers, personnes et associations avec les tags partagés via REST ;
 * bibliothèque Web React/TypeScript/Vite, ajout YouTube avec détection des doublons
   et fiches vidéo navigables ;
@@ -1274,10 +1323,74 @@ Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une
 GitHub Actions réussie. Le jalon 4 est lui aussi terminé et validé manuellement
 et en CI : l'étape 5.1 est clôturée. L'étape 5.2 est implémentée et vérifiée
 localement, et son périmètre fonctionnel est validé manuellement. L'étape 5.3
-(lecteur et transcription) est terminée et prête à fusionner, avec retours manuels
+(lecteur et transcription) est terminée et fusionnée, avec retours manuels
 positifs de l'utilisateur. La vérification finale locale comprend 80 tests navigateur,
 les tests Go, vet, build Go et typage ; aucune nouvelle exécution de CI distante
 n'est revendiquée pour cette branche.
+
+La tranche 6.1 est implémentée et validée manuellement sur une branche dédiée, sans fusion automatique.
+Validation locale : 91 tests navigateur déterministes, tests Go complets,
+`go vet ./...`, builds Go/frontend et typage TypeScript réussis. Le lecteur peut se
+positionner sur l'image clé précédente ; la précision effective dépend de YouTube.
+
+La tranche 6.2 poursuit cette branche : 100 tests navigateur déterministes, tests
+Go complets, vet, builds Go/frontend et typage TypeScript réussis. Les 9 nouveaux
+parcours couvrent l'insertion, les sélections, Undo/Redo, l'autosauvegarde, les
+millisecondes et les états du lecteur, sans YouTube réel dans ces tests.
+La validation manuelle de 6.2 a été confirmée par l'utilisateur ; aucune CI distante
+ni reconstruction Docker revendiquée.
+
+Le correctif LF canonique est validé localement par 104 tests navigateur, les tests
+Go complets, vet, typage et builds Go/frontend. Les tests couvrent les collages
+CRLF/CR/mélangés, la visibilité du caret en fin de ligne, les révisions, les anciennes
+notes sans écriture à la lecture et la réconciliation après réponse perdue.
+Le collage est simulé à l'entrée navigateur dans ces tests ; le correctif LF
+a ensuite été validé manuellement par l'utilisateur. Aucun déploiement revendiqué. L'avertissement Vite sur le chunk CodeMirror subsiste.
+
+La tranche 6.3 est implémentée et validée localement : 113 tests navigateur,
+tests Go complets et race, vet, typage, builds Go/frontend et collection Postman
+déterministe (45 requêtes, 135 assertions). Captures clair/sombre et mobile
+inspectées. La validation manuelle de 6.3 est confirmée ; voir les scénarios dans
+`docs/05-roadmap-and-open-questions.md`. Aucun nouvel essai YouTube réel,
+CI distante ou build Docker revendiqué. La segmentation naturelle des blocs
+reste une investigation future, distincte de cette recherche locale.
+
+La tranche 6.4 est implémentée, sans changement d'API ni de persistance.
+Placez d'abord le curseur dans la note en Édition (inutile si elle est vide),
+sélectionnez un passage de transcription, puis activez « Citer dans la note ».
+Une sélection dans la note reçoit la citation après sa borne supérieure, sans
+effacement. En Lecture ou sans emplacement choisi dans une note non vide,
+un message demande de recommencer après préparation de la note.
+Ctrl+C copie uniquement le texte continu normalisé ; les timestamps sont exclus.
+
+Validation locale après correctif de clôture : 142 tests Playwright réussis, dont
+26 tests de citation ; tests Go, race, vet, typage et builds réussis.
+Les scénarios couvrent la copie native Chromium, les recherches actives,
+les sélections inversées, Undo/Redo, autosauvegarde, conflits et invalidations.
+Les retours manuels de 6.4 sont satisfaisants. Le correctif final réduit les
+échappements superflus et ajoute Ctrl+Shift+Z à la keymap Windows/Linux, en conservant
+Ctrl+Y. Ces deux Redo restent à confirmer manuellement sous Windows sur le build
+corrigé ; le test Win32 automatisé simule la plateforme dans Chromium Linux.
+La tranche est achevée dans son périmètre ; bilan et confirmations ciblées dans
+[la roadmap](docs/05-roadmap-and-open-questions.md#clôture-de-64-après-retours-manuels). Aucun nouvel essai
+YouTube réel, build Docker ou CI distante revendiqué. L'avertissement Vite
+sur le chunk CodeMirror reste présent.
+
+En 6.5, activez en Lecture une référence temporelle pour rejoindre le lecteur de
+la même vidéo/source. Le temps vient de start_ms, jamais du libellé. Une référence
+invalide reste inerte ; une autre vidéo/source donne un message sans navigation.
+Note et transcription réaffichent le lecteur et ramènent sa zone vidéo à l'écran
+seulement après une commande acceptée, sans autoplay ni déplacement du focus.
+Le Markdown brut reste inchangé en Édition.
+
+Validation 6.5 : 162 tests navigateur, tests Go/race, vet, typage, builds et
+135 assertions Postman réussies lors de la livraison. Les essais manuels rapportés
+par l'utilisateur sont satisfaisants, notamment les références réelles sur /videos/6.
+Le dernier correctif ouvre les liens HTTP(S) externes des notes dans un nouvel onglet
+protégé, y compris les autoliens GFM ; liens internes, mailto et références temporelles
+conservent leur comportement. Les 162 tests et validations habituelles passent.
+Seule cette nouvelle ouverture externe attend une confirmation manuelle ; aucune
+validation tactile ou d'un environnement non testé n'est revendiquée. Bilan dans la roadmap.
 
 ### API HTTP réalisée
 

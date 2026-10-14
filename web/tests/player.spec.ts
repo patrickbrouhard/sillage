@@ -9,8 +9,146 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/note', route => route.fulfill({ status: 404, json: { error: { code: 'note_not_found' } } }))
   await page.route('**/transcript', route => route.fulfill({ json: {
     language: 'fr', provenance: 'youtube_auto', last_fetched_at: '2026-10-12T10:00:00Z',
-    items: [{ start_ms: 1000, text: 'Transcription indépendante' }],
+    items: [{ start_ms: 1250, text: 'Transcription indépendante' }, { start_ms: 12750, text: 'Deuxième passage' }],
   } }))
+})
+
+for (const state of [-1, 0, 1, 2, 3, 5]) {
+  test(`navigation depuis l'état ${state}, clavier et clics répétés sans arrondir les millisecondes`, async ({ page }) => {
+    const requests: string[] = []
+    page.on('request', request => {
+      if (request.url().endsWith('/transcript')) requests.push(request.method())
+    })
+    await page.goto('/videos/42')
+    await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+    await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+    expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
+    expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(-1)
+    await page.evaluate(state => window.youtubeTest.players.at(-1)!.emitState(state), state)
+    const first = page.getByRole('button', { name: 'Aller à 0:01 dans le lecteur' })
+    await first.focus()
+    await first.press('Enter')
+    await first.press('Space')
+    await page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' }).click()
+    const prepare = [-1, 0, 5].includes(state)
+    expect(await page.evaluate(() => {
+      const player = window.youtubeTest.players.at(-1)!
+      return { state: player.state, position: player.position, calls: player.navigationCalls }
+    })).toEqual({
+      state: prepare ? 5 : state === 2 ? 2 : 1,
+      position: 12.75,
+      calls: [1.25, 1.25, 12.75].map(seconds => prepare
+        ? { command: 'cue', seconds, videoId: 'abcdefghijk' }
+        : { command: 'seek', seconds, allowSeekAhead: true }),
+    })
+    expect(requests).toEqual(['GET'])
+  })
+}
+
+test('un timestamp réaffiche le lecteur masqué sans reprendre la lecture', async ({ page }) => {
+  await page.goto('/videos/42')
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
+  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' }).click()
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  expect(await page.evaluate(() => window.youtubeTest.players.map(player => ({
+    state: player.state, position: player.position,
+  })))).toEqual([{ state: 2, position: 12.75 }])
+})
+
+test('aucune commande en attente avant onReady, après erreur ou après réessai', async ({ page }) => {
+  await page.addInitScript(() => { window.youtubeTest = { players: [], autoReady: false, confirmPause: true } })
+  await page.goto('/videos/42')
+  const timestamp = page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' })
+  await timestamp.click()
+  await expect(page.getByRole('status').filter({ hasText: 'Navigation non effectuée' })).toBeVisible()
+  await page.evaluate(() => {
+    const player = window.youtubeTest.players.at(-1)!
+    player.options.events.onReady({ target: player })
+  })
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
+  await timestamp.click()
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.position)).toBe(12.75)
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.options.events.onError({ data: 100 }))
+  await timestamp.click()
+  await expect(page.getByRole('status').filter({ hasText: 'Navigation non effectuée' })).toBeVisible()
+  await page.evaluate(() => { window.youtubeTest.autoReady = true })
+  await page.getByRole('button', { name: 'Réessayer le lecteur' }).click()
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
+  await timestamp.click()
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(5)
+})
+
+test('un clic pendant le masquage ne court-circuite pas l’arrêt, puis réaffichage sans commande différée', async ({ page }) => {
+  await page.clock.install()
+  await page.goto('/videos/42')
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  await page.evaluate(() => {
+    window.youtubeTest.confirmPause = false
+    window.youtubeTest.players.at(-1)!.emitState(1)
+  })
+  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  const timestamp = page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' })
+  await timestamp.click()
+  await expect(page.getByRole('status').filter({ hasText: 'Mise en pause du lecteur en cours' })).toBeVisible()
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
+  await page.clock.runFor(1100)
+  await expect(page.getByRole('button', { name: 'Afficher le lecteur' })).toBeVisible()
+  await timestamp.click()
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await page.clock.runFor(100)
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
+  await timestamp.click()
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.position)).toBe(12.75)
+})
+
+test('changer de fiche invalide le clic refusé et les événements de l’ancienne vidéo', async ({ page, request }) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trnav000001' } })).json()
+  await page.addInitScript(() => { window.youtubeTest = { players: [], autoReady: false, confirmPause: true } })
+  await page.goto('/videos/42')
+  await page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' }).click()
+  await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
+  await expect(page).toHaveURL('/')
+  await page.evaluate(() => {
+    const old = window.youtubeTest.players.at(-1)!
+    old.options.events.onReady({ target: old })
+    old.emitState(5)
+    window.youtubeTest.autoReady = true
+  })
+  await page.locator(`.video-card a[href="/videos/${video.id}"]`).click()
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  expect(await page.evaluate(() => window.youtubeTest.players.every(player => player.navigationCalls.length === 0))).toBe(true)
+})
+
+test('API bloquée et commande en exception restent explicites sans faux succès', async ({ page }) => {
+  await page.route('https://www.youtube.com/iframe_api', route => route.abort())
+  await page.goto('/videos/42')
+  await expect(page.getByRole('alert')).toContainText('Impossible de charger')
+  const timestamp = page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' })
+  await timestamp.click()
+  await expect(page.getByRole('status').filter({ hasText: 'Navigation non effectuée' })).toBeVisible()
+  await page.unroute('https://www.youtube.com/iframe_api')
+  await page.getByRole('button', { name: 'Réessayer le lecteur' }).click()
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  await page.evaluate(() => {
+    window.youtubeTest.players.at(-1)!.cueVideoById = () => { throw new Error('Commande impossible') }
+  })
+  await timestamp.click()
+  await expect(page.getByRole('alert')).toContainText('La commande YouTube a échoué')
+  await page.evaluate(() => {
+    const old = window.youtubeTest.players.at(-1)!
+    old.options.events.onReady({ target: old })
+  })
+  await timestamp.click()
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.destroyed)).toBe(true)
+  await expect(page.locator('.youtube-frame iframe')).toHaveCount(0)
 })
 
 test('pause avant masquage, position et instance conservées sans reprise', async ({ page }) => {

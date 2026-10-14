@@ -24,12 +24,16 @@ func TestServiceValidationWithoutHTTP(t *testing.T) {
 	}
 }
 
-func TestServicePreservesContentAndRepositoryErrors(t *testing.T) {
+func TestServiceNormalizesOnlyLineEndingsAndPreservesRepositoryErrors(t *testing.T) {
 	failure := errors.New("persistence failed")
-	for _, content := range []string{"", "  # Café\r\n\ttexte  \n"} {
-		r := repositoryStub{t: t, content: content, failure: failure}
+	for _, pair := range [][2]string{
+		{"", ""},
+		{"  # Café\n\ttexte  \n", "  # Café\n\ttexte  \n"},
+		{"  # Café\r\n\ttexte  \nfin\r\r\n", "  # Café\n\ttexte  \nfin\n\n"},
+	} {
+		r := repositoryStub{t: t, content: pair[1], failure: failure}
 		s := NewService(r)
-		if _, err := s.Save(context.Background(), 7, content, 0); !errors.Is(err, failure) {
+		if _, err := s.Save(context.Background(), 7, pair[0], 0); !errors.Is(err, failure) {
 			t.Fatal(err)
 		}
 		if _, err := s.Get(context.Background(), 7); !errors.Is(err, failure) {

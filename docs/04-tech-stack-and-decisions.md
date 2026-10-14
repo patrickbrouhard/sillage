@@ -43,7 +43,7 @@ peut être différée. Les mentions « implémenté » décrivent le code dispon
 | Distribution Web | fichiers statiques servis par Go, avec le binaire dans Docker | Acté |
 | Éditeur Markdown | CodeMirror 6 | Intégré directement et testé en 5.2 |
 | Références temporelles | début obligatoire, fin facultative, provenance conservée si nécessaire | Orientation actée pour 6 |
-| Syntaxe des références | liens Markdown avec URI `sillage://` | Candidate privilégiée, format ouvert |
+| Syntaxe des références | `[12:42](sillage://videos/5/sources/5?start_ms=762345)` | Acté en 6.2 ; `end_ms` réservé |
 | Desktop | possibilité future, Wails à évaluer | Ouvert |
 | IA intégrée | fournisseur à choisir | Ouvert |
 | STT local | moteur à choisir si besoin | Ouvert |
@@ -365,8 +365,9 @@ Il reste ouvert et pourra être évalué lorsque l'API introduira de vraies lect
 Les invariants fonctionnels sont définis dans [le modèle métier](02-domain-model.md),
 sections 5 et 9. Ils sont actés et implémentés.
 
-- Stocker le Markdown directement dans une colonne `TEXT`, sans transformation,
-  parsing ni rendu ; préserver exactement le contenu après relecture et redémarrage.
+- Stocker le Markdown dans une colonne `TEXT`, sans parsing ni rendu ; le service
+  normalise uniquement CRLF et CR en LF avant sauvegarde. La relecture restitue
+  le contenu stocké sans modification, y compris pour les anciennes notes.
 - Distinguer note absente et note vide ; conserver les dates lors d'une sauvegarde
   identique et utiliser UTC à précision milliseconde pour les modifications effectives.
 - Garantir en persistance l'unicité concurrente des tags selon leur identité
@@ -706,17 +707,33 @@ L'architecture doit éviter de dépendre directement d'OpenAI, Ollama ou d'un au
 - copie ordinaire préservant les informations utiles ; copie adaptée et export
   de consultation distincts d'une sauvegarde métier réimportable.
 
+### Références Markdown — décision 6.2
+
+Le format acté est `[12:42](sillage://videos/5/sources/5?start_ms=762345)`.
+`videos` est une autorité logique, pas un segment du chemin. Les identifiants
+vidéo/source sont toujours explicites pour conserver la provenance après copie
+entre notes de la même base. Le format ne dépend pas de l'hôte Web, mais ne résout
+pas les identités entre bases indépendantes. Pas de versionnement ni de protocole
+système enregistré. `start_ms` conserve les millisecondes ; le libellé `m:ss` ou
+`h:mm:ss` reste une présentation. `end_ms` est réservé aux futures plages.
+
+Insertion par transaction CodeMirror isolée dans l'historique, après la sélection
+sans remplacement, puis focus rendu. L'autosauvegarde et la persistance opaque
+existantes restent seules responsables de l'enregistrement. Aucun changement
+REST/SQLite, aucune Annotation ni nouvelle dépendance. Le temps est lu au clic,
+sans synchronisation continue et sans commande au lecteur. Seuls lecture, pause
+et fin avec position valide sont acceptées ; les états transitoires, non démarré
+et cued sont refusés. Le rendu Lecture, initialement inerte, est activable depuis 6.5.
+
 ### Préférences révisables
 
 CodeMirror 6 est intégré directement en 5.2, avec lecture react-markdown et remark-gfm.
-Les URI `sillage://` dans des liens Markdown sont la syntaxe candidate pour 6.
 La première source REST sert provisoirement à présenter les cartes en 5.1,
 sans devenir une règle métier de source principale.
 
 ### Questions ouvertes
 
-Bibliothèques complémentaires selon les besoins, layout final, protocole de
-format exact des références,
+Bibliothèques complémentaires selon les besoins, layout final, rendu enrichi des références,
 copie adaptée et formats d'export/sauvegarde. Ces questions ne justifient pas
 d'anticiper les étapes 5.2, 5.3 et 6 en 5.1.
 
@@ -916,15 +933,22 @@ restent à définir ; aucun mécanisme d'override n'est implémenté au jalon 4.
 
 Décisions actées : révision entière dans le modèle et JSON, expected_revision
 obligatoire (0 = absence attendue), 409 en cas de conflit, sans ETags.
-Markdown exact, GFM sécurisé sans HTML brut, bascule source/lecture, sauvegarde
+Markdown préservé hors normalisation LF, GFM sécurisé sans HTML brut, bascule source/lecture, sauvegarde
 après 2 s d'inactivité et maximum 20 s de saisie continue. Les règles UX et de
 réconciliation réseau sont détaillées dans Product & UX et Architecture.
 
 Choix techniques implémentés : CodeMirror 6 intégré directement ; react-markdown
 avec remark-gfm et HTML brut ignoré ; data router React Router pour bloquer les
 navigations. Le maintien de l'éditeur monté préserve son état entre les modes.
-Les fins de ligne LF, CRLF et mixtes sont vérifiées par les tests navigateur ;
-aucune normalisation des séparateurs existants n'est introduite.
+La décision initiale de préserver exactement LF/CRLF est remplacée : LF est
+canonique pour les notes. CRLF et CR sont normalisés avant persistance dans le
+service applicatif, sans transformation des autres caractères. CodeMirror utilise
+son traitement natif des séparateurs, notamment lors des collages Windows.
+Pas de migration des notes temporaires existantes ni de modification par GET.
+L'ancienne version reste inchangée jusqu'à un enregistrement explicite ou une
+édition suivie d'autosauvegarde. La session compare en LF pour éviter toute
+écriture due à la seule ouverture ou au départ de la fiche. Révisions, conflits,
+réconciliation après réponse perdue et Undo/Redo sont conservés et testés.
 
 Choix locaux révisables : délai réseau de 12 s, deux reprises après 1 puis 3 s,
 composants et messages. La vérification automatique locale est réussie ;
@@ -933,4 +957,58 @@ du dernier commit sont consultables dans GitHub Actions.
 
 Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
 ou mécanisme générique documentaire. Le cadrage 5.3 est désormais implémenté
-(voir Product & UX et Architecture) ; les interactions temporelles de 6 restent futures.
+(voir Product & UX et Architecture). Les tranches 6.1 à 6.5 sont implémentées ;
+plages et navigation entre vidéos/sources restent futures.
+
+### Recherche locale dans la transcription — tranche 6.3
+
+Décisions implémentées en 6.3 : recherche textuelle insensible à la casse dans le contenu déjà
+chargé, sans requête supplémentaire. Le texte continu concatène exactement les
+fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
+Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
+Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
+avec distinction du résultat actif et défilement vers celui-ci.
+Changer de vidéo ou de source réinitialise la recherche.
+La navigation des résultats ne commande jamais le lecteur : les timestamps
+cliquables restent l'action explicite pour rejoindre un instant.
+Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
+préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
+Aucun endpoint, changement du domaine, de la persistance ou moteur global.
+Acquisition, actualisation, édition des notes et insertion temporelle conservées.
+La segmentation naturelle, la synchronisation continue, les citations (6.4)
+et la navigation depuis le Markdown restent hors périmètre.
+
+### Citation 6.4 — décisions du 14 octobre 2026, implémentées
+
+Extraction et copie de texte continu depuis une sélection native de transcription ;
+blancs réduits seulement dans l'extrait, timestamps exclus, mark transparents.
+Bouton stable, position d'insertion explicitement choisie pour les notes non vides,
+transaction CodeMirror isolée et autosauvegarde existante. Citation Markdown littérale,
+ligne vide avant la référence sillage:// avec start_ms du premier fragment retenu,
+sans end_ms. Aucun objet métier, endpoint, dépendance ou changement de persistance.
+Bouton flottant, sélection personnalisée et plages différés. Navigation vers le
+lecteur courant livrée en 6.5, sans changement de vidéo/source.
+
+Les copies passent par l'événement natif copy et n'exigent pas de permission
+presse-papiers. L'extrait est invalidé quand le rendu change et consommé lors
+de l'action. Les gestes explicites dans CodeMirror sont distingués des focus
+automatiques ; les séparateurs réutilisent les LF adjacents sans retirer de texte.
+Limites acceptées : insertion textuelle dans les contextes Markdown complexes,
+autoliens GFM ordinaires, sélection au clavier via les capacités natives du
+navigateur. Les retours manuels sont satisfaisants ; l'échappement a été réduit
+au contexte Markdown utile et Ctrl+Shift+Z ajouté à la keymap CodeMirror.
+Le bilan de clôture et les confirmations clavier par plateforme sont dans la roadmap ;
+la présentation plus naturelle du Markdown reste une piste UX, pas un choix technique.
+
+
+### Navigation 6.5 — terminée, périmètre fonctionnel validé manuellement
+
+Parseur canonique strict, autorisation react-markdown limitée aux href valides,
+bouton natif en Lecture et contrôle des identités dans la fiche. Même commande
+que la transcription, défilement instantané conditionnel après réaffichage DOM.
+Aucun changement d'éditeur, de dépendance, de contrat REST ou de persistance.
+Contrat, tests et checklist dans la roadmap ; détails techniques dans Architecture.
+
+Les liens Web externes des notes s'ouvrent désormais dans un nouvel onglet protégé ;
+ce dernier correctif est testé automatiquement et attend sa confirmation manuelle.
+Le détail des essais et des limites de validation est centralisé dans la roadmap.

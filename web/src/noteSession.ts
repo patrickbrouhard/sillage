@@ -16,6 +16,11 @@ export interface NoteSnapshot {
 
 interface Sent { content: string; revision: number }
 
+/** Compare et édite en LF sans réécrire les anciennes notes lors de leur lecture. */
+function normalizeLineEndings(content: string): string {
+  return content.replace(/\r\n?/g, '\n')
+}
+
 /** Pilote une seule note en mémoire, sans cache persistant ni synchronisation entre onglets. */
 export class NoteSession {
   private state: NoteSnapshot = {
@@ -49,7 +54,7 @@ export class NoteSession {
   }
 
   /** Indique si le texte local diffère du dernier contenu confirmé. */
-  get dirty() { return this.state.content !== (this.state.confirmed?.content_md ?? '') }
+  get dirty() { return this.state.content !== normalizeLineEndings(this.state.confirmed?.content_md ?? '') }
 
   /** Une écriture incertaine reste à protéger, même après Undo vers le texte précédent. */
   get unconfirmed() { return this.dirty || this.uncertain !== null || this.running !== null || this.state.phase === 'saving' || this.state.phase === 'conflict' }
@@ -62,7 +67,7 @@ export class NoteSession {
     try {
       const note = await getNote(this.videoID, this.signal())
       if (lifetime.signal.aborted) return
-      this.publish({ loaded: true, content: note?.content_md ?? '', confirmed: note, phase: 'ready' })
+      this.publish({ loaded: true, content: normalizeLineEndings(note?.content_md ?? ''), confirmed: note, phase: 'ready' })
     } catch {
       if (!lifetime.signal.aborted) this.publish({ phase: 'error', message: 'Impossible de charger la note.' })
     }
@@ -97,14 +102,17 @@ export class NoteSession {
   }
 
   /** Sérialise les demandes ; un Ctrl+S pendant une écriture prend ensuite le texte le plus récent. */
-  save = async (createEmpty = false): Promise<void> => {
+  save = async (explicit = false): Promise<void> => {
     if (!this.state.loaded || this.lifetime.signal.aborted || this.state.phase === 'conflict') return
     if (this.running) {
       await this.running
       if (this.state.phase === 'ready' && this.dirty) return this.save()
       return
     }
-    if (!this.dirty && !this.uncertain && !(createEmpty && !this.state.confirmed)) return
+    // Un enregistrement explicite peut normaliser une ancienne note sans modification visible.
+    // Une simple lecture, un Undo ou un départ de fiche ne déclenchent pas cette écriture.
+    const explicitWrite = explicit && (!this.state.confirmed || this.state.confirmed.content_md !== this.state.content)
+    if (!this.dirty && !this.uncertain && !explicitWrite) return
     this.clearTimers()
     const sent = this.uncertain ?? { content: this.state.content, revision: this.state.confirmed?.revision ?? 0 }
     // Les modifications suivantes ont leur propre échéance de 20 secondes.
@@ -194,7 +202,7 @@ export class NoteSession {
     if (this.state.phase !== 'conflict' || remote === undefined) return
     this.clearTimers(); this.uncertain = null; this.firstPending = null
     this.publish({
-      content: remote?.content_md ?? '', confirmed: remote, phase: 'ready', message: '',
+      content: normalizeLineEndings(remote?.content_md ?? ''), confirmed: remote, phase: 'ready', message: '',
       remote: undefined, editorVersion: this.state.editorVersion + 1,
     })
   }

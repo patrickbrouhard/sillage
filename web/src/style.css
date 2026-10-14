@@ -165,10 +165,15 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .note-navigation::backdrop { background: #0007; }
 
 .transcript-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
-.transcript-toolbar select { font: inherit; padding: .5rem; color: inherit; }
+.transcript-search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.transcript-search label { flex: 1 1 12rem; min-width: 0; }
+.transcript-search input { width: 100%; min-width: 0; padding: .6rem; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+.transcript-search .button:disabled { cursor: default; }
+.transcript-content mark { background: #ffe49a; color: #302300; }
+.transcript-content .transcript-match-active { background: #194c91; color: #fff; outline: 2px solid #194c91; }
 .transcript-block { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: .75rem; margin: 1rem 0; }
 .transcript-block p { margin: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
-.transcript-time { font-variant-numeric: tabular-nums; color: var(--muted); font-size: .85rem; padding-top: .2rem; }
+.transcript-time { user-select: none; -webkit-user-select: none; font: inherit; font-variant-numeric: tabular-nums; color: var(--label); font-size: .85rem; padding: .2rem; border: 0; background: transparent; align-self: start; text-align: left; text-decoration: underline; cursor: pointer; }
 .player-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
 .player-toolbar h2 { margin-right: auto; }
 .player-toolbar a { font-size: .85rem; }
@@ -204,7 +209,9 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
   .video-player { grid-area: player; }
   .youtube-frame:has(iframe) { height: clamp(200px, 28dvh, 340px); aspect-ratio: auto; }
   .video-transcript { grid-area: transcript; display: flex; flex-direction: column; min-height: 0; overflow: auto; }
-  .transcript-content { overflow: auto; min-height: 0; flex: 1; }
+  /* Les commandes restent accessibles même lorsque les messages réduisent la hauteur disponible. */
+  .video-transcript > :not(.transcript-content) { flex-shrink: 0; }
+  .transcript-content { overflow: auto; min-height: 6rem; flex: 1; }
   .without-source { grid-template-rows: minmax(0, 1fr); grid-template-areas: "note player"; }
 }
 
@@ -216,8 +223,15 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .theme-selector select { font: inherit; padding: .45rem; border-radius: 6px; }
 select, input, textarea { background-color: var(--input); color: var(--text); border-color: var(--border); }
 ::selection { background: var(--selection); color: var(--text); }
+/* Sans drawSelection, le caret est natif ; le thème clair interne de CodeMirror le force sinon en noir. */
+.markdown-editor .cm-content { caret-color: var(--text); }
 .markdown-editor .cm-cursor { border-left-color: var(--text); }
 .markdown-editor .cm-selectionBackground { background: var(--selection) !important; }
 .markdown-reading pre, .markdown-reading code { background: var(--tag); }
 .markdown-reading pre { padding: .75rem; border-radius: .4rem; }
 .note-navigation { background: var(--surface); color: var(--text); }
+
+/* Une action de lecture, sans apparence de bouton principal ni lien externe. */
+.temporal-reference { font: inherit; color: var(--label); background: transparent; border: 0; padding: .1em .2em; text-decoration: underline; cursor: pointer; }
+.temporal-reference:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.temporal-message { font-size: .9em; }

@@ -4,6 +4,7 @@ package note
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -53,10 +54,12 @@ func (s *Service) Get(ctx context.Context, id video.VideoID) (Note, error) {
 	return s.repository.Get(ctx, id)
 }
 
-// Save accepte le texte vide et refuse le texte non UTF-8 sans jamais le transformer.
+// Save accepte le texte vide, refuse le texte non UTF-8 et normalise uniquement les fins de ligne en LF.
 func (s *Service) Save(ctx context.Context, id video.VideoID, content string, expectedRevision int64) (SaveResult, error) {
 	if id <= 0 || expectedRevision < 0 || !utf8.ValidString(content) {
 		return SaveResult{}, video.ErrInvalidInput
 	}
+	// Traiter CRLF avant CR évite de produire deux sauts de ligne pour une seule fin de ligne.
+	content = strings.ReplaceAll(strings.ReplaceAll(content, "\r\n", "\n"), "\r", "\n")
 	return s.repository.Save(ctx, id, content, expectedRevision, time.Now().UTC().Truncate(time.Millisecond))
 }

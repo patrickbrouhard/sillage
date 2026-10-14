@@ -184,8 +184,12 @@ le cadrage et l'implémentation sont terminés : une vidéo
 possède zéro ou une note persistée, créée au premier enregistrement seulement.
 Une note absente et une note enregistrée vide sont deux états distincts.
 
-Le contenu est conservé et restitué sans transformation, y compris ses espaces,
-son indentation et ses retours à la ligne. Une sauvegarde identique ne change
+LF (`\n`) est la convention canonique des notes Markdown : à l'enregistrement,
+CRLF et CR deviennent LF, sans modifier les autres caractères, espaces ou indentations.
+Cette décision remplace la conservation exacte des séparateurs décidée en 5.2.
+Aucune migration ni écriture à la lecture des anciennes notes n'est effectuée.
+Leur prochaine sauvegarde explicite, ou une édition suivie d'autosauvegarde,
+peut les normaliser. Une sauvegarde identique après normalisation ne change
 pas sa date de modification. Les notes appartiennent à la vidéo, indépendamment
 des métadonnées et transcriptions de ses sources.
 
@@ -194,8 +198,8 @@ les décisions suivantes sont actées :
 
 - note principale en Markdown source enrichi, sans WYSIWYG ni Live Preview ;
 - bascule Édition/Lecture dans le même espace ; rendu GFM sécurisé sans HTML brut ;
-- conservation exacte du texte, y compris LF, CRLF et mélanges ; aucune
-  transformation lors d'une bascule ; curseur, sélection et Undo/Redo préservés
+- conservation du Markdown hors normalisation des fins de ligne en LF ; aucune
+  écriture lors d'une bascule ; curseur, sélection et Undo/Redo préservés
   autant que possible pendant la session ;
 - sauvegarde après 2 s d'inactivité ou 20 s depuis les premières modifications
   non prises en charge ; aucune écriture périodique sans changement ;
@@ -245,30 +249,33 @@ aucune modification visuelle immédiate ni nouvelle étape de roadmap :
   sera réexaminée avec l'arrivée du lecteur et de la transcription, sans figer
   maintenant le workspace.
 
-### 6.2 Première passe : préserver le flow
+### 6.2 Insertion du temps courant — tranche 6.2
 
-Les timestamps interactifs décrits ci-dessous et les annotations structurées
-de la section 6.4 sont réservés à l'étape 6. L'étape 4 conserve uniquement
-le Markdown brut, sans parsing ni rendu.
+Le bouton `+ Temps` de la barre de note insère une référence en mode Édition,
+au curseur ou après le texte sélectionné, quel que soit le sens de sélection.
+Aucun texte sélectionné n'est remplacé. Un espace suit la référence ; le curseur
+et le focus reviennent après cet espace pour poursuivre immédiatement la rédaction.
+L'insertion forme une action Undo/Redo indépendante et suit l'autosauvegarde normale.
+Le lecteur et la session d'édition ne sont ni interrompus ni remontés.
 
 Pendant la lecture, l'utilisateur doit pouvoir noter une idée sans quitter mentalement la vidéo.
 
 Action centrale :
 
 ```text
-[ + timestamp ]
+[ + Temps ]
 ```
 
 À l'instant courant, l'application insère par exemple :
 
 ```markdown
-[12:42]
+[12:42](sillage://videos/5/sources/5?start_ms=762345)
 ```
 
 L'utilisateur écrit immédiatement :
 
 ```markdown
-[12:42] Cette distinction pourrait être utile pour le projet X.
+[12:42](sillage://videos/5/sources/5?start_ms=762345) Cette distinction pourrait être utile pour le projet X.
 ```
 
 Cette opération doit être extrêmement rapide.
@@ -276,6 +283,19 @@ Cette opération doit être extrêmement rapide.
 Pas de modal.
 Pas de formulaire obligatoire.
 Pas de validation complexe.
+
+Le temps est lu au clic, arrondi à la milliseconde ; le libellé utilise `m:ss`
+ou `h:mm:ss` sans afficher la fraction. Lecture, pause et fin de vidéo permettent
+l'insertion si la position est valide, y compris zéro. Un lecteur masqué en pause
+reste masqué. Avant la première lecture, en état `cued`, en buffering, pendant
+le masquage, avant disponibilité ou après erreur/destruction, aucune référence
+n'est insérée : un message invite à réessayer. Aucune action n'est différée.
+Une exception de lecture du temps n'envoie aucune commande au lecteur.
+
+En mode Lecture, `+ Temps` est désactivé et le libellé reste sans interaction ;
+le Markdown source conserve l'URI complète. Le rendu enrichi et la navigation
+inverse attendent 6.5. Dans un contexte de code Markdown, l'insertion reste du
+texte de code : aucun déplacement automatique ni analyse générale du document.
 
 ### 6.3 Références temporelles et citations — orientation pour l'étape 6
 
@@ -285,9 +305,11 @@ transcription sont deux workflows pouvant utiliser cette même notion.
 La provenance temporelle doit être conservée lorsque nécessaire pour retrouver
 la bonne source ; sa représentation précise reste à expérimenter.
 
-Les liens Markdown contenant une URI `sillage://` sont la syntaxe candidate
-privilégiée, pas un format arrêté. Les exemples `[12:42]` illustrent l'intention
-d'usage, sans constituer un contrat de parsing.
+Le format des liens est acté en 6.2 :
+`[12:42](sillage://videos/5/sources/5?start_ms=762345)`.
+La vidéo et la source sont toujours explicites ; `videos` est l'autorité logique
+de l'URI. `end_ms` est réservé aux plages futures, sans être produit ni interprété
+en 6.2. Le libellé ne détermine jamais la position structurée.
 
 Le Markdown brut peut contenir des extensions propres à Sillage. La compatibilité
 fonctionnelle avec des applications externes n'est pas prioritaire. La copie
@@ -389,7 +411,7 @@ de tous sous-titres. Après résultat POST incertain, une relecture locale peut
 retrouver le contenu publié ; aucun POST n'est relancé automatiquement.
 
 Les fragments sont regroupés en présentation par intervalles fixes ancrés sur zéro,
-de 10 secondes par défaut, réglables à 5, 10, 15 ou 30 secondes sans persistance.
+de 10 secondes fixes depuis 6.3, sans sélecteur ni préférence.
 Chaque fragment est affecté selon start_ms, sans découpe ; seuls les fragments
 consécutifs du même intervalle sont réunis. L'ordre source reste prioritaire, même
 en cas de retour temporel : un intervalle peut donc produire plusieurs blocs.
@@ -403,8 +425,135 @@ sont pas reproduites. Les chaînes regroupées, les fragments REST et les donné
 sources conservent leurs espaces exacts ; aucun espace n'est ajouté entre deux
 fragments d'un même mot. Les groupes restent séparés avec leur timestamp.
 Les frontières peuvent couper une phrase ou un mot. Aucun traitement linguistique,
-changement de modèle ou de persistance n'est introduit. Les timestamps ne sont pas
-cliquables ; recherche, synchronisation, citations et insertion du temps attendent 6.
+changement de modèle ou de persistance n'est introduit.
+
+En 6.1, chaque timestamp est un bouton accessible au clavier (Entrée ou Espace).
+Il demande au lecteur YouTube de rejoindre le `start_ms` réel du bloc, sans
+arrondir à la seconde affichée. Une lecture en cours continue ; une vidéo en pause
+reste en pause. Avant la première lecture ou après la fin, le point de départ est
+préparé sans démarrage automatique. Un lecteur masqué est réaffiché.
+Pendant un masquage en cours, la garantie d'arrêt reste prioritaire : un message
+invite à renouveler l'action après l'arrêt. Si le lecteur est indisponible ou pas
+encore prêt, le message explique que la navigation n'a pas eu lieu ; le timestamp
+doit être activé à nouveau une fois le lecteur prêt. Aucune commande n'est différée.
+La commande envoyée n'est pas présentée comme une position confirmée par YouTube.
+La note conserve sa session, sa sélection, son historique et son autosauvegarde.
+Le clic ne déclenche ni acquisition de transcription ni insertion dans la note.
+La recherche locale est implémentée en 6.3 ci-dessous ; l'insertion du temps est
+implémentée en 6.2 et les citations en 6.4. La synchronisation continue reste future.
+
+### Recherche locale dans la transcription — tranche 6.3
+
+Implémentée en 6.3 : recherche textuelle insensible à la casse dans le contenu déjà
+chargé, sans requête supplémentaire. Le texte continu concatène exactement les
+fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
+Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
+Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
+avec distinction du résultat actif et défilement vers celui-ci.
+Changer de vidéo ou de source réinitialise la recherche.
+La navigation des résultats ne commande jamais le lecteur : les timestamps
+cliquables restent l'action explicite pour rejoindre un instant.
+Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
+préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
+Aucun endpoint, changement du domaine, de la persistance ou moteur global.
+Acquisition, actualisation, édition des notes et insertion temporelle conservées.
+La segmentation naturelle, la synchronisation continue, les citations (6.4)
+et la navigation depuis le Markdown restent hors périmètre.
+
+La recherche est littérale hors équivalence des blancs : pas d'expressions régulières
+ni de suppression des accents. Un espace saisi correspond aussi aux sauts de ligne,
+tabulations et suites de blancs du texte source, sans modifier ce dernier. Les occurrences sont non chevauchantes, de gauche
+à droite. Une saisie vide n'affiche aucun résultat. Le compteur indique le résultat
+actif et le total (0 / 0 sans correspondance) ; les deux commandes sont alors désactivées.
+Entrée dans le champ passe au résultat suivant avec retour circulaire, sans déplacer
+le focus ni commander le lecteur ; la validation IME est ignorée.
+Les blancs sources restent exacts, même si CSS les réduit visuellement dans les
+paragraphes. Une actualisation réussie conserve la requête, recalcule les occurrences
+et sélectionne la première ; pendant l'opération ou après un échec, le contenu
+conservé reste consultable avec la sélection courante.
+Sur desktop, seul le texte de la transcription défile ; sur mobile, les résultats
+participent au défilement normal de la page. La recherche n'est pas persistée.
+
+### 6.4 — Sélection et citation de transcription
+
+Cadrage consigné avant le code le 14 octobre 2026, puis implémenté et testé
+localement. Retours manuels utilisateur satisfaisants, puis correctifs ciblés de clôture
+(voir le bilan 6.4 dans la roadmap). Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
+persisté. Aucun end_ms. Les références sont activables en Lecture depuis 6.5.
+
+Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
+ou tactile, partielle ou traversant plusieurs fragments/blocs, y compris les mark
+de recherche. Aucun système personnalisé de sélection. Les timestamps sont exclus
+de la sélection de texte et du texte copié, mais restent des boutons accessibles.
+La copie native d'une sélection valide produit seulement du texte continu :
+concaténation dans l'ordre source sans séparateur ajouté, suites de blancs réduites
+à un espace, blancs de bord retirés. Les copies hors sélection valide ne sont pas
+interceptées. Les fragments et timestamps sources restent intacts.
+
+Un bouton stable « Citer dans la note » est activé pour un passage valide.
+Le passage est conservé avant le transfert de focus, puis invalidé au changement
+de vidéo/source, au remplacement effectif de transcription ou lorsque la recherche
+rend la sélection obsolète. Aucune citation différée ou remplacement silencieux
+du passage. Un clic ou un transfert de focus vers un autre outil abandonne
+l'extrait mémorisé ; le transfert vers « Citer dans la note » le conserve.
+L'action consomme la sélection, y compris en cas de refus. Les sélections vides,
+composées uniquement de blancs, multiples ou débordant hors de la transcription
+ne sont pas acceptées. Aucun bouton flottant dans cette tranche.
+
+Le début vient du premier fragment contenant du texte réellement retenu après
+nettoyage, même si ses timestamps ne sont pas monotones. Ni timestamp systématique
+du bloc, ni interpolation à l'intérieur d'un fragment. Le texte est échappé pour
+rester littéral en Markdown. Format :
+
+```markdown
+> They may not agree with those arguments.
+
+— [0:21](sillage://videos/5/sources/5?start_ms=21000)
+```
+
+En Édition, une note vide (zéro caractère) accepte l'insertion à zéro. Une note
+non vide, y compris seulement des espaces, exige un emplacement choisi explicitement
+par l'utilisateur. Un focus automatique ne suffit pas. La position persiste après
+perte du focus ; une sélection de note reçoit l'insertion après sa borne supérieure
+sans remplacement. En Lecture ou sans emplacement choisi : message explicatif,
+sans bascule, insertion automatique ou mise en attente ; recommencer ensuite
+la sélection de transcription. Le remplacement de la version éditée invalide
+l'emplacement choisi.
+
+Insertion dans la session CodeMirror existante, avec les séparateurs LF nécessaires
+pour isoler le bloc, une ligne vide entre citation et référence et un curseur après
+la référence et sa ligne vide finale. Les sauts LF déjà présents sont réutilisés ;
+aucun caractère existant n’est retiré. Citation, référence et séparateurs constituent un seul Undo/Redo et utilisent
+l'autosauvegarde, les révisions et les conflits existants. Aucun ordre au lecteur.
+Dans les listes, tableaux ou blocs de code, l'insertion reste textuelle : aucune
+restructuration ou recherche automatique d'un autre emplacement. Le rendu peut
+donc dépendre du contexte Markdown ; c'est une limite acceptée. L'échappement protège
+les syntaxes inline, les entités et les marqueurs de bloc en début de paragraphe,
+sans ajouter d'antislashs à la ponctuation ordinaire. Les URL littérales
+peuvent toujours être reconnues par les autoliens GFM du mode Lecture, sans changer
+leur libellé.
+
+Le bouton flottant et les finitions graphiques sont différés. La navigation au
+curseur et les menus tactiles natifs dépendent du navigateur. Le bilan manuel,
+les confirmations complémentaires et les pistes UX sont consignés dans la roadmap.
+
+### Navigation depuis la note — tranche 6.5, implémentée
+
+En Lecture, les références temporelles canoniques deviennent des boutons natifs ;
+en Édition, elles restent du Markdown brut. Le temps vient uniquement de start_ms.
+Seule l'identité vidéo/source du lecteur courant autorise une commande. Les autres
+identités donnent un message non bloquant, sans changer de fiche ni de source.
+Les références invalides restent inertes. L'activation préserve la note et le focus.
+
+La navigation partage les garanties des timestamps de transcription. Les deux
+actions ramènent la zone vidéo à l'écran seulement après commande acceptée,
+par défilement instantané minimal et sans toucher aux défilements internes.
+Le réaffichage d'un lecteur indisponible ne constitue pas un succès.
+Dans les notes, les liens Web HTTP(S) d'origine externe, explicites ou reconnus
+par GFM, ouvrent un nouvel onglet protégé. Les liens internes gardent la navigation
+React Router dans le même onglet, mailto son comportement natif et les références
+temporelles leur activation locale. Les URL dangereuses restent filtrées.
+Contrat détaillé, exclusions et validations dans la tranche 6.5 de la roadmap.
 
 ### 8.3 Stockage et évolutions
 
