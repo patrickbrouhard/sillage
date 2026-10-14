@@ -7,6 +7,8 @@ import type { TemporalReference } from './temporalReference'
 import { formatDuration } from './videoPresentation'
 import remarkGfm from 'remark-gfm'
 import { Link } from 'react-router'
+import { remarkCallouts } from './remarkCallouts'
+import { QuoteCallout } from './QuoteCallout'
 
 /** Garde le retour de navigation près de son action, sans toucher à la session de note. */
 function TimeButton({ reference, children, onNavigate }: {
@@ -32,6 +34,20 @@ export function MarkdownReading({ content, onNavigate }: {
 }) {
   // Un changement d'état de sauvegarde ne doit pas remonter l'action focalisée.
   const components = useMemo<Components>(() => ({
+    blockquote: ({ node, children }) => {
+      const kind = node?.properties['data-callout']
+      if (kind === 'quote') return <QuoteCallout transcript={false}
+        attribution={String(node?.properties['data-attribution'] ?? '')}>{children}</QuoteCallout>
+      const uri = node?.properties['data-reference']
+      const reference = kind === 'quote:tr' && typeof uri === 'string'
+        ? parseTemporalReference(uri) : null
+      if (reference) return <QuoteCallout transcript
+        title={String(node?.properties['data-title'] ?? '')}
+        action={<TimeButton key={String(uri)} reference={reference} onNavigate={onNavigate}>
+          {formatDuration(reference.startMs)}
+        </TimeButton>}>{children}</QuoteCallout>
+      return <blockquote>{children}</blockquote>
+    },
     a: ({ href, children }) => {
       if (!href) return <span>{children}</span>
       const reference = parseTemporalReference(href)
@@ -48,7 +64,7 @@ export function MarkdownReading({ content, onNavigate }: {
     },
   }), [onNavigate])
   return <div className="markdown-reading" aria-label="Lecture de la note">
-    {content ? <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml
+    {content ? <ReactMarkdown remarkPlugins={[remarkGfm, remarkCallouts]} skipHtml
       urlTransform={(value, key, node) =>
         key === 'href' && node.tagName === 'a' && parseTemporalReference(value)
           ? value : defaultUrlTransform(value)}

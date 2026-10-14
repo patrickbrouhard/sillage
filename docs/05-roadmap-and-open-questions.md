@@ -951,6 +951,77 @@ export peuvent convertir les références. L'export Markdown de consultation est
 distinct d'une sauvegarde réimportable de toutes les données métier.
 Aucune de ces capacités ne doit être implémentée artificiellement en 5.1.
 
+
+## 8 bis. UX 1 — Confort des citations Markdown après l'étape 6
+
+### UX 1.1 — Callouts en Lecture et insertion
+
+Contrat validé le 14 octobre 2026 ; implémentation sur feat/markdown-callouts,
+sans fusion dans master. Le contrat détaillé est dans Product & UX, la frontière
+des composants dans Architecture et le choix technique dans Tech stack.
+
+Cette tranche remplace le format généré de 6.4 par quote:tr avec URI dans l'en-tête
+et timestamp calculé. Les bilans 6.4 ci-dessus décrivent le format historique ;
+ses notes restent lisibles et navigables, sans migration ni détection rétroactive.
+Lecture : deux formes ciblées, cadre React commun, attribution littérale,
+pictogrammes accessibles, navigation 6.5 et replis inertes. Insertion : extraction,
+échappement, sélection, Undo/Redo, autosauvegarde et conflits conservés.
+
+Validation automatisée du 14 octobre 2026 :
+- make test : tests Go, go vet, build Go et typage TypeScript réussis ;
+- make test-web : builds frontend/serveur et 204 tests Playwright réussis,
+  dont 42 nouveaux scénarios de callouts ; tests 6.4 adaptés au nouveau format ;
+- couverture : syntaxe stricte et replis, échappements, entités, liens traversant
+  l'en-tête, GFM partagé, imbrications, continuations paresseuses, ancien format,
+  navigation 6.5, focus/messages pendant la sauvegarde, insertion et rechargement
+  via Go/SQLite, Undo/Redo et conflits ;
+- captures contrôlées en clair/sombre aux largeurs 375 et 1440 px ; pas de
+  débordement horizontal dans ces scénarios. Le thème système utilise les mêmes
+  couleurs ; les tests de thème existants restent verts.
+
+Environnement WSL : runtimes Linux et bibliothèques Chromium déjà présentes sous
+/tmp/sillage-browser-libs/usr/lib/x86_64-linux-gnu via LD_LIBRARY_PATH. Aucun ajout
+de dépendance, installation système ou changement de configuration projet.
+L'avertissement Vite existant sur le chunk CodeMirror supérieur à 500 ko subsiste.
+YouTube est simulé dans les tests navigateur ; aucun essai YouTube réel revendiqué.
+
+Compromis : une analyse supplémentaire de la note contenant un en-tête connu,
+avec le même parseur et une copie temporaire pour isoler en-tête et corps. Aucun
+second renderer du corps, aucune modification de la note. La validation visuelle
+et fonctionnelle par l'utilisateur reste attendue avant fusion.
+
+Validation manuelle attendue avant fusion :
+- examiner les deux cadres, les pictogrammes et les attributions longues en
+  Clair/Sombre/Système, sur écran large et étroit ;
+- citer une sélection réelle, passer en Lecture, activer le timestamp, puis
+  revenir en Édition et vérifier Undo/Redo et sauvegarde ;
+- essayer une ancienne citation, une URI invalide et une référence d'autre source ;
+- vérifier le focus et le retour près du timestamp avec lecteur masqué ou indisponible.
+
+### Complément UX 1.1 — Titres de transcription, 15 octobre 2026
+
+Titre facultatif en texte simple après l'URI, séparé par espace/tabulation,
+limité à la ligne. « Transcription » par défaut si absent ou blanc.
+Le titre apparaît près du pictogramme ; le timestamp reste à droite.
+L'insertion reste sans titre personnalisé. Aucun changement de validation URI,
+de persistance, de navigation ou d'éditeur. Remplace l'interdiction initiale
+de tout texte après l'URI.
+
+Validation du 15 octobre 2026 : make test et make test-web réussis (208 tests Web,
+tests Go, go vet, typage et builds). Cas couverts : titres absents/blancs, espaces
+et tabulations, CR/LF/CRLF, Markdown et HTML littéraux, parenthèses dans les titres,
+URI invalides avec titre, imbrications, titre long, navigation et stabilité pendant
+la sauvegarde. Captures vérifiées à 375 et 1440 px, en clair et sombre, sans
+débordement ni recouvrement du timestamp. Insertion automatique sans titre conservée.
+Même environnement WSL que ci-dessus ; avertissement Vite préexistant inchangé.
+Reste à confirmer manuellement l'équilibre visuel avec des titres réels et la
+navigation YouTube réelle, avant fusion.
+
+### UX 1.2 — Confort d'édition, non implémenté
+
+Décorations légères CodeMirror, syntaxe entièrement visible et éditable.
+Aucun Live Preview, masquage d'URI, migration ou nouveau type dans UX 1.1.
+
 ## 9. Étape 7 — Téléchargement local et screenshots
 
 ### Objectif

@@ -117,8 +117,10 @@ Reset search on video/source changes. Presentation grouping is fixed at 10 secon
 without a selector or user preference. Natural segmentation is future research.
 Step 6.4 extracts native transcript selections across fragments, blocks and search marks.
 Copy only transcript text, collapsing whitespace in the excerpt without adding fragment
-separators. A stable citation button inserts escaped Markdown followed by a blank line
-and the 6.2 reference, using the first retained fragment's start_ms, without end_ms.
+separators. A stable citation button inserts escaped Markdown using the first retained fragment's
+start_ms, without end_ms. UX 1.1 supersedes the original 6.4 generated format:
+insert > [!quote:tr](sillage://...) followed by the quoted escaped text, without
+a stored timestamp label. Existing citations retain their separate working reference.
 Nonempty notes require an explicitly chosen editor position; automatic focus is insufficient.
 Insert after the selection without replacing text, in one isolated undo transaction with
 normal autosave. Reading mode refuses; empty editing notes may insert at zero.
@@ -169,3 +171,17 @@ Before considering a code change complete:
 4. verify that the affected binaries build;
 5. report any validation step that could not be performed.
 
+
+## UX 1.1 — Markdown citation callouts
+
+Reading recognizes only unescaped lowercase quote and quote:tr headers on the first
+content line of a blockquote without a blockquote ancestor. Lists are allowed;
+nested callout headers remain literal and inert. Quote attribution is plain text;
+quote:tr accepts a canonical URI followed by an optional plain-text title on the same
+line, separated by spaces/tabs. Missing or whitespace-only titles display
+“Transcription”; generated citations still omit the title. Invalid known headers
+are inert, including links crossing into the body; unknown markers retain normal
+Markdown behavior. QuoteCallout shares presentation only; reuse TimeButton and 6.5
+navigation. Preserve raw notes, GFM, shared definitions, URL filtering, editor session
+and autosave. No migration, new domain entity, generic callout registry or editor
+decorations (reserved for UX 1.2).
