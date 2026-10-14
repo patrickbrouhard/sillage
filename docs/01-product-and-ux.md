@@ -510,12 +510,11 @@ ne sont pas acceptées. Aucun bouton flottant dans cette tranche.
 Le début vient du premier fragment contenant du texte réellement retenu après
 nettoyage, même si ses timestamps ne sont pas monotones. Ni timestamp systématique
 du bloc, ni interpolation à l'intérieur d'un fragment. Le texte est échappé pour
-rester littéral en Markdown. Format :
+rester littéral en Markdown. Format généré depuis UX 1.1 :
 
 ```markdown
+> [!quote:tr](sillage://videos/5/sources/5?start_ms=21000)
 > They may not agree with those arguments.
-
-— [0:21](sillage://videos/5/sources/5?start_ms=21000)
 ```
 
 En Édition, une note vide (zéro caractère) accepte l'insertion à zéro. Une note
@@ -528,8 +527,8 @@ la sélection de transcription. Le remplacement de la version éditée invalide
 l'emplacement choisi.
 
 Insertion dans la session CodeMirror existante, avec les séparateurs LF nécessaires
-pour isoler le bloc, une ligne vide entre citation et référence et un curseur après
-la référence et sa ligne vide finale. Les sauts LF déjà présents sont réutilisés ;
+pour isoler le bloc et un curseur après la citation et sa ligne vide finale.
+La référence figure dans l'en-tête depuis UX 1.1. Les sauts LF déjà présents sont réutilisés ;
 aucun caractère existant n’est retiré. Citation, référence et séparateurs constituent un seul Undo/Redo et utilisent
 l'autosauvegarde, les révisions et les conflits existants. Aucun ordre au lecteur.
 Dans les listes, tableaux ou blocs de code, l'insertion reste textuelle : aucune
@@ -772,3 +771,61 @@ la gestion des tags ; un panneau « Informations » ou « Métadonnées » pourr
 regrouper les propriétés secondaires. La disposition du workspace reste ouverte.
 Séparer simplement l'éditeur de tags de son conteneur suffit pour ce jalon :
 aucun système générique de panneaux, modales ou onglets n'est prévu.
+
+### UX 1.1 — Callouts de citation en Lecture
+
+Contrat validé le 14 octobre 2026. Deux formes seulement, sans moteur générique :
+
+~~~markdown
+> [!quote] Aristote
+> L'homme est par nature un animal politique.
+
+> [!quote:tr](sillage://videos/6/sources/6?start_ms=40360)
+> decision models. So, when you go to ollama.com
+~~~
+
+La réflexion personnelle reste du Markdown ordinaire. Une citation de transcription
+déclare une provenance ; son contenu est librement éditable, sans authenticité ni
+synchronisation garanties. Note reste le document principal ; aucune Annotation
+ou autre entité persistée n'est créée.
+
+Reconnaissance au début de la première ligne de contenu d'un véritable blockquote,
+hors code, en minuscules, sans échappement et sans ancêtre blockquote. Une citation
+dans une liste est autorisée si Markdown reconnaît cette structure. Un blockquote
+classique dans le corps reste ordinaire. Les callouts imbriqués ne sont pas enrichis :
+leur en-tête connu reste visible et inerte. Aucun enrichissement dans les blocs de code.
+
+- [!quote] accepte une attribution facultative, séparée par espace ou tabulation,
+  rendue littéralement : pas d'emphase, de lien ni d'entité HTML interprétée dans l'attribution.
+- [!quote:tr](URI) accepte uniquement la référence directe canonique, validée par
+  parseTemporalReference : aucun titre Markdown, texte supplémentaire, paramètre end_ms,
+  lien par référence ou destination répartie sur plusieurs lignes.
+- Les blancs de fin d'en-tête sont tolérés. Une ligne citée vide après l'en-tête
+  est facultative ; un corps vide est accepté.
+- Le corps conserve le Markdown/GFM : paragraphes, listes, liens, tableaux, code,
+  notes de bas de page, citations ordinaires et continuations sans répétition de >.
+- En-tête connu mais invalide : blockquote ordinaire, en-tête littéral visible et
+  inerte, même pour une destination HTTP(S) ou mailto. Les destinations commencées
+  dans l'en-tête et poursuivies dans le corps restent inertes ; les autres liens
+  du corps gardent leur traitement habituel.
+- Marqueur inconnu (notamment quote:autre), échappé ou hors position de reconnaissance :
+  Markdown habituel. La famille [!…] n'est pas réservée.
+
+Les deux formes partagent un cadre, un en-tête et un corps, avec pictogrammes
+distincts et désignations accessibles « Citation » / « Citation de transcription ».
+Aucun de ces libellés n'est systématiquement visible. Le timestamp est calculé
+depuis start_ms et placé en haut à droite ; sa description accessible indique
+l'action et le temps. Clair/Sombre/Système et écrans étroits sont pris en charge.
+
+La référence valide d'une autre vidéo/source reste reconnue. Son clic passe par
+les contrôles de 6.5 : message accessible, aucune ouverture de fiche/source.
+Toutes les garanties de disponibilité, pause, absence de commande différée et
+défilement conditionnel de 6.5 sont réutilisées.
+
+« Citer dans la note » génère désormais l'en-tête quote:tr suivi du texte échappé
+sur une ligne citée, sans duplication du timestamp en libellé Markdown. Extraction,
+premier fragment retenu, choix explicite de la position, sélection préservée, Undo/Redo
+isolé, séparateurs extérieurs, autosauvegarde et conflits sont inchangés.
+Les anciennes citations ne sont ni migrées ni requalifiées ; leur référence séparée
+reste activable. L'insertion temporelle rapide conserve son format 6.2.
+Les décorations CodeMirror restent réservées à UX 1.2 ; aucun Live Preview.

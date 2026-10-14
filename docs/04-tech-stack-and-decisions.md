@@ -984,8 +984,9 @@ Extraction et copie de texte continu depuis une sélection native de transcripti
 blancs réduits seulement dans l'extrait, timestamps exclus, mark transparents.
 Bouton stable, position d'insertion explicitement choisie pour les notes non vides,
 transaction CodeMirror isolée et autosauvegarde existante. Citation Markdown littérale,
-ligne vide avant la référence sillage:// avec start_ms du premier fragment retenu,
-sans end_ms. Aucun objet métier, endpoint, dépendance ou changement de persistance.
+référence sillage:// avec start_ms du premier fragment retenu, sans end_ms.
+Le format initial avec référence séparée est remplacé par l'en-tête quote:tr en UX 1.1,
+sans conversion des notes existantes. Aucun objet métier, endpoint, dépendance ou changement de persistance.
 Bouton flottant, sélection personnalisée et plages différés. Navigation vers le
 lecteur courant livrée en 6.5, sans changement de vidéo/source.
 
@@ -1012,3 +1013,15 @@ Contrat, tests et checklist dans la roadmap ; détails techniques dans Architect
 Les liens Web externes des notes s'ouvrent désormais dans un nouvel onglet protégé ;
 ce dernier correctif est testé automatiquement et attend sa confirmation manuelle.
 Le détail des essais et des limites de validation est centralisé dans la roadmap.
+
+### UX 1.1 — Présentation commune et reconnaissance ciblée
+
+Décision validée : extension Remark limitée à quote et quote:tr, composant React
+commun de présentation, validation et interactions propres à chaque forme.
+Aucun moteur extensible, registre de types, grammaire de paramètres ou nouvelle
+dépendance. Les propriétés de rendu ne constituent pas un modèle métier.
+Le corps conserve GFM et les définitions partagées ; les en-têtes connus rejetés
+restent inertes, les marqueurs inconnus conservent le Markdown normal.
+URI canonique et TimeButton/contrôles 6.5 réutilisés. Provenance déclarée seulement,
+contenu librement éditable. Les détails du contrat et des replis sont dans Product & UX.
+UX 1.2 est réservé aux décorations CodeMirror ; il n'est pas livré ici.

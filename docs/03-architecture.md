@@ -1035,3 +1035,28 @@ La zone youtube-frame est comparée au viewport visuel ; window.scrollBy instant
 déplace seulement la page du delta nécessaire. Aucune attente onReady, animation,
 file d'attente, focus d'iframe ou synchronisation continue n'est ajoutée.
 Une fiche démontée ne conserve aucun travail de défilement différé.
+
+### Callouts de citation UX 1.1
+
+remarkCallouts reconnaît deux en-têtes dans l'arbre mdast et vérifie leur ligne
+source, pour distinguer notamment marqueurs littéraux, échappés et inconnus.
+Le plugin isole les en-têtes dans une copie temporaire du texte de rendu, puis
+réanalyse la note entière avec le même parseur. Cela empêche les syntaxes inline
+et setext de traverser l'en-tête tout en conservant les définitions Markdown/GFM
+communes au document. Les continuations paresseuses sont explicitées dans cette
+copie uniquement ; les bornes des liens traversant l'en-tête servent à empêcher
+leur réactivation par les autoliens GFM. Aucun texte enregistré n'est modifié.
+Cette seconde analyse ne relance pas les transformations Remark ; le plugin
+s'insère après remark-gfm dans la chaîne actuelle, sans second renderer du corps.
+
+Les propriétés temporaires du blockquote indiquent seulement sa forme et
+l'attribution ou l'URI validée. QuoteCallout partage la présentation et reçoit
+une action React ; il ne parse aucun Markdown, ne valide aucune URI et ne commande
+pas le lecteur. MarkdownReading réutilise TimeButton, parseTemporalReference
+et le callback 6.5 existants, avec des composants stables pendant la sauvegarde.
+Le filtre des URL et skipHtml restent en place ; les en-têtes rejetés deviennent
+des nœuds texte, jamais du HTML ni des liens externes.
+
+temporalReferenceURI centralise la génération canonique pour l'insertion rapide
+et transcriptCitation. Aucun changement de CodeMirror, de NoteSession, de REST,
+du domaine ou de SQLite. Aucun registre, plugin configurable ou nouveau type.
