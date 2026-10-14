@@ -477,7 +477,8 @@ participent au défilement normal de la page. La recherche n'est pas persistée.
 ### 6.4 — Sélection et citation de transcription
 
 Cadrage consigné avant le code le 14 octobre 2026, puis implémenté et testé
-localement. Validation manuelle en attente. Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
+localement. Retours manuels utilisateur satisfaisants, puis correctifs ciblés de clôture
+(voir le bilan 6.4 dans la roadmap). Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
 persisté. Les références restent inertes en Lecture jusqu'à 6.5 ; aucun end_ms.
 
 Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
@@ -526,14 +527,15 @@ aucun caractère existant n’est retiré. Citation, référence et séparateurs
 l'autosauvegarde, les révisions et les conflits existants. Aucun ordre au lecteur.
 Dans les listes, tableaux ou blocs de code, l'insertion reste textuelle : aucune
 restructuration ou recherche automatique d'un autre emplacement. Le rendu peut
-donc dépendre du contexte Markdown ; c'est une limite acceptée. La ponctuation
-Markdown, le HTML et les entités de l'extrait sont échappés ; les URL littérales
+donc dépendre du contexte Markdown ; c'est une limite acceptée. L'échappement protège
+les syntaxes inline, les entités et les marqueurs de bloc en début de paragraphe,
+sans ajouter d'antislashs à la ponctuation ordinaire. Les URL littérales
 peuvent toujours être reconnues par les autoliens GFM du mode Lecture, sans changer
 leur libellé.
 
 Le bouton flottant et les finitions graphiques sont différés. La navigation au
-curseur et les menus tactiles natifs dépendent du navigateur : des essais réels
-de sélection et de copier-coller seront nécessaires. 6.4 n'est pas validée manuellement.
+curseur et les menus tactiles natifs dépendent du navigateur. Le bilan manuel,
+les confirmations complémentaires et les pistes UX sont consignés dans la roadmap.
 
 ### 8.3 Stockage et évolutions
 

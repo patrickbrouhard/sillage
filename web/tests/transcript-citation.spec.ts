@@ -387,3 +387,69 @@ test('une plage mêlant transcription et autre panneau est refusée', async ({ p
   })
   await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
 })
+
+
+test('échappement limité et fidélité du paragraphe GFM cité', () => {
+  const ordinary = "So, when you go to ollama.com, you can see... C'est (simple) : oui ! A & B > C."
+  expect(transcriptCitation({ text: ordinary, startMs: 0 }, 1, 2))
+    .toBe('> ' + ordinary + '\n\n— [0:00](sillage://videos/1/sources/2?start_ms=0)')
+
+  const examples = [
+    ordinary,
+    '*fort* **gras** _italique_ a_b_c ~~barré~~ ~seul~',
+    '[lien](javascript:alert(1)) ![image](https://example.org/x)',
+    '[référence][id] et [id]: https://example.org',
+    '\x60code\x60 et \x60\x60deux\x60\x60 et \\*texte\\*',
+    '<script>alert(1)</script> <img src=x onerror=alert(1)>',
+    '<https://example.org> &amp; &#65; &#x41; &copy; &inconnue;',
+    '# Titre', '###### Titre', '####### ordinaire', '> autre citation',
+    '- liste', '+ liste', '1. liste', '123456789) liste', '---', '- - -',
+    '***', '___', '===', '| colonne | autre |', '[x] tâche', '! ordinaire',
+  ]
+  for (const text of examples) {
+    const result = renderToStaticMarkup(createElement(ReactMarkdown, {
+      remarkPlugins: [remarkGfm], skipHtml: true,
+    }, transcriptCitation({ text, startMs: 0 }, 1, 2)))
+    // Le renderer React échappe le HTML attendu, indépendamment du parseur Markdown.
+    const paragraph = renderToStaticMarkup(createElement('p', null, text))
+    // Les autoliens GFM sont admis ; aucune autre structure ne doit apparaître.
+    const withoutAutolinks = result.replace(/<a\b[^>]*>|<\/a>/g, '')
+    expect(withoutAutolinks, text).toContain('<blockquote>\n' + paragraph + '\n</blockquote>')
+    expect(result, text).toContain('</blockquote>\n<p>— ')
+  }
+})
+
+for (const platform of ['Win32', 'Linux x86_64']) {
+  test('Undo et les deux Redo, texte et citation, plateforme CodeMirror ' + platform, async ({ page, request }) => {
+    // Exerce la détection de plateforme CodeMirror sous Chromium Linux ;
+    // ce n'est pas un essai natif de Windows.
+    await page.addInitScript(value => {
+      Object.defineProperty(navigator, 'platform', { get: () => value })
+    }, platform)
+    const { editor, noteURL, video } = await openWorkspace(page, request)
+    await editor.click()
+    await page.keyboard.type('Texte ordinaire')
+    for (const shortcut of ['Control+y', 'Control+Shift+Z']) {
+      await page.keyboard.press('Control+z')
+      await expect(editor).toHaveText('')
+      await page.keyboard.press(shortcut)
+      await expect(editor).toHaveText('Texte ordinaire')
+    }
+    await selectText(page)
+    await page.getByRole('button', { name: 'Citer dans la note' }).click()
+    const expected = 'Texte ordinaire\n\n'
+      + transcriptCitation({ text: selectedText, startMs: 1234 }, video.id, video.sources[0].id)
+      + '\n\n'
+    for (const shortcut of ['Control+y', 'Control+Shift+Z']) {
+      await page.keyboard.press('Control+z')
+      await expect(editor).toHaveText('Texte ordinaire')
+      await page.keyboard.press(shortcut)
+      await page.keyboard.press('Control+s')
+      await expect.poll(() => saved(request, noteURL)).toBe(expected)
+    }
+    // Les deux étapes restent distinctes après tous les cycles Undo/Redo.
+    await page.keyboard.press('Control+z')
+    await page.keyboard.press('Control+z')
+    await expect(editor).toHaveText('')
+  })
+}

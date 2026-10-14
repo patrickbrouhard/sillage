@@ -2,7 +2,7 @@ import { useEffect, useImperativeHandle, useRef } from 'react'
 import type { Ref } from 'react'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap, isolateHistory } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, isolateHistory, redo } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 
@@ -79,6 +79,8 @@ export function MarkdownEditor({ initial, active, onChange, onSave, ref }: Props
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
           keymap.of([
             { key: 'Mod-s', run: () => { callbacks.current.onSave(); return true } },
+            // CodeMirror ne fournit Ctrl+Shift+Z que sous Linux par défaut.
+            { key: 'Ctrl-Shift-z', run: redo, preventDefault: true },
             ...defaultKeymap, ...historyKeymap,
           ]),
           EditorView.domEventHandlers({

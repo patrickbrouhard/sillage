@@ -63,8 +63,14 @@ export function selectedTranscript(
   return start === null || end === null ? null : extractTranscript(items, start, end)
 }
 
-/** Protège la ponctuation Markdown, le HTML et les entités sans modifier le libellé cité. */
+/** Protège le texte d'un paragraphe cité, sans échapper sa ponctuation ordinaire. */
 export function transcriptCitation(excerpt: TranscriptExcerpt, videoID: number, sourceID: number): string {
-  const escaped = excerpt.text.replace(/[!-/:-@\[-\x60{-~]/g, '\\$&')
+  // L'extraction fournit une seule ligne. Protéger les syntaxes inline avant les
+  // marqueurs de bloc ; les autoliens GFM ordinaires conservent leur libellé.
+  const escaped = excerpt.text
+    .replace(/[\\\x60*_[\]~<]/g, '\\$&')
+    .replace(/&(?=(?:#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);)/g, '\\&')
+    .replace(/^(#{1,6}(?= |$)|>|[-+](?= |$)|-(?=(?: *-){2,} *$))/, '\\$&')
+    .replace(/^([0-9]{1,9})([.)])(?= |$)/, '$1\\$2')
   return '> ' + escaped + '\n\n— ' + temporalReference(videoID, sourceID, excerpt.startMs)
 }

@@ -994,5 +994,7 @@ de l'action. Les gestes explicites dans CodeMirror sont distingués des focus
 automatiques ; les séparateurs réutilisent les LF adjacents sans retirer de texte.
 Limites acceptées : insertion textuelle dans les contextes Markdown complexes,
 autoliens GFM ordinaires, sélection au clavier via les capacités natives du
-navigateur. La validation automatisée est réalisée ; la validation manuelle
-de 6.4 et les essais tactiles réels restent à effectuer (roadmap).
+navigateur. Les retours manuels sont satisfaisants ; l'échappement a été réduit
+au contexte Markdown utile et Ctrl+Shift+Z ajouté à la keymap CodeMirror.
+Le bilan de clôture et les confirmations clavier par plateforme sont dans la roadmap ;
+la présentation plus naturelle du Markdown reste une piste UX, pas un choix technique.

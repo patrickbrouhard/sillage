@@ -1259,7 +1259,7 @@ L'étape Web est découpée en jalons validables :
   navigation circulaire et surlignages, sans action automatique sur le lecteur ;
   regroupement fixé à 10 secondes ;
 - **6.4 — sélection et citation de transcription** : implémentée et testée localement,
-  validation manuelle en attente ; copie continue et citation au premier fragment
+  retours manuels satisfaisants et correctifs de clôture livrés ; copie continue et citation au premier fragment
   retenu, insertion contrôlée dans la note et Undo/Redo isolé ;
 - **Suite de 6 — interactions temporelles** : plages éventuelles et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
 
@@ -1360,13 +1360,16 @@ effacement. En Lecture ou sans emplacement choisi dans une note non vide,
 un message demande de recommencer après préparation de la note.
 Ctrl+C copie uniquement le texte continu normalisé ; les timestamps sont exclus.
 
-Validation locale du 14 octobre 2026 : 139 tests Playwright réussis, dont
-23 nouveaux tests de citation ; tests Go, race, vet, typage et builds réussis.
+Validation locale après correctif de clôture : 142 tests Playwright réussis, dont
+26 tests de citation ; tests Go, race, vet, typage et builds réussis.
 Les scénarios couvrent la copie native Chromium, les recherches actives,
 les sélections inversées, Undo/Redo, autosauvegarde, conflits et invalidations.
-La validation manuelle de 6.4 reste à faire, notamment sélection clavier,
-copier-coller vers une autre application et sélection tactile réelle.
-Les limites Markdown et la checklist sont dans la roadmap. Aucun nouvel essai
+Les retours manuels de 6.4 sont satisfaisants. Le correctif final réduit les
+échappements superflus et ajoute Ctrl+Shift+Z à la keymap Windows/Linux, en conservant
+Ctrl+Y. Ces deux Redo restent à confirmer manuellement sous Windows sur le build
+corrigé ; le test Win32 automatisé simule la plateforme dans Chromium Linux.
+La tranche est achevée dans son périmètre ; bilan et confirmations ciblées dans
+[la roadmap](docs/05-roadmap-and-open-questions.md#clôture-de-64-après-retours-manuels). Aucun nouvel essai
 YouTube réel, build Docker ou CI distante revendiqué. L'avertissement Vite
 sur le chunk CodeMirror reste présent.
 

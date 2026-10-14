@@ -685,7 +685,8 @@ redémarrer le serveur de développement puis recharger la page pour charger ce 
 ### 6.4 — Sélection et citation de transcription
 
 Cadrage consigné avant le code le 14 octobre 2026, puis implémenté et testé
-localement. Validation manuelle en attente. Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
+localement. Retours manuels utilisateur satisfaisants, puis correctifs ciblés de clôture
+(voir le bilan 6.4 dans la roadmap). Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
 persisté. Les références restent inertes en Lecture jusqu'à 6.5 ; aucun end_ms.
 
 Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
@@ -734,14 +735,15 @@ aucun caractère existant n’est retiré. Citation, référence et séparateurs
 l'autosauvegarde, les révisions et les conflits existants. Aucun ordre au lecteur.
 Dans les listes, tableaux ou blocs de code, l'insertion reste textuelle : aucune
 restructuration ou recherche automatique d'un autre emplacement. Le rendu peut
-donc dépendre du contexte Markdown ; c'est une limite acceptée. La ponctuation
-Markdown, le HTML et les entités de l'extrait sont échappés ; les URL littérales
+donc dépendre du contexte Markdown ; c'est une limite acceptée. L'échappement protège
+les syntaxes inline, les entités et les marqueurs de bloc en début de paragraphe,
+sans ajouter d'antislashs à la ponctuation ordinaire. Les URL littérales
 peuvent toujours être reconnues par les autoliens GFM du mode Lecture, sans changer
 leur libellé.
 
 Le bouton flottant et les finitions graphiques sont différés. La navigation au
-curseur et les menus tactiles natifs dépendent du navigateur : des essais réels
-de sélection et de copier-coller seront nécessaires. 6.4 n'est pas validée manuellement.
+curseur et les menus tactiles natifs dépendent du navigateur. Le bilan manuel,
+les confirmations complémentaires et les pistes UX sont consignés dans la roadmap.
 
 #### Validation automatisée de 6.4 — 14 octobre 2026
 
@@ -772,35 +774,53 @@ réel revendiqué. Les sélections sont en majorité construites via les API DOM
 un glisser de souris et Ctrl+C sont également exercés dans Chromium. L'écran étroit
 est un viewport de test, pas une validation tactile sur appareil réel.
 
-#### Vérifications manuelles de 6.4 — à effectuer
+#### Clôture de 6.4 après retours manuels
 
-Après reconstruction et redémarrage du serveur puis rechargement de la fiche :
+Les tests manuels effectués par l'utilisateur sont satisfaisants. Deux retours
+ont motivé un correctif limité : échappements trop envahissants en Édition et
+Ctrl+Shift+Z sans effet sous Windows. La tranche 6.4 est achevée dans son périmètre ;
+les confirmations ciblées ci-dessous restent à réaliser sur le build corrigé,
+sans prétendre que chaque plateforme ou appareil a été validé manuellement.
 
-- Sélectionner une partie de mot puis un passage entre plusieurs blocs, dans les
-  deux sens, avec et sans recherche active. Copier par Ctrl+C et menu natif vers
-  un éditeur externe : texte continu, blancs réduits, aucun timestamp ajouté.
-- Choisir d'abord une position dans une note non vide, puis sélectionner la
-  transcription et citer. Vérifier la position, le texte littéral, la séparation
-  de la référence et le timestamp du premier fragment retenu. Essayer une sélection
-  de note : rien n'est effacé, l'insertion suit sa borne supérieure.
-- Vérifier note vide, note composée d'espaces, Lecture et focus automatique sans
-  choix préalable : les refus expliquent comment recommencer, sans bascule ni
-  insertion différée.
-- Annuler/rétablir la citation en une opération, continuer à saisir, attendre la
-  sauvegarde puis recharger. Tester un conflit avec une deuxième fiche ouverte :
-  texte local conservé, choix explicites habituels.
-- Changer la recherche, actualiser effectivement la transcription puis changer
-  de vidéo : aucun ancien extrait ne doit pouvoir être cité. F5 réinitialise la
-  recherche ; le bouton Actualiser conserve sa requête.
-- Tester la sélection clavier avec la navigation au curseur du navigateur et
-  l'accès au bouton (depuis le panneau, Maj+Tab puis Entrée). Tester les poignées
-  et menus de sélection sur un véritable appareil tactile.
-- Vérifier que sélection, copie et citation ne déplacent ni ne démarrent le
-  lecteur ; les timestamps cliquables et + Temps continuent de fonctionner.
+L'échappement est désormais adapté au paragraphe d'une citation sur une seule
+ligne : virgules, points, apostrophes et ponctuation ordinaire restent lisibles.
+Les syntaxes inline (emphase, liens/images, code, barré), antislashs, chevrons ouvrants,
+entités HTML et débuts pouvant produire titres, listes, séparateurs ou citations
+imbriquées restent protégés. Le texte garde son sens littéral dans le rendu GFM ;
+ses autoliens ordinaires restent admis. Aucun changement du rendu sécurisé,
+du Markdown déjà enregistré ou du modèle de données.
 
-La validation manuelle de 6.4 reste en attente. Les finitions graphiques et le
-bouton flottant sont différés ; segmentation naturelle et plages restent des
-investigations futures, et le rendu/navigation des références relève de 6.5.
+Vérification du code installé : @codemirror/commands 6.11.1 fournit Ctrl+Z pour
+Undo et Ctrl+Y pour Redo sur Windows/Linux ; Ctrl+Shift+Z est fourni par défaut
+sur Linux seulement (Cmd+Shift+Z sur macOS). L'absence sur Windows correspond
+donc à la keymap par défaut, pas à l'historique isolé des citations.
+Sillage ajoute Ctrl+Shift+Z directement dans sa keymap CodeMirror avec la commande
+redo existante. Ctrl+Y et les raccourcis macOS restent conservés ; aucun gestionnaire
+global ni reconstruction de l'éditeur.
+
+Validation du correctif : 142 tests Playwright réussis, dont 26 dans le fichier
+citation ; make test, go test -race ./..., typage et builds réussis.
+Les nouveaux tests comparent le texte rendu pour les syntaxes Markdown/HTML,
+vérifient l'absence d'échappements ordinaires et exercent Ctrl+Z puis les deux Redo
+sur texte ordinaire et citation, en conservant deux étapes d'historique distinctes
+et la sauvegarde. Les variantes Linux et Win32 de la détection CodeMirror sont
+testées dans Chromium Linux : la variante Win32 est une simulation, pas une
+validation native Windows. Aucun essai manuel de Ctrl+Y ni du nouveau Ctrl+Shift+Z
+sous Windows n'est encore confirmé. Les validations initiales restent ci-dessus.
+
+Après reconstruction, redémarrage du serveur et rechargement, confirmations ciblées :
+
+- Citer une phrase avec ponctuation ordinaire puis du Markdown/HTML ; vérifier
+  la lisibilité en Édition et la fidélité en Lecture.
+- Sous Windows, saisir du texte ordinaire puis vérifier Ctrl+Z/Ctrl+Y et
+  Ctrl+Z/Ctrl+Shift+Z ; répéter avec une citation, qui doit rester une seule étape.
+- Confirmer ces raccourcis sur toute autre plateforme réellement utilisée.
+  Ne pas déduire une validation tactile ou clavier native des seuls tests automatisés.
+
+Les finitions graphiques et le bouton flottant sont différés ; segmentation
+naturelle et plages restent des investigations futures. Le rendu/navigation
+des références relève de 6.5 ; l'étude plus large du mode Édition ci-dessous
+n'est pas engagée par cette clôture.
 
 ### Tranches suivantes — à cadrer
 
@@ -1132,6 +1152,20 @@ sombres de la bibliothèque, du workspace et de l'écran étroit inspectées.
   catalogue ni persistance supplémentaires dans le correctif de 5.3 ;
 - timeline d'annotations ;
 - raccourcis clavier.
+
+### Présentation Markdown plus naturelle en Édition — piste UX à étudier
+
+Étudier une présentation inspirée, par exemple, du Live Preview d'Obsidian pour
+rendre moins envahissants la syntaxe Markdown, les échappements nécessaires,
+les longues URI sillage:// et les références temporelles ou autres éléments enrichis.
+Des décorations CodeMirror ou une autre solution adaptée pourraient être comparées.
+
+Il s'agit d'une piste UX, sans décision d'architecture ni implémentation actuelle,
+et non d'une refonte engagée pour 6.4 ou automatiquement incluse en 6.5.
+Toute expérimentation devra préserver le Markdown brut comme source de vérité,
+les positions du curseur et sélections, Undo/Redo, l'autosauvegarde et la lisibilité
+de l'application sans IA. Évaluer la révélation de la syntaxe pendant l'édition,
+l'accessibilité et les interactions de sélection avant de retenir une solution.
 
 ### Découpage naturel des transcriptions — investigation future hors 6.3
 
