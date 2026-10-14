@@ -956,8 +956,9 @@ Aucune de ces capacités ne doit être implémentée artificiellement en 5.1.
 
 ### UX 1.1 — Callouts en Lecture et insertion
 
-Contrat validé le 14 octobre 2026 ; implémentation sur feat/markdown-callouts,
-sans fusion dans master. Le contrat détaillé est dans Product & UX, la frontière
+Contrat validé le 14 octobre 2026 ; implémentation sur feat/markdown-callouts.
+Validation visuelle et fonctionnelle confirmée par l'utilisateur le 15 octobre 2026 ;
+UX 1.1, titre facultatif inclus, est clôturée et sa fusion dans master est autorisée. Le contrat détaillé est dans Product & UX, la frontière
 des composants dans Architecture et le choix technique dans Tech stack.
 
 Cette tranche remplace le format généré de 6.4 par quote:tr avec URI dans l'en-tête
@@ -988,9 +989,9 @@ YouTube est simulé dans les tests navigateur ; aucun essai YouTube réel revend
 Compromis : une analyse supplémentaire de la note contenant un en-tête connu,
 avec le même parseur et une copie temporaire pour isoler en-tête et corps. Aucun
 second renderer du corps, aucune modification de la note. La validation visuelle
-et fonctionnelle par l'utilisateur reste attendue avant fusion.
+et fonctionnelle par l'utilisateur est confirmée le 15 octobre 2026.
 
-Validation manuelle attendue avant fusion :
+Périmètre des vérifications manuelles proposées, suivi du retour utilisateur satisfaisant :
 - examiner les deux cadres, les pictogrammes et les attributions longues en
   Clair/Sombre/Système, sur écran large et étroit ;
 - citer une sélection réelle, passer en Lecture, activer le timestamp, puis
@@ -1014,8 +1015,8 @@ URI invalides avec titre, imbrications, titre long, navigation et stabilité pen
 la sauvegarde. Captures vérifiées à 375 et 1440 px, en clair et sombre, sans
 débordement ni recouvrement du timestamp. Insertion automatique sans titre conservée.
 Même environnement WSL que ci-dessus ; avertissement Vite préexistant inchangé.
-Reste à confirmer manuellement l'équilibre visuel avec des titres réels et la
-navigation YouTube réelle, avant fusion.
+Le 15 octobre 2026, l'utilisateur confirme que les vérifications visuelles et
+fonctionnelles sont satisfaisantes et autorise la fusion d'UX 1.1 dans master.
 
 ### UX 1.2 — Confort d'édition, non implémenté
 
