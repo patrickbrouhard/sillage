@@ -687,7 +687,7 @@ redémarrer le serveur de développement puis recharger la page pour charger ce 
 Cadrage consigné avant le code le 14 octobre 2026, puis implémenté et testé
 localement. Retours manuels utilisateur satisfaisants, puis correctifs ciblés de clôture
 (voir le bilan 6.4 dans la roadmap). Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
-persisté. Les références restent inertes en Lecture jusqu'à 6.5 ; aucun end_ms.
+persisté. Aucun end_ms. L'activation en Lecture est désormais fournie par 6.5.
 
 Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
 ou tactile, partielle ou traversant plusieurs fragments/blocs, y compris les mark
@@ -822,8 +822,9 @@ naturelle et plages restent des investigations futures. Le rendu/navigation
 des références relève de 6.5 ; l'étude plus large du mode Édition ci-dessous
 n'est pas engagée par cette clôture.
 
-### 6.5 — Navigation depuis les références Markdown : décisions avant code
+### 6.5 — Navigation depuis les références Markdown
 
+Décisions documentées avant le code, puis implémentées et testées localement.
 État initial vérifié sur feat/transcript-player-navigation : le commit ed966be
 contient l'échappement réduit, la keymap Ctrl+Shift+Z et le bilan de clôture 6.4.
 Les confirmations manuelles Windows du correctif restent distinctes des tests simulés.
@@ -863,6 +864,54 @@ activation en Édition, plages, changement de source/vidéo et confirmation rest
 hors périmètre. Une confirmation future d'ouverture d'une autre fiche/source est
 une piste, pas une fonctionnalité actée. 6.5 n'est pas validée manuellement.
 
+#### Validation automatisée et limites de 6.5
+
+162 tests Playwright réussis, dont 20 nouveaux scénarios de navigation temporelle ;
+make test (tests Go, vet, build et typage), go test -race ./... et build frontend/serveur
+réussis. Collection Postman déterministe : 45 requêtes, 135 assertions réussies.
+git diff --check réussi. Capture des messages de refus inspectée.
+Le test existant de + Temps attend désormais un bouton en Lecture.
+
+Couverture : URI non canoniques, limites numériques et paramètres refusés,
+filtrage liens/images/HTML, liens ordinaires, identités distinctes, absence de source,
+états du lecteur, masquage en cours, instance masquée conservée ou indisponible,
+exception, absence de commande tardive, focus et sélection/Undo de la note.
+Un test termine une sauvegarde déjà engagée après activation : bouton et focus
+conservés, sans remontage. Les deux origines sont testées pour le défilement,
+aux largeurs 1440 et 375, avec zone visible, partiellement visible, hors écran
+ou trop grande, et préférence reduced-motion.
+
+Les tests de défilement placent la page explicitement, focalisent sans scroll,
+puis activent par click DOM : Playwright ne met pas l'action en visibilité.
+Ils mesurent la page et les scrollTop internes avant/après. Ce mécanisme teste
+le comportement applicatif, pas la gestuelle tactile réelle. Les commandes
+YouTube restent simulées ; aucune précision réelle de seek n'est revendiquée.
+Le navigateur peut limiter le déplacement en fin de document. Un échec ne lance
+aucun scroll applicatif, mais le réaffichage peut naturellement modifier le layout.
+Aucun nouvel essai YouTube réel, build Docker ou CI distante revendiqué.
+L'avertissement Vite existant sur le chunk CodeMirror reste présent.
+
+#### Vérifications manuelles de 6.5 — en attente
+
+Après build, redémarrage du serveur et rechargement :
+
+- En Lecture, activer une référence de + Temps et une citation, à la souris et
+  par Entrée/Espace ; le libellé peut différer du temps structuré. Vérifier le focus.
+- Comparer avec les timestamps de transcription, en lecture, pause, avant premier
+  démarrage et après fin : même comportement, aucun autoplay inattendu.
+- Masquer le lecteur puis activer : réaffichage, position et pause conservée.
+  Tester aussi un chargement/échec : message utile, nouvelle activation nécessaire.
+- Sur desktop et mobile réel, placer la zone vidéo visible, partielle puis hors
+  écran : défilement minimal instantané, aucun déplacement si déjà visible.
+  Vérifier que la note/transcription ne changent pas de défilement interne.
+- Tester autre vidéo/source, URI invalide et liens ordinaires : aucun changement
+  de fiche/source pour les références ; liens ordinaires toujours fonctionnels.
+- Revenir en Édition : Markdown brut, sélection et Undo/Redo inchangés par l'action.
+  Vérifier sauvegarde et absence d'écriture causée par la navigation.
+
+6.5 est implémentée mais n'est pas validée manuellement. Aucun écart de périmètre ;
+les confirmations Windows du correctif 6.4 restent celles consignées plus haut.
+
 ### Tranches suivantes — à cadrer
 
 - référence avec début obligatoire et fin facultative, bornes ajustables ;
@@ -870,7 +919,8 @@ une piste, pas une fonctionnalité actée. 6.5 n'est pas validée manuellement.
 - rendu enrichi dans l'éditeur et navigation vers le lecteur.
 
 Le format des liens Markdown `sillage://` est acté en 6.2 ; les plages, leur
-interface et la navigation inverse restent à implémenter dans les tranches suivantes.
+interface restent à étudier ; la navigation vers le lecteur courant est implémentée
+en 6.5. L'ouverture d'une autre fiche/source reste future.
 Insertion rapide et citation enrichie peuvent partager la même référence.
 La relation aux annotations structurées reste ouverte.
 

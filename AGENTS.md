@@ -109,7 +109,7 @@ are preserved, and `end_ms` is reserved. Insert after the CodeMirror selection
 without replacing it, as an isolated undo transaction with normal autosave.
 Read current time only in ready playing/paused/ended states, including a hidden
 paused instance; reject cued, unstarted, buffering and unavailable states without
-deferred work or player commands. Reading mode keeps references inert until 6.5.
+deferred work or player commands. Step 6.5 activates strictly validated references in Reading mode only.
 Step 6.3 searches the exact continuous transcript text locally, ignoring case,
 across fragment and display-block boundaries. Highlight occurrences and scroll to
 the active result with circular previous/next navigation, without player commands.
@@ -123,7 +123,14 @@ Nonempty notes require an explicitly chosen editor position; automatic focus is 
 Insert after the selection without replacing text, in one isolated undo transaction with
 normal autosave. Reading mode refuses; empty editing notes may insert at zero.
 Invalidate stale excerpts, preserve them during focus transfer to the citation button,
-and never command the player. Ranges and synchronized scrolling remain future work.
+and never command the player. Step 6.5 accepts only canonical sillage:// links with safe positive video/source IDs
+and a safe nonnegative start_ms; reject extra parameters including end_ms.
+Allow these only for Markdown link hrefs, retain default URL filtering elsewhere.
+Render native buttons, compare with the current video/work source, and share
+player.navigate with transcript timestamps. After accepted navigation only,
+measure the revealed video and scroll the page instantly if necessary, preserving
+focus and inner panel scroll positions. No deferred player command.
+Ranges and synchronized scrolling remain future work.
 
 Do not introduce PostgreSQL, Redis, a vector database, microservices, or another major infrastructure component without a concrete requirement.
 

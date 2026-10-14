@@ -723,7 +723,7 @@ existantes restent seules responsables de l'enregistrement. Aucun changement
 REST/SQLite, aucune Annotation ni nouvelle dépendance. Le temps est lu au clic,
 sans synchronisation continue et sans commande au lecteur. Seuls lecture, pause
 et fin avec position valide sont acceptées ; les états transitoires, non démarré
-et cued sont refusés. Le rendu Lecture reste inerte jusqu'à 6.5.
+et cued sont refusés. Le rendu Lecture, initialement inerte, est activable depuis 6.5.
 
 ### Préférences révisables
 
@@ -957,8 +957,8 @@ du dernier commit sont consultables dans GitHub Actions.
 
 Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
 ou mécanisme générique documentaire. Le cadrage 5.3 est désormais implémenté
-(voir Product & UX et Architecture). Les tranches 6.1 à 6.4 sont implémentées ;
-plages et navigation depuis le Markdown restent futures.
+(voir Product & UX et Architecture). Les tranches 6.1 à 6.5 sont implémentées ;
+plages et navigation entre vidéos/sources restent futures.
 
 ### Recherche locale dans la transcription — tranche 6.3
 
@@ -986,7 +986,8 @@ Bouton stable, position d'insertion explicitement choisie pour les notes non vid
 transaction CodeMirror isolée et autosauvegarde existante. Citation Markdown littérale,
 ligne vide avant la référence sillage:// avec start_ms du premier fragment retenu,
 sans end_ms. Aucun objet métier, endpoint, dépendance ou changement de persistance.
-Bouton flottant, sélection personnalisée, plages et navigation inverse différés.
+Bouton flottant, sélection personnalisée et plages différés. Navigation vers le
+lecteur courant livrée en 6.5, sans changement de vidéo/source.
 
 Les copies passent par l'événement natif copy et n'exigent pas de permission
 presse-papiers. L'extrait est invalidé quand le rendu change et consommé lors
@@ -998,3 +999,12 @@ navigateur. Les retours manuels sont satisfaisants ; l'échappement a été réd
 au contexte Markdown utile et Ctrl+Shift+Z ajouté à la keymap CodeMirror.
 Le bilan de clôture et les confirmations clavier par plateforme sont dans la roadmap ;
 la présentation plus naturelle du Markdown reste une piste UX, pas un choix technique.
+
+
+### Navigation 6.5 — implémentée, validation manuelle en attente
+
+Parseur canonique strict, autorisation react-markdown limitée aux href valides,
+bouton natif en Lecture et contrôle des identités dans la fiche. Même commande
+que la transcription, défilement instantané conditionnel après réaffichage DOM.
+Aucun changement d'éditeur, de dépendance, de contrat REST ou de persistance.
+Contrat, tests et checklist dans la roadmap ; détails techniques dans Architecture.

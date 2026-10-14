@@ -1261,6 +1261,9 @@ L'étape Web est découpée en jalons validables :
 - **6.4 — sélection et citation de transcription** : implémentée et testée localement,
   retours manuels satisfaisants et correctifs de clôture livrés ; copie continue et citation au premier fragment
   retenu, insertion contrôlée dans la note et Undo/Redo isolé ;
+- **6.5 — références Markdown vers le lecteur** : implémentée et testée localement,
+  validation manuelle en attente ; boutons en Lecture, URI strictes, identité
+  vidéo/source contrôlée et défilement conditionnel partagé avec la transcription ;
 - **Suite de 6 — interactions temporelles** : plages éventuelles et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
 
 La gestion complète des publishers et personnes reste hors de 5.1. La première
@@ -1372,6 +1375,17 @@ La tranche est achevée dans son périmètre ; bilan et confirmations ciblées d
 [la roadmap](docs/05-roadmap-and-open-questions.md#clôture-de-64-après-retours-manuels). Aucun nouvel essai
 YouTube réel, build Docker ou CI distante revendiqué. L'avertissement Vite
 sur le chunk CodeMirror reste présent.
+
+En 6.5, activez en Lecture une référence temporelle pour rejoindre le lecteur de
+la même vidéo/source. Le temps vient de start_ms, jamais du libellé. Une référence
+invalide reste inerte ; une autre vidéo/source donne un message sans navigation.
+Note et transcription réaffichent le lecteur et ramènent sa zone vidéo à l'écran
+seulement après une commande acceptée, sans autoplay ni déplacement du focus.
+Le Markdown brut reste inchangé en Édition.
+
+Validation 6.5 : 162 tests navigateur, tests Go/race, vet, typage, builds et
+135 assertions Postman réussis. Validation manuelle encore nécessaire, notamment
+lecteur masqué et défilement réel sur mobile ; détails et checklist dans la roadmap.
 
 ### API HTTP réalisée
 

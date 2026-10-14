@@ -479,7 +479,7 @@ participent au défilement normal de la page. La recherche n'est pas persistée.
 Cadrage consigné avant le code le 14 octobre 2026, puis implémenté et testé
 localement. Retours manuels utilisateur satisfaisants, puis correctifs ciblés de clôture
 (voir le bilan 6.4 dans la roadmap). Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
-persisté. Les références restent inertes en Lecture jusqu'à 6.5 ; aucun end_ms.
+persisté. Aucun end_ms. Les références sont activables en Lecture depuis 6.5.
 
 Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
 ou tactile, partielle ou traversant plusieurs fragments/blocs, y compris les mark
@@ -537,7 +537,7 @@ Le bouton flottant et les finitions graphiques sont différés. La navigation au
 curseur et les menus tactiles natifs dépendent du navigateur. Le bilan manuel,
 les confirmations complémentaires et les pistes UX sont consignés dans la roadmap.
 
-### Navigation depuis la note — tranche 6.5, cadrage accepté
+### Navigation depuis la note — tranche 6.5, implémentée
 
 En Lecture, les références temporelles canoniques deviennent des boutons natifs ;
 en Édition, elles restent du Markdown brut. Le temps vient uniquement de start_ms.

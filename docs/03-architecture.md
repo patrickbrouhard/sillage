@@ -861,12 +861,8 @@ d'autosauvegarde existants, y compris sa suspension en cas d'erreur ou conflit.
 Ni `initial`, ni l'état complet de l'éditeur ne sont réinjectés. La note suit la
 convention LF canonique. Le bouton est désactivé en mode Lecture.
 
-Le filtre standard de react-markdown neutralise actuellement les URI `sillage:` ;
-le composant de lien affiche alors un simple span. Ce comportement est couvert
-par les tests et conservé en 6.2 : aucune ouverture externe et aucune modification
-du Markdown persisté. La future 6.5 devra valider les références avant de les
-autoriser uniquement comme destinations de liens internes, conserver le filtre
-standard pour les autres URL et vérifier la relation vidéo/source lors de la résolution.
+Le rendu initialement inerte de 6.2 est remplacé par l'activation contrôlée
+de 6.5 en Lecture seulement (voir ci-dessous), sans modification du Markdown persisté.
 
 ## 11. Desktop futur
 
@@ -1013,3 +1009,26 @@ des pertes de focus et des bascules Lecture/Édition. L'insertion utilise la bor
 supérieure de la sélection CodeMirror et isolateHistory, sans changer NoteSession
 ni son protocole de sauvegarde. Les séparateurs LF sont ajoutés uniquement selon
 le texte adjacent, sans analyse du contexte Markdown.
+
+
+### Navigation temporelle Markdown 6.5
+
+parseTemporalReference est un parseur pur du format canonique produit par Sillage :
+validation de la structure entière puis des entiers sûrs, sans normalisation d'URI.
+MarkdownReading autorise ces seules URI sur les href de liens via urlTransform,
+et délègue les autres attributs/URL au filtre standard de react-markdown.
+Le composant de lien devient un bouton natif pour une référence valide ; aucun
+href sillage:// n'est envoyé au navigateur. Les autres liens gardent leur rendu.
+Le libellé reste le nom accessible ; une description donne le temps structuré.
+
+VideoDetail vérifie les identités vidéo/source de travail et appelle la même
+fonction navigate que la transcription. Les refus sont présentés près du bouton
+dans une région status ; ils ne passent pas par NoteSession. Les composants de lien
+restent stables lors des mises à jour de sauvegarde pour préserver le focus.
+
+YouTubePlayer conserve son protocole immédiat. Une commande transmise incrémente
+un état local qui déclenche une mesure en useLayoutEffect, après réaffichage DOM.
+La zone youtube-frame est comparée au viewport visuel ; window.scrollBy instantané
+déplace seulement la page du delta nécessaire. Aucune attente onReady, animation,
+file d'attente, focus d'iframe ou synchronisation continue n'est ajoutée.
+Une fiche démontée ne conserve aucun travail de défilement différé.
