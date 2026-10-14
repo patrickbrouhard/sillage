@@ -537,6 +537,20 @@ Le bouton flottant et les finitions graphiques sont différés. La navigation au
 curseur et les menus tactiles natifs dépendent du navigateur. Le bilan manuel,
 les confirmations complémentaires et les pistes UX sont consignés dans la roadmap.
 
+### Navigation depuis la note — tranche 6.5, cadrage accepté
+
+En Lecture, les références temporelles canoniques deviennent des boutons natifs ;
+en Édition, elles restent du Markdown brut. Le temps vient uniquement de start_ms.
+Seule l'identité vidéo/source du lecteur courant autorise une commande. Les autres
+identités donnent un message non bloquant, sans changer de fiche ni de source.
+Les références invalides restent inertes. L'activation préserve la note et le focus.
+
+La navigation partage les garanties des timestamps de transcription. Les deux
+actions ramènent la zone vidéo à l'écran seulement après commande acceptée,
+par défilement instantané minimal et sans toucher aux défilements internes.
+Le réaffichage d'un lecteur indisponible ne constitue pas un succès.
+Contrat détaillé, exclusions et validations dans la tranche 6.5 de la roadmap.
+
 ### 8.3 Stockage et évolutions
 
 La provenance affichée est « Transcription automatique ». La sélection privilégie

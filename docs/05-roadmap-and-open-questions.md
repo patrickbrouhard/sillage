@@ -822,6 +822,47 @@ naturelle et plages restent des investigations futures. Le rendu/navigation
 des références relève de 6.5 ; l'étude plus large du mode Édition ci-dessous
 n'est pas engagée par cette clôture.
 
+### 6.5 — Navigation depuis les références Markdown : décisions avant code
+
+État initial vérifié sur feat/transcript-player-navigation : le commit ed966be
+contient l'échappement réduit, la keymap Ctrl+Shift+Z et le bilan de clôture 6.4.
+Les confirmations manuelles Windows du correctif restent distinctes des tests simulés.
+
+Le format accepté est exclusivement sillage://videos/{videoID}/sources/{sourceID}?start_ms={milliseconds},
+avec identifiants entiers sûrs positifs et temps entier sûr non négatif.
+Chiffres décimaux canoniques, sans zéros initiaux sauf zéro pour le temps.
+Refus des encodages alternatifs, segments, fragments et paramètres supplémentaires
+ou dupliqués, y compris end_ms. Le libellé ne détermine jamais la position.
+
+En Lecture seulement, un lien valide devient un bouton natif discret.
+Une référence invalide reste du texte inerte sans alerte à l'ouverture.
+L'autorisation ciblée dans react-markdown concerne uniquement le href des liens ;
+le filtre par défaut reste appliqué ailleurs, notamment aux images. HTML brut
+toujours ignoré. Liens ordinaires et navigation protégée inchangés.
+
+La fiche compare vidéo et source de travail réelles. Autre vidéo/source ou lecteur
+indisponible : message accessible près de l'action, sans changement de fiche/source,
+ni confusion avec la sauvegarde. La note n'est jamais modifiée ; sélection et
+historique CodeMirror restent intacts. Le focus reste sur le bouton activé.
+
+Note et transcription partagent player.navigate : lecture/pause préservées,
+départ préparé sans autoplay pour les états non démarré/terminé/cued,
+masquage en cours respecté, aucune commande différée. Une commande acceptée
+n'est pas une confirmation du timestamp exact par YouTube.
+Un lecteur masqué indisponible peut être réaffiché/réinitialisé comme en 6.1,
+mais le refus n'entraîne ni défilement volontaire ni navigation ultérieure.
+
+Après commande acceptée et réaffichage DOM effectif seulement, mesurer la zone
+vidéo : aucun défilement si visible, déplacement minimal pour la montrer entièrement,
+ou alignement du début si trop grande. Défilement instantané de la page, sans
+déplacer le focus ni les défilements internes de note/transcription.
+Aucune action tardive après changement de fiche.
+
+Frontend uniquement : aucun changement REST/SQLite/domaine. Live Preview,
+activation en Édition, plages, changement de source/vidéo et confirmation restent
+hors périmètre. Une confirmation future d'ouverture d'une autre fiche/source est
+une piste, pas une fonctionnalité actée. 6.5 n'est pas validée manuellement.
+
 ### Tranches suivantes — à cadrer
 
 - référence avec début obligatoire et fin facultative, bornes ajustables ;
