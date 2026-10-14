@@ -3,6 +3,7 @@ import type { Ref } from 'react'
 import { useBlocker } from 'react-router'
 import { MarkdownEditor } from './MarkdownEditor'
 import type { MarkdownEditorHandle } from './MarkdownEditor'
+import type { TemporalReference } from './temporalReference'
 import { NoteSession } from './noteSession'
 
 const MarkdownReading = lazy(() => import('./MarkdownReading').then(module => ({ default: module.MarkdownReading })))
@@ -14,9 +15,10 @@ export interface VideoNoteHandle {
 }
 
 /** Présente une note locale et son état confirmé, avec modes partageant la même source. */
-export function VideoNote({ videoID, getTimeReference, ref }: {
+export function VideoNote({ videoID, getTimeReference, onNavigate, ref }: {
   videoID: number
   getTimeReference: () => string
+  onNavigate: (reference: TemporalReference) => string
   ref?: Ref<VideoNoteHandle>
 }) {
   const editor = useRef<MarkdownEditorHandle>(null)
@@ -119,7 +121,7 @@ export function VideoNote({ videoID, getTimeReference, ref }: {
           onSave={() => void session.save(true)}
         />}
       </div>
-      {reading && <Suspense fallback={<p>Préparation de la lecture…</p>}><MarkdownReading content={state.content} /></Suspense>}
+      {reading && <Suspense fallback={<p>Préparation de la lecture…</p>}><MarkdownReading content={state.content} onNavigate={onNavigate} /></Suspense>}
       <p role="status" aria-label="État de la note">{status}</p>
       {state.phase === 'conflict' && <div className="note-conflict" role="region" aria-label="Résolution du conflit">
         <p>L’autosauvegarde est suspendue. Choisissez explicitement la version à conserver.</p>

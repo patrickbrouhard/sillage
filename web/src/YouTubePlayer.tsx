@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import type { Ref } from 'react'
 import type { VideoSource } from './api'
 import { httpURL } from './videoPresentation'
@@ -26,6 +26,21 @@ export function YouTubePlayer({ source, ref }: { source: VideoSource; ref: Ref<Y
   const [ready, setReady] = useState(false)
   const [message, setMessage] = useState('')
   const [attempt, setAttempt] = useState(0)
+  const [navigation, setNavigation] = useState(0)
+
+  useLayoutEffect(() => {
+    if (!navigation || !host.current) return
+    // La commande et le réaffichage sont déjà commités. Seule la page défile,
+    // jamais les panneaux internes ; aucun travail n'attend onReady.
+    const bounds = host.current.getBoundingClientRect()
+    const viewport = window.visualViewport
+    const top = viewport?.offsetTop ?? 0
+    const height = viewport?.height ?? window.innerHeight
+    const delta = bounds.height > height || bounds.top < top
+      ? bounds.top - top
+      : bounds.bottom > top + height ? bounds.bottom - top - height : 0
+    if (delta) window.scrollBy({ top: delta, behavior: 'instant' })
+  }, [navigation])
   const url = httpURL(source.canonical_url)
 
   useImperativeHandle(ref, () => ({
@@ -66,6 +81,7 @@ export function YouTubePlayer({ source, ref }: { source: VideoSource; ref: Ref<Y
           startSeconds: seconds,
         })
         else return 'Navigation non effectuée : état du lecteur inconnu. Réessayez lorsque le lecteur est prêt.'
+        setNavigation(value => value + 1)
         return ''
       } catch {
         // Une commande en échec ne laisse pas une instance potentiellement active.

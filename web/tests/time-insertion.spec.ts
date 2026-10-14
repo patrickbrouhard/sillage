@@ -41,6 +41,7 @@ for (const state of [0, 1, 2]) {
     await expect(page.getByRole('button', { name: '+ Temps', exact: true })).toBeDisabled()
     await expect(page.getByLabel('Lecture de la note')).toContainText('12:42')
     await expect(page.getByLabel('Lecture de la note').locator('a')).toHaveCount(0)
+    await expect(page.getByLabel('Lecture de la note').getByRole('button', { name: '12:42', exact: true })).toBeVisible()
     await expect(page.getByLabel('Lecture de la note')).not.toContainText('sillage://')
   })
 }

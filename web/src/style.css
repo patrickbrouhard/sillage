@@ -230,3 +230,8 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .markdown-reading pre, .markdown-reading code { background: var(--tag); }
 .markdown-reading pre { padding: .75rem; border-radius: .4rem; }
 .note-navigation { background: var(--surface); color: var(--text); }
+
+/* Une action de lecture, sans apparence de bouton principal ni lien externe. */
+.temporal-reference { font: inherit; color: var(--label); background: transparent; border: 0; padding: .1em .2em; text-decoration: underline; cursor: pointer; }
+.temporal-reference:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.temporal-message { font-size: .9em; }
