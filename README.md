@@ -1261,8 +1261,8 @@ L'étape Web est découpée en jalons validables :
 - **6.4 — sélection et citation de transcription** : implémentée et testée localement,
   retours manuels satisfaisants et correctifs de clôture livrés ; copie continue et citation au premier fragment
   retenu, insertion contrôlée dans la note et Undo/Redo isolé ;
-- **6.5 — références Markdown vers le lecteur** : implémentée et testée localement,
-  validation manuelle en attente ; boutons en Lecture, URI strictes, identité
+- **6.5 — références Markdown vers le lecteur** : terminée et validée manuellement
+  pour son périmètre fonctionnel ; boutons en Lecture, URI strictes, identité
   vidéo/source contrôlée et défilement conditionnel partagé avec la transcription ;
 - **Suite de 6 — interactions temporelles** : plages éventuelles et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
 
@@ -1384,8 +1384,13 @@ seulement après une commande acceptée, sans autoplay ni déplacement du focus.
 Le Markdown brut reste inchangé en Édition.
 
 Validation 6.5 : 162 tests navigateur, tests Go/race, vet, typage, builds et
-135 assertions Postman réussis. Validation manuelle encore nécessaire, notamment
-lecteur masqué et défilement réel sur mobile ; détails et checklist dans la roadmap.
+135 assertions Postman réussies lors de la livraison. Les essais manuels rapportés
+par l'utilisateur sont satisfaisants, notamment les références réelles sur /videos/6.
+Le dernier correctif ouvre les liens HTTP(S) externes des notes dans un nouvel onglet
+protégé, y compris les autoliens GFM ; liens internes, mailto et références temporelles
+conservent leur comportement. Les 162 tests et validations habituelles passent.
+Seule cette nouvelle ouverture externe attend une confirmation manuelle ; aucune
+validation tactile ou d'un environnement non testé n'est revendiquée. Bilan dans la roadmap.
 
 ### API HTTP réalisée
 

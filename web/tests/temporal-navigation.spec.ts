@@ -52,7 +52,10 @@ test('rendu ciblé, contenu invalide inerte, images et liens ordinaires protég�
     '[Dangereux](javascript:alert%281%29)',
     '![Image Sillage](' + uri + ')',
     '[Externe](https://example.org/path)',
+    'https://example.org/auto',
+    '[HTTP](http://example.org/plain)',
     '[Interne](/videos/43)',
+    '[Même origine](http://127.0.0.1:18381/videos/43)',
     '[Courriel](mailto:a@example.org)',
     '<script>alert(1)</script>',
   ].join('\n\n'))
@@ -67,6 +70,27 @@ test('rendu ciblé, contenu invalide inerte, images et liens ordinaires protég�
   await expect(reading.getByRole('link', { name: 'Externe' })).toHaveAttribute('href', 'https://example.org/path')
   await expect(reading.getByRole('link', { name: 'Interne' })).toHaveAttribute('href', '/videos/43')
   await expect(reading.getByRole('link', { name: 'Courriel' })).toHaveAttribute('href', 'mailto:a@example.org')
+  for (const name of ['Externe', 'https://example.org/auto', 'HTTP']) {
+    const link = reading.getByRole('link', { name, exact: true })
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  }
+  for (const name of ['Interne', 'Même origine', 'Courriel']) {
+    await expect(reading.getByRole('link', { name, exact: true })).not.toHaveAttribute('target')
+  }
+  // Navigation réelle dans un onglet isolé, sans accès au site externe.
+  await page.context().route('https://example.org/**', route => route.fulfill({
+    contentType: 'text/html', body: '<title>Destination de test</title>',
+  }))
+  for (const name of ['Externe', 'https://example.org/auto']) {
+    const popupPromise = page.waitForEvent('popup')
+    await reading.getByRole('link', { name, exact: true }).click()
+    const popup = await popupPromise
+    await popup.waitForLoadState()
+    expect(await popup.evaluate(() => window.opener)).toBeNull()
+    await expect(page).toHaveURL(/\/videos\/42$/)
+    await popup.close()
+  }
 })
 
 for (const state of [-1, 0, 1, 2, 3, 5]) {

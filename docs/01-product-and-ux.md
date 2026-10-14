@@ -549,6 +549,10 @@ La navigation partage les garanties des timestamps de transcription. Les deux
 actions ramènent la zone vidéo à l'écran seulement après commande acceptée,
 par défilement instantané minimal et sans toucher aux défilements internes.
 Le réaffichage d'un lecteur indisponible ne constitue pas un succès.
+Dans les notes, les liens Web HTTP(S) d'origine externe, explicites ou reconnus
+par GFM, ouvrent un nouvel onglet protégé. Les liens internes gardent la navigation
+React Router dans le même onglet, mailto son comportement natif et les références
+temporelles leur activation locale. Les URL dangereuses restent filtrées.
 Contrat détaillé, exclusions et validations dans la tranche 6.5 de la roadmap.
 
 ### 8.3 Stockage et évolutions

@@ -1001,10 +1001,14 @@ Le bilan de clôture et les confirmations clavier par plateforme sont dans la ro
 la présentation plus naturelle du Markdown reste une piste UX, pas un choix technique.
 
 
-### Navigation 6.5 — implémentée, validation manuelle en attente
+### Navigation 6.5 — terminée, périmètre fonctionnel validé manuellement
 
 Parseur canonique strict, autorisation react-markdown limitée aux href valides,
 bouton natif en Lecture et contrôle des identités dans la fiche. Même commande
 que la transcription, défilement instantané conditionnel après réaffichage DOM.
 Aucun changement d'éditeur, de dépendance, de contrat REST ou de persistance.
 Contrat, tests et checklist dans la roadmap ; détails techniques dans Architecture.
+
+Les liens Web externes des notes s'ouvrent désormais dans un nouvel onglet protégé ;
+ce dernier correctif est testé automatiquement et attend sa confirmation manuelle.
+Le détail des essais et des limites de validation est centralisé dans la roadmap.

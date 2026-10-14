@@ -862,7 +862,8 @@ Aucune action tardive après changement de fiche.
 Frontend uniquement : aucun changement REST/SQLite/domaine. Live Preview,
 activation en Édition, plages, changement de source/vidéo et confirmation restent
 hors périmètre. Une confirmation future d'ouverture d'une autre fiche/source est
-une piste, pas une fonctionnalité actée. 6.5 n'est pas validée manuellement.
+une piste, pas une fonctionnalité actée. Le périmètre fonctionnel de 6.5 est
+terminé et validé manuellement ; voir le bilan de clôture ci-dessous.
 
 #### Validation automatisée et limites de 6.5
 
@@ -891,26 +892,46 @@ aucun scroll applicatif, mais le réaffichage peut naturellement modifier le lay
 Aucun nouvel essai YouTube réel, build Docker ou CI distante revendiqué.
 L'avertissement Vite existant sur le chunk CodeMirror reste présent.
 
-#### Vérifications manuelles de 6.5 — en attente
+#### Clôture et validation manuelle de 6.5
 
-Après build, redémarrage du serveur et rechargement :
+L'utilisateur confirme des essais satisfaisants : activation des références en
+Lecture, cohérence avec la transcription, états lecture/pause/masquage,
+défilement conditionnel, préservation de l'édition et de la sauvegarde,
+refus de navigation vers d'autres vidéos/sources et fonctionnement des liens ordinaires.
 
-- En Lecture, activer une référence de + Temps et une citation, à la souris et
-  par Entrée/Espace ; le libellé peut différer du temps structuré. Vérifier le focus.
-- Comparer avec les timestamps de transcription, en lecture, pause, avant premier
-  démarrage et après fin : même comportement, aucun autoplay inattendu.
-- Masquer le lecteur puis activer : réaffichage, position et pause conservée.
-  Tester aussi un chargement/échec : message utile, nouvelle activation nécessaire.
-- Sur desktop et mobile réel, placer la zone vidéo visible, partielle puis hors
-  écran : défilement minimal instantané, aucun déplacement si déjà visible.
-  Vérifier que la note/transcription ne changent pas de défilement interne.
-- Tester autre vidéo/source, URI invalide et liens ordinaires : aucun changement
-  de fiche/source pour les références ; liens ordinaires toujours fonctionnels.
-- Revenir en Édition : Markdown brut, sélection et Undo/Redo inchangés par l'action.
-  Vérifier sauvegarde et absence d'écriture causée par la navigation.
+Plusieurs références réelles ont été testées sur /videos/6 : rejet des paramètres
+supplémentaires, end_ms, identifiants incorrects, valeurs numériques invalides et
+encodages alternatifs, sans problème constaté. Cette validation couvre les essais
+rapportés ; aucune confirmation supplémentaire sur appareils tactiles ou autres
+environnements n'est revendiquée.
 
-6.5 est implémentée mais n'est pas validée manuellement. Aucun écart de périmètre ;
-les confirmations Windows du correctif 6.4 restent celles consignées plus haut.
+Dernier correctif limité au rendu Markdown des notes : les liens HTTP(S) vers
+une origine externe s'ouvrent dans un nouvel onglet avec target="_blank" et
+rel="noopener noreferrer", aussi bien les liens explicites que les autoliens GFM.
+Les liens de même origine restent dans le même onglet via React Router ;
+mailto garde le comportement natif et les références Sillage leur activation locale.
+Le filtrage des URL dangereuses et invalides reste inchangé.
+
+Validation automatisée du correctif : suite de 162 tests Playwright réussie,
+make test (tests Go, vet, build et typage) et build frontend/serveur réussis.
+Le test de rendu couvre HTTP/HTTPS, lien explicite/autolien, même origine absolue,
+lien interne relatif et mailto. Il ouvre réellement deux onglets Chromium sur une
+destination interceptée localement, vérifie l'absence d'opener et le maintien de
+la fiche d'origine. Les scénarios de sécurité et de navigation temporelle restent
+dans la suite complète.
+
+6.5 est terminée et validée manuellement pour son périmètre fonctionnel.
+Seul le nouveau comportement d'ouverture externe attend une ultime confirmation
+utilisateur : après build, redémarrage et rechargement, cliquer dans une note sur
+un lien Web explicite puis une URL GFM, vérifier le nouvel onglet et la conservation
+de la fiche ; vérifier qu'un lien interne reste dans Sillage et qu'une référence
+temporelle continue d'activer le lecteur. Ce correctif n'est pas encore déclaré
+validé manuellement. Les confirmations du correctif 6.4 restent consignées plus haut.
+
+Restent des pistes différées, sans décision technique définitive : confirmation
+avant ouverture d'une autre vidéo/source, présentation enrichie en Édition
+éventuellement inspirée du Live Preview, finitions graphiques des références,
+plages début/fin et interactions avancées avec le lecteur.
 
 ### Tranches suivantes — à cadrer
 

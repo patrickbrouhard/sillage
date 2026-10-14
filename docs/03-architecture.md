@@ -1018,7 +1018,10 @@ validation de la structure entière puis des entiers sûrs, sans normalisation d
 MarkdownReading autorise ces seules URI sur les href de liens via urlTransform,
 et délègue les autres attributs/URL au filtre standard de react-markdown.
 Le composant de lien devient un bouton natif pour une référence valide ; aucun
-href sillage:// n'est envoyé au navigateur. Les autres liens gardent leur rendu.
+href sillage:// n'est envoyé au navigateur. Les liens de même origine restent
+des Link React Router. Les autres liens HTTP(S) reçoivent target="_blank" et
+rel="noopener noreferrer" ; les autres protocoles autorisés, dont mailto,
+gardent leur comportement natif. Ce traitement commun couvre les autoliens GFM.
 Le libellé reste le nom accessible ; une description donne le temps structuré.
 
 VideoDetail vérifie les identités vidéo/source de travail et appelle la même

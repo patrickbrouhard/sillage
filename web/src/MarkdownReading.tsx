@@ -42,7 +42,9 @@ export function MarkdownReading({ content, onNavigate }: {
       if (url.origin === window.location.origin) {
         return <Link to={url.pathname + url.search + url.hash}>{children}</Link>
       }
-      return <a href={href} rel="noopener noreferrer">{children}</a>
+      const externalWeb = url.protocol === 'http:' || url.protocol === 'https:'
+      return <a href={href} target={externalWeb ? '_blank' : undefined}
+        rel="noopener noreferrer">{children}</a>
     },
   }), [onNavigate])
   return <div className="markdown-reading" aria-label="Lecture de la note">
