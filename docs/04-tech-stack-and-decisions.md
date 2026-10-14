@@ -1024,7 +1024,7 @@ Le corps conserve GFM et les définitions partagées ; les en-têtes connus reje
 restent inertes, les marqueurs inconnus conservent le Markdown normal.
 URI canonique et TimeButton/contrôles 6.5 réutilisés. Provenance déclarée seulement,
 contenu librement éditable. Les détails du contrat et des replis sont dans Product & UX.
-UX 1.2 est réservé aux décorations CodeMirror ; il n'est pas livré ici.
+Les décorations CodeMirror font l'objet d'UX 1.2a, distinct d'UX 1.1.
 
 Complément validé le 15 octobre 2026 : quote:tr accepte un titre facultatif en
 texte simple après la parenthèse fermante, séparé par espace/tabulation et limité
@@ -1032,3 +1032,14 @@ texte simple après la parenthèse fermante, séparé par espace/tabulation et l
 l'interdiction initiale de texte supplémentaire. Le titre reste dans le Markdown,
 sans objet métier ; l'insertion automatique continue à ne produire aucun titre.
 Validation URI, replis, navigation 6.5 et citations ordinaires inchangés.
+
+
+### UX 1.2a — Décorations CodeMirror, 15 octobre 2026
+
+Choix : ViewPlugin et décorations de ligne/texte fondées sur l'arbre Markdown
+natif. Bordure commune des citations et hiérarchie des deux callouts reconnus ;
+syntaxe intégralement visible et éditable. Seul le validateur pur d'en-tête est
+partagé avec Remark ; rendu Lecture et Édition restent indépendants.
+Pas de dépendance ajoutée, Live Preview, widget, modification du document ou
+de la persistance. La représentation compacte des références est réservée à
+UX 1.2b, pour tous les liens canoniques, après un cadrage spécifique.

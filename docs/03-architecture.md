@@ -1064,3 +1064,23 @@ des nœuds texte, jamais du HTML ni des liens externes.
 temporalReferenceURI centralise la génération canonique pour l'insertion rapide
 et transcriptCitation. Aucun changement de CodeMirror, de NoteSession, de REST,
 du domaine ou de SQLite. Aucun registre, plugin configurable ou nouveau type.
+
+
+### Décorations Markdown UX 1.2a
+
+markdownDecorations est un ViewPlugin CodeMirror : Decoration.line pour la
+bordure et le fond, Decoration.mark pour marqueur, URI et attribution/titre.
+L'arbre syntaxique Lezer de l'éditeur détermine les blockquotes et leur ascendance ;
+la présence textuelle de > ne suffit jamais. Les décorations sont limitées aux
+lignes visibles, avec contexte du bloc hors écran, et recalculées au changement
+du document, du viewport ou de l'arbre syntaxique incrémental.
+
+La bordure par ombre intérieure ne décale pas le texte et suit la hauteur des
+lignes repliées. Les lignes couvertes par plusieurs citations sont dédupliquées.
+L'extension ne produit aucune transaction, aucun widget ni plage de remplacement.
+Elle est installée dans la session EditorView existante.
+
+Seule parseCalloutHeader, fonction pure de validation d'une ligne littérale,
+est partagée avec Remark. Chaque environnement conserve son arbre et contrôle
+le contexte de reconnaissance. Aucun Remark dans l'éditeur, aucun arbre unifié,
+nouvelle dépendance ou moteur générique.

@@ -183,5 +183,16 @@ line, separated by spaces/tabs. Missing or whitespace-only titles display
 are inert, including links crossing into the body; unknown markers retain normal
 Markdown behavior. QuoteCallout shares presentation only; reuse TimeButton and 6.5
 navigation. Preserve raw notes, GFM, shared definitions, URL filtering, editor session
-and autosave. No migration, new domain entity, generic callout registry or editor
-decorations (reserved for UX 1.2).
+and autosave. No migration, new domain entity or generic callout registry.
+Editor presentation follows UX 1.2a below.
+
+
+## UX 1.2a — Markdown editor presentation
+
+Use CodeMirror's Markdown syntax tree for all blockquote line decorations, including
+lazy continuations, lists and nesting. Code examples outside blockquotes stay plain.
+Share only parseCalloutHeader with Remark; each parser checks its own block context.
+Valid callouts may have mark/line decorations; all source text and URIs remain visible.
+Preserve editor identity, selections, history and autosave. No widgets, replacement
+ranges or player interactions. Compact canonical temporal references everywhere
+are reserved for UX 1.2b, not implemented in this increment.
