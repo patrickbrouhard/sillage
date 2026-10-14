@@ -440,7 +440,7 @@ La commande envoyée n'est pas présentée comme une position confirmée par You
 La note conserve sa session, sa sélection, son historique et son autosauvegarde.
 Le clic ne déclenche ni acquisition de transcription ni insertion dans la note.
 La recherche locale est implémentée en 6.3 ci-dessous ; l'insertion du temps est
-implémentée en 6.2. Synchronisation continue et citations restent futures.
+implémentée en 6.2 et les citations en 6.4. La synchronisation continue reste future.
 
 ### Recherche locale dans la transcription — tranche 6.3
 
@@ -474,10 +474,10 @@ conservé reste consultable avec la sélection courante.
 Sur desktop, seul le texte de la transcription défile ; sur mobile, les résultats
 participent au défilement normal de la page. La recherche n'est pas persistée.
 
-### 6.4 — Sélection et citation de transcription : décisions actées
+### 6.4 — Sélection et citation de transcription
 
-Cadrage accepté le 14 octobre 2026, avant implémentation. Tranche entièrement
-frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
+Cadrage consigné avant le code le 14 octobre 2026, puis implémenté et testé
+localement. Validation manuelle en attente. Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
 persisté. Les références restent inertes en Lecture jusqu'à 6.5 ; aucun end_ms.
 
 Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
@@ -493,7 +493,11 @@ Un bouton stable « Citer dans la note » est activé pour un passage valide.
 Le passage est conservé avant le transfert de focus, puis invalidé au changement
 de vidéo/source, au remplacement effectif de transcription ou lorsque la recherche
 rend la sélection obsolète. Aucune citation différée ou remplacement silencieux
-du passage. Aucun bouton flottant dans cette tranche.
+du passage. Un clic ou un transfert de focus vers un autre outil abandonne
+l'extrait mémorisé ; le transfert vers « Citer dans la note » le conserve.
+L'action consomme la sélection, y compris en cas de refus. Les sélections vides,
+composées uniquement de blancs, multiples ou débordant hors de la transcription
+ne sont pas acceptées. Aucun bouton flottant dans cette tranche.
 
 Le début vient du premier fragment contenant du texte réellement retenu après
 nettoyage, même si ses timestamps ne sont pas monotones. Ni timestamp systématique
@@ -517,11 +521,15 @@ l'emplacement choisi.
 
 Insertion dans la session CodeMirror existante, avec les séparateurs LF nécessaires
 pour isoler le bloc, une ligne vide entre citation et référence et un curseur après
-le bloc. Citation, référence et séparateurs constituent un seul Undo/Redo et utilisent
+la référence et sa ligne vide finale. Les sauts LF déjà présents sont réutilisés ;
+aucun caractère existant n’est retiré. Citation, référence et séparateurs constituent un seul Undo/Redo et utilisent
 l'autosauvegarde, les révisions et les conflits existants. Aucun ordre au lecteur.
 Dans les listes, tableaux ou blocs de code, l'insertion reste textuelle : aucune
 restructuration ou recherche automatique d'un autre emplacement. Le rendu peut
-donc dépendre du contexte Markdown ; c'est une limite acceptée.
+donc dépendre du contexte Markdown ; c'est une limite acceptée. La ponctuation
+Markdown, le HTML et les entités de l'extrait sont échappés ; les URL littérales
+peuvent toujours être reconnues par les autoliens GFM du mode Lecture, sans changer
+leur libellé.
 
 Le bouton flottant et les finitions graphiques sont différés. La navigation au
 curseur et les menus tactiles natifs dépendent du navigateur : des essais réels

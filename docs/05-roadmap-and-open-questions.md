@@ -682,10 +682,10 @@ Vérification en lecture seule sur la transcription locale de la vidéo 1 :
 Le serveur Go conserve index.html en mémoire : après reconstruction du frontend,
 redémarrer le serveur de développement puis recharger la page pour charger ce build.
 
-### 6.4 — Sélection et citation de transcription : décisions actées
+### 6.4 — Sélection et citation de transcription
 
-Cadrage accepté le 14 octobre 2026, avant implémentation. Tranche entièrement
-frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
+Cadrage consigné avant le code le 14 octobre 2026, puis implémenté et testé
+localement. Validation manuelle en attente. Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
 persisté. Les références restent inertes en Lecture jusqu'à 6.5 ; aucun end_ms.
 
 Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
@@ -701,7 +701,11 @@ Un bouton stable « Citer dans la note » est activé pour un passage valide.
 Le passage est conservé avant le transfert de focus, puis invalidé au changement
 de vidéo/source, au remplacement effectif de transcription ou lorsque la recherche
 rend la sélection obsolète. Aucune citation différée ou remplacement silencieux
-du passage. Aucun bouton flottant dans cette tranche.
+du passage. Un clic ou un transfert de focus vers un autre outil abandonne
+l'extrait mémorisé ; le transfert vers « Citer dans la note » le conserve.
+L'action consomme la sélection, y compris en cas de refus. Les sélections vides,
+composées uniquement de blancs, multiples ou débordant hors de la transcription
+ne sont pas acceptées. Aucun bouton flottant dans cette tranche.
 
 Le début vient du premier fragment contenant du texte réellement retenu après
 nettoyage, même si ses timestamps ne sont pas monotones. Ni timestamp systématique
@@ -725,15 +729,78 @@ l'emplacement choisi.
 
 Insertion dans la session CodeMirror existante, avec les séparateurs LF nécessaires
 pour isoler le bloc, une ligne vide entre citation et référence et un curseur après
-le bloc. Citation, référence et séparateurs constituent un seul Undo/Redo et utilisent
+la référence et sa ligne vide finale. Les sauts LF déjà présents sont réutilisés ;
+aucun caractère existant n’est retiré. Citation, référence et séparateurs constituent un seul Undo/Redo et utilisent
 l'autosauvegarde, les révisions et les conflits existants. Aucun ordre au lecteur.
 Dans les listes, tableaux ou blocs de code, l'insertion reste textuelle : aucune
 restructuration ou recherche automatique d'un autre emplacement. Le rendu peut
-donc dépendre du contexte Markdown ; c'est une limite acceptée.
+donc dépendre du contexte Markdown ; c'est une limite acceptée. La ponctuation
+Markdown, le HTML et les entités de l'extrait sont échappés ; les URL littérales
+peuvent toujours être reconnues par les autoliens GFM du mode Lecture, sans changer
+leur libellé.
 
 Le bouton flottant et les finitions graphiques sont différés. La navigation au
 curseur et les menus tactiles natifs dépendent du navigateur : des essais réels
 de sélection et de copier-coller seront nécessaires. 6.4 n'est pas validée manuellement.
+
+#### Validation automatisée de 6.4 — 14 octobre 2026
+
+- make test-web : 139 tests Playwright réussis, dont 23 nouveaux tests pour 6.4 ;
+  build frontend et serveur réussi.
+- make test : tests Go complets, go vet, build des packages et typage TypeScript réussis.
+- go test -race ./... : réussi.
+- Collection Postman déterministe : 45 requêtes et 135 assertions réussies.
+- git diff --check : réussi ; captures desktop et écran étroit inspectées.
+
+Les tests couvrent extraits partiels, fragments séparant un mot, blocs multiples,
+blancs, timestamps non monotones, recherche active, sélections inversées, bornes
+DOM sur éléments, copie native Chromium et absence d'interception hors transcription.
+Ils vérifient aussi note absente/vide/non vide/espaces seuls, refus en Lecture,
+focus automatique, position explicite et sélection de note, séparateurs existants,
+échappement Markdown, Undo/Redo isolé, autosauvegarde, conflits avec conservation
+du local ou adoption du serveur, invalidations et absence de commande au lecteur.
+La suite existante couvre toujours recherche, navigation temporelle, insertion
++ Temps et garanties de sauvegarde. Le bouton supplémentaire a révélé un écrasement
+des barres d'outils sur un panneau court ; le CSS empêche désormais ce chevauchement
+et conserve un espace de texte défilable.
+
+L'application n'a pas de nouvelle dépendance. Chromium utilise temporairement
+libnspr4/libnss3 extraites sous /tmp pour les tests WSL, sans configuration projet
+ou installation système supplémentaire. L'avertissement Vite sur le chunk CodeMirror
+supérieur à 500 kB subsiste. Aucun build Docker, CI distante ni nouvel essai YouTube
+réel revendiqué. Les sélections sont en majorité construites via les API DOM ;
+un glisser de souris et Ctrl+C sont également exercés dans Chromium. L'écran étroit
+est un viewport de test, pas une validation tactile sur appareil réel.
+
+#### Vérifications manuelles de 6.4 — à effectuer
+
+Après reconstruction et redémarrage du serveur puis rechargement de la fiche :
+
+- Sélectionner une partie de mot puis un passage entre plusieurs blocs, dans les
+  deux sens, avec et sans recherche active. Copier par Ctrl+C et menu natif vers
+  un éditeur externe : texte continu, blancs réduits, aucun timestamp ajouté.
+- Choisir d'abord une position dans une note non vide, puis sélectionner la
+  transcription et citer. Vérifier la position, le texte littéral, la séparation
+  de la référence et le timestamp du premier fragment retenu. Essayer une sélection
+  de note : rien n'est effacé, l'insertion suit sa borne supérieure.
+- Vérifier note vide, note composée d'espaces, Lecture et focus automatique sans
+  choix préalable : les refus expliquent comment recommencer, sans bascule ni
+  insertion différée.
+- Annuler/rétablir la citation en une opération, continuer à saisir, attendre la
+  sauvegarde puis recharger. Tester un conflit avec une deuxième fiche ouverte :
+  texte local conservé, choix explicites habituels.
+- Changer la recherche, actualiser effectivement la transcription puis changer
+  de vidéo : aucun ancien extrait ne doit pouvoir être cité. F5 réinitialise la
+  recherche ; le bouton Actualiser conserve sa requête.
+- Tester la sélection clavier avec la navigation au curseur du navigateur et
+  l'accès au bouton (depuis le panneau, Maj+Tab puis Entrée). Tester les poignées
+  et menus de sélection sur un véritable appareil tactile.
+- Vérifier que sélection, copie et citation ne déplacent ni ne démarrent le
+  lecteur ; les timestamps cliquables et + Temps continuent de fonctionner.
+
+La validation manuelle de 6.4 reste en attente. Les finitions graphiques et le
+bouton flottant sont différés ; segmentation naturelle et plages restent des
+investigations futures, et le rendu/navigation des références relève de 6.5.
 
 ### Tranches suivantes — à cadrer
 

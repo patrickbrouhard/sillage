@@ -115,7 +115,15 @@ across fragment and display-block boundaries. Highlight occurrences and scroll t
 the active result with circular previous/next navigation, without player commands.
 Reset search on video/source changes. Presentation grouping is fixed at 10 seconds,
 without a selector or user preference. Natural segmentation is future research.
-Citations, ranges and synchronized scrolling remain future work.
+Step 6.4 extracts native transcript selections across fragments, blocks and search marks.
+Copy only transcript text, collapsing whitespace in the excerpt without adding fragment
+separators. A stable citation button inserts escaped Markdown followed by a blank line
+and the 6.2 reference, using the first retained fragment's start_ms, without end_ms.
+Nonempty notes require an explicitly chosen editor position; automatic focus is insufficient.
+Insert after the selection without replacing text, in one isolated undo transaction with
+normal autosave. Reading mode refuses; empty editing notes may insert at zero.
+Invalidate stale excerpts, preserve them during focus transfer to the citation button,
+and never command the player. Ranges and synchronized scrolling remain future work.
 
 Do not introduce PostgreSQL, Redis, a vector database, microservices, or another major infrastructure component without a concrete requirement.
 

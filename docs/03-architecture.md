@@ -985,13 +985,31 @@ Elle illustre seulement la séparation souhaitée entre :
 10. Une abstraction n'est introduite que si elle protège une vraie frontière ou répond à un besoin concret.
 11. Les contraintes de la base renforcent les invariants applicatifs ; elles ne sont pas remplacées par un simple « check puis insert ».
 
-### Citation de transcription 6.4 — cadrage frontend
+### Citation de transcription 6.4 — implémentation frontend
 
-La sélection DOM sera traduite en offsets du texte continu, en parcourant uniquement
+La sélection DOM est traduite en offsets du texte continu, en parcourant uniquement
 les paragraphes de transcription (mark inclus) ; le fragment du premier caractère
 non blanc fournit le start_ms. Copie et citation partagent l'extraction normalisée,
 sans modifier le modèle source. La commande traverse la fiche vers la session de note,
 sans dépendance envers le lecteur ni API supplémentaire. CodeMirror distingue
 l'emplacement choisi des focus automatiques, conserve sa sélection et réalise
 l'insertion comme transaction isolée. Voir Product & UX et roadmap pour le contrat,
-les refus et les limites de contexte Markdown. Implémentation à réaliser.
+les refus et les limites de contexte Markdown.
+
+Le module transcriptSelection traduit les bornes de Range en offsets UTF-16,
+en ignorant les boutons de timestamp. Les bornes normalisées de Range couvrent
+aussi les sélections inversées et les éléments mark. L'extrait mémorisé est lié
+à la version du rendu ; une nouvelle recherche ou un remplacement effectif
+l'invalide. L'événement copy utilise la sélection vivante et fournit text/plain,
+sans intercepter les copies de champs ou de l'éditeur. Il ne nécessite aucune
+permission Clipboard API dans l'application.
+
+VideoPage construit la référence avec les identifiants de la fiche/source,
+puis appelle l'action impérative de VideoNote vers MarkdownEditor.
+L'éditeur mémorise le choix explicite par geste de pointeur, navigation clavier
+ou transaction utilisateur ; les focus et insertions programmatiques ne suffisent
+pas. Ce choix est réinitialisé avec une nouvelle version d'éditeur, conservé lors
+des pertes de focus et des bascules Lecture/Édition. L'insertion utilise la borne
+supérieure de la sélection CodeMirror et isolateHistory, sans changer NoteSession
+ni son protocole de sauvegarde. Les séparateurs LF sont ajoutés uniquement selon
+le texte adjacent, sans analyse du contexte Markdown.

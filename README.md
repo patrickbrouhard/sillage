@@ -1258,8 +1258,10 @@ L'étape Web est découpée en jalons validables :
   validation manuelle complète confirmée ; recherche continue entre fragments et blocs,
   navigation circulaire et surlignages, sans action automatique sur le lecteur ;
   regroupement fixé à 10 secondes ;
-- **Suite de 6 — interactions temporelles** : références avec début et fin facultative,
-  citations et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
+- **6.4 — sélection et citation de transcription** : implémentée et testée localement,
+  validation manuelle en attente ; copie continue et citation au premier fragment
+  retenu, insertion contrôlée dans la note et Undo/Redo isolé ;
+- **Suite de 6 — interactions temporelles** : plages éventuelles et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
 
 La gestion complète des publishers et personnes reste hors de 5.1. La première
 source REST sert provisoirement à présenter une carte, sans créer de source
@@ -1349,6 +1351,24 @@ inspectées. La validation manuelle de 6.3 est confirmée ; voir les scénarios 
 `docs/05-roadmap-and-open-questions.md`. Aucun nouvel essai YouTube réel,
 CI distante ou build Docker revendiqué. La segmentation naturelle des blocs
 reste une investigation future, distincte de cette recherche locale.
+
+La tranche 6.4 est implémentée, sans changement d'API ni de persistance.
+Placez d'abord le curseur dans la note en Édition (inutile si elle est vide),
+sélectionnez un passage de transcription, puis activez « Citer dans la note ».
+Une sélection dans la note reçoit la citation après sa borne supérieure, sans
+effacement. En Lecture ou sans emplacement choisi dans une note non vide,
+un message demande de recommencer après préparation de la note.
+Ctrl+C copie uniquement le texte continu normalisé ; les timestamps sont exclus.
+
+Validation locale du 14 octobre 2026 : 139 tests Playwright réussis, dont
+23 nouveaux tests de citation ; tests Go, race, vet, typage et builds réussis.
+Les scénarios couvrent la copie native Chromium, les recherches actives,
+les sélections inversées, Undo/Redo, autosauvegarde, conflits et invalidations.
+La validation manuelle de 6.4 reste à faire, notamment sélection clavier,
+copier-coller vers une autre application et sélection tactile réelle.
+Les limites Markdown et la checklist sont dans la roadmap. Aucun nouvel essai
+YouTube réel, build Docker ou CI distante revendiqué. L'avertissement Vite
+sur le chunk CodeMirror reste présent.
 
 ### API HTTP réalisée
 

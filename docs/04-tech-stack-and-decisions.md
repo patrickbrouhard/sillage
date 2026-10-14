@@ -957,8 +957,8 @@ du dernier commit sont consultables dans GitHub Actions.
 
 Aucun historique, File Recovery, brouillon persistant, synchronisation temps réel
 ou mécanisme générique documentaire. Le cadrage 5.3 est désormais implémenté
-(voir Product & UX et Architecture). Les tranches 6.1 à 6.3 sont implémentées ;
-citations, plages et navigation depuis le Markdown restent futures.
+(voir Product & UX et Architecture). Les tranches 6.1 à 6.4 sont implémentées ;
+plages et navigation depuis le Markdown restent futures.
 
 ### Recherche locale dans la transcription — tranche 6.3
 
@@ -978,7 +978,7 @@ Acquisition, actualisation, édition des notes et insertion temporelle conservé
 La segmentation naturelle, la synchronisation continue, les citations (6.4)
 et la navigation depuis le Markdown restent hors périmètre.
 
-### Citation 6.4 — décisions du 14 octobre 2026
+### Citation 6.4 — décisions du 14 octobre 2026, implémentées
 
 Extraction et copie de texte continu depuis une sélection native de transcription ;
 blancs réduits seulement dans l'extrait, timestamps exclus, mark transparents.
@@ -987,3 +987,12 @@ transaction CodeMirror isolée et autosauvegarde existante. Citation Markdown li
 ligne vide avant la référence sillage:// avec start_ms du premier fragment retenu,
 sans end_ms. Aucun objet métier, endpoint, dépendance ou changement de persistance.
 Bouton flottant, sélection personnalisée, plages et navigation inverse différés.
+
+Les copies passent par l'événement natif copy et n'exigent pas de permission
+presse-papiers. L'extrait est invalidé quand le rendu change et consommé lors
+de l'action. Les gestes explicites dans CodeMirror sont distingués des focus
+automatiques ; les séparateurs réutilisent les LF adjacents sans retirer de texte.
+Limites acceptées : insertion textuelle dans les contextes Markdown complexes,
+autoliens GFM ordinaires, sélection au clavier via les capacités natives du
+navigateur. La validation automatisée est réalisée ; la validation manuelle
+de 6.4 et les essais tactiles réels restent à effectuer (roadmap).
