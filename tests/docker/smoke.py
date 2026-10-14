@@ -155,9 +155,13 @@ def main():
                                       {"url": "https://youtu.be/docker-test"}))["id"] == vid
             request(port, f"/api/v1/videos/{vid}/tags", {"names": ["Docker"]})
             note_content = "# Docker\r\n\nNote conservée.  \n"
+            # La sauvegarde normalise CRLF/CR en LF sans retirer les autres blancs.
+            expected_note_content = "# Docker\n\nNote conservée.  \n"
             note_path = f"/api/v1/videos/{vid}/note"
             request(port, note_path, {"content_md": note_content, "expected_revision": 0},
                     expected=201, method="PUT")
+            saved_note = json.loads(request(port, note_path))
+            assert saved_note["content_md"] == expected_note_content and saved_note["revision"] == 1, saved_note
             # Le fichier secondaire représente les snapshots conservés avec SQLite.
             snapshots = data / "transcripts"
             snapshots.mkdir(exist_ok=True)
@@ -172,7 +176,7 @@ def main():
             assert persisted["tags"][0]["name"] == "Docker", persisted
             assert (snapshots / "persistence-check.txt").read_text() == "snapshot"
             persisted_note = json.loads(request(port, note_path))
-            assert persisted_note["content_md"] == note_content and persisted_note["revision"] == 1
+            assert persisted_note["content_md"] == expected_note_content and persisted_note["revision"] == 1, persisted_note
             request(port, note_path, {"content_md": "obsolète", "expected_revision": 0},
                     expected=409, method="PUT")
             stop_cleanly()
