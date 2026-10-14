@@ -22,15 +22,15 @@ export function VideoTags({ videoID, tags, onChange }: Props) {
 
   return (
     <section className="video-tags" aria-label="Classement de la vidéo">
-      {tags.length ? <ul className="tags detail-tags" aria-label="Tags de la vidéo">
+      {tags.length > 0 && <ul className="tags detail-tags" aria-label="Tags de la vidéo">
         {tags.map((tag) => <li key={tag.id}>
           <Link to={`/?tag_id=${tag.id}`}>{tag.name}</Link>
         </li>)}
-      </ul> : <p className="muted">Aucun tag associé à cette vidéo.</p>}
+      </ul>}
       <button className="button" ref={trigger} onClick={() => {
         dialog.current?.showModal()
         setActive(true)
-      }}>{tags.length ? 'Gérer les tags' : 'Ajouter des tags'}</button>
+      }}>{tags.length ? 'Gérer les tags' : <><span aria-hidden="true">+ </span>Ajouter des tags</>}</button>
       <dialog ref={dialog} className="tag-dialog" aria-labelledby="tag-dialog-title"
         onCancel={(event) => { event.preventDefault(); close() }}
         onKeyDown={(event) => {

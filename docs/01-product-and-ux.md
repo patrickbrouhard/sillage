@@ -153,6 +153,13 @@ Elle est identifiée dans l'interface. Ce choix de présentation ne persiste auc
 source principale et ne nécessite pas de sélecteur. Sans source compatible, note
 et métadonnées restent accessibles.
 
+L'en-tête de la fiche est compact : bandeau Sillage réduit sans slogan, titre
+puis tags et action de classement sur une même ligne lorsque la largeur le permet.
+La date d'ajout est consultable dans « Métadonnées et sources ». La provenance
+YouTube figure près du titre du lecteur ; la source de travail et son identifiant
+externe sont détaillés dans les métadonnées, sans répéter le titre au-dessus du
+workspace. La bibliothèque et la page d'ajout conservent leur bandeau habituel.
+
 ### 5.2 Comptes de publication et personnes
 
 Les capacités suivantes sont disponibles par REST depuis l'étape 4 bis ; leur

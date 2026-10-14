@@ -212,7 +212,7 @@ export function YouTubePlayer({ source, ref }: { source: VideoSource; ref: Ref<Y
 
   return <section className="video-player" aria-labelledby="player-title">
     <div className="player-toolbar">
-      <h2 id="player-title">Lecteur</h2>
+      <h2 id="player-title">Lecteur <span className="work-source" title="Source de travail du lecteur et de la transcription">· YouTube</span></h2>
       <button className="button" onClick={toggle} disabled={hiding} aria-expanded={!hidden}>
         {hidden ? 'Afficher le lecteur' : hiding ? 'Mise en pause…' : 'Masquer le lecteur'}
       </button>

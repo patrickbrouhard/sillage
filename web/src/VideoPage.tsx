@@ -20,16 +20,19 @@ type DetailState =
   | { status: 'error'; message: string; missing: boolean }
 
 /** Affiche les métadonnées de chaque provenance sans déduire un auteur du publisher. */
-function SourceDetails({ source, index }: { source: VideoSource; index: number }) {
+function SourceDetails({ source, index, working }: { source: VideoSource; index: number; working: boolean }) {
   const url = httpURL(source.canonical_url)
   return (
     <section className="source-section" aria-labelledby={`source-${source.id}`}>
       <h2 id={`source-${source.id}`}>Source {index + 1} · {providerLabel(source.provider)}</h2>
+      {working && <p className="muted">Source de travail du lecteur et de la transcription</p>}
       <div className="source-overview">
         <VideoThumbnail source={source} />
         <div>
           <h3>{source.title || 'Titre non renseigné'}</h3>
           <dl className="metadata">
+            <dt>Identifiant externe</dt>
+            <dd>{source.external_id || 'Non renseigné'}</dd>
             <dt>Compte de publication</dt>
             <dd>{source.publisher ? source.publisher.name ?? 'Compte sans nom' : 'Non renseigné'}</dd>
             <dt>Durée</dt>
@@ -108,13 +111,8 @@ function VideoDetail({ id }: { id: string }) {
       )}
       {state.status === 'ready' && (
         <>
-          <p className="eyebrow">FICHE VIDÉO</p>
           <h1 className="video-title">{state.video.sources[0]?.title || 'Vidéo sans titre'}</h1>
-          <p className="muted">Ajoutée le <time dateTime={state.video.created_at}>
-            {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
-          </time></p>
           <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
-          {source && <p className="work-source">Source de travail : YouTube · {source.title} · {source.external_id}</p>}
           <div className={`video-workspace${source ? '' : ' without-source'}`}>
             {source ? <YouTubePlayer key={`player-${source.id}`} source={source} ref={player} />
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
@@ -140,9 +138,17 @@ function VideoDetail({ id }: { id: string }) {
           </div>
           <details className="video-metadata">
             <summary>Métadonnées et sources</summary>
+            <p className="muted">Ajoutée le <time dateTime={state.video.created_at}>
+              {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
+            </time></p>
             {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
-            {state.video.sources.map((source, index) => (
-              <SourceDetails key={source.id} source={source} index={index} />
+            {state.video.sources.map((videoSource, index) => (
+              <SourceDetails
+                key={videoSource.id}
+                source={videoSource}
+                index={index}
+                working={videoSource.id === source?.id}
+              />
             ))}
           </details>
         </>
