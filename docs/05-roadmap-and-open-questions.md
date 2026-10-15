@@ -1098,12 +1098,39 @@ Validation manuelle attendue avant fusion :
 - vérifier les sauts de lignes lors de la révélation, les libellés longs et les thèmes ;
 - essayer une composition IME réelle, le tactile et un lecteur d'écran.
 
-### UX 1.2b.2 — En-têtes et navigation, non implémenté
+### UX 1.2b.2 — En-têtes et navigation en Édition
 
-Réserver à cette tranche les URI compactes dans les en-têtes quote:tr,
-Ctrl/Cmd+clic et le raccourci clavier de navigation temporelle. Les protections
-6.5 seront réutilisées ; elles ne sont pas activées en Édition par UX 1.2b.1.
-Aucun Live Preview général ni nouvelle entité persistée.
+UX 1.2b.1 est testée manuellement et validée par l'utilisateur. UX 1.2b.2 est
+implémentée sur la même branche feat/compact-temporal-references, sans fusion.
+
+Les en-têtes quote:tr admissibles compactent seulement l'URI, parenthèses visibles
+et temps calculé depuis start_ms. Marqueur, titre et décorations UX 1.2a conservés.
+Les liens temporels ordinaires gardent le périmètre de reconnaissance de 1.2b.1.
+Clic simple et édition inchangés ; Ctrl/Cmd+clic active les formes compactes ou
+révélées ; Mod-Enter active depuis un unique curseur intérieur. Les titres et
+en-têtes invalides/imbriqués restent inertes. Pas de nouvelle dépendance.
+
+La navigation appelle le callback 6.5 existant : contrôles vidéo/source, protocole
+lecteur et défilement conditionnel partagés. Aucun dispatch, changement de sélection,
+transfert de focus ou écriture provoqué par l'action. Les refus sont annoncés près
+de l'éditeur dans une région status distincte de la sauvegarde.
+
+Validation :
+- build frontend, make test (Go, vet, build et TypeScript) réussis ;
+- suite complète : 296 tests Playwright réussis, dont 29 nouveaux scénarios ;
+- compaction/révélation, copie, suppression et Undo des callouts, clavier et clic,
+  sélection et session conservées, états lecteur, refus identité/indisponibilité
+  et lecteur masqué couverts ; suites UX 1.2a, 1.2b.1 et 6.5 conservées ;
+- Cmd+clic et Cmd+Entrée testés sous Chromium Linux avec plateforme Mac simulée,
+  sans prétendre à une validation macOS native ;
+- aucun essai YouTube réel ; avertissement Vite préexistant sur le chunk > 500 kB.
+
+À vérifier manuellement avant fusion d'UX 1.2b :
+- callouts avec/sans titre, titres longs, thèmes et écran étroit ;
+- clic simple puis Ctrl/Cmd+clic sur lien/URI révélée, raccourci dans la source ;
+- sélection conservée, saisie après navigation, + Temps et Undo/Redo ;
+- lecteur masqué/hors écran, lecture et pause, refus vers une autre vidéo/source ;
+- clavier macOS réel, lecteurs d'écran et composition IME.
 
 ## 9. Étape 7 — Téléchargement local et screenshots
 

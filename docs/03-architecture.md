@@ -1107,4 +1107,25 @@ la fin du traitement natif. Le timer est annulé au démontage.
 
 L'extension reste montée dans la même session. Seul docChanged continue de
 déclencher onChange/autosauvegarde. Copie, insertion, modèle NoteSession et
-historique textuel restent natifs. Aucun callback lecteur n'entre dans l'éditeur.
+historique textuel restent natifs. UX 1.2b.1 n'introduisait pas de callback lecteur ;
+UX 1.2b.2 étend ce périmètre ci-dessous.
+
+
+### Navigation en Édition UX 1.2b.2
+
+compactTemporalReferences reçoit une fonction d'activation via une facet locale.
+MarkdownEditor délègue à callbacks.current ; une nouvelle fonction React ne
+reconstruit donc pas EditorView. VideoNote appelle le même onNavigate que Lecture
+et affiche le résultat hors de CodeMirror et de NoteSession, dans une région status.
+
+Le collecteur reconnaît également les en-têtes par le contexte Lezer et
+parseCalloutHeader. Il conserve la référence validée et la plage exacte d'URI.
+Les liens des titres et les en-têtes inadmissibles restent exclus. Le widget et
+les protections de sélection/suppression existants servent aux deux formes.
+
+Le mousedown modifié est intercepté avant la sélection native, uniquement sur une
+plage reconnue. La position provient du DOM du widget ou de posAtCoords pour la
+source révélée. La commande Mod-Enter vérifie un curseur unique strictement intérieur.
+L'activation ne dispatch aucune transaction et ne transfère pas le focus.
+Le contrôle vidéo/source et player.navigate restent exclusivement dans la fiche
+et le lecteur existants ; aucune copie du protocole 6.5 n'est introduite.

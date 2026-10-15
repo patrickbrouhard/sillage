@@ -109,7 +109,7 @@ are preserved, and `end_ms` is reserved. Insert after the CodeMirror selection
 without replacing it, as an isolated undo transaction with normal autosave.
 Read current time only in ready playing/paused/ended states, including a hidden
 paused instance; reject cued, unstarted, buffering and unavailable states without
-deferred work or player commands. Step 6.5 activates strictly validated references in Reading mode only.
+deferred work or player commands. Step 6.5 originally activated references in Reading only; UX 1.2b.2 also activates recognized editor references.
 Step 6.3 searches the exact continuous transcript text locally, ignoring case,
 across fragment and display-block boundaries. Highlight occurrences and scroll to
 the active result with circular previous/next navigation, without player commands.
@@ -206,5 +206,19 @@ Use CodeMirror replacement widgets without atomic ranges or document changes.
 Click or keyboard entry reveals source; boundary deletion reveals before deleting.
 Intersecting selections reveal source, including fully covered links. Preserve raw
 Markdown copy, insertion, history, autosave and editor identity. Suspend replacements
-during IME composition. No new tab stops or dependencies. quote:tr header compaction
-and all editor video navigation remain deferred to UX 1.2b.2.
+during IME composition. No new tab stops or dependencies. UX 1.2b.2 below extends
+this baseline with eligible quote:tr URI compaction and protected navigation.
+
+
+## UX 1.2b.2 — Editor temporal navigation
+
+UX 1.2b.1 is manually validated. Compact the URI only in eligible quote:tr headers,
+preserving parentheses, marker and title; derive timestamp from start_ms.
+Reuse parseCalloutHeader and the existing selection/deletion protections.
+Ctrl-click (Cmd on macOS) activates compact or revealed references without changing
+selection. Mod-Enter requires one empty selection strictly inside a recognized
+range. Shift/Alt combinations and non-temporal content retain native editor behavior.
+Reuse VideoNote.onNavigate and all 6.5 identity/player/scroll guards. No navigation
+transactions, remount, autosave, tab stops or iframe focus. Report refusals in a
+stable accessible status near the editor. Invalid/nested headers and literal titles
+remain inert. No domain, persistence or REST changes.

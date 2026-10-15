@@ -904,6 +904,31 @@ Les libellés longs peuvent se replier. La composition IME suspend temporairemen
 la compaction pour ne pas remplacer le texte en cours de saisie.
 « + Temps » garde son espace final, son curseur après l'espace et son Undo isolé.
 
-UX 1.2b.2 reste distinct : URI des en-têtes quote:tr, Ctrl/Cmd+clic et raccourci
-de navigation vers le lecteur. Aucun de ces comportements n'est activé en 1.2b.1.
-La navigation 6.5 reste exclusivement en Lecture.
+UX 1.2b.1 a été validée manuellement par l'utilisateur. Les compléments de
+compaction et de navigation sont livrés séparément en UX 1.2b.2 ci-dessous.
+
+
+### UX 1.2b.2 — Références interactives en Édition
+
+Seule l'URI des en-têtes quote:tr admissibles est compactée, avec ◷ et le
+timestamp calculé depuis start_ms. Les parenthèses, le marqueur et le titre
+restent visibles. Les règles UX 1.1 (première ligne, véritable blockquote,
+hors code, sans ancêtre blockquote, URI canonique, titre littéral) s'appliquent.
+Les attributions, titres et en-têtes connus invalides ou imbriqués restent inertes.
+Les décorations UX 1.2a et les gestes d'édition UX 1.2b.1 sont conservés.
+
+Clic simple : révéler la source. Ctrl+clic (Cmd+clic sur macOS) : activer une
+référence compacte ou révélée sans changer la sélection ou l'état de révélation.
+Seule une référence reconnue intercepte ce geste ; ailleurs CodeMirror conserve
+ses interactions natives. Les combinaisons avec Shift ou Alt restent natives.
+Ctrl/Cmd+Entrée active une référence lorsque l'unique curseur est strictement
+à l'intérieur de sa plage (URI pour un callout, lien complet pour un lien ordinaire).
+Aux frontières, dans un titre ou avec une sélection non vide/multiple, le raccourci
+ne choisit aucune référence implicitement. Aucune activation pendant la composition.
+
+Le callback 6.5 vérifie vidéo/source et appelle le lecteur existant : états,
+absence d'autoplay sollicité implicitement, refus sans commande différée et
+défilement conditionnel restent identiques. Le focus et la sélection de l'éditeur
+sont préservés ; le défilement de la page vers la vidéo peut néanmoins les éloigner
+visuellement. Les refus sont annoncés dans une région status près de l'éditeur,
+séparée des messages de sauvegarde. Aucun arrêt Tab ni écriture n'est ajouté.

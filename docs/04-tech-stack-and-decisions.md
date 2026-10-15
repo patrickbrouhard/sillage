@@ -1054,5 +1054,16 @@ Cette tranche étend UX 1.2a par des remplacements ciblés, sans Live Preview g�
 dépendance supplémentaire ni modification de persistance.
 
 Les en-têtes quote:tr restent en source. Leurs URI compactes et toutes les
-interactions de navigation en Édition sont réservées à UX 1.2b.2. Le contrat 6.5
-n'est donc pas étendu à l'Édition dans cette livraison.
+interactions de navigation en Édition étaient réservées à UX 1.2b.2. Le contrat 6.5
+n'était donc pas étendu à l'Édition par UX 1.2b.1.
+
+
+### UX 1.2b.2 — Navigation en Édition et URI des callouts
+
+UX 1.2b.1 est validée manuellement. La tranche suivante compacte l'URI des seuls
+en-têtes quote:tr admissibles, parenthèses conservées et timestamp calculé.
+Ctrl/Cmd+clic et Mod-Enter délèguent au callback 6.5 existant, en conservant
+l'éditeur et sa sélection. Cette décision remplace la restriction historique
+« Lecture seulement » pour les formes reconnues en Édition ; elle n'élargit pas
+la grammaire des liens ordinaires prise en charge par UX 1.2b.1.
+Le pictogramme ◷ reste inchangé. Aucun domaine, REST, stockage ou moteur générique.
