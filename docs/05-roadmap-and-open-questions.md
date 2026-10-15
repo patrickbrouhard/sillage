@@ -1183,14 +1183,14 @@ Une future source locale pourra coexister avec un `MediaFile`. L'identité exact
 
 ### 7.1 — Télécharger et conserver une vidéo YouTube
 
-Décisions validées ; implémentation à venir.
+Implémentation 7.1a et 7.1b terminée, validée automatiquement ; retour UX utilisateur à recueillir.
 - 7.1a : service asynchrone, MediaFile avec provenance, validation, stockage,
   suivi REST, suppression et récupération après interruption.
 - 7.1b : actions visibles dans le workspace, suivi et confirmation de suppression,
   sans perturbation du lecteur, de la transcription ni de la session de note.
 
-La sortie exige les deux jalons, les validations et une confrontation finale
-documentation/code. Conservation volontaire durable, MP4/WebM sans réencodage,
+Les deux jalons, les validations et la confrontation finale documentation/code
+sont traités. Conservation volontaire durable, MP4/WebM sans réencodage,
 qualité prioritaire sous plafond 1080p. Voir les contrats dans les documents 01 à 04.
 
 ### Incréments ultérieurs
@@ -1429,7 +1429,7 @@ Restent ouverts :
 - politique de sauvegarde ;
 - suppression cascade vs soft delete ;
 - évolution du runner de migrations vers Goose ou un autre outil ;
-- structure des répertoires media/assets ;
+- structure du répertoire assets ; media est fixé par 7.1 ;
 - stratégie de migration lorsque la base contiendra des données importantes.
 - politique de conservation locale des transcriptions ;
 - cache supprimable ou archive durable ;
@@ -1438,13 +1438,13 @@ Restent ouverts :
 
 ## 17. Questions ouvertes — média
 
-- format de téléchargement préféré ;
-- qualité par défaut ;
-- vidéo complète ou segment temporaire pour screenshot ;
-- conservation après travail ;
-- audio seul dans certains cas ;
-- stratégie de nettoyage ;
-- noms de fichiers.
+La politique 7.1 est actée et implémentée : MP4/WebM, qualité prioritaire sous
+plafond Full HD, conservation volontaire jusqu'à suppression, noms internes aléatoires,
+nettoyage ciblé et provenance obligatoire YouTube. Restent ouverts :
+- stratégie de capture distante/locale et précision selon les sources ;
+- lecture Web locale et compatibilité des profils/codecs selon les navigateurs ;
+- préférences avancées, plusieurs qualités et audio seul ;
+- quotas, reprise et rétention des éventuels caches de captures.
 
 ## 18. Questions ouvertes — frontend
 
@@ -1551,3 +1551,24 @@ Quand plusieurs directions sont possibles :
 4. seulement ensuite généraliser.
 
 Ne pas construire aujourd'hui une abstraction destinée à une fonctionnalité hypothétique de demain si le modèle actuel permet de l'ajouter plus tard proprement.
+
+
+### Validation de 7.1
+
+Tests Go, vet, builds et TypeScript réussis ; race detector sur serveur, service,
+adapters et REST. Tests déterministes de concurrence, provenance, erreurs, publication,
+suppression interrompue, fichier disparu, durée et arrêt des processus descendants.
+310 tests Playwright réussis, dont 5 nouveaux parcours média ; captures desktop/mobile
+inspectées. Les autres fixtures de lecteur/transcription simulent désormais aussi
+l'absence de média pour leurs vidéos fictives.
+
+Essais réels : génération MP4/WebM avec ffmpeg et validation ffprobe ; téléchargement
+de jNQXAC9IVRw en local et dans Docker (MP4 AV1/AAC, 19,064s, 533916 octets).
+Dans Docker, disponibilité après redémarrage, absence de doublon, suppression physique
+et préservation de la note vérifiées. Smoke Compose/outils/Deno/EJS réussi.
+BaW_jenozKc était indisponible : échec explicite, aucun résultat média revendiqué.
+Le runtime WSL utilisé pour cet essai signalait l'absence de runtime JS ; l'image
+Docker embarque Deno. Pas de validation réelle revendiquée pour formation longue,
+1080p vertical, doublage ambigu ou lecture Web locale. Ces cas de sélection sont
+couverts de manière déterministe, la lecture locale reste hors périmètre.
+Avertissement Vite préexistant sur le chunk CodeMirror > 500 kB conservé.

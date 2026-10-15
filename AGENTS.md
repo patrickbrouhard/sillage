@@ -224,7 +224,7 @@ stable accessible status near the editor. Invalid/nested headers and literal tit
 remain inert. No domain, persistence or REST changes.
 
 
-## Step 7.1 — Local media (validated scope, implementation pending)
+## Step 7.1 — Local media (implemented)
 
 Keep remote/local representations complementary. Downloads are explicit user actions.
 MediaFile belongs to Video, with mandatory origin_source_id for YouTube and matching
@@ -237,3 +237,14 @@ files before SQL, reconcile only managed paths safely, recover interrupted delet
 Application-owned asynchronous work: one global active download, no queue or durable
 jobs. Stop child processes on server shutdown. Workspace controls stay visible without
 remounting editor/player. Local playback and screenshots remain out of scope.
+
+
+Media uses internal/media.File, migration 0006, relative managed names under
+data/media and a composite source/video foreign key. Download state is transient;
+missing registered files are consultation errors, never an invitation to redownload.
+Accepted codecs: MP4 H.264/AV1 + AAC; WebM VP8/VP9/AV1 + Opus/Vorbis.
+Rank dimensions and FPS before container preference. Duration tolerance is
+max(1s, min(3s, 0.1% of reference duration)); compare discovery and stored source
+when known, without refresh. SILLAGE_DOWNLOAD_TIMEOUT defaults to 6h.
+Recovery must preserve referenced files and stop on uncertainty. Delete targets
+the exact media ID. Only one server may use a data directory.

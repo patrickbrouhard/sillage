@@ -78,8 +78,8 @@ Schéma conceptuel cible (il inclut aussi des objets futurs) :
 Ce schéma reste volontairement simple et inclut des concepts futurs.
 Les objets `Note` et `Tag` de l'étape 4 sont implémentés et persistés.
 L'étape 4 bis implémente `Publisher`, `Person`, les associations vidéo–personne
-et les tags des publishers et personnes. `MediaFile`, `Annotation`, `Asset`,
-`title_override` et les artefacts IA restent futurs.
+et les tags des publishers et personnes. `MediaFile` est implémenté en 7.1.
+`Annotation`, `Asset`, `title_override` et les artefacts IA restent futurs.
 
 Relations complémentaires implémentées :
 
@@ -816,14 +816,16 @@ VideoSource = d'où vient cette vidéo ?
 MediaFile   = quels octets de cette vidéo sont disponibles localement ?
 ```
 
-Attributs conceptuels :
+Attributs persistés en 7.1 (`media.File` en Go) :
 
 ```text
 id
 video_id
+origin_source_id?
 path
 format
 size
+duration_ms
 added_at
 ```
 
@@ -834,7 +836,7 @@ Exemple :
 ```text
 Video #42
 ├── VideoSource: YouTube
-└── MediaFile: /data/media/42/video.webm
+└── MediaFile: media-<identifiant aléatoire>.webm (sous data/media)
 ```
 
 Une même vidéo peut théoriquement avoir plusieurs fichiers locaux :
@@ -871,15 +873,21 @@ Il n'est donc pas nécessaire de fusionner les deux entités ni d'introduire des
 Le lien facultatif général `origin_source_id -> VideoSource.id` est acté.
 Il est obligatoire pour tout téléchargement YouTube de 7.1. La source appartient
 à la même vidéo que le fichier ; la base doit renforcer cet invariant.
-Le modèle minimal retenu ajoute `origin_source_id` et `duration_ms` aux champs
-conceptuels ci-dessus. `format` désigne le conteneur réel et `size` les octets.
+Le modèle minimal persiste les champs ci-dessus. `format` désigne le conteneur réel et `size` les octets.
 Le chemin est interne et relatif, jamais une URL distante ou un titre YouTube.
 
 La durée locale est mesurée ; l'équivalence temporelle avec la source est présumée,
 sans preuve d'identité parfaite. Une divergence significative empêche la publication.
 Aucun rafraîchissement implicite des métadonnées ou contrôle périodique YouTube.
 Supprimer le fichier ne supprime aucune vidéo, source, note, transcription ou Asset.
-Ces décisions sont validées pour 7.1 ; leur implémentation est à réaliser.
+La migration 0006 crée media_files : identité AUTOINCREMENT, chemin unique,
+format MP4/WebM, taille et durée strictement positives, date UTC milliseconde.
+Une FK composée (origin_source_id, video_id) garantit la cohérence source–vidéo ;
+un index unique partiel sur origin_source_id impose une représentation par source
+dans cette tranche. La provenance facultative permet le modèle général mais aucune
+API d'import local ou de création sans source n'est exposée.
+L'état de téléchargement n'est pas un attribut persistant du MediaFile.
+Le schéma conceptuel en tête du document reste une vue simplifiée.
 
 ## 9. `Tag`
 

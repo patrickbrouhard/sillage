@@ -68,7 +68,7 @@ L'utilisateur doit pouvoir notamment :
 - naviguer depuis un timestamp vers le passage correspondant ;
 - créer des annotations temporelles structurées ;
 - récupérer et consulter la transcription ;
-- télécharger temporairement ou durablement la vidéo ;
+- télécharger volontairement et conserver la vidéo ;
 - effectuer des captures à un instant précis ;
 - insérer ces captures dans les notes ;
 - demander plus tard à une IA de résumer, taguer, extraire ou comparer les informations.

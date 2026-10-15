@@ -370,7 +370,7 @@ L'adapter actuel ne supporte que YouTube. Cette limitation est acceptable : ne p
 
 `ffmpeg` est prévu pour les opérations média nécessitant un traitement local.
 
-Cas principal :
+Exemple futur avec un fichier local disponible (sans priorité systématique sur la capture distante) :
 
 ```text
 timestamp courant
@@ -920,7 +920,8 @@ Certaines opérations pourront devenir longues :
 
 Il n'est pas nécessaire de modéliser immédiatement un système persistant de `Job`.
 
-Pour les premiers incréments, certaines opérations peuvent être synchrones.
+Les acquisitions de métadonnées/transcriptions restent synchrones. En 7.1,
+le téléchargement est asynchrone et possédé par le service applicatif.
 
 Un système de jobs pourra être introduit lorsque les limites deviennent concrètes.
 
@@ -1138,7 +1139,7 @@ dans l'éditeur. blur efface l'état et destroy retire les écouteurs. La CSS ci
 uniquement les références ; aucune transaction n'est émise pour le curseur.
 
 
-## Téléchargements 7.1 — décisions validées, implémentation à venir
+## Téléchargements 7.1 — implémentation
 
 Un service applicatif spécialisé, partagé par REST et futur MCP, prend en charge
 les acquisitions indépendamment du contexte HTTP. Une opération globale active,
@@ -1162,3 +1163,63 @@ Disponibilité seulement après succès complet. Nettoyage compensatoire et rapp
 ciblé au démarrage, sans destruction si la base ou l'identité du fichier est incertaine.
 Suppression récupérable via déplacement provisoire puis suppression SQL et physique.
 Une disparition extérieure est signalée, sans téléchargement automatique.
+
+
+### Frontières et état
+
+internal/media.Service réutilise un VideoReader et des ports Repository,
+Provider et Storage. media.File représente le MediaFile métier. Les adapters
+SQLite, filesystem et ytdlp.MediaClient normalisent leurs formats techniques.
+L'ID de source indexe l'activité globale ; aucun objet Job ni opération durable.
+Start vérifie l'appartenance, retrouve le fichier existant ou l'opération active,
+puis réserve la place avant la goroutine. Le contexte de travail dérive du serveur,
+jamais de la requête. Les derniers échecs sont bornés à 64 sources en mémoire ;
+l'éviction d'une ancienne erreur n'est pas un historique.
+
+Get consulte SQLite puis présence, taille et lisibilité du fichier ; il ne lance
+ni yt-dlp ni ffprobe. Il ne prouve donc pas l'intégrité d'un fichier modifié à taille
+identique. L'état disponible est déduit de la référence durable et du disque,
+pas d'une ancienne valeur en mémoire. La suppression et la publication sont
+sérialisées avec les consultations ; aucune transaction SQL ne couvre le réseau.
+
+### Publication, suppression et rapprochement
+
+Racine fixe data/media, sous /app/data dans Docker. Une zone .pending-<nombre>
+contient découverte temporaire, pistes et sortie media.mp4 ou media.webm.
+La sortie validée est synchronisée puis renommée en media-<32 hex>.mp4/webm ;
+le répertoire est synchronisé avant insertion SQL. La base stocke seulement le nom.
+En cas d'erreur SQL, une relecture indépendante bornée vérifie les références avant
+suppression compensatoire. Un résultat incertain préserve les octets pour le démarrage.
+
+La suppression renomme le fichier avec le suffixe .deleting, synchronise la racine,
+supprime la ligne puis les octets. Le démarrage restaure une suppression non validée
+en base, termine une suppression validée, retire les zones temporaires et les fichiers
+publiés non référencés. Il valide d'abord les références et les entrées gérées :
+liens symboliques, noms invalides ou deux versions contradictoires bloquent le
+démarrage sans nettoyage arbitraire. Les noms étrangers restent intacts.
+Un fichier référencé absent ne bloque pas le serveur : sa consultation signale
+local_media_unavailable. Une suppression explicite peut retirer sa référence.
+L'échec d'effacement après commit laisse un .deleting récupérable au redémarrage.
+
+Ce protocole récupère des interruptions ; il ne crée pas de transaction atomique
+commune à SQLite et au filesystem. Le déploiement garde une seule instance par data/.
+Un stockage défaillant, une restauration incohérente ou une modification extérieure
+nécessite une intervention ; aucun retéléchargement implicite.
+
+### Transport et cycle serveur
+
+REST utilise les états not_downloaded, downloading, available, failed. Le dernier
+échec est une réponse GET 200 avec error.code ; un problème de consultation utilise
+un statut d'erreur HTTP. Les DTO exposent id, format, size, duration_ms, added_at,
+jamais path. Le détail du contrat et les codes sont dans le README.
+
+SILLAGE_DOWNLOAD_TIMEOUT vaut 6h par défaut, indépendant de SILLAGE_POST_TIMEOUT.
+Les appels d'outils ont des sorties bornées. Sous Linux, chaque commande crée un
+groupe ; l'annulation envoie SIGTERM, attend une seconde, puis SIGKILL au groupe,
+descendants compris. Close attend les opérations avant fermeture de SQLite.
+Le shutdown HTTP conserve son budget de 10s ; Compose laisse 15s.
+Aucune annulation utilisateur ; les états transitoires sont oubliés au redémarrage.
+
+Le composant VideoDownload est un enfant indépendant des commandes de YouTubePlayer.
+Il ne possède aucune référence au lecteur ou à l'éditeur. Les clés du workspace
+ne changent pas au gré des états de conservation.

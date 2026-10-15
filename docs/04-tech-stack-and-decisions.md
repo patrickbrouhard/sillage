@@ -257,7 +257,6 @@ Principes :
 La migration `0003_notes_tags.sql` ajoute les notes, tags et associations
 sans perte des données existantes. L'étape 4 est implémentée. Ne pas anticiper :
 
-- `MediaFile` ;
 - `title_override` ;
 - `updated_at` sans sémantique définie ;
 - soft delete ;
@@ -598,7 +597,9 @@ MediaFile + timestamp
 
 Il peut aussi être utilisé par `yt-dlp`.
 
-Le téléchargement local peut être temporaire si cela simplifie le travail sur la vidéo.
+La conservation complète de 7.1 est volontaire et durable. Une acquisition technique
+temporaire pour une future capture reste distincte et n’autorise pas une conservation
+complète automatique. L’extraction distante demeure une candidate à évaluer.
 
 ## 11. Docker
 
@@ -864,7 +865,7 @@ La suppression explicite d'une note reste une évolution UX envisagée, hors de 
 - lecteur vidéo ;
 - système de jobs ;
 - politique de cache ;
-- politique de téléchargement/rétention ;
+- préférences avancées de téléchargement ; la conservation volontaire de 7.1 est actée ;
 - provider IA ;
 - moteur STT ;
 - authentification ;
@@ -872,7 +873,7 @@ La suppression explicite d'une note reste une évolution UX envisagée, hors de 
 - stratégie de backup SQLite ;
 - suppression cascade vs soft delete ;
 - identité et déduplication d'une source locale ;
-- éventuelle relation entre `MediaFile` et sa `VideoSource` d'origine ;
+- évolution vers plusieurs représentations d’une source, au-delà de l’unicité de 7.1 ;
 - logging structuré, niveaux et politique de journalisation.
 - politique de conservation/cache des transcriptions ;
 - stockage configurable des snapshots de transcription ;
@@ -1069,7 +1070,7 @@ la grammaire des liens ordinaires prise en charge par UX 1.2b.1.
 Le pictogramme ◷ reste inchangé. Aucun domaine, REST, stockage ou moteur générique.
 
 
-## Téléchargement 7.1 — politique validée, à implémenter
+## Téléchargement 7.1 — politique implémentée
 
 Vidéo et audio d'une vidéo YouTube terminée uniquement ; directs, événements à venir
 et archives incomplètes exclus. Plafond Full HD indépendant de l'orientation :
@@ -1083,6 +1084,48 @@ Audio original identifiable prioritaire, conventions audio existantes réutilis�
 jamais de déduction depuis les captions. Une piste pertinente unique est acceptable ;
 plusieurs pistes ambiguës provoquent une erreur explicite.
 ffprobe contrôle conteneur, flux, dimensions, taille et durée avant publication.
-Divergence temporelle significative : refus ; tolérance à calibrer par essais.
+Divergence temporelle significative : refus ; tolérance documentée ci-dessous.
 Aucun catalogue de formats, checksum ou dump brut durable. Réglages utilisateur,
 lecture locale et screenshots hors de 7.1.
+
+
+### Choix locaux de sélection et validation
+
+La découverte yt-dlp est réutilisée via --load-info-json avec les identifiants de
+formats sélectionnés. Les URL temporaires et la découverte ne sont jamais persistées
+en base. Les configurations utilisateur sont ignorées ; aucune playlist, reprise,
+coupe ou omission de fragment. Les réessais réseau/fragments sont bornés à 3,
+l'attente socket à 30s et l'ensemble au délai du service.
+
+Combinaisons acceptées :
+- MP4 : H.264 ou AV1, avec AAC ;
+- WebM : VP8, VP9 ou AV1, avec Opus ou Vorbis.
+
+La vidéo doit être disponible dans le conteneur candidat, avec un audio compatible.
+Les codecs non reconnus, dimensions inconnues, formats DRM ou signalés endommagés
+sont exclus. Le classement compare petit côté, nombre de pixels, cadence, puis
+préfère MP4 ; l'ordre de préférence fourni par yt-dlp départage les autres variantes.
+Il ne compare pas naïvement les bitrates entre codecs et ne convertit pas tous les
+formats vers MP4. WebM 1080p prime donc sur MP4 720p. Aucune promesse universelle
+de lecture HTML5 ; codec, profil, matériel et navigateur restent déterminants.
+
+Les formats audio d'une même langue sont regroupés comme variantes techniques.
+Le signal original 10 est partagé avec la détection existante ; les signaux originaux
+contradictoires provoquent une erreur. Sans signal actuel, la langue audio enregistrée
+peut départager ; sinon seule une langue/piste pertinente unique est acceptée.
+Les pistes descriptives signalées par l'extracteur sont exclues. Aucun signal caption.
+Cette stratégie dépend des conventions de la version yt-dlp embarquée et ne garantit
+pas la reconnaissance d'une variante que le provider ne distingue pas.
+
+ffprobe doit trouver exactement une piste vidéo et une audio, avec codecs admis,
+dimensions admissibles, taille réelle et durée positive. Les durées par flux et
+leurs départs sont contrôlés lorsqu'ils sont exposés. WebM exige aussi son DocType
+EBML car ffprobe regroupe Matroska/WebM. Aucun décodage intégral ni checksum.
+
+Tolérance : max(1 seconde, min(3 secondes, 0,1 % de la durée de référence)).
+Comparaison avec la découverte actuelle et avec la durée stockée si connue ;
+aucune mise à jour implicite de la VideoSource. Les arrondis de métadonnées justifient
+le plancher, le plafond empêche une tolérance de plusieurs minutes sur les formations.
+Mesures effectuées : média synthétique de 2s -> MP4 2,000s et WebM 2,008s ;
+vidéo YouTube courte -> 19,064s. Cette marge reste un choix technique révisable :
+les vidéos longues et les limites exactes de codecs devront enrichir les essais réels.

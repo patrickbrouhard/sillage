@@ -234,10 +234,11 @@ est unique.
 Le modèle métier prévoit plus tard d'autres objets tels que :
 
 * `Annotation` ;
-* `Asset` ;
-* `MediaFile`.
+* `Asset`.
 
-Ils ne sont volontairement pas représentés dans ce schéma, car ils ne sont pas encore persistés.
+Annotation et Asset ne sont pas encore persistés. MediaFile est ajouté par la
+migration 0006 en 7.1, avec provenance source et métadonnées du fichier local ;
+voir le contrat de téléchargement ci-dessous.
 
 Le modèle conceptuel complet est documenté dans [`docs/02-domain-model.md`](docs/02-domain-model.md).
 
@@ -602,8 +603,12 @@ docker compose -f deployments/docker/compose.yaml down
 
 Arrêts et recréations conservent le répertoire hôte. Le délai d'arrêt Compose
 est de 15 s pour laisser au serveur ses 10 s de shutdown gracieux.
-`SILLAGE_POST_TIMEOUT` configure la durée maximale d'acquisition (défaut `60s`).
-Les caches et fichiers temporaires des outils restent éphémères sous `/tmp`.
+`SILLAGE_POST_TIMEOUT` configure les acquisitions de métadonnées/transcriptions (défaut `60s`).
+`SILLAGE_DOWNLOAD_TIMEOUT` borne les téléchargements complets (défaut `6h`).
+Les caches des outils restent éphémères sous `/tmp`. Les téléchargements médias
+temporaires vivent sous `data/media/.pending-*` sur le filesystem final ; les médias
+validés restent sous `data/media/`. Prévoir la place pour les pistes et leur assemblage,
+qui peuvent coexister temporairement. Aucun quota ni réencodage automatique.
 Les exécutables appartiennent à root et ne sont pas modifiables par Sillage.
 
 **Sauvegarde, restauration et déplacement à froid :**
@@ -1291,7 +1296,9 @@ UI minimale
   ↓
 timestamps
   ↓
-téléchargement + screenshots
+téléchargement volontaire (7.1 livré)
+  ↓
+lecteur local + screenshots (ultérieurs)
   ↓
 recherche
   ↓
@@ -1302,6 +1309,7 @@ IA intégrée
 
 ### Terminé
 
+* 7.1 : téléchargement volontaire asynchrone, MediaFile, suppression robuste et actions Web ;
 * preuve de concept `yt-dlp` ;
 * modèle initial `Video` / `VideoSource` ;
 * identités internes Sillage ;
@@ -1420,10 +1428,129 @@ Le projet privilégie :
 * un produit pleinement utilisable sans IA.
 
 
-### Étape 7.1 — périmètre validé, développement à venir
+## Téléchargement local — étape 7.1
 
-Téléchargement volontaire YouTube, conservation MP4/WebM en Full HD maximum,
-suivi asynchrone et suppression du seul média local depuis le workspace.
-La lecture locale et les screenshots restent ultérieurs. Le contrat détaillé
-est décrit dans docs/01 à docs/05 ; les instructions livrées seront ajoutées
-après validation de l'implémentation.
+Depuis le workspace YouTube, **Télécharger** conserve volontairement la source
+de travail. Le bouton reste visible quand le lecteur est masqué ou indisponible.
+La lecture continue dans YouTube : aucun lecteur local ni endpoint vidéo n'est livré.
+La disponibilité affiche conteneur, taille et durée. **Supprimer le fichier local**
+demande confirmation et préserve vidéo, source, note, transcription et futurs assets.
+
+Un seul transfert global est accepté, sans file. Quitter/recharger la page ne
+l'annule pas ; le suivi reprend au retour. Une nouvelle demande sur la même source
+retrouve l'opération ou le fichier existant. Une autre source reçoit un refus temporaire.
+Les opérations et derniers échecs sont en mémoire ; après redémarrage, les transferts
+interrompus ne reprennent pas et redeviennent non téléchargés. Les fichiers publiés restent.
+
+### Politique média
+
+Vidéos terminées uniquement. Maximum 1920×1080 ou 1080×1920, qualité avant conteneur,
+MP4 à qualité équivalente, WebM accepté, jamais MKV. Combinaisons retenues :
+MP4 H.264/AV1 + AAC ; WebM VP8/VP9/AV1 + Opus/Vorbis. Aucun réencodage,
+découpage, changement de timeline ou saut de fragments. L'audio original est privilégié
+sur les signaux audio disponibles ; une ambiguïté réelle est refusée.
+Ces choix préparent une future lecture Web sans garantir tous les navigateurs.
+
+ffprobe contrôle flux, codecs, dimensions, taille et durée ; le DocType distingue
+WebM de Matroska. Comparaison avec la découverte et la durée enregistrée si connue :
+tolérance max(1s, min(3s, 0,1% de la référence)). Une divergence significative refuse
+la publication ; aucune métadonnée de source n'est rafraîchie implicitement.
+Les contrôles ne constituent ni une preuve d'identité ni un décodage intégral.
+
+### API de conservation
+
+| Méthode | Route | Résultat |
+| --- | --- | --- |
+| POST | /api/v1/videos/{video_id}/sources/{source_id}/download | Sans corps ; 202 + Location si actif, 200 si déjà disponible |
+| GET | /api/v1/videos/{video_id}/sources/{source_id}/download | 200, consultation locale sans accès YouTube |
+| DELETE | /api/v1/videos/{video_id}/media-files/{media_file_id} | 204 ; identité absente également 204, identité d'une autre vidéo 404 |
+
+GET et POST réussis :
+
+```json
+{
+  "status": "available",
+  "media_file": {
+    "id": 1,
+    "format": "mp4",
+    "size": 533916,
+    "duration_ms": 19064,
+    "added_at": "2026-10-15T19:00:00Z"
+  },
+  "error": null
+}
+```
+
+États : not_downloaded, downloading, available, failed. media_file n'est renseigné
+que pour available. failed contient error: {code, message}, avec message générique ;
+le frontend traduit le code. Chemins internes et URL de flux ne sont jamais exposés.
+Cache-Control: no-store sur les lectures d'état et les démarrages réussis.
+
+| Situation | Statut / code |
+| --- | --- |
+| Identifiant invalide ou POST avec corps | 400 bad_request |
+| Vidéo/source absente ou source d'une autre vidéo | 404 video_not_found / video_source_not_found |
+| Source non YouTube | 409 media_source_unsupported |
+| Serveur occupé ou en arrêt | 503 download_busy, Retry-After: 3 |
+| Fichier enregistré absent, changé en taille ou illisible | 409 local_media_unavailable, avec media_file pour suppression ciblée |
+| Échec local de consultation/suppression | 500 internal_error |
+
+Un échec après acceptation est consultable en GET 200, status=failed, avec :
+media_format_unavailable, media_audio_ambiguous, media_unfinished,
+media_duration_mismatch, media_invalid, download_failed, download_timeout,
+download_interrupted ou internal_error. Les diagnostics détaillés restent dans
+les logs serveur. Aucune analyse de stderr ne pilote les décisions métier.
+Une erreur de consultation n'est jamais assimilée à not_downloaded.
+
+Le navigateur consulte toutes les deux secondes pendant downloading et au retour
+de visibilité/focus. Après réponse incertaine, il relit sans réémettre la commande.
+Une suppression cible l'ID affiché : un ancien onglet ne supprime pas son remplaçant.
+
+### Stockage et exploitation
+
+La migration 0006 ajoute media_files, l'unicité du chemin/de la source et la FK
+composée source–vidéo. origin_source_id reste nullable pour le modèle général ;
+le téléchargement le renseigne obligatoirement. Aucun endpoint d'import local.
+Les fichiers sont publiés sous data/media/media-<32 hex>.mp4 ou .webm,
+puis référencés en base ; aucun partiel n'est déclaré disponible.
+
+Le démarrage rapproche exclusivement les noms maîtrisés : temporaires, orphelins
+non référencés et suppressions .deleting. Une suppression interrompue est restaurée
+si la ligne existe, terminée sinon. Liens symboliques, références invalides ou versions
+contradictoires bloquent le rapprochement ; ne pas effacer ces fichiers arbitrairement.
+Les fichiers étrangers ne sont pas nettoyés. Un fichier référencé manquant est signalé
+par l'API et peut être supprimé explicitement, sans acquisition automatique.
+Le rapprochement suppose une seule instance par répertoire de données.
+
+Sauvegarder/restaurer à froid **tout data/**, base et médias ensemble.
+Une copie de la seule base ne conserve pas les vidéos. Les imports manuels dans
+data/media ne sont pas supportés ; ne pas modifier les fichiers gérés.
+SILLAGE_DOWNLOAD_TIMEOUT accepte une durée Go strictement positive, par exemple 90m.
+Le délai par défaut est 6h ; les longues formations lentes peuvent nécessiter davantage.
+L'arrêt du serveur annule les groupes yt-dlp/ffmpeg avant fermeture de SQLite.
+
+### Validation reproductible
+
+```sh
+make test
+make test-web
+go test -race ./cmd/server ./internal/media ./internal/adapter/filesystem ./internal/adapter/sqlite ./internal/adapter/ytdlp ./internal/http
+python3 tests/docker/smoke.py
+```
+
+Les tests ordinaires ne contactent pas YouTube. Les tests ffmpeg/ffprobe locaux
+génèrent leurs médias et sont ignorés si ces exécutables ne sont pas disponibles.
+Les fixtures Web remplacent yt-dlp et ffprobe dans un répertoire temporaire.
+Pour un essai réseau volontaire, avec outils réels :
+
+```sh
+SILLAGE_TEST_YOUTUBE_ID=jNQXAC9IVRw go test ./internal/adapter/ytdlp -run TestYouTubeMediaIntegration -v -count=1
+docker build -f deployments/docker/Dockerfile -t sillage:local .
+python3 tests/docker/media.py --youtube-id jNQXAC9IVRw
+```
+
+Le dernier script utilise le port localhost 18389 (modifiable par --port), un conteneur
+et un bind mount temporaires, puis supprime ses données. Il vérifie acquisition,
+redémarrage, absence de doublon, suppression physique et conservation de la note.
+La disponibilité de la vidéo distante n'est pas garantie. Pour le bilan d'essais
+effectivement réalisés et leurs limites, voir docs/05-roadmap-and-open-questions.md.
