@@ -260,3 +260,22 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .markdown-editor .cm-callout-marker { color: var(--label); font-weight: 700; }
 .markdown-editor .cm-callout-uri, .markdown-editor .cm-callout-uri * { color: var(--muted); }
 .markdown-editor .cm-callout-label, .markdown-editor .cm-callout-label * { color: var(--label); font-weight: 600; }
+
+/* Références compactes : aucune largeur imposée aux libellés longs. */
+.cm-temporal-reference {
+  display: inline;
+  padding: .08em .25em;
+  border-radius: .3em;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  cursor: text;
+  overflow-wrap: anywhere;
+  box-decoration-break: clone;
+}
+.cm-temporal-reference > span { margin-right: .3em; }
+.cm-temporal-reference:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+
+/* La main annonce uniquement le geste de navigation, y compris sur la source révélée. */
+.cm-temporal-navigation .cm-temporal-reference,
+.cm-temporal-navigation .cm-temporal-reference *,
+.cm-temporal-navigation .cm-temporal-source,
+.cm-temporal-navigation .cm-temporal-source * { cursor: pointer; }

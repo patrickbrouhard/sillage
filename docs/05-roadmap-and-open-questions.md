@@ -1044,7 +1044,8 @@ présentes réutilisés comme pour UX 1.1. L'avertissement Vite préexistant sur
 taille du chunk CodeMirror subsiste. Aucun essai YouTube réel pour cette tranche.
 UX 1.1 est intégrée dans `origin/master` par la fusion GitHub `90bb1a7`.
 La branche UX 1.2a est réalignée sur cette base, en conservant la validation
-utilisateur d'UX 1.1 et les deux commits d'UX 1.2a ; elle reste non fusionnée.
+utilisateur d'UX 1.1 et les deux commits d'UX 1.2a. UX 1.2a a ensuite été
+fusionnée sur GitHub dans master par le commit e9cbe61 (PR #9).
 
 Vérifications manuelles recommandées avant validation :
 - juger bordure, contraste et lisibilité des URI en Clair/Sombre/Système ;
@@ -1054,11 +1055,114 @@ Vérifications manuelles recommandées avant validation :
   essayer Undo/Redo, sauvegarder et basculer Lecture/Édition ;
 - vérifier le confort des retours à la ligne sur écran étroit.
 
-### UX 1.2b — Références compactes, non implémenté
+### UX 1.2b.1 — Références compactes en Édition
 
-Étude distincte pour toutes les références temporelles canoniques, dans un callout
-ou une note ordinaire. Révélation de l'URI, interactions et sélections restent à
-définir. Aucun Live Preview général ni mécanisme de remplacement livré en UX 1.2a.
+Implémentation sur feat/compact-temporal-references depuis master propre e9cbe61,
+sans fusion. Contrat détaillé dans Product & UX ; mécanismes dans Architecture.
+
+Périmètre : liens directs monolignes de forme [libellé](URI), avec libellé simple
+et URI strictement canonique. Horloge et libellé fidèles, sans nouvelle dépendance
+ni modification du Markdown. Les autres formes restent en source, notamment
+titres de liens, destinations entre chevrons, libellés enrichis/échappés, définitions,
+images, code et liens multilignes. Les en-têtes connus de callout, leurs titres
+et attributions restent littéraux ; leurs liens de corps peuvent être compactés.
+
+Clic ou entrée clavier : révélation. Sélection traversante : source visible.
+Suppression contre une référence compacte : premier appui sans effacement ni
+déplacement du curseur, second appui natif. Frontières extérieures éditables,
+y compris entre références adjacentes. Pas d'atomicRanges ni d'arrêt Tab ajouté.
+La composition IME suspend la compaction. + Temps, espace final, Undo/Redo et
+autosauvegarde conservent leurs contrats.
+
+Validation automatisée :
+- make test : tests Go, vet, build des packages et contrôle TypeScript réussis ;
+- build frontend Vite et binaire serveur réussis ;
+- 267 tests Playwright réussis, dont 38 nouveaux scénarios de compaction ;
+- reconnaissance/exclusions, sélection partielle et traversante (clavier/souris),
+  copie fidèle, frontières adjacentes, suppression protégée puis native, Undo,
+  stabilité du DOM pendant sauvegarde, rechargement et grand document vérifiés ;
+- insertion + Temps et navigation Lecture couvertes par les suites existantes,
+  avec assertions visuelles adaptées et contrôles du Markdown persisté conservés ;
+- captures 375 px clair/sombre inspectées : libellé long replié, aucun débordement.
+  Le scénario IME automatisé utilise des événements synthétiques, pas un IME système.
+
+Environnement : bibliothèques libnspr4/libnss3 extraites dans /tmp/sillage-browser-libs
+pour Chromium WSL, sans installation système ni dépendance projet supplémentaire.
+L'avertissement Vite préexistant sur le chunk CodeMirror supérieur à 500 kB demeure.
+Aucune navigation YouTube réelle revendiquée pour cette tranche sans commande lecteur.
+
+Validation manuelle attendue avant fusion :
+- éprouver le ressenti du clic, des flèches et de la double action de suppression ;
+- rédiger avant/après/entre les références, insérer plusieurs + Temps et annuler ;
+- sélectionner à la souris et au clavier, copier vers un éditeur de texte brut ;
+- vérifier les sauts de lignes lors de la révélation, les libellés longs et les thèmes ;
+- essayer une composition IME réelle, le tactile et un lecteur d'écran.
+
+### UX 1.2b.2 — En-têtes et navigation en Édition
+
+UX 1.2b.1 est testée manuellement et validée par l'utilisateur. UX 1.2b.2 est
+implémentée sur la même branche feat/compact-temporal-references, sans fusion.
+
+Les en-têtes quote:tr admissibles compactent seulement l'URI, parenthèses visibles
+et temps calculé depuis start_ms. Marqueur, titre et décorations UX 1.2a conservés.
+Les liens temporels ordinaires gardent le périmètre de reconnaissance de 1.2b.1.
+Clic simple et édition inchangés ; Ctrl/Cmd+clic active les formes compactes ou
+révélées ; Mod-Enter active depuis un unique curseur intérieur. Les titres et
+en-têtes invalides/imbriqués restent inertes. Pas de nouvelle dépendance.
+
+La navigation appelle le callback 6.5 existant : contrôles vidéo/source, protocole
+lecteur et défilement conditionnel partagés. Aucun dispatch, changement de sélection,
+transfert de focus ou écriture provoqué par l'action. Les refus sont annoncés près
+de l'éditeur dans une région status distincte de la sauvegarde.
+
+Validation :
+- build frontend, make test (Go, vet, build et TypeScript) réussis ;
+- suite complète : 296 tests Playwright réussis, dont 29 nouveaux scénarios ;
+- compaction/révélation, copie, suppression et Undo des callouts, clavier et clic,
+  sélection et session conservées, états lecteur, refus identité/indisponibilité
+  et lecteur masqué couverts ; suites UX 1.2a, 1.2b.1 et 6.5 conservées ;
+- Cmd+clic et Cmd+Entrée testés sous Chromium Linux avec plateforme Mac simulée,
+  sans prétendre à une validation macOS native ;
+- aucun essai YouTube réel ; avertissement Vite préexistant sur le chunk > 500 kB.
+
+Scénarios proposés pour la validation manuelle d'UX 1.2b :
+- callouts avec/sans titre, titres longs, thèmes et écran étroit ;
+- clic simple puis Ctrl/Cmd+clic sur lien/URI révélée, raccourci dans la source ;
+- sélection conservée, saisie après navigation, + Temps et Undo/Redo ;
+- lecteur masqué/hors écran, lecture et pause, refus vers une autre vidéo/source ;
+- clavier macOS réel, lecteurs d'écran et composition IME.
+
+#### Finition du curseur de navigation
+
+UX 1.2b.1 et UX 1.2b.2 ont été testées manuellement et validées par l'utilisateur.
+Dernière finition avant fusion : curseur de texte natif au repos, main avec
+Ctrl/Cmd sur les références compactes et révélées, liens et URI de callouts.
+Les transitions ne modifient ni la sélection ni le document. Sortie, relâchement,
+Shift/Alt et perte de focus de fenêtre restaurent le curseur normal.
+
+Validation : 305 tests Playwright réussis, dont 9 nouveaux scénarios de curseur ;
+make test (Go, vet, build et TypeScript) et build frontend réussis. L'avertissement
+Vite préexistant sur le chunk CodeMirror demeure.
+
+Les tests macOS simulent navigator.platform et les événements Meta dans Chromium
+Linux ; ils ne remplacent pas un essai macOS natif. Le blur de fenêtre est simulé.
+Les scénarios proposés pour cette finition comprenaient la souris immobile,
+les entrées avec modificateur maintenu et le retour depuis une autre application.
+
+#### Validation complète d'UX 1.2b
+
+L'utilisateur confirme que la finition du curseur fonctionne comme prévu et
+valide l'ensemble d'UX 1.2b : compaction des liens ordinaires (1.2b.1),
+compaction des URI de callouts et navigation en Édition (1.2b.2), puis retour
+visuel du curseur avec Ctrl/Cmd. La validation fonctionnelle et ergonomique
+est clôturée ; la branche feat/compact-temporal-references est prête à fusionner.
+
+Cette confirmation globale ne précise pas les plateformes ni chaque scénario
+d'accessibilité exercé : les limites des tests simulés documentées ci-dessus
+restent explicites. Aucun nouveau résultat de test automatisé n'est revendiqué.
+
+La fusion sera effectuée par l'utilisateur sur GitHub. La branche reste
+non fusionnée à ce stade ; aucune fusion locale dans master n'est réalisée.
 
 ## 9. Étape 7 — Téléchargement local et screenshots
 

@@ -1084,3 +1084,55 @@ Seule parseCalloutHeader, fonction pure de validation d'une ligne littérale,
 est partagée avec Remark. Chaque environnement conserve son arbre et contrôle
 le contexte de reconnaissance. Aucun Remark dans l'éditeur, aucun arbre unifié,
 nouvelle dépendance ou moteur générique.
+
+### Compaction temporelle UX 1.2b.1
+
+compactTemporalReferences est une extension CodeMirror distincte de
+markdownDecorations. Un ViewPlugin parcourt les Link de l'arbre Markdown dans
+les plages visibles, rejette les contextes non admissibles et applique
+parseTemporalReference à la destination exacte. Aucun parseur Remark ni
+normalisation de destination n'est ajouté. La reconnaissance des en-têtes connus
+exclut leurs lignes littérales, y compris dans les citations imbriquées.
+
+Decoration.replace et WidgetType remplacent visuellement des liens monolignes,
+sans atomicRanges. Les remplacements ont des frontières non inclusives.
+Les sélections qui intersectent les liens retirent leurs décorations ; une keymap
+prioritaire permet l'entrée depuis les frontières et protège la suppression
+immédiate d'une source cachée. Le clic place une sélection native dans le libellé.
+Les widgets égaux conservent leur DOM, sans position source capturée dans un
+callback. Les plages sont recalculées lors des changements de document, sélection,
+viewport ou arbre syntaxique. Les événements de composition suspendent les
+remplacements avec un effet sans modification documentaire ; le retour attend
+la fin du traitement natif. Le timer est annulé au démontage.
+
+L'extension reste montée dans la même session. Seul docChanged continue de
+déclencher onChange/autosauvegarde. Copie, insertion, modèle NoteSession et
+historique textuel restent natifs. UX 1.2b.1 n'introduisait pas de callback lecteur ;
+UX 1.2b.2 étend ce périmètre ci-dessous.
+
+
+### Navigation en Édition UX 1.2b.2
+
+compactTemporalReferences reçoit une fonction d'activation via une facet locale.
+MarkdownEditor délègue à callbacks.current ; une nouvelle fonction React ne
+reconstruit donc pas EditorView. VideoNote appelle le même onNavigate que Lecture
+et affiche le résultat hors de CodeMirror et de NoteSession, dans une région status.
+
+Le collecteur reconnaît également les en-têtes par le contexte Lezer et
+parseCalloutHeader. Il conserve la référence validée et la plage exacte d'URI.
+Les liens des titres et les en-têtes inadmissibles restent exclus. Le widget et
+les protections de sélection/suppression existants servent aux deux formes.
+
+Le mousedown modifié est intercepté avant la sélection native, uniquement sur une
+plage reconnue. La position provient du DOM du widget ou de posAtCoords pour la
+source révélée. La commande Mod-Enter vérifie un curseur unique strictement intérieur.
+L'activation ne dispatch aucune transaction et ne transfère pas le focus.
+Le contrôle vidéo/source et player.navigate restent exclusivement dans la fiche
+et le lecteur existants ; aucune copie du protocole 6.5 n'est introduite.
+
+Le retour de survol utilise une classe DOM locale au ViewPlugin et des marques
+sur les seules plages reconnues révélées. Les widgets compacts conservent leur DOM.
+Les événements souris renseignent l'entrée et la sortie ; keydown/keyup sur la
+fenêtre couvrent le modificateur pressé sans déplacement de souris, même sans focus
+dans l'éditeur. blur efface l'état et destroy retire les écouteurs. La CSS cible
+uniquement les références ; aucune transaction n'est émise pour le curseur.

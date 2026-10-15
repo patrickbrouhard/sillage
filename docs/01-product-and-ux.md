@@ -870,6 +870,73 @@ sauvegarde ni session. Aucun élément interactif, masquage, remplacement d'URI 
 commande au lecteur en Édition. Clair/Sombre/Système et retours visuels à la ligne
 sur écrans étroits utilisent les styles existants.
 
-UX 1.2b reste à concevoir : représentation compacte de toutes les références
+Orientation initiale UX 1.2b (précisée par UX 1.2b.1 ci-dessous) : représentation compacte de toutes les références
 temporelles canoniques, dans les callouts ou le Markdown ordinaire. Cette étape
 devra définir révélation, interactions et sélections ; elle n'est pas implémentée.
+
+### UX 1.2b.1 — Références temporelles compactes en Édition
+
+Les liens directs sur une seule ligne source, avec libellé simple non vide et
+destination canonique validée, sont affichés avec une horloge et leur libellé.
+Le Markdown enregistré reste inchangé. Les liens multilignes, par définition,
+avec titre Markdown, libellé enrichi, échappements ou entités, les images, le code
+et les URI isolées ou invalides restent visibles en source.
+
+Les en-têtes connus de callout sont exclus, même invalides ou imbriqués :
+attributions, titres littéraux et liens traversant l'en-tête ne sont pas enrichis.
+Les liens ordinaires du corps restent éligibles. Les décorations UX 1.2a sont conservées.
+Une référence valide d'une autre vidéo/source est compacte, sans navigation.
+
+Un clic simple révèle la source et place le curseur au début du libellé.
+Les positions exactement avant/après le lien restent extérieures et permettent
+d'écrire, y compris entre deux références adjacentes. Les flèches gauche/droite
+vers l'intérieur révèlent la source. Retour arrière/Suppr contre le lien compact
+révèle sa source sans déplacer le curseur ni supprimer au premier appui ; ensuite l'édition est
+ordinaire. Une sélection non vide intersectant le lien, même en l'englobant,
+révèle sa source et garde les comportements natifs de copie/suppression.
+Quand la sélection quitte son intérieur, le lien redevient compact.
+Ces changements de présentation ne modifient ni le document, ni la sauvegarde,
+ni l'historique des modifications.
+
+Le widget ne crée aucun arrêt Tab supplémentaire. Son nom accessible indique
+l'action de modification ; l'accès clavier passe par le curseur de l'éditeur.
+Les libellés longs peuvent se replier. La composition IME suspend temporairement
+la compaction pour ne pas remplacer le texte en cours de saisie.
+« + Temps » garde son espace final, son curseur après l'espace et son Undo isolé.
+
+UX 1.2b.1 a été validée manuellement par l'utilisateur. Les compléments de
+compaction et de navigation sont livrés séparément en UX 1.2b.2 ci-dessous.
+
+
+### UX 1.2b.2 — Références interactives en Édition
+
+Seule l'URI des en-têtes quote:tr admissibles est compactée, avec ◷ et le
+timestamp calculé depuis start_ms. Les parenthèses, le marqueur et le titre
+restent visibles. Les règles UX 1.1 (première ligne, véritable blockquote,
+hors code, sans ancêtre blockquote, URI canonique, titre littéral) s'appliquent.
+Les attributions, titres et en-têtes connus invalides ou imbriqués restent inertes.
+Les décorations UX 1.2a et les gestes d'édition UX 1.2b.1 sont conservés.
+
+Clic simple : révéler la source. Ctrl+clic (Cmd+clic sur macOS) : activer une
+référence compacte ou révélée sans changer la sélection ou l'état de révélation.
+Seule une référence reconnue intercepte ce geste ; ailleurs CodeMirror conserve
+ses interactions natives. Les combinaisons avec Shift ou Alt restent natives.
+Ctrl/Cmd+Entrée active une référence lorsque l'unique curseur est strictement
+à l'intérieur de sa plage (URI pour un callout, lien complet pour un lien ordinaire).
+Aux frontières, dans un titre ou avec une sélection non vide/multiple, le raccourci
+ne choisit aucune référence implicitement. Aucune activation pendant la composition.
+
+Le callback 6.5 vérifie vidéo/source et appelle le lecteur existant : états,
+absence d'autoplay sollicité implicitement, refus sans commande différée et
+défilement conditionnel restent identiques. Le focus et la sélection de l'éditeur
+sont préservés ; le défilement de la page vers la vidéo peut néanmoins les éloigner
+visuellement. Les refus sont annoncés dans une région status près de l'éditeur,
+séparée des messages de sauvegarde. Aucun arrêt Tab ni écriture n'est ajouté.
+
+Finition du survol, après validation manuelle d'UX 1.2b.1 et 1.2b.2 :
+le curseur reste natif au repos et devient une main lorsque Ctrl (Cmd sur macOS)
+est maintenu sur une référence activable, compacte ou révélée. Le relâchement,
+la sortie de l'éditeur ou la perte de focus de la fenêtre retire ce retour.
+Shift/Alt désactivent la main, comme ils excluent le geste de navigation.
+Les titres, en-têtes inadmissibles et liens non temporels gardent leur curseur.
+Aucun changement de sélection, de focus, de navigation ou de Markdown.
