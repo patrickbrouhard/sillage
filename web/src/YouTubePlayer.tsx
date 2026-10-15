@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
-import type { Ref } from 'react'
+import type { ReactNode, Ref } from 'react'
 import type { VideoSource } from './api'
 import { httpURL } from './videoPresentation'
 import { loadYouTubeAPI } from './youtubeApi'
@@ -14,7 +14,7 @@ export interface YouTubePlayerHandle {
 }
 
 /** Présente un lecteur YouTube isolé ; une pause confirmée précède son masquage. */
-export function YouTubePlayer({ source, ref }: { source: VideoSource; ref: Ref<YouTubePlayerHandle> }) {
+export function YouTubePlayer({ source, ref, children }: { source: VideoSource; ref: Ref<YouTubePlayerHandle>; children?: ReactNode }) {
   const host = useRef<HTMLDivElement>(null)
   const player = useRef<Player | null>(null)
   const failPlayer = useRef<((description: string) => void) | null>(null)
@@ -218,6 +218,7 @@ export function YouTubePlayer({ source, ref }: { source: VideoSource; ref: Ref<Y
       </button>
       {url && <a href={url} target="_blank" rel="noopener noreferrer">Ouvrir sur YouTube ↗</a>}
     </div>
+    {children}
     <div hidden={hidden}>
       {!ready && !message && <p role="status">Chargement du lecteur YouTube…</p>}
       {message && <div role="alert"><p>{message}</p><button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}

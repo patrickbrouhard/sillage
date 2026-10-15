@@ -71,6 +71,9 @@ def main():
             encoding="utf-8",
         )
         executable.chmod(0o700)
+        probe_executable = workspace / "ffprobe"
+        probe_executable.write_text((ROOT / "tests/web/ffprobe.py").read_text(encoding="utf-8"), encoding="utf-8")
+        probe_executable.chmod(0o700)
         env = os.environ.copy()
         env["PATH"] = f"{workspace}:/usr/bin:/bin"
         env["SILLAGE_WEB_DIR"] = str(ROOT / "web" / "dist")

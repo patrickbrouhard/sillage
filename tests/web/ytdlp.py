@@ -12,6 +12,11 @@ def main():
     args = sys.argv[1:]
     if "--load-info-json" in args:
         output = Path(args[args.index("--output") + 1])
+        if "--format" in args:
+            if args[args.index("--format") + 1] != "18":
+                raise ValueError("Unexpected media selection")
+            (output.parent / "media.mp4").write_bytes(b"complete")
+            return
         track = args[args.index("--sub-langs") + 1].removeprefix("^").removesuffix("$")
         if track not in ("fr-orig", "en-orig"):
             raise ValueError("Unexpected caption selection")
@@ -40,6 +45,14 @@ def main():
         metadata["automatic_captions"] = {"fr-orig": [{
             "ext": "json3", "url": "https://example.test/original",
         }]}
+    if external_id.startswith("trdl"):
+        metadata["live_status"] = "not_live"
+        metadata["formats"] = [{
+            "format_id": "18", "ext": "mp4", "vcodec": "avc1", "acodec": "mp4a",
+            "width": 640, "height": 360, "fps": 30,
+            "language": "en", "language_preference": 10,
+            "url": "https://example.test/media",
+        }]
     if external_id.startswith("tr-region"):
         metadata["formats"] = [{"language": "en-US", "language_preference": 10, "acodec": "opus"}]
         metadata["automatic_captions"] = {"en-orig": [{"ext": "json3", "url": "https://example.test/en"}]}

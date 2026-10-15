@@ -5,6 +5,7 @@ import type { Tag, Video, VideoSource } from './api'
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { VideoTranscript } from './VideoTranscript'
+import { VideoDownload } from './VideoDownload'
 import { YouTubePlayer } from './YouTubePlayer'
 import type { YouTubePlayerHandle } from './YouTubePlayer'
 import type { VideoNoteHandle } from './VideoNote'
@@ -114,7 +115,9 @@ function VideoDetail({ id }: { id: string }) {
           <h1 className="video-title">{state.video.sources[0]?.title || 'Vidéo sans titre'}</h1>
           <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
           <div className={`video-workspace${source ? '' : ' without-source'}`}>
-            {source ? <YouTubePlayer key={`player-${source.id}`} source={source} ref={player} />
+            {source ? <YouTubePlayer key={`player-${source.id}`} source={source} ref={player}>
+              <VideoDownload key={source.id} videoID={state.video.id} sourceID={source.id} />
+            </YouTubePlayer>
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
               <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote ref={note} videoID={state.video.id}

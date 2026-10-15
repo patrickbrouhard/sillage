@@ -280,3 +280,11 @@ test('chargement du script sans callback borné et indépendant de la note', asy
   await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
   await expect(page.getByText('Transcription indépendante')).toBeVisible()
 })
+
+
+// Ces scénarios isolent le lecteur/transcript : la source simulée n'existe pas en SQLite.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/download', route => route.fulfill({
+    json: { status: 'not_downloaded', media_file: null, error: null },
+  }))
+})

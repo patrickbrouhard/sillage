@@ -279,3 +279,16 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .cm-temporal-navigation .cm-temporal-reference *,
 .cm-temporal-navigation .cm-temporal-source,
 .cm-temporal-navigation .cm-temporal-source * { cursor: pointer; }
+
+
+/* Le contrôle de conservation reste visible quand seul le lecteur est masqué. */
+.video-download { padding: 8px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.video-download p { margin: 4px 0 8px; font-size: 0.875rem; }
+.download-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (min-width: 1100px) {
+  .video-download { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .video-download > p { margin: 0; flex: 1 1 160px; }
+  .video-download > p[role="alert"] { flex-basis: 100%; }
+  .youtube-frame:has(iframe) { height: clamp(200px, calc(28dvh - 48px), 292px); }
+}
