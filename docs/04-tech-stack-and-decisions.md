@@ -1043,3 +1043,16 @@ partagé avec Remark ; rendu Lecture et Édition restent indépendants.
 Pas de dépendance ajoutée, Live Preview, widget, modification du document ou
 de la persistance. La représentation compacte des références est réservée à
 UX 1.2b, pour tous les liens canoniques, après un cadrage spécifique.
+
+### UX 1.2b.1 — Références compactes ciblées
+
+Décision : remplacer uniquement la représentation des liens temporels directs
+monolignes à libellé simple dans CodeMirror. Les widgets ne sont pas des objets
+atomiques ; révélation par clic, entrée clavier ou sélection et protection de
+la suppression aux frontières. Markdown brut conservé pour les autres formes.
+Cette tranche étend UX 1.2a par des remplacements ciblés, sans Live Preview général,
+dépendance supplémentaire ni modification de persistance.
+
+Les en-têtes quote:tr restent en source. Leurs URI compactes et toutes les
+interactions de navigation en Édition sont réservées à UX 1.2b.2. Le contrat 6.5
+n'est donc pas étendu à l'Édition dans cette livraison.

@@ -1084,3 +1084,27 @@ Seule parseCalloutHeader, fonction pure de validation d'une ligne littérale,
 est partagée avec Remark. Chaque environnement conserve son arbre et contrôle
 le contexte de reconnaissance. Aucun Remark dans l'éditeur, aucun arbre unifié,
 nouvelle dépendance ou moteur générique.
+
+### Compaction temporelle UX 1.2b.1
+
+compactTemporalReferences est une extension CodeMirror distincte de
+markdownDecorations. Un ViewPlugin parcourt les Link de l'arbre Markdown dans
+les plages visibles, rejette les contextes non admissibles et applique
+parseTemporalReference à la destination exacte. Aucun parseur Remark ni
+normalisation de destination n'est ajouté. La reconnaissance des en-têtes connus
+exclut leurs lignes littérales, y compris dans les citations imbriquées.
+
+Decoration.replace et WidgetType remplacent visuellement des liens monolignes,
+sans atomicRanges. Les remplacements ont des frontières non inclusives.
+Les sélections qui intersectent les liens retirent leurs décorations ; une keymap
+prioritaire permet l'entrée depuis les frontières et protège la suppression
+immédiate d'une source cachée. Le clic place une sélection native dans le libellé.
+Les widgets égaux conservent leur DOM, sans position source capturée dans un
+callback. Les plages sont recalculées lors des changements de document, sélection,
+viewport ou arbre syntaxique. Les événements de composition suspendent les
+remplacements avec un effet sans modification documentaire ; le retour attend
+la fin du traitement natif. Le timer est annulé au démontage.
+
+L'extension reste montée dans la même session. Seul docChanged continue de
+déclencher onChange/autosauvegarde. Copie, insertion, modèle NoteSession et
+historique textuel restent natifs. Aucun callback lecteur n'entre dans l'éditeur.

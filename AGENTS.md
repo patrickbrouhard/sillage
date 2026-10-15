@@ -196,3 +196,15 @@ Valid callouts may have mark/line decorations; all source text and URIs remain v
 Preserve editor identity, selections, history and autosave. No widgets, replacement
 ranges or player interactions. Compact canonical temporal references everywhere
 are reserved for UX 1.2b, not implemented in this increment.
+
+## UX 1.2b.1 — Compact temporal links
+
+Compact only single-line direct Markdown links with simple labels and strictly
+canonical temporal destinations. Keep all known callout headers literal, including
+invalid/nested headers and plain-text titles/attributions. Body links may compact.
+Use CodeMirror replacement widgets without atomic ranges or document changes.
+Click or keyboard entry reveals source; boundary deletion reveals before deleting.
+Intersecting selections reveal source, including fully covered links. Preserve raw
+Markdown copy, insertion, history, autosave and editor identity. Suspend replacements
+during IME composition. No new tab stops or dependencies. quote:tr header compaction
+and all editor video navigation remain deferred to UX 1.2b.2.

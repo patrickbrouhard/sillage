@@ -1044,7 +1044,8 @@ présentes réutilisés comme pour UX 1.1. L'avertissement Vite préexistant sur
 taille du chunk CodeMirror subsiste. Aucun essai YouTube réel pour cette tranche.
 UX 1.1 est intégrée dans `origin/master` par la fusion GitHub `90bb1a7`.
 La branche UX 1.2a est réalignée sur cette base, en conservant la validation
-utilisateur d'UX 1.1 et les deux commits d'UX 1.2a ; elle reste non fusionnée.
+utilisateur d'UX 1.1 et les deux commits d'UX 1.2a. UX 1.2a a ensuite été
+fusionnée sur GitHub dans master par le commit e9cbe61 (PR #9).
 
 Vérifications manuelles recommandées avant validation :
 - juger bordure, contraste et lisibilité des URI en Clair/Sombre/Système ;
@@ -1054,11 +1055,55 @@ Vérifications manuelles recommandées avant validation :
   essayer Undo/Redo, sauvegarder et basculer Lecture/Édition ;
 - vérifier le confort des retours à la ligne sur écran étroit.
 
-### UX 1.2b — Références compactes, non implémenté
+### UX 1.2b.1 — Références compactes en Édition
 
-Étude distincte pour toutes les références temporelles canoniques, dans un callout
-ou une note ordinaire. Révélation de l'URI, interactions et sélections restent à
-définir. Aucun Live Preview général ni mécanisme de remplacement livré en UX 1.2a.
+Implémentation sur feat/compact-temporal-references depuis master propre e9cbe61,
+sans fusion. Contrat détaillé dans Product & UX ; mécanismes dans Architecture.
+
+Périmètre : liens directs monolignes de forme [libellé](URI), avec libellé simple
+et URI strictement canonique. Horloge et libellé fidèles, sans nouvelle dépendance
+ni modification du Markdown. Les autres formes restent en source, notamment
+titres de liens, destinations entre chevrons, libellés enrichis/échappés, définitions,
+images, code et liens multilignes. Les en-têtes connus de callout, leurs titres
+et attributions restent littéraux ; leurs liens de corps peuvent être compactés.
+
+Clic ou entrée clavier : révélation. Sélection traversante : source visible.
+Suppression contre une référence compacte : premier appui sans effacement ni
+déplacement du curseur, second appui natif. Frontières extérieures éditables,
+y compris entre références adjacentes. Pas d'atomicRanges ni d'arrêt Tab ajouté.
+La composition IME suspend la compaction. + Temps, espace final, Undo/Redo et
+autosauvegarde conservent leurs contrats.
+
+Validation automatisée :
+- make test : tests Go, vet, build des packages et contrôle TypeScript réussis ;
+- build frontend Vite et binaire serveur réussis ;
+- 267 tests Playwright réussis, dont 38 nouveaux scénarios de compaction ;
+- reconnaissance/exclusions, sélection partielle et traversante (clavier/souris),
+  copie fidèle, frontières adjacentes, suppression protégée puis native, Undo,
+  stabilité du DOM pendant sauvegarde, rechargement et grand document vérifiés ;
+- insertion + Temps et navigation Lecture couvertes par les suites existantes,
+  avec assertions visuelles adaptées et contrôles du Markdown persisté conservés ;
+- captures 375 px clair/sombre inspectées : libellé long replié, aucun débordement.
+  Le scénario IME automatisé utilise des événements synthétiques, pas un IME système.
+
+Environnement : bibliothèques libnspr4/libnss3 extraites dans /tmp/sillage-browser-libs
+pour Chromium WSL, sans installation système ni dépendance projet supplémentaire.
+L'avertissement Vite préexistant sur le chunk CodeMirror supérieur à 500 kB demeure.
+Aucune navigation YouTube réelle revendiquée pour cette tranche sans commande lecteur.
+
+Validation manuelle attendue avant fusion :
+- éprouver le ressenti du clic, des flèches et de la double action de suppression ;
+- rédiger avant/après/entre les références, insérer plusieurs + Temps et annuler ;
+- sélectionner à la souris et au clavier, copier vers un éditeur de texte brut ;
+- vérifier les sauts de lignes lors de la révélation, les libellés longs et les thèmes ;
+- essayer une composition IME réelle, le tactile et un lecteur d'écran.
+
+### UX 1.2b.2 — En-têtes et navigation, non implémenté
+
+Réserver à cette tranche les URI compactes dans les en-têtes quote:tr,
+Ctrl/Cmd+clic et le raccourci clavier de navigation temporelle. Les protections
+6.5 seront réutilisées ; elles ne sont pas activées en Édition par UX 1.2b.1.
+Aucun Live Preview général ni nouvelle entité persistée.
 
 ## 9. Étape 7 — Téléchargement local et screenshots
 

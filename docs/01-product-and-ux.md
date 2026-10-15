@@ -870,6 +870,40 @@ sauvegarde ni session. Aucun élément interactif, masquage, remplacement d'URI 
 commande au lecteur en Édition. Clair/Sombre/Système et retours visuels à la ligne
 sur écrans étroits utilisent les styles existants.
 
-UX 1.2b reste à concevoir : représentation compacte de toutes les références
+Orientation initiale UX 1.2b (précisée par UX 1.2b.1 ci-dessous) : représentation compacte de toutes les références
 temporelles canoniques, dans les callouts ou le Markdown ordinaire. Cette étape
 devra définir révélation, interactions et sélections ; elle n'est pas implémentée.
+
+### UX 1.2b.1 — Références temporelles compactes en Édition
+
+Les liens directs sur une seule ligne source, avec libellé simple non vide et
+destination canonique validée, sont affichés avec une horloge et leur libellé.
+Le Markdown enregistré reste inchangé. Les liens multilignes, par définition,
+avec titre Markdown, libellé enrichi, échappements ou entités, les images, le code
+et les URI isolées ou invalides restent visibles en source.
+
+Les en-têtes connus de callout sont exclus, même invalides ou imbriqués :
+attributions, titres littéraux et liens traversant l'en-tête ne sont pas enrichis.
+Les liens ordinaires du corps restent éligibles. Les décorations UX 1.2a sont conservées.
+Une référence valide d'une autre vidéo/source est compacte, sans navigation.
+
+Un clic simple révèle la source et place le curseur au début du libellé.
+Les positions exactement avant/après le lien restent extérieures et permettent
+d'écrire, y compris entre deux références adjacentes. Les flèches gauche/droite
+vers l'intérieur révèlent la source. Retour arrière/Suppr contre le lien compact
+révèle sa source sans déplacer le curseur ni supprimer au premier appui ; ensuite l'édition est
+ordinaire. Une sélection non vide intersectant le lien, même en l'englobant,
+révèle sa source et garde les comportements natifs de copie/suppression.
+Quand la sélection quitte son intérieur, le lien redevient compact.
+Ces changements de présentation ne modifient ni le document, ni la sauvegarde,
+ni l'historique des modifications.
+
+Le widget ne crée aucun arrêt Tab supplémentaire. Son nom accessible indique
+l'action de modification ; l'accès clavier passe par le curseur de l'éditeur.
+Les libellés longs peuvent se replier. La composition IME suspend temporairement
+la compaction pour ne pas remplacer le texte en cours de saisie.
+« + Temps » garde son espace final, son curseur après l'espace et son Undo isolé.
+
+UX 1.2b.2 reste distinct : URI des en-têtes quote:tr, Ctrl/Cmd+clic et raccourci
+de navigation vers le lecteur. Aucun de ces comportements n'est activé en 1.2b.1.
+La navigation 6.5 reste exclusivement en Lecture.
