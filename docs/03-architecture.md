@@ -1136,3 +1136,29 @@ Les événements souris renseignent l'entrée et la sortie ; keydown/keyup sur l
 fenêtre couvrent le modificateur pressé sans déplacement de souris, même sans focus
 dans l'éditeur. blur efface l'état et destroy retire les écouteurs. La CSS cible
 uniquement les références ; aucune transaction n'est émise pour le curseur.
+
+
+## Téléchargements 7.1 — décisions validées, implémentation à venir
+
+Un service applicatif spécialisé, partagé par REST et futur MCP, prend en charge
+les acquisitions indépendamment du contexte HTTP. Une opération globale active,
+sans file ; deux demandes de la même source retrouvent l'opération. Une autre
+source reçoit un refus temporaire. État actif/dernier échec en mémoire seulement.
+Délai propre au téléchargement et arrêt borné du groupe yt-dlp/ffmpeg avec le serveur.
+Aucun job persistant, reprise automatique ou annulation utilisateur.
+
+Routes retenues :
+- POST /api/v1/videos/{video_id}/sources/{source_id}/download
+- GET /api/v1/videos/{video_id}/sources/{source_id}/download
+- DELETE /api/v1/videos/{video_id}/media-files/{media_file_id}
+
+POST sans corps : 202 et Location pour une acquisition active, 200 si déjà disponible.
+GET local : non téléchargé/en cours/disponible/échec ; aucune exposition des chemins.
+La suppression vise une identité précise. Aucun endpoint des octets vidéo.
+
+Acquisition dans une zone maîtrisée de data/media, sur le filesystem final :
+validation, synchronisation, renommage puis transaction SQLite courte.
+Disponibilité seulement après succès complet. Nettoyage compensatoire et rapprochement
+ciblé au démarrage, sans destruction si la base ou l'identité du fichier est incertaine.
+Suppression récupérable via déplacement provisoire puis suppression SQL et physique.
+Une disparition extérieure est signalée, sans téléchargement automatique.

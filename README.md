@@ -1418,3 +1418,12 @@ Le projet privilégie :
 * une architecture modulaire sans surarchitecture ;
 * une approche local-first ;
 * un produit pleinement utilisable sans IA.
+
+
+### Étape 7.1 — périmètre validé, développement à venir
+
+Téléchargement volontaire YouTube, conservation MP4/WebM en Full HD maximum,
+suivi asynchrone et suppression du seul média local depuis le workspace.
+La lecture locale et les screenshots restent ultérieurs. Le contrat détaillé
+est décrit dans docs/01 à docs/05 ; les instructions livrées seront ajoutées
+après validation de l'implémentation.

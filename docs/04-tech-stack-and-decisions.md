@@ -1067,3 +1067,22 @@ l'éditeur et sa sélection. Cette décision remplace la restriction historique
 « Lecture seulement » pour les formes reconnues en Édition ; elle n'élargit pas
 la grammaire des liens ordinaires prise en charge par UX 1.2b.1.
 Le pictogramme ◷ reste inchangé. Aucun domaine, REST, stockage ou moteur générique.
+
+
+## Téléchargement 7.1 — politique validée, à implémenter
+
+Vidéo et audio d'une vidéo YouTube terminée uniquement ; directs, événements à venir
+et archives incomplètes exclus. Plafond Full HD indépendant de l'orientation :
+petit côté <= 1080 et grand côté <= 1920. Meilleure qualité admissible d'abord ;
+MP4 préféré à qualité équivalente, WebM accepté. Aucun MKV ni réencodage.
+Assemblage/remuxing autorisés avec combinaisons de codecs adaptées à un futur
+lecteur Web, sans garantie universelle de compatibilité navigateur.
+Aucune coupe, altération de timeline ou omission volontaire de fragments.
+
+Audio original identifiable prioritaire, conventions audio existantes réutilisées,
+jamais de déduction depuis les captions. Une piste pertinente unique est acceptable ;
+plusieurs pistes ambiguës provoquent une erreur explicite.
+ffprobe contrôle conteneur, flux, dimensions, taille et durée avant publication.
+Divergence temporelle significative : refus ; tolérance à calibrer par essais.
+Aucun catalogue de formats, checksum ou dump brut durable. Réglages utilisateur,
+lecture locale et screenshots hors de 7.1.

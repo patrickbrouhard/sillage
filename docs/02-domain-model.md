@@ -844,7 +844,9 @@ Une même vidéo peut théoriquement avoir plusieurs fichiers locaux :
 - version basse résolution ;
 - fichier temporaire.
 
-La politique exacte de rétention reste à définir.
+Pour 7.1, la conservation est volontaire et durable jusqu'à suppression explicite.
+Un seul fichier par source est retenu pour cette tranche ; plusieurs représentations
+restent possibles conceptuellement, sans être implémentées.
 
 ### 8.2 Source locale et fichier local
 
@@ -866,17 +868,18 @@ Il n'est donc pas nécessaire de fusionner les deux entités ni d'introduire des
 
 ### 8.3 Provenance d'un `MediaFile`
 
-Il pourra devenir utile de savoir de quelle `VideoSource` provient un fichier téléchargé ou importé.
+Le lien facultatif général `origin_source_id -> VideoSource.id` est acté.
+Il est obligatoire pour tout téléchargement YouTube de 7.1. La source appartient
+à la même vidéo que le fichier ; la base doit renforcer cet invariant.
+Le modèle minimal retenu ajoute `origin_source_id` et `duration_ms` aux champs
+conceptuels ci-dessus. `format` désigne le conteneur réel et `size` les octets.
+Le chemin est interne et relatif, jamais une URL distante ou un titre YouTube.
 
-Une future relation facultative telle que :
-
-```text
-MediaFile.origin_source_id -> VideoSource.id
-```
-
-est envisageable.
-
-Elle n'est pas actée ni nécessaire au schéma actuel et sera décidée lorsque `MediaFile` sera réellement implémenté.
+La durée locale est mesurée ; l'équivalence temporelle avec la source est présumée,
+sans preuve d'identité parfaite. Une divergence significative empêche la publication.
+Aucun rafraîchissement implicite des métadonnées ou contrôle périodique YouTube.
+Supprimer le fichier ne supprime aucune vidéo, source, note, transcription ou Asset.
+Ces décisions sont validées pour 7.1 ; leur implémentation est à réaliser.
 
 ## 9. `Tag`
 

@@ -1181,33 +1181,24 @@ Télécharger une vidéo depuis une source en ligne crée un `MediaFile`, pas un
 
 Une future source locale pourra coexister avec un `MediaFile`. L'identité exacte d'une source locale reste ouverte.
 
-### Travail
+### 7.1 — Télécharger et conserver une vidéo YouTube
 
-- télécharger une vidéo ou une représentation suffisante ;
-- stocker un `MediaFile` ;
-- stratégie temporaire ou permanente ;
-- appeler `ffmpeg` à un timestamp ;
-- créer un `Asset` screenshot ;
-- encoder le timestamp dans le nom du fichier ;
-- conserver le timestamp canonique en base ;
-- insérer le screenshot dans la note ;
-- décider si un `MediaFile` doit référencer facultativement la `VideoSource` dont il provient.
+Décisions validées ; implémentation à venir.
+- 7.1a : service asynchrone, MediaFile avec provenance, validation, stockage,
+  suivi REST, suppression et récupération après interruption.
+- 7.1b : actions visibles dans le workspace, suivi et confirmation de suppression,
+  sans perturbation du lecteur, de la transcription ni de la session de note.
 
-### Critère de sortie
+La sortie exige les deux jalons, les validations et une confrontation finale
+documentation/code. Conservation volontaire durable, MP4/WebM sans réencodage,
+qualité prioritaire sous plafond 1080p. Voir les contrats dans les documents 01 à 04.
 
-Depuis la page vidéo :
+### Incréments ultérieurs
 
-```text
-Capture
-  ↓
-image
-  ↓
-Asset
-  ↓
-Markdown
-```
-
-fonctionne de bout en bout.
+Lecture locale et captures/screenshots sont distincts de 7.1. Pour les captures :
+choisir la méthode technique adaptée, produire un Asset avec timestamp canonique,
+puis insérer le Markdown. Aucun téléchargement complet conservé implicitement.
+Import local, plusieurs qualités, audio seul et préférences restent différés.
 
 ## 10. Étape 8 — Recherche
 
@@ -1393,7 +1384,7 @@ concernent le workflow temporel de l'étape 6 ou des extensions ultérieures :
 - quelle politique si une vidéo existe sur plusieurs plateformes ?
 - quelle identité et quelle stratégie de déduplication pour une source `local` ?
 - faut-il supporter une source `local` dès le MVP produit ou plus tard ?
-- faut-il relier un `MediaFile` à sa `VideoSource` d'origine ?
+- provenance MediaFile : actée en 7.1, facultative en général et obligatoire pour YouTube.
 
 ### 15.3 Métadonnées
 

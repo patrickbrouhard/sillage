@@ -596,9 +596,11 @@ L'application extrait l'image correspondant au timestamp courant.
 
 ### 9.2 Vidéo locale
 
-Une capture précise nécessite vraisemblablement de disposer localement du média, au moins temporairement.
-
-Le téléchargement temporaire est acceptable pour le besoin initial.
+L'extraction distante est une candidate pour les captures ponctuelles ; les essais
+rapportés ne constituent pas une garantie générale de précision. Un fichier local
+compatible pourra être utilisé lorsqu'il existe. La capture ne doit pas imposer
+la conservation automatique d'une vidéo complète. Screenshots et lecteur local
+restent des incréments distincts, ultérieurs à 7.1.
 
 ### 9.3 Nom de fichier
 
@@ -940,3 +942,15 @@ la sortie de l'éditeur ou la perte de focus de la fenêtre retire ce retour.
 Shift/Alt désactivent la main, comme ils excluent le geste de navigation.
 Les titres, en-têtes inadmissibles et liens non temporels gardent leur curseur.
 Aucun changement de sélection, de focus, de navigation ou de Markdown.
+
+
+## Téléchargement volontaire — contrat validé de 7.1, à implémenter
+
+L'action Télécharger est visible près des commandes du lecteur, même masqué ou
+indisponible, et vise la même source de travail. Elle ne commande pas le lecteur,
+ne remonte pas la note et ne modifie ni transcription ni références temporelles.
+États : non téléchargé, en cours, disponible, échec. Une erreur de consultation
+est distincte de l'absence. Le suivi reprend à l'ouverture/rechargement ; quitter
+la page n'annule pas le transfert. Aucun réessai d'acquisition automatique.
+La suppression confirmée cible le fichier exact et préserve toutes les connaissances.
+La présence du fichier ne provoque aucune bascule vers une lecture locale.

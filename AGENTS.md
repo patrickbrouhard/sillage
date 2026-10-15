@@ -222,3 +222,18 @@ Reuse VideoNote.onNavigate and all 6.5 identity/player/scroll guards. No navigat
 transactions, remount, autosave, tab stops or iframe focus. Report refusals in a
 stable accessible status near the editor. Invalid/nested headers and literal titles
 remain inert. No domain, persistence or REST changes.
+
+
+## Step 7.1 — Local media (validated scope, implementation pending)
+
+Keep remote/local representations complementary. Downloads are explicit user actions.
+MediaFile belongs to Video, with mandatory origin_source_id for YouTube and matching
+video ownership. One retained file per source in this increment. Preserve knowledge
+on deletion. Download audio+video of finished videos, Full HD in either orientation,
+quality before container, MP4 preferred at equal quality, WebM allowed, no MKV or
+reencoding. Prefer reliably identified original audio; reject genuine ambiguity.
+Validate with ffprobe and reject significant duration divergence. Publish complete
+files before SQL, reconcile only managed paths safely, recover interrupted deletion.
+Application-owned asynchronous work: one global active download, no queue or durable
+jobs. Stop child processes on server shutdown. Workspace controls stay visible without
+remounting editor/player. Local playback and screenshots remain out of scope.
