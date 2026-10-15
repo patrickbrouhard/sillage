@@ -1125,7 +1125,7 @@ Validation :
   sans prétendre à une validation macOS native ;
 - aucun essai YouTube réel ; avertissement Vite préexistant sur le chunk > 500 kB.
 
-À vérifier manuellement avant fusion d'UX 1.2b :
+Scénarios proposés pour la validation manuelle d'UX 1.2b :
 - callouts avec/sans titre, titres longs, thèmes et écran étroit ;
 - clic simple puis Ctrl/Cmd+clic sur lien/URI révélée, raccourci dans la source ;
 - sélection conservée, saisie après navigation, + Temps et Undo/Redo ;
@@ -1146,9 +1146,23 @@ Vite préexistant sur le chunk CodeMirror demeure.
 
 Les tests macOS simulent navigator.platform et les événements Meta dans Chromium
 Linux ; ils ne remplacent pas un essai macOS natif. Le blur de fenêtre est simulé.
-Vérifier manuellement le ressenti avec une souris immobile, les entrées avec
-modificateur maintenu et un aller-retour vers une autre application.
-La branche reste non fusionnée.
+Les scénarios proposés pour cette finition comprenaient la souris immobile,
+les entrées avec modificateur maintenu et le retour depuis une autre application.
+
+#### Validation complète d'UX 1.2b
+
+L'utilisateur confirme que la finition du curseur fonctionne comme prévu et
+valide l'ensemble d'UX 1.2b : compaction des liens ordinaires (1.2b.1),
+compaction des URI de callouts et navigation en Édition (1.2b.2), puis retour
+visuel du curseur avec Ctrl/Cmd. La validation fonctionnelle et ergonomique
+est clôturée ; la branche feat/compact-temporal-references est prête à fusionner.
+
+Cette confirmation globale ne précise pas les plateformes ni chaque scénario
+d'accessibilité exercé : les limites des tests simulés documentées ci-dessus
+restent explicites. Aucun nouveau résultat de test automatisé n'est revendiqué.
+
+La fusion sera effectuée par l'utilisateur sur GitHub. La branche reste
+non fusionnée à ce stade ; aucune fusion locale dans master n'est réalisée.
 
 ## 9. Étape 7 — Téléchargement local et screenshots
 
