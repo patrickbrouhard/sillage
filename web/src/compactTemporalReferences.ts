@@ -1,19 +1,25 @@
-import { Prec, StateEffect } from '@codemirror/state'
+import { Facet, Prec, StateEffect } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
 import { Decoration, EditorView, ViewPlugin, WidgetType, keymap } from '@codemirror/view'
 import type { DecorationSet, ViewUpdate } from '@codemirror/view'
+import { parseCalloutHeader } from './calloutHeader'
+import { formatDuration } from './videoPresentation'
+import type { TemporalReference } from './temporalReference'
 import { parseTemporalReference } from './temporalReference'
 
 interface Reference {
   from: number
   to: number
   label: string
+  target: TemporalReference
 }
+
+const navigation = Facet.define<(reference: TemporalReference) => void>()
 
 const composition = StateEffect.define<boolean>()
 const reveal = StateEffect.define<number>()
 
-/** Affiche du texte seulement ; aucun lien navigateur ni commande lecteur. */
+/** Affiche du texte seulement ; aucun lien navigateur ; les actions passent par le callback partagé. */
 class ReferenceWidget extends WidgetType {
   constructor(readonly label: string) { super() }
 
@@ -24,7 +30,7 @@ class ReferenceWidget extends WidgetType {
     element.className = 'cm-temporal-reference'
     element.setAttribute('role', 'button')
     element.setAttribute('aria-label', 'Modifier la référence temporelle : ' + this.label)
-    element.title = 'Cliquer pour modifier le Markdown ; les flèches permettent aussi d’entrer dans la référence.'
+    element.title = 'Cliquer pour modifier le Markdown ; Ctrl+clic (Cmd sur Mac) ou Ctrl/Cmd+Entrée dans la source pour naviguer.'
     const icon = document.createElement('span')
     icon.setAttribute('aria-hidden', 'true')
     icon.textContent = '◷'
@@ -45,6 +51,25 @@ function references(view: EditorView): Reference[] {
       to: visible.to,
       enter(cursor) {
         if (['Image', 'InlineCode', 'FencedCode', 'CodeBlock', 'HTMLBlock', 'HTMLTag'].includes(cursor.name)) return false
+        if (cursor.name === 'Blockquote') {
+          const quote = cursor.node
+          let nested = false
+          for (let parent = quote.parent; parent; parent = parent.parent) {
+            if (parent.name === 'Blockquote') nested = true
+          }
+          let content = quote.firstChild
+          while (content?.name === 'QuoteMark') content = content.nextSibling
+          const line = document.lineAt(quote.from)
+          if (!nested && content && document.lineAt(content.from).number === line.number &&
+              !['CodeBlock', 'FencedCode', 'HTMLBlock', 'Blockquote'].includes(content.name)) {
+            const header = parseCalloutHeader(document.sliceString(content.from, line.to))
+            if (header?.kind === 'quote:tr') {
+              const target = parseTemporalReference(header.uri)!
+              const from = content.from + '[!quote:tr]('.length
+              result.set(from, { from, to: from + header.uri.length, label: formatDuration(target.startMs), target })
+            }
+          }
+        }
         if (cursor.name !== 'Link') return
         const node = cursor.node
         if (document.lineAt(node.from).number !== document.lineAt(node.to).number) return false
@@ -65,7 +90,7 @@ function references(view: EditorView): Reference[] {
         }
         const match = /^\[([^\[\]\\\r\n]+)\]\((sillage:\/\/[^()\r\n]+)\)$/.exec(document.sliceString(node.from, node.to))
         if (match && match[1].trim() && parseTemporalReference(match[2])) {
-          result.set(node.from, { from: node.from, to: node.to, label: match[1] })
+          result.set(node.from, { from: node.from, to: node.to, label: match[1], target: parseTemporalReference(match[2])! })
         }
         return false
       },
@@ -115,13 +140,22 @@ const compactReferences = ViewPlugin.fromClass(class {
   decorations: plugin => plugin.decorations,
   eventHandlers: {
     mousedown(event, view) {
-      if (event.button !== 0 || event.shiftKey || !(event.target instanceof Element)) return false
+      if (event.button !== 0 || event.shiftKey || event.altKey || !(event.target instanceof Element)) return false
+      if (view.composing || this.composing) return false
       const widget = event.target.closest('.cm-temporal-reference')
-      if (!widget) return false
-      const position = view.posAtDOM(widget)
-      const reference = this.compact.find(candidate => candidate.from === position)
-      if (!reference) return false
+      const position = widget ? view.posAtDOM(widget) : view.posAtCoords({ x: event.clientX, y: event.clientY })
+      if (position === null) return false
+      const mac = /Mac|iPhone|iPad/.test(navigator.platform)
+      const modified = mac ? event.metaKey : event.ctrlKey
+      const reference = (modified ? references(view) : this.compact).find(candidate =>
+        widget ? candidate.from === position : position >= candidate.from && position < candidate.to)
+      if (!reference || (!modified && !widget)) return false
       event.preventDefault()
+      if (modified) {
+        // Intercepter avant la sélection native ; aucun dispatch ni focus ne perturbe le curseur.
+        view.state.facet(navigation)[0]?.(reference.target)
+        return true
+      }
       view.dispatch({ selection: { anchor: reference.from + 1 }, userEvent: 'select.pointer' })
       view.focus()
       return true
@@ -157,15 +191,27 @@ function revealBoundary(view: EditorView, backwards: boolean, deletion = false):
   return true
 }
 
-/** Compacte uniquement les liens temporels directs ; aucune modification du Markdown ni navigation vidéo. */
-export const compactTemporalReferences = [
-  compactReferences,
-  Prec.highest(keymap.of([
-    { key: 'ArrowLeft', run: view => revealBoundary(view, true) },
-    { key: 'ArrowRight', run: view => revealBoundary(view, false) },
-    { key: 'Backspace', run: view => revealBoundary(view, true, true) },
-    { key: 'Delete', run: view => revealBoundary(view, false, true) },
-    { key: 'Mod-Backspace', run: view => revealBoundary(view, true, true) },
-    { key: 'Mod-Delete', run: view => revealBoundary(view, false, true) },
-  ])),
-]
+/** Compacte les références et délègue leur activation, sans modifier le Markdown. */
+export function compactTemporalReferences(onNavigate: (reference: TemporalReference) => void) {
+  return [
+    navigation.of(onNavigate),
+    compactReferences,
+    Prec.highest(keymap.of([
+      { key: 'Mod-Enter', run: view => {
+        if (view.composing || view.state.selection.ranges.length !== 1) return false
+        const selection = view.state.selection.main
+        if (!selection.empty) return false
+        const reference = references(view).find(candidate => selection.head > candidate.from && selection.head < candidate.to)
+        if (!reference) return false
+        view.state.facet(navigation)[0]?.(reference.target)
+        return true
+      } },
+      { key: 'ArrowLeft', run: view => revealBoundary(view, true) },
+      { key: 'ArrowRight', run: view => revealBoundary(view, false) },
+      { key: 'Backspace', run: view => revealBoundary(view, true, true) },
+      { key: 'Delete', run: view => revealBoundary(view, false, true) },
+      { key: 'Mod-Backspace', run: view => revealBoundary(view, true, true) },
+      { key: 'Mod-Delete', run: view => revealBoundary(view, false, true) },
+    ])),
+  ]
+}

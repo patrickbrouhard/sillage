@@ -22,6 +22,7 @@ export function VideoNote({ videoID, getTimeReference, onNavigate, ref }: {
   ref?: Ref<VideoNoteHandle>
 }) {
   const editor = useRef<MarkdownEditorHandle>(null)
+  const [navigationMessage, setNavigationMessage] = useState('')
   const [insertionError, setInsertionError] = useState('')
   const [session] = useState(() => new NoteSession(videoID))
   const state = useSyncExternalStore(session.subscribe, session.snapshot)
@@ -111,12 +112,14 @@ export function VideoNote({ videoID, getTimeReference, onNavigate, ref }: {
           onClick={() => void session.save(true)}>{state.phase === 'error' ? 'Réessayer la sauvegarde' : 'Enregistrer la note'}</button>
       </div>
       {insertionError && <p role="alert">{insertionError}</p>}
+      <div role="status" aria-label="Navigation temporelle" hidden={reading}>{navigationMessage}</div>
       <div hidden={reading}>
         {initial !== null && <MarkdownEditor
           ref={editor}
           key={initial.version}
           initial={initial.content}
           active={!reading}
+          onNavigate={reference => setNavigationMessage(onNavigate(reference))}
           onChange={session.change}
           onSave={() => void session.save(true)}
         />}

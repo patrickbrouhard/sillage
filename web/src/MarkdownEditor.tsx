@@ -1,4 +1,5 @@
 import { useEffect, useImperativeHandle, useRef } from 'react'
+import type { TemporalReference } from './temporalReference'
 import type { Ref } from 'react'
 import { compactTemporalReferences } from './compactTemporalReferences'
 import { markdownDecorations } from './markdownDecorations'
@@ -21,6 +22,7 @@ interface Props {
   active: boolean
   onChange: (content: string) => void
   onSave: () => void
+  onNavigate: (reference: TemporalReference) => void
 }
 
 /** Action ponctuelle sur la session existante, sans remplacer son état. */
@@ -32,13 +34,13 @@ export interface MarkdownEditorHandle {
 }
 
 /** Garde l'état CodeMirror stable ; seules les actions utilisateur modifient le texte. */
-export function MarkdownEditor({ initial, active, onChange, onSave, ref }: Props) {
+export function MarkdownEditor({ initial, active, onChange, onSave, onNavigate, ref }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
   const wasActive = useRef(active)
   const explicitPosition = useRef(false)
-  const callbacks = useRef({ onChange, onSave })
-  callbacks.current = { onChange, onSave }
+  const callbacks = useRef({ onChange, onSave, onNavigate })
+  callbacks.current = { onChange, onSave, onNavigate }
   /** Ajoute uniquement du texte ; les séparateurs de bloc font partie du même Undo. */
   function insert(text: string, citation = false) {
     const view = editor.current
@@ -77,7 +79,8 @@ export function MarkdownEditor({ initial, active, onChange, onSave, ref }: Props
         extensions: [
           // Le découpage natif accepte CRLF, CR et LF ; la sérialisation produit du LF.
           history(), markdown(), syntaxHighlighting(highlightStyle),
-          EditorView.lineWrapping, markdownDecorations, compactTemporalReferences,
+          EditorView.lineWrapping, markdownDecorations,
+          compactTemporalReferences(reference => callbacks.current.onNavigate(reference)),
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
           keymap.of([
             { key: 'Mod-s', run: () => { callbacks.current.onSave(); return true } },
