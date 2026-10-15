@@ -838,7 +838,7 @@ premier fragment retenu, choix explicite de la position, sélection préservée,
 isolé, séparateurs extérieurs, autosauvegarde et conflits sont inchangés.
 Les anciennes citations ne sont ni migrées ni requalifiées ; leur référence séparée
 reste activable. L'insertion temporelle rapide conserve son format 6.2.
-Les décorations CodeMirror restent réservées à UX 1.2 ; aucun Live Preview.
+Les décorations CodeMirror sont traitées séparément en UX 1.2a ; aucun Live Preview.
 
 Exemple avec titre personnalisé (UX 1.1, 15 octobre 2026) :
 
@@ -846,3 +846,30 @@ Exemple avec titre personnalisé (UX 1.1, 15 octobre 2026) :
 > [!quote:tr](sillage://videos/6/sources/6?start_ms=40360) Les limites des modèles de raisonnement
 > decision models. So, when you go to ollama.com.
 ~~~
+
+
+### UX 1.2a — Présentation des citations dans l'éditeur Markdown
+
+Une bordure verticale discrète et continue accompagne tous les véritables
+blockquotes reconnus par le parseur Markdown de CodeMirror, y compris dans les
+listes, leurs continuations sans > et leurs lignes citées vides. Les imbrications
+partagent la bordure de citation de la ligne, sans multiplier les traits.
+Les exemples de citation dans du code extérieur ne sont pas décorés ; un bloc
+de code à l'intérieur d'une citation reste dans la présentation de cette citation.
+
+Les callouts valides quote et quote:tr reçoivent un fond léger, un marqueur
+identifiable et une attribution ou un titre mis en valeur. L'URI canonique du
+callout de transcription est atténuée mais entièrement visible. Les règles de
+reconnaissance restent celles d'UX 1.1 : premier contenu, marqueur non échappé,
+pas d'ancêtre blockquote, URI valide. Les formes inconnues ou invalides gardent
+seulement la présentation commune du blockquote et la coloration Markdown native.
+Aucun libellé par défaut n'est ajouté dans le document édité.
+
+Les décorations n'altèrent ni texte, curseur, sélection, historique, insertion,
+sauvegarde ni session. Aucun élément interactif, masquage, remplacement d'URI ou
+commande au lecteur en Édition. Clair/Sombre/Système et retours visuels à la ligne
+sur écrans étroits utilisent les styles existants.
+
+UX 1.2b reste à concevoir : représentation compacte de toutes les références
+temporelles canoniques, dans les callouts ou le Markdown ordinaire. Cette étape
+devra définir révélation, interactions et sélections ; elle n'est pas implémentée.
