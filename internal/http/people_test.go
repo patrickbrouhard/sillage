@@ -49,7 +49,7 @@ func peopleAPI(t *testing.T) http.Handler {
 		}
 		return video.VideoSource{Provider: "youtube", ExternalID: url, CanonicalURL: url, Title: "Title", Publisher: publisher}, nil
 	})
-	return api.NewRouter(video.NewPublisherService(sqlite.NewPublisherRepository(db), resolver), video.NewPersonService(sqlite.NewPersonRepository(db)), nil, video.NewTagService(sqlite.NewTagRepository(db)), nil, video.NewService(sqlite.NewVideoRepository(db), provider), 50*time.Millisecond)
+	return api.NewRouter(nil, video.NewPublisherService(sqlite.NewPublisherRepository(db), resolver), video.NewPersonService(sqlite.NewPersonRepository(db)), nil, video.NewTagService(sqlite.NewTagRepository(db)), nil, video.NewService(sqlite.NewVideoRepository(db), provider), 50*time.Millisecond)
 }
 
 // peopleRequest vérifie le statut avant de décoder le résultat JSON attendu.

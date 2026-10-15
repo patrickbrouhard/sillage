@@ -17,7 +17,7 @@ import (
 
 func clearConfig(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"SILLAGE_HTTP_ADDR", "SILLAGE_POST_TIMEOUT", "SILLAGE_WEB_DIR"} {
+	for _, key := range []string{"SILLAGE_HTTP_ADDR", "SILLAGE_POST_TIMEOUT", "SILLAGE_WEB_DIR", "SILLAGE_DOWNLOAD_TIMEOUT"} {
 		t.Setenv(key, "")
 		if err := os.Unsetenv(key); err != nil {
 			t.Fatal(err)
@@ -63,7 +63,7 @@ func (waitingService) GetVideo(context.Context, video.VideoID) (video.Video, err
 func (waitingService) ListVideos(context.Context) ([]video.Video, error) { panic("unexpected List") }
 
 func TestApplicationTimeoutWritesJSONOverTCP(t *testing.T) {
-	server := newHTTPServer("127.0.0.1:0", api.NewRouter(nil, nil, nil, nil, nil, waitingService{}, 30*time.Millisecond))
+	server := newHTTPServer("127.0.0.1:0", api.NewRouter(nil, nil, nil, nil, nil, nil, waitingService{}, 30*time.Millisecond))
 	// Une lecture bornée ne doit pas devenir une limite d'écriture pendant le traitement.
 	server.ReadTimeout = 5 * time.Millisecond
 	if server.WriteTimeout != 0 {
@@ -104,7 +104,7 @@ func TestRunCreatesNewDefaultWithoutMovingOldDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer listener.Close()
-	cfg := config{addr: listener.Addr().String(), postTimeout: time.Minute}
+	cfg := config{addr: listener.Addr().String(), downloadTimeout: 6 * time.Hour, postTimeout: time.Minute}
 	if err := run(context.Background(), cfg); err == nil {
 		t.Fatal("expected occupied listener")
 	}
