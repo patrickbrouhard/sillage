@@ -273,3 +273,9 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 }
 .cm-temporal-reference > span { margin-right: .3em; }
 .cm-temporal-reference:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+
+/* La main annonce uniquement le geste de navigation, y compris sur la source révélée. */
+.cm-temporal-navigation .cm-temporal-reference,
+.cm-temporal-navigation .cm-temporal-reference *,
+.cm-temporal-navigation .cm-temporal-source,
+.cm-temporal-navigation .cm-temporal-source * { cursor: pointer; }

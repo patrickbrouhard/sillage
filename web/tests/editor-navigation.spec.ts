@@ -199,3 +199,72 @@ test('un refus ne remonte pas le widget et une correction utilise la référence
   await expect(page.getByRole('status', { name: 'Navigation temporelle' })).toBeEmpty()
   expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls.length)).toBe(1)
 })
+
+for (const mac of [false, true]) {
+  for (const revealed of [false, true]) {
+    for (const text of [link, callout]) {
+      test('curseur : Mac=' + mac + ', source=' + revealed + ', callout=' + (text === callout), async ({ page }) => {
+        if (mac) await page.addInitScript(() => Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' }))
+        const { editor, compact, writes } = await open(page, text)
+        await editor.focus()
+        if (revealed) await compact.click()
+        const target = revealed ? editor.locator('.cm-temporal-source').first() : compact
+        await target.hover()
+        const normalCursor = await target.evaluate(el => getComputedStyle(el).cursor)
+        expect(normalCursor).not.toBe('pointer')
+        const selection = await page.evaluate(() => {
+          const s = getSelection()!
+          return [s.anchorOffset, s.focusOffset, s.anchorNode?.textContent]
+        })
+        const modifier = mac ? 'Meta' : 'Control'
+        await page.keyboard.down(modifier)
+        await expect(target).toHaveCSS('cursor', 'pointer')
+        await page.keyboard.down('Shift')
+        await expect(target).toHaveCSS('cursor', normalCursor)
+        await page.keyboard.up('Shift')
+        await expect(target).toHaveCSS('cursor', 'pointer')
+        await page.keyboard.up(modifier)
+        await expect(target).toHaveCSS('cursor', normalCursor)
+
+        // Entrée avec le modificateur déjà maintenu, sans nouveau keydown dans l'éditeur.
+        await page.getByRole('heading', { name: 'Note', exact: true }).hover()
+        await page.keyboard.down(modifier)
+        await expect(target).toHaveCSS('cursor', normalCursor)
+        await target.hover()
+        await expect(target).toHaveCSS('cursor', 'pointer')
+        await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+        await expect(target).toHaveCSS('cursor', normalCursor)
+        await page.keyboard.up(modifier)
+        await page.keyboard.down(modifier)
+        await expect(target).toHaveCSS('cursor', 'pointer')
+        await page.keyboard.up(modifier)
+        await expect(editor).toBeFocused()
+        expect(await page.evaluate(() => {
+          const s = getSelection()!
+          return [s.anchorOffset, s.focusOffset, s.anchorNode?.textContent]
+        })).toEqual(selection)
+        expect(writes).toEqual([])
+        expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
+      })
+    }
+  }
+}
+
+test('curseur normal sur titre littéral, en-tête invalide et lien Web', async ({ page }) => {
+  const text = callout + '\n\n> [!quote:tr](' + uri + '&end_ms=5)\n\n[Web](https://example.org)'
+  const { editor, compact, writes } = await open(page, text)
+  await editor.focus()
+  await compact.hover()
+  await page.keyboard.down('Control')
+  await expect(compact).toHaveCSS('cursor', 'pointer')
+  await editor.locator('.cm-callout-label').hover()
+  await expect(editor.locator('.cm-callout-label')).not.toHaveCSS('cursor', 'pointer')
+  const invalid = editor.locator('.cm-line').filter({ hasText: '&end_ms=5' })
+  await invalid.hover()
+  await expect(invalid).not.toHaveCSS('cursor', 'pointer')
+  await expect(invalid.locator('.cm-temporal-source')).toHaveCount(0)
+  await editor.locator('.cm-line').last().hover()
+  await expect(editor.locator('.cm-line').last()).not.toHaveCSS('cursor', 'pointer')
+  await page.keyboard.up('Control')
+  expect(writes).toEqual([])
+})

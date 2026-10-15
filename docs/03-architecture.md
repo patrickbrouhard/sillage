@@ -1129,3 +1129,10 @@ source révélée. La commande Mod-Enter vérifie un curseur unique strictement 
 L'activation ne dispatch aucune transaction et ne transfère pas le focus.
 Le contrôle vidéo/source et player.navigate restent exclusivement dans la fiche
 et le lecteur existants ; aucune copie du protocole 6.5 n'est introduite.
+
+Le retour de survol utilise une classe DOM locale au ViewPlugin et des marques
+sur les seules plages reconnues révélées. Les widgets compacts conservent leur DOM.
+Les événements souris renseignent l'entrée et la sortie ; keydown/keyup sur la
+fenêtre couvrent le modificateur pressé sans déplacement de souris, même sans focus
+dans l'éditeur. blur efface l'état et destroy retire les écouteurs. La CSS cible
+uniquement les références ; aucune transaction n'est émise pour le curseur.

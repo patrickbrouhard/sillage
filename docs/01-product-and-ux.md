@@ -932,3 +932,11 @@ défilement conditionnel restent identiques. Le focus et la sélection de l'édi
 sont préservés ; le défilement de la page vers la vidéo peut néanmoins les éloigner
 visuellement. Les refus sont annoncés dans une région status près de l'éditeur,
 séparée des messages de sauvegarde. Aucun arrêt Tab ni écriture n'est ajouté.
+
+Finition du survol, après validation manuelle d'UX 1.2b.1 et 1.2b.2 :
+le curseur reste natif au repos et devient une main lorsque Ctrl (Cmd sur macOS)
+est maintenu sur une référence activable, compacte ou révélée. Le relâchement,
+la sortie de l'éditeur ou la perte de focus de la fenêtre retire ce retour.
+Shift/Alt désactivent la main, comme ils excluent le geste de navigation.
+Les titres, en-têtes inadmissibles et liens non temporels gardent leur curseur.
+Aucun changement de sélection, de focus, de navigation ou de Markdown.

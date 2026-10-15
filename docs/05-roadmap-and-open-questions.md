@@ -1132,6 +1132,24 @@ Validation :
 - lecteur masqué/hors écran, lecture et pause, refus vers une autre vidéo/source ;
 - clavier macOS réel, lecteurs d'écran et composition IME.
 
+#### Finition du curseur de navigation
+
+UX 1.2b.1 et UX 1.2b.2 ont été testées manuellement et validées par l'utilisateur.
+Dernière finition avant fusion : curseur de texte natif au repos, main avec
+Ctrl/Cmd sur les références compactes et révélées, liens et URI de callouts.
+Les transitions ne modifient ni la sélection ni le document. Sortie, relâchement,
+Shift/Alt et perte de focus de fenêtre restaurent le curseur normal.
+
+Validation : 305 tests Playwright réussis, dont 9 nouveaux scénarios de curseur ;
+make test (Go, vet, build et TypeScript) et build frontend réussis. L'avertissement
+Vite préexistant sur le chunk CodeMirror demeure.
+
+Les tests macOS simulent navigator.platform et les événements Meta dans Chromium
+Linux ; ils ne remplacent pas un essai macOS natif. Le blur de fenêtre est simulé.
+Vérifier manuellement le ressenti avec une souris immobile, les entrées avec
+modificateur maintenu et un aller-retour vers une autre application.
+La branche reste non fusionnée.
+
 ## 9. Étape 7 — Téléchargement local et screenshots
 
 ### Objectif

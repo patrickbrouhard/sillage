@@ -113,13 +113,47 @@ const compactReferences = ViewPlugin.fromClass(class {
   revealedFrom: number | null = null
   timer: ReturnType<typeof setTimeout> | undefined
 
-  constructor(view: EditorView) { this.refresh(view) }
+  pointerInside = false
+  modified = false
+
+  constructor(readonly view: EditorView) {
+    this.refresh(view)
+    // Écouter la fenêtre couvre aussi un modificateur pressé sans focus dans l'éditeur.
+    window.addEventListener('keydown', this.modifierChanged)
+    window.addEventListener('keyup', this.modifierChanged)
+    window.addEventListener('blur', this.clearModifier)
+  }
+
+  /** Ne change que la classe DOM : ni transaction ni sélection CodeMirror. */
+  updateCursor() {
+    this.view.dom.classList.toggle('cm-temporal-navigation',
+      this.pointerInside && this.modified && !this.composing && !this.view.composing)
+  }
+
+  modifierChanged = (event: KeyboardEvent | MouseEvent) => {
+    const mac = /Mac|iPhone|iPad/.test(navigator.platform)
+    this.modified = (mac ? event.metaKey : event.ctrlKey) && !event.shiftKey && !event.altKey
+    this.updateCursor()
+  }
+
+  clearModifier = () => {
+    this.modified = false
+    this.updateCursor()
+  }
 
   refresh(view: EditorView) {
-    this.compact = this.composing || view.composing ? [] : references(view).filter(reference =>
+    const recognized = references(view)
+    this.compact = this.composing || view.composing ? [] : recognized.filter(reference =>
       reference.from !== this.revealedFrom && !selected(view, reference))
-    this.decorations = Decoration.set(this.compact.map(reference =>
-      Decoration.replace({ widget: new ReferenceWidget(reference.label) }).range(reference.from, reference.to)), true)
+    const compactStarts = new Set(this.compact.map(reference => reference.from))
+    this.decorations = Decoration.set([
+      ...this.compact.map(reference =>
+        Decoration.replace({ widget: new ReferenceWidget(reference.label) }).range(reference.from, reference.to)),
+      // Les plages révélées partagent exactement la reconnaissance utilisée pour l'activation.
+      ...recognized.filter(reference => !compactStarts.has(reference.from)).map(reference =>
+        Decoration.mark({ class: 'cm-temporal-source' }).range(reference.from, reference.to)),
+    ], true)
+    this.updateCursor()
   }
 
   update(update: ViewUpdate) {
@@ -135,10 +169,28 @@ const compactReferences = ViewPlugin.fromClass(class {
         syntaxTree(update.startState) !== syntaxTree(update.state)) this.refresh(update.view)
   }
 
-  destroy() { clearTimeout(this.timer) }
+  destroy() {
+    clearTimeout(this.timer)
+    window.removeEventListener('keydown', this.modifierChanged)
+    window.removeEventListener('keyup', this.modifierChanged)
+    window.removeEventListener('blur', this.clearModifier)
+    this.view.dom.classList.remove('cm-temporal-navigation')
+  }
 }, {
   decorations: plugin => plugin.decorations,
   eventHandlers: {
+    mouseenter(event) {
+      this.pointerInside = true
+      this.modifierChanged(event)
+    },
+    mousemove(event) {
+      this.pointerInside = true
+      this.modifierChanged(event)
+    },
+    mouseleave() {
+      this.pointerInside = false
+      this.clearModifier()
+    },
     mousedown(event, view) {
       if (event.button !== 0 || event.shiftKey || event.altKey || !(event.target instanceof Element)) return false
       if (view.composing || this.composing) return false
