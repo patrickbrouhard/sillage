@@ -3,11 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -76,7 +80,7 @@ func TestApplicationTimeoutWritesJSONOverTCP(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(listener) }()
 	defer func() { server.Close(); <-done }()
-	client := &http.Client{Timeout: 2 * time.Second}
+	client := &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{DisableKeepAlives: true}}
 	response, err := client.Post("http://"+listener.Addr().String()+"/api/v1/videos", "application/json; charset=utf-8", strings.NewReader(`{"url":"https://youtu.be/x"}`))
 	if err != nil {
 		t.Fatal(err)
@@ -119,4 +123,118 @@ func TestRunCreatesNewDefaultWithoutMovingOldDatabase(t *testing.T) {
 
 func (waitingService) ListVideosByTag(context.Context, video.TagID) ([]video.Video, error) {
 	panic("unexpected filter")
+}
+
+func TestDownloadConfig(t *testing.T) {
+	clearConfig(t)
+	cfg, err := loadConfig()
+	if err != nil || cfg.downloadTimeout != 6*time.Hour {
+		t.Fatalf("%+v %v", cfg, err)
+	}
+	t.Setenv("SILLAGE_DOWNLOAD_TIMEOUT", "90m")
+	cfg, err = loadConfig()
+	if err != nil || cfg.downloadTimeout != 90*time.Minute {
+		t.Fatalf("%+v %v", cfg, err)
+	}
+	for _, value := range []string{"", "0s", "-1s", "invalid"} {
+		t.Setenv("SILLAGE_DOWNLOAD_TIMEOUT", value)
+		if _, err := loadConfig(); err == nil {
+			t.Fatalf("accepted %q", value)
+		}
+	}
+}
+
+func TestServerStopsActiveMediaBeforeClosingDatabase(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	t.Setenv("PATH", dir+":/usr/bin:/bin")
+	discovery := `{"id":"abcdefghijk","extractor_key":"Youtube","title":"Test","duration":10,"live_status":"not_live","formats":[{"format_id":"18","ext":"mp4","vcodec":"avc1","acodec":"mp4a","width":640,"height":360,"url":"https://example.test/media"}]}`
+	script := fmt.Sprintf("#!/bin/sh\ncase \"$*\" in *--dump-single-json*) printf '%%s' '%s'; exit 0;; esac\ntrap '' TERM\nsleep 60 &\necho $! > '%s/child.pid'\nwait\n", discovery, dir)
+	if err := os.WriteFile(filepath.Join(dir, "yt-dlp"), []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := listener.Addr().String()
+	listener.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- run(ctx, config{addr: addr, postTimeout: time.Second, downloadTimeout: time.Minute}) }()
+	client := &http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{DisableKeepAlives: true}}
+	base := "http://" + addr + "/api/v1"
+	deadline := time.Now().Add(3 * time.Second)
+	ready := false
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(base + "/videos")
+		if err == nil {
+			resp.Body.Close()
+			ready = true
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if !ready {
+		t.Fatal("server unavailable")
+	}
+	resp, err := client.Post(base+"/videos", "application/json", strings.NewReader(`{"url":"https://youtu.be/abcdefghijk"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		ID      int64
+		Sources []struct{ ID int64 }
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if len(v.Sources) != 1 {
+		t.Fatalf("%+v", v)
+	}
+	resp, err = client.Post(fmt.Sprintf("%s/videos/%d/sources/%d/download", base, v.ID, v.Sources[0].ID), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 202 {
+		t.Fatal(resp.StatusCode)
+	}
+	var child int
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if data, err := os.ReadFile(filepath.Join(dir, "child.pid")); err == nil {
+			child, _ = strconv.Atoi(strings.TrimSpace(string(data)))
+			if child > 0 {
+				break
+			}
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if child == 0 {
+		t.Fatal("download not started")
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(12 * time.Second):
+		t.Fatal("shutdown did not finish")
+	}
+	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", child))
+	if err == nil && !strings.Contains(string(stat), ") Z ") {
+		_ = syscall.Kill(child, syscall.SIGKILL)
+		t.Fatalf("child survived: %s", stat)
+	}
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir("data/media")
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("staging survived: %v %v", entries, err)
+	}
 }

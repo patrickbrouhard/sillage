@@ -43,15 +43,21 @@ var (
 
 // Repository conserve uniquement les médias publiés.
 type Repository interface {
+	// List fournit les références durables avant le rapprochement du stockage.
 	List(context.Context) ([]File, error)
+	// BySource retourne le fichier unique ou ErrNotFound.
 	BySource(context.Context, video.VideoSourceID) (File, error)
+	// Get retrouve une identité exacte ou ErrNotFound.
 	Get(context.Context, int64) (File, error)
+	// Save insère sans remplacement et garantit provenance et unicité.
 	Save(context.Context, File) (File, error)
+	// Delete retire uniquement la référence du média.
 	Delete(context.Context, int64) error
 }
 
 // VideoReader vérifie l'appartenance de la source sans dépendre du transport.
 type VideoReader interface {
+	// Get fournit les sources de la vidéo propriétaire.
 	Get(context.Context, video.VideoID) (video.Video, error)
 }
 
@@ -64,19 +70,29 @@ type Acquired struct {
 
 // Provider acquiert et valide sans publier ni modifier la base.
 type Provider interface {
+	// Download écrit un fichier validé dans la zone réservée, sans le publier.
 	Download(context.Context, video.VideoSource, string) (Acquired, error)
 }
 
 // Storage maîtrise les chemins, la publication et la récupération après interruption.
 type Storage interface {
+	// Recover répare les interruptions avant toute opération ; une incertitude interdit le nettoyage.
 	Recover(context.Context, []File) error
+	// Prepare réserve une zone temporaire sur le filesystem final.
 	Prepare() (string, error)
+	// Discard nettoie exclusivement la zone réservée.
 	Discard(string) error
+	// Publish synchronise puis expose un fichier complet sous un nom unique.
 	Publish(context.Context, string, Acquired) (string, error)
+	// Check vérifie présence, lisibilité et taille sans accès distant.
 	Check(File) error
+	// RemovePublished efface un fichier dont l’absence de référence a été confirmée.
 	RemovePublished(string) error
+	// StageDelete déplace le fichier pour permettre une restauration après échec SQL.
 	StageDelete(File) error
+	// Restore restaure les octets si leur référence existe toujours.
 	Restore(File) error
+	// FinishDelete termine l’effacement après suppression de la référence.
 	FinishDelete(File) error
 }
 
@@ -87,6 +103,8 @@ func Code(err error) string {
 		return "download_timeout"
 	case errors.Is(err, context.Canceled):
 		return "download_interrupted"
+	case errors.Is(err, ErrUnsupported):
+		return "media_source_unsupported"
 	case errors.Is(err, ErrSelection):
 		return "media_format_unavailable"
 	case errors.Is(err, ErrAudio):

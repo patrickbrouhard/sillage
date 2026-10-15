@@ -2,6 +2,9 @@ package ytdlp
 
 import "regexp"
 
+// originalAudioPreference est le signal original de l’extracteur YouTube, distinct du défaut (5).
+const originalAudioPreference = 10
+
 var languageTag = regexp.MustCompile(`^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$`)
 
 // simpleRegionalLanguage exclut écritures, variantes et extensions : seule une
@@ -30,7 +33,7 @@ type captionFormat struct {
 func (m metadata) originalLanguage() (string, bool) {
 	languages := make(map[string]bool)
 	for _, format := range m.Formats {
-		if format.Preference == 10 && format.Codec != "" && format.Codec != "none" && usableLanguage(format.Language) {
+		if format.Preference == originalAudioPreference && format.Codec != "" && format.Codec != "none" && usableLanguage(format.Language) {
 			languages[format.Language] = true
 		}
 	}

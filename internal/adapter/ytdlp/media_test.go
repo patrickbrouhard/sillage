@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/media"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 func format(id, ext, vc, ac, language string, w, h int) mediaFormat {
@@ -179,5 +180,38 @@ func TestRealProbeContainers(t *testing.T) {
 			}
 			t.Logf("%s: measured=%d ms, expected=2000 ms, size=%d", container, acquired.DurationMS, acquired.Size)
 		})
+	}
+}
+
+func TestWebMRejectsMatroskaDespiteSharedProbeDemuxer(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "media.webm")
+	for _, kind := range []string{"webm", "matroska"} {
+		content := append([]byte{0x1a, 0x45, 0xdf, 0xa3, byte(0x80 + 3 + len(kind)), 0x42, 0x82, byte(0x80 + len(kind))}, []byte(kind)...)
+		if err := os.WriteFile(path, content, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if isWebM(path) != (kind == "webm") {
+			t.Fatalf("wrong DocType result for %s", kind)
+		}
+	}
+}
+
+func TestProbeTimeoutRemainsDownloadTimeout(t *testing.T) {
+	stage := t.TempDir()
+	discovery := `{"id":"abcdefghijk","extractor_key":"Youtube","live_status":"not_live","duration":10,"formats":[{"format_id":"18","ext":"mp4","vcodec":"avc1","acodec":"mp4a","width":640,"height":360,"url":"https://example.test/media"}]}`
+	downloader := filepath.Join(stage, "download")
+	script := "#!/bin/sh\ncase \"$*\" in *--dump-single-json*) printf '%s' '" + discovery + "';; *) printf complete > '" + stage + "/media.mp4';; esac\n"
+	if err := os.WriteFile(downloader, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	probe := filepath.Join(stage, "probe")
+	if err := os.WriteFile(probe, []byte("#!/bin/sh\nexec sleep 60\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	_, err := (MediaClient{Binary: downloader, ProbeBinary: probe}).Download(ctx, video.VideoSource{Provider: "youtube", ExternalID: "abcdefghijk"}, stage)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("lost timeout classification: %v", err)
 	}
 }

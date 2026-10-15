@@ -28,7 +28,14 @@ type Service struct {
 }
 
 // NewService rapproche le stockage avant d'accepter des acquisitions.
-func NewService(ctx context.Context, videos VideoReader, repo Repository, storage Storage, provider Provider, timeout time.Duration) (*Service, error) {
+func NewService(
+	ctx context.Context,
+	videos VideoReader,
+	repo Repository,
+	storage Storage,
+	provider Provider,
+	timeout time.Duration,
+) (*Service, error) {
 	if timeout <= 0 {
 		return nil, fmt.Errorf("invalid download timeout")
 	}
@@ -40,7 +47,16 @@ func NewService(ctx context.Context, videos VideoReader, repo Repository, storag
 		return nil, err
 	}
 	owned, cancel := context.WithCancel(ctx)
-	return &Service{videos: videos, repo: repo, storage: storage, provider: provider, ctx: owned, cancel: cancel, timeout: timeout, failures: make(map[video.VideoSourceID]string)}, nil
+	return &Service{
+		videos:   videos,
+		repo:     repo,
+		storage:  storage,
+		provider: provider,
+		ctx:      owned,
+		cancel:   cancel,
+		timeout:  timeout,
+		failures: make(map[video.VideoSourceID]string),
+	}, nil
 }
 
 // Close interdit les nouveaux départs, annule et attend les opérations avant fermeture de SQLite.
@@ -180,7 +196,15 @@ func (s *Service) acquire(ctx context.Context, source video.VideoSource) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.repo.Save(ctx, File{VideoID: source.VideoID, OriginSourceID: &source.ID, Path: path, Format: acquired.Format, Size: acquired.Size, DurationMS: acquired.DurationMS, AddedAt: time.Now().UTC().Truncate(time.Millisecond)})
+	_, err = s.repo.Save(ctx, File{
+		VideoID:        source.VideoID,
+		OriginSourceID: &source.ID,
+		Path:           path,
+		Format:         acquired.Format,
+		Size:           acquired.Size,
+		DurationMS:     acquired.DurationMS,
+		AddedAt:        time.Now().UTC().Truncate(time.Millisecond),
+	})
 	if err != nil {
 		// Un résultat de commit incertain ne justifie jamais d'effacer un fichier référencé.
 		checkCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

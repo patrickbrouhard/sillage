@@ -16,8 +16,11 @@ import (
 
 // MediaService expose les commandes indépendantes du transport.
 type MediaService interface {
+	// Start accepte ou retrouve l’acquisition possédée par le serveur.
 	Start(context.Context, video.VideoID, video.VideoSourceID) (media.State, error)
+	// Get consulte uniquement les données et fichiers locaux.
 	Get(context.Context, video.VideoID, video.VideoSourceID) (media.State, error)
+	// Delete retire uniquement l’identité de fichier demandée.
 	Delete(context.Context, video.VideoID, int64) error
 }
 

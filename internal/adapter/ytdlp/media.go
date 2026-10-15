@@ -1,10 +1,12 @@
 package ytdlp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/url"
 	"os"
@@ -107,7 +109,7 @@ func chooseMedia(d mediaDiscovery, knownLanguage string) (mediaChoice, error) {
 			continue
 		}
 		languages[f.Language] = true
-		if f.LanguagePreference == 10 && usableLanguage(f.Language) {
+		if f.LanguagePreference == originalAudioPreference && usableLanguage(f.Language) {
 			originals[f.Language] = true
 		}
 	}
@@ -235,6 +237,9 @@ func (c MediaClient) Download(ctx context.Context, source video.VideoSource, sta
 	path := filepath.Join(stage, "media."+choice.format)
 	data, err = mediaCommand(ctx, probe, "-v", "error", "-show_format", "-show_streams", "-of", "json", path)
 	if err != nil {
+		if ctx.Err() != nil {
+			return media.Acquired{}, ctx.Err()
+		}
 		return media.Acquired{}, fmt.Errorf("%w: probe: %v", media.ErrInvalid, err)
 	}
 	return validateProbe(data, path, choice.format, discovery.Duration, source.DurationMS)
@@ -267,6 +272,11 @@ func validateProbe(data []byte, path, container string, remoteDuration float64, 
 		return media.Acquired{}, media.ErrInvalid
 	}
 	if (container == "mp4" && !strings.Contains(","+result.Format.Name+",", ",mp4,")) || (container == "webm" && !strings.Contains(","+result.Format.Name+",", ",webm,")) {
+		return media.Acquired{}, media.ErrInvalid
+	}
+	// ffprobe expose le même démuxeur pour Matroska et WebM : vérifier le DocType
+	// évite d'accepter un MKV simplement nommé .webm.
+	if container == "webm" && !isWebM(path) {
 		return media.Acquired{}, media.ErrInvalid
 	}
 	duration, err := strconv.ParseFloat(result.Format.Duration, 64)
@@ -312,10 +322,10 @@ func validateProbe(data []byte, path, container string, remoteDuration float64, 
 		return media.Acquired{}, media.ErrInvalid
 	}
 	if math.Abs(duration-remoteDuration) > durationTolerance(remoteDuration) {
-		return media.Acquired{}, media.ErrDuration
+		return media.Acquired{}, fmt.Errorf("%w: local=%g discovered=%g seconds", media.ErrDuration, duration, remoteDuration)
 	}
 	if storedDuration != nil && math.Abs(duration-float64(*storedDuration)/1000) > durationTolerance(float64(*storedDuration)/1000) {
-		return media.Acquired{}, media.ErrDuration
+		return media.Acquired{}, fmt.Errorf("%w: local=%g stored=%g seconds", media.ErrDuration, duration, float64(*storedDuration)/1000)
 	}
 	return media.Acquired{Format: container, Size: size, DurationMS: int64(math.Round(duration * 1000))}, nil
 }
@@ -349,10 +359,13 @@ func mediaCommand(ctx context.Context, binary string, args ...string) ([]byte, e
 		<-done
 		return nil, ctx.Err()
 	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
-			return nil, fmt.Errorf("%w: %v", media.ErrDownload, err)
+			return nil, fmt.Errorf("%w: %v: %s", media.ErrDownload, err, strings.TrimSpace(stderr.buffer.String()))
 		}
 		return nil, fmt.Errorf("media tool: %w", err)
 	}
@@ -360,4 +373,62 @@ func mediaCommand(ctx context.Context, binary string, args ...string) ([]byte, e
 		return nil, media.ErrInvalid
 	}
 	return stdout.buffer.Bytes(), nil
+}
+
+// isWebM lit seulement l'en-tête EBML borné, jamais les blocs du média.
+func isWebM(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, 4096))
+	if err != nil || len(data) < 5 || !bytes.Equal(data[:4], []byte{0x1a, 0x45, 0xdf, 0xa3}) {
+		return false
+	}
+	size, n := ebmlInteger(data[4:], false)
+	if n == 0 || size > uint64(len(data)-4-n) {
+		return false
+	}
+	end := 4 + n + int(size)
+	for offset := 4 + n; offset < end; {
+		id, n := ebmlInteger(data[offset:end], true)
+		if n == 0 {
+			return false
+		}
+		offset += n
+		length, n := ebmlInteger(data[offset:end], false)
+		if n == 0 || length > uint64(end-offset-n) {
+			return false
+		}
+		offset += n
+		if id == 0x4282 {
+			return string(data[offset:offset+int(length)]) == "webm"
+		}
+		offset += int(length)
+	}
+	return false
+}
+
+// ebmlInteger décode un VINT sans dépasser l'en-tête fourni ; zéro longueur indique une erreur.
+func ebmlInteger(data []byte, identifier bool) (uint64, int) {
+	if len(data) == 0 || data[0] == 0 {
+		return 0, 0
+	}
+	n, mask := 1, byte(0x80)
+	for data[0]&mask == 0 {
+		n++
+		mask >>= 1
+	}
+	if n > len(data) {
+		return 0, 0
+	}
+	value := uint64(data[0])
+	if !identifier {
+		value &= uint64(mask - 1)
+	}
+	for _, b := range data[1:n] {
+		value = value<<8 | uint64(b)
+	}
+	return value, n
 }
