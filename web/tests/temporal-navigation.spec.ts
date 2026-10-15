@@ -219,7 +219,7 @@ test('activation en Lecture ne modifie ni note, sélection, Undo ni sauvegarde',
   expect(await node!.evaluate(element => element === document.querySelector('.cm-content'))).toBe(true)
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('[')
   await page.keyboard.press('Control+z')
-  await expect(editor).toHaveText('[Libellé indépendant](' + uri + ')')
+  await expect(editor.locator('.cm-temporal-reference')).toHaveText('◷Libellé indépendant')
   await expect(page.locator('.markdown-editor button')).toHaveCount(0)
 })
 

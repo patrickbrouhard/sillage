@@ -29,6 +29,7 @@ for (const state of [0, 1, 2]) {
     await page.keyboard.press('Control+End')
     await page.getByRole('button', { name: '+ Temps', exact: true }).click()
     await expect(editor).toBeFocused()
+    await expect(editor.locator('.cm-temporal-reference')).toHaveText('◷12:42')
     await page.keyboard.type('Suite')
     const reference = `[12:42](sillage://videos/${video.id}/sources/${video.sources[0].id}?start_ms=762345)`
     await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(content + reference + ' Suite')
@@ -68,37 +69,39 @@ for (const backwards of [false, true]) {
     await button.focus()
     await button.press('Enter')
     const reference = `[1:01:01](sillage://videos/${video.id}/sources/${video.sources[0].id}?start_ms=3661790)`
-    await expect(editor).toHaveText(`Xalpha${reference}  omega`)
+    await expect(editor).toHaveText('Xalpha◷1:01:01  omega')
     await page.keyboard.type('suite')
     await page.keyboard.press('Control+z')
-    await expect(editor).toHaveText(`Xalpha${reference}  omega`)
+    await expect(editor).toHaveText('Xalpha◷1:01:01  omega')
     await page.keyboard.press('Control+z')
     await expect(editor).toHaveText('Xalpha omega')
     await page.keyboard.press('Control+Shift+Z')
-    await expect(editor).toHaveText(`Xalpha${reference}  omega`)
+    await expect(editor).toHaveText('Xalpha◷1:01:01  omega')
     await page.keyboard.press('Control+Shift+Z')
-    await expect(editor).toHaveText(`Xalpha${reference} suite omega`)
+    await expect(editor).toHaveText('Xalpha◷1:01:01 suite omega')
     await page.keyboard.press('Control+s')
     await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(`Xalpha${reference} suite omega`)
   })
 }
 
 test('lecteur masqué, zéro valide et clics répétés sans réafficher ni reprendre', async ({ page, request }) => {
-  const { editor, video } = await openNote(page, request, '')
+  const { editor, video, noteURL } = await openNote(page, request, '')
   await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
   await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
   await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
   await page.getByRole('button', { name: '+ Temps', exact: true }).click()
   await page.getByRole('button', { name: '+ Temps', exact: true }).click()
   const reference = `[0:00](sillage://videos/${video.id}/sources/${video.sources[0].id}?start_ms=0) `
-  await expect(editor).toHaveText(reference.repeat(2))
+  await expect(editor).toHaveText('◷0:00 ◷0:00 ')
+  await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(reference.repeat(2))
   await expect(page.locator('.youtube-frame iframe')).toBeHidden()
   expect(await page.evaluate(() => {
     const player = window.youtubeTest.players.at(-1)!
     return { state: player.state, pauses: player.pauseCalls, calls: player.navigationCalls }
   })).toEqual({ state: 2, pauses: 1, calls: [] })
   await page.keyboard.press('Control+z')
-  await expect(editor).toHaveText(reference)
+  await expect(editor).toHaveText('◷0:00 ')
+  await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(reference)
 })
 
 test('états refusés, valeurs invalides et exception sans insertion ni commande différée', async ({ page, request }) => {

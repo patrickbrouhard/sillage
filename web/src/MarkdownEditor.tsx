@@ -1,5 +1,6 @@
 import { useEffect, useImperativeHandle, useRef } from 'react'
 import type { Ref } from 'react'
+import { compactTemporalReferences } from './compactTemporalReferences'
 import { markdownDecorations } from './markdownDecorations'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
@@ -76,7 +77,7 @@ export function MarkdownEditor({ initial, active, onChange, onSave, ref }: Props
         extensions: [
           // Le découpage natif accepte CRLF, CR et LF ; la sérialisation produit du LF.
           history(), markdown(), syntaxHighlighting(highlightStyle),
-          EditorView.lineWrapping, markdownDecorations,
+          EditorView.lineWrapping, markdownDecorations, compactTemporalReferences,
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
           keymap.of([
             { key: 'Mod-s', run: () => { callbacks.current.onSave(); return true } },
