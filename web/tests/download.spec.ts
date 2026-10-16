@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 
-const file = { id: 17, format: 'webm', size: 2_000_000, duration_ms: 125_000, added_at: '2026-10-15T12:00:00.000Z' }
+const file = { id: 17, format: 'mkv', size: 2_000_000, duration_ms: 125_000, added_at: '2026-10-15T12:00:00.000Z' }
 const absent = { status: 'not_downloaded', media_file: null, error: null }
 const active = { status: 'downloading', media_file: null, error: null }
 const available = { status: 'available', media_file: file, error: null }
@@ -13,7 +13,9 @@ test('téléchargement réel simulé, rechargement et suppression préservent la
   await page.goto(`/videos/${video.id}`)
   await page.getByRole('button', { name: 'Télécharger', exact: true }).click()
   await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
-  const first = (await (await request.get(downloadURL)).json()).media_file.id
+  const downloaded = (await (await request.get(downloadURL)).json()).media_file
+  expect(downloaded.format).toBe('mkv')
+  const first = downloaded.id
   await page.reload()
   await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
   expect((await (await request.post(downloadURL)).json()).media_file.id).toBe(first)

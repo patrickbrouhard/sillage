@@ -5,10 +5,10 @@ from pathlib import Path
 import sys
 
 path = Path(sys.argv[-1])
-if path.name != "media.mp4" or path.read_bytes() != b"complete":
+if path.name != "media.mkv" or path.read_bytes() != bytes.fromhex("1a45dfa38b428288") + b"matroska":
     raise SystemExit(1)
 print(json.dumps({
-    "format": {"format_name": "mov,mp4,m4a,3gp,3g2,mj2", "duration": "125", "size": "8"},
+    "format": {"format_name": "matroska,webm", "duration": "125", "size": str(path.stat().st_size)},
     "streams": [
         {"codec_type": "video", "codec_name": "h264", "width": 640, "height": 360},
         {"codec_type": "audio", "codec_name": "aac"},

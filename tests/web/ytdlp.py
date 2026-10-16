@@ -13,9 +13,10 @@ def main():
     if "--load-info-json" in args:
         output = Path(args[args.index("--output") + 1])
         if "--format" in args:
-            if args[args.index("--format") + 1] != "18":
+            if args[args.index("--format") + 1] != "bv*+ba/b":
                 raise ValueError("Unexpected media selection")
-            (output.parent / "media.mp4").write_bytes(b"complete")
+            (output.parent / "media.mkv").write_bytes(bytes.fromhex("1a45dfa38b428288") + b"matroska")
+            print(json.dumps(str((output.parent / "media.mkv").resolve())))
             return
         track = args[args.index("--sub-langs") + 1].removeprefix("^").removesuffix("$")
         if track not in ("fr-orig", "en-orig"):

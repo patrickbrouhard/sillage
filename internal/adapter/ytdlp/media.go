@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,18 +28,16 @@ type MediaClient struct {
 }
 
 type mediaFormat struct {
-	ID                 string          `json:"format_id"`
-	Extension          string          `json:"ext"`
-	VideoCodec         string          `json:"vcodec"`
-	AudioCodec         string          `json:"acodec"`
-	Width              int             `json:"width"`
-	Height             int             `json:"height"`
-	FPS                float64         `json:"fps"`
-	Language           string          `json:"language"`
-	LanguagePreference int             `json:"language_preference"`
-	Preference         *float64        `json:"preference"`
-	DRM                json.RawMessage `json:"has_drm"`
-	URL                string          `json:"url"`
+	ID                 string  `json:"format_id"`
+	Extension          string  `json:"ext"`
+	VideoCodec         string  `json:"vcodec"`
+	AudioCodec         string  `json:"acodec"`
+	Width              int     `json:"width"`
+	Height             int     `json:"height"`
+	FPS                float64 `json:"fps"`
+	Language           string  `json:"language"`
+	LanguagePreference int     `json:"language_preference"`
+	URL                string  `json:"url"`
 }
 
 type mediaDiscovery struct {
@@ -53,59 +50,13 @@ type mediaDiscovery struct {
 	Formats    []mediaFormat `json:"formats"`
 }
 
-type mediaChoice struct {
-	video, audio mediaFormat
-	format       string
-	order        int
-}
-
-var formatID = regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`)
-
-func videoCodec(codec string) string {
-	for _, pair := range [][2]string{{"avc1", "h264"}, {"h264", "h264"}, {"av01", "av1"}, {"av1", "av1"}, {"vp09", "vp9"}, {"vp9", "vp9"}, {"vp8", "vp8"}} {
-		if strings.HasPrefix(codec, pair[0]) {
-			return pair[1]
-		}
-	}
-	return ""
-}
-
-func audioCodec(codec string) string {
-	for _, pair := range [][2]string{{"mp4a", "aac"}, {"aac", "aac"}, {"opus", "opus"}, {"vorbis", "vorbis"}} {
-		if strings.HasPrefix(codec, pair[0]) {
-			return pair[1]
-		}
-	}
-	return ""
-}
-
-func compatible(container, vcodec, acodec string) bool {
-	switch container {
-	case "mp4":
-		return (vcodec == "h264" || vcodec == "av1") && acodec == "aac"
-	case "webm":
-		return (vcodec == "vp8" || vcodec == "vp9" || vcodec == "av1") && (acodec == "opus" || acodec == "vorbis")
-	}
-	return false
-}
-
-func fullHD(width, height int) bool {
-	return width > 0 && height > 0 && min(width, height) <= 1080 && max(width, height) <= 1920
-}
-
-func usableFormat(f mediaFormat) bool {
-	drm := string(f.DRM)
-	u, err := url.Parse(f.URL)
-	return formatID.MatchString(f.ID) && err == nil && u.Scheme == "https" && u.Host != "" &&
-		(drm == "" || drm == "null" || drm == "false") && (f.Preference == nil || *f.Preference > -10)
-}
-
-// chooseMedia sépare l'identité audio des variantes de codec et classe les combinaisons complètes.
-func chooseMedia(d mediaDiscovery, knownLanguage string) (mediaChoice, error) {
+// filterMediaAudio ne classe aucun format : il restreint seulement l'identité audio.
+// Les variantes techniques restent à départager par le sélecteur natif de yt-dlp.
+func filterMediaAudio(data []byte, d mediaDiscovery, knownLanguage string) ([]byte, error) {
 	languages := make(map[string]bool)
 	originals := make(map[string]bool)
 	for _, f := range d.Formats {
-		if !usableFormat(f) || f.AudioCodec == "" || f.AudioCodec == "none" || f.LanguagePreference < -1 {
+		if f.AudioCodec == "" || f.AudioCodec == "none" || f.LanguagePreference < -1 {
 			continue
 		}
 		languages[f.Language] = true
@@ -114,79 +65,88 @@ func chooseMedia(d mediaDiscovery, knownLanguage string) (mediaChoice, error) {
 		}
 	}
 	language := ""
+	requireOriginal := false
 	switch {
 	case len(originals) > 1:
-		return mediaChoice{}, media.ErrAudio
+		return nil, media.ErrAudio
 	case len(originals) == 1:
+		requireOriginal = true
 		for value := range originals {
 			language = value
 		}
-	case knownLanguage != "" && languages[knownLanguage]:
+	case knownLanguage != "":
+		// L'original connu absent n'autorise pas le repli vers une langue disponible différente.
+		if !languages[knownLanguage] {
+			return nil, media.ErrSelection
+		}
 		language = knownLanguage
 	case len(languages) == 1:
 		for value := range languages {
 			language = value
 		}
 	case len(languages) == 0:
-		return mediaChoice{}, media.ErrSelection
+		return nil, media.ErrSelection
 	default:
-		return mediaChoice{}, media.ErrAudio
+		return nil, media.ErrAudio
+	}
+	// Sans signal original, des rôles audio différents dans une même langue
+	// ne sont pas de simples variantes de codec : le défaut ne prouve pas l’originalité.
+	roles := make(map[int]bool)
+	if !requireOriginal {
+		for _, f := range d.Formats {
+			if f.AudioCodec != "" && f.AudioCodec != "none" && f.Language == language && f.LanguagePreference >= -1 {
+				roles[f.LanguagePreference] = true
+			}
+		}
+		if len(roles) > 1 {
+			return nil, media.ErrAudio
+		}
 	}
 	allowedAudio := func(f mediaFormat) bool {
-		return usableFormat(f) && f.Language == language && f.LanguagePreference >= -1 && audioCodec(f.AudioCodec) != ""
+		return f.AudioCodec == "none" || (f.AudioCodec != "" && f.Language == language &&
+			f.LanguagePreference >= -1 && (!requireOriginal || f.LanguagePreference == originalAudioPreference))
 	}
-	var best mediaChoice
-	found := false
-	for index, v := range d.Formats {
-		if !usableFormat(v) || !fullHD(v.Width, v.Height) || videoCodec(v.VideoCodec) == "" || (v.Extension != "mp4" && v.Extension != "webm") {
-			continue
+	// Préserver les champs inconnus de yt-dlp (manifestes, fragments, en-têtes).
+	// Les formats combinés non admissibles sont retirés eux aussi.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, media.ErrInvalid
+	}
+	var formats []json.RawMessage
+	if err := json.Unmarshal(raw["formats"], &formats); err != nil {
+		return nil, media.ErrInvalid
+	}
+	filtered := make([]json.RawMessage, 0, len(formats))
+	for _, item := range formats {
+		var f mediaFormat
+		if err := json.Unmarshal(item, &f); err != nil {
+			return nil, media.ErrInvalid
 		}
-		consider := func(a mediaFormat) {
-			if !allowedAudio(a) || !compatible(v.Extension, videoCodec(v.VideoCodec), audioCodec(a.AudioCodec)) {
-				return
-			}
-			choice := mediaChoice{video: v, audio: a, format: v.Extension, order: index}
-			if !found || betterMedia(choice, best) {
-				best = choice
-				found = true
-			}
-		}
-		if v.AudioCodec != "" && v.AudioCodec != "none" {
-			consider(v)
-			continue
-		}
-		// La liste de yt-dlp est ordonnée de la moins à la plus préférée.
-		// À vidéo égale, la dernière variante audio admissible l'emporte.
-		for _, a := range d.Formats {
-			if a.VideoCodec == "none" {
-				consider(a)
-			}
+		if allowedAudio(f) {
+			filtered = append(filtered, item)
 		}
 	}
-	if !found {
-		return mediaChoice{}, media.ErrSelection
-	}
-	return best, nil
+	raw["formats"], _ = json.Marshal(filtered)
+	// La sélection précédente de la découverte ne doit pas survivre au filtre métier.
+	delete(raw, "requested_formats")
+	delete(raw, "requested_downloads")
+	// download_with_info_file réextrait sinon l’URL après erreur, ce qui perdrait notre filtre.
+	delete(raw, "webpage_url")
+	delete(raw, "original_url")
+	delete(raw, "url")
+	raw["_type"] = json.RawMessage(`"video"`)
+	return json.Marshal(raw)
 }
 
-func betterMedia(a, b mediaChoice) bool {
-	if x, y := min(a.video.Width, a.video.Height), min(b.video.Width, b.video.Height); x != y {
-		return x > y
-	}
-	if x, y := a.video.Width*a.video.Height, b.video.Width*b.video.Height; x != y {
-		return x > y
-	}
-	if a.video.FPS != b.video.FPS {
-		return a.video.FPS > b.video.FPS
-	}
-	if a.format != b.format {
-		return a.format == "mp4"
-	}
-	return a.order >= b.order
-}
-
-// Download découvre une fois la source et réutilise cette découverte pour des pistes explicites.
+// Download filtre l’identité audio puis laisse yt-dlp choisir et assembler les formats.
 func (c MediaClient) Download(ctx context.Context, source video.VideoSource, stage string) (media.Acquired, error) {
+	// yt-dlp expose un chemin absolu après déplacement, même avec une sortie relative.
+	// Comparer deux chemins absolus préserve le contrôle de confinement en production.
+	stage, err := filepath.Abs(stage)
+	if err != nil {
+		return media.Acquired{}, err
+	}
+
 	if source.Provider != "youtube" || !regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`).MatchString(source.ExternalID) {
 		return media.Acquired{}, media.ErrUnsupported
 	}
@@ -195,7 +155,7 @@ func (c MediaClient) Download(ctx context.Context, source video.VideoSource, sta
 		binary = "yt-dlp"
 	}
 	common := []string{"--ignore-config", "--no-playlist", "--no-progress", "--no-cache-dir", "--socket-timeout", "30", "--retries", "3", "--fragment-retries", "3"}
-	args := append(append([]string{}, common...), "--dump-single-json", "--simulate", "--", "https://www.youtube.com/watch?v="+source.ExternalID)
+	args := append(append([]string{}, common...), "--dump-single-json", "--simulate", "-S", "res:1080", "--", "https://www.youtube.com/watch?v="+source.ExternalID)
 	data, err := mediaCommand(ctx, binary, args...)
 	if err != nil {
 		return media.Acquired{}, err
@@ -210,7 +170,7 @@ func (c MediaClient) Download(ctx context.Context, source video.VideoSource, sta
 	if discovery.IsLive || (discovery.LiveStatus != "not_live" && discovery.LiveStatus != "was_live") || discovery.Duration <= 0 {
 		return media.Acquired{}, media.ErrUnfinished
 	}
-	choice, err := chooseMedia(discovery, source.OriginalAudioLanguage)
+	data, err = filterMediaAudio(data, discovery, source.OriginalAudioLanguage)
 	if err != nil {
 		return media.Acquired{}, err
 	}
@@ -218,23 +178,33 @@ func (c MediaClient) Download(ctx context.Context, source video.VideoSource, sta
 	if err := os.WriteFile(info, data, 0600); err != nil {
 		return media.Acquired{}, err
 	}
-	selected := choice.video.ID
-	if choice.audio.ID != choice.video.ID {
-		selected += "+" + choice.audio.ID
-	}
 	args = append(append([]string{}, common...),
 		"--load-info-json", info, "--no-simulate", "--no-continue",
 		"--abort-on-unavailable-fragments", "--no-keep-video",
-		"--format", selected, "--merge-output-format", choice.format, "--remux-video", choice.format,
+		"--no-audio-multistreams", "--no-video-multistreams",
+		"--format", "bv*+ba/b", "-S", "res:1080",
+		"--print", "after_move:%(filepath)j",
 		"--output", filepath.Join(stage, "media.%(ext)s"))
-	if _, err := mediaCommand(ctx, binary, args...); err != nil {
+	output, err := mediaCommand(ctx, binary, args...)
+	if err != nil {
 		return media.Acquired{}, err
 	}
+	var path string
+	if err := json.Unmarshal(bytes.TrimSpace(output), &path); err != nil {
+		return media.Acquired{}, media.ErrInvalid
+	}
+	// Ne jamais publier un chemin extérieur ou un nom dérivé d'un titre distant.
+	container := strings.TrimPrefix(filepath.Ext(path), ".")
+	if filepath.Clean(filepath.Dir(path)) != filepath.Clean(stage) ||
+		filepath.Base(path) != "media."+container ||
+		!regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`).MatchString(container) {
+		return media.Acquired{}, media.ErrInvalid
+	}
+
 	probe := c.ProbeBinary
 	if probe == "" {
 		probe = "ffprobe"
 	}
-	path := filepath.Join(stage, "media."+choice.format)
 	data, err = mediaCommand(ctx, probe, "-v", "error", "-show_format", "-show_streams", "-of", "json", path)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -242,7 +212,7 @@ func (c MediaClient) Download(ctx context.Context, source video.VideoSource, sta
 		}
 		return media.Acquired{}, fmt.Errorf("%w: probe: %v", media.ErrInvalid, err)
 	}
-	return validateProbe(data, path, choice.format, discovery.Duration, source.DurationMS)
+	return validateProbe(data, path, container, discovery.Duration, source.DurationMS)
 }
 
 type probeStream struct {
@@ -271,14 +241,10 @@ func validateProbe(data []byte, path, container string, remoteDuration float64, 
 	if err := json.Unmarshal(data, &result); err != nil {
 		return media.Acquired{}, media.ErrInvalid
 	}
-	if (container == "mp4" && !strings.Contains(","+result.Format.Name+",", ",mp4,")) || (container == "webm" && !strings.Contains(","+result.Format.Name+",", ",webm,")) {
+	if !probeContainerMatches(result.Format.Name, container, path) {
 		return media.Acquired{}, media.ErrInvalid
 	}
-	// ffprobe expose le même démuxeur pour Matroska et WebM : vérifier le DocType
-	// évite d'accepter un MKV simplement nommé .webm.
-	if container == "webm" && !isWebM(path) {
-		return media.Acquired{}, media.ErrInvalid
-	}
+
 	duration, err := strconv.ParseFloat(result.Format.Duration, 64)
 	if err != nil || math.IsNaN(duration) || math.IsInf(duration, 0) || duration <= 0 || duration*1000 >= math.Exp2(63) {
 		return media.Acquired{}, media.ErrInvalid
@@ -318,7 +284,7 @@ func validateProbe(data []byte, path, container string, remoteDuration float64, 
 			}
 		}
 	}
-	if videos != 1 || audios != 1 || !fullHD(videoStream.Width, videoStream.Height) || !compatible(container, videoStream.Codec, audioStream.Codec) {
+	if videos != 1 || audios != 1 || videoStream.Width <= 0 || videoStream.Height <= 0 || videoStream.Codec == "" || videoStream.Codec == "unknown" || audioStream.Codec == "" || audioStream.Codec == "unknown" {
 		return media.Acquired{}, media.ErrInvalid
 	}
 	if math.Abs(duration-remoteDuration) > durationTolerance(remoteDuration) {
@@ -328,6 +294,21 @@ func validateProbe(data []byte, path, container string, remoteDuration float64, 
 		return media.Acquired{}, fmt.Errorf("%w: local=%g stored=%g seconds", media.ErrDuration, duration, float64(*storedDuration)/1000)
 	}
 	return media.Acquired{Format: container, Size: size, DurationMS: int64(math.Round(duration * 1000))}, nil
+}
+
+// probeContainerMatches normalise les alias des démuxeurs, sans limiter les conteneurs admis.
+func probeContainerMatches(demuxer, container, path string) bool {
+	if container == "webm" {
+		return strings.Contains(","+demuxer+",", ",webm,") && isWebM(path)
+	}
+	if container == "mkv" {
+		return strings.Contains(","+demuxer+",", ",matroska,") && ebmlDocType(path) == "matroska"
+	}
+	aliases := map[string]string{"ts": "mpegts", "mpg": "mpeg", "m4v": "mp4", "ogv": "ogg"}
+	if alias := aliases[container]; alias != "" {
+		container = alias
+	}
+	return strings.Contains(","+demuxer+",", ","+container+",")
 }
 
 // mediaCommand borne les sorties et termine le groupe Linux, y compris ffmpeg descendant.
@@ -376,38 +357,41 @@ func mediaCommand(ctx context.Context, binary string, args ...string) ([]byte, e
 }
 
 // isWebM lit seulement l'en-tête EBML borné, jamais les blocs du média.
-func isWebM(path string) bool {
+func isWebM(path string) bool { return ebmlDocType(path) == "webm" }
+
+// ebmlDocType distingue les conteneurs partageant le démuxeur Matroska/WebM.
+func ebmlDocType(path string) string {
 	f, err := os.Open(path)
 	if err != nil {
-		return false
+		return ""
 	}
 	defer f.Close()
 	data, err := io.ReadAll(io.LimitReader(f, 4096))
 	if err != nil || len(data) < 5 || !bytes.Equal(data[:4], []byte{0x1a, 0x45, 0xdf, 0xa3}) {
-		return false
+		return ""
 	}
 	size, n := ebmlInteger(data[4:], false)
 	if n == 0 || size > uint64(len(data)-4-n) {
-		return false
+		return ""
 	}
 	end := 4 + n + int(size)
 	for offset := 4 + n; offset < end; {
 		id, n := ebmlInteger(data[offset:end], true)
 		if n == 0 {
-			return false
+			return ""
 		}
 		offset += n
 		length, n := ebmlInteger(data[offset:end], false)
 		if n == 0 || length > uint64(end-offset-n) {
-			return false
+			return ""
 		}
 		offset += n
 		if id == 0x4282 {
-			return string(data[offset:offset+int(length)]) == "webm"
+			return string(data[offset : offset+int(length)])
 		}
 		offset += int(length)
 	}
-	return false
+	return ""
 }
 
 // ebmlInteger décode un VINT sans dépasser l'en-tête fourni ; zéro longueur indique une erreur.
