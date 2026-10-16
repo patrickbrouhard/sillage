@@ -225,7 +225,7 @@ func TestPublicationFailureAndUncertainCommit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			count := 0
+			count := 1
 			if committed {
 				count = 1
 				if err := storage.Check(*state.File); err != nil {
@@ -257,7 +257,10 @@ func TestMissingFileIsNotAbsenceAndCanBeExplicitlyRemoved(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := waitState(t, s, v, "available")
-	if err := storage.RemovePublished(state.File.Path); err != nil {
+	if err := storage.StageDelete(*state.File); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.FinishDelete(*state.File); err != nil {
 		t.Fatal(err)
 	}
 	missing, err := s.Get(context.Background(), v.ID, v.Sources[0].ID)
@@ -271,4 +274,97 @@ func TestMissingFileIsNotAbsenceAndCanBeExplicitlyRemoved(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitState(t, s, v, "not_downloaded")
+}
+
+// finalizingStorage bloque le nettoyage après publication pour rendre la fenêtre concurrente déterministe.
+type finalizingStorage struct {
+	media.Storage
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (s *finalizingStorage) Discard(stage string) error {
+	close(s.entered)
+	<-s.release
+	return s.Storage.Discard(stage)
+}
+
+func TestAvailableWaitsForFinalization(t *testing.T) {
+	// Réutiliser les repositories réels et intercepter seulement la frontière de finalisation.
+	base, repo, storage, v, other := setup(t, &provider{}, time.Minute)
+	base.Close()
+	videos := fixedVideos{v, other}
+	blocked := &finalizingStorage{Storage: storage, entered: make(chan struct{}), release: make(chan struct{})}
+	service, err := media.NewService(context.Background(), videos, repo, blocked, &provider{}, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	released := false
+	defer func() {
+		if !released {
+			close(blocked.release)
+		}
+		service.Close()
+	}()
+	ctx := context.Background()
+	if _, err := service.Start(ctx, v.ID, v.Sources[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	<-blocked.entered
+	saved, err := repo.BySource(ctx, v.Sources[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := service.Get(ctx, v.ID, v.Sources[0].ID)
+	if err != nil || state.Status != "downloading" || state.File != nil {
+		t.Fatalf("%+v %v", state, err)
+	}
+	state, err = service.Start(ctx, v.ID, v.Sources[0].ID)
+	if err != nil || state.Status != "downloading" {
+		t.Fatalf("%+v %v", state, err)
+	}
+	if _, err := service.Start(ctx, other.ID, other.Sources[0].ID); !errors.Is(err, media.ErrBusy) {
+		t.Fatal(err)
+	}
+	if err := service.Delete(ctx, v.ID, saved.ID); !errors.Is(err, media.ErrBusy) {
+		t.Fatal(err)
+	}
+	close(blocked.release)
+	released = true
+	waitState(t, service, v, "available")
+	if err := service.Delete(ctx, v.ID, saved.ID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// fixedVideos fournit uniquement les identités nécessaires au service testé.
+type fixedVideos []video.Video
+
+func (v fixedVideos) Get(_ context.Context, id video.VideoID) (video.Video, error) {
+	for _, item := range v {
+		if item.ID == id {
+			return item, nil
+		}
+	}
+	return video.Video{}, video.ErrVideoNotFound
+}
+
+func TestMediaAnomalyDoesNotPreventServiceCreation(t *testing.T) {
+	base, repo, _, v, _ := setup(t, &provider{}, time.Minute)
+	base.Close()
+	root := filepath.Join(t.TempDir(), "media")
+	if err := os.WriteFile(root, []byte("not a directory"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	service, err := media.NewService(context.Background(), fixedVideos{v}, repo, filesystem.NewMedia(root), &provider{}, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
+	if _, err := service.Start(context.Background(), v.ID, v.Sources[0].ID); err == nil {
+		t.Fatal("unavailable storage accepted")
+	}
+	if _, err := service.Get(context.Background(), v.ID, v.Sources[0].ID); err == nil {
+		t.Fatal("unavailable storage reported absent")
+	}
 }

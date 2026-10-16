@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,18 +14,19 @@ import (
 
 // Service possède l'opération globale ; la mémoire n'est jamais la vérité de disponibilité.
 type Service struct {
-	videos   VideoReader
-	repo     Repository
-	storage  Storage
-	provider Provider
-	ctx      context.Context
-	cancel   context.CancelFunc
-	timeout  time.Duration
-	mu       sync.Mutex
-	active   video.VideoSourceID
-	failures map[video.VideoSourceID]string
-	workers  sync.WaitGroup
-	closed   bool
+	videos     VideoReader
+	repo       Repository
+	storage    Storage
+	provider   Provider
+	ctx        context.Context
+	cancel     context.CancelFunc
+	timeout    time.Duration
+	mu         sync.Mutex
+	active     video.VideoSourceID
+	failures   map[video.VideoSourceID]string
+	workers    sync.WaitGroup
+	closed     bool
+	storageErr error
 }
 
 // NewService rapproche le stockage avant d'accepter des acquisitions.
@@ -43,19 +45,21 @@ func NewService(
 	if err != nil {
 		return nil, err
 	}
-	if err := storage.Recover(ctx, files); err != nil {
-		return nil, err
+	storageErr := storage.Recover(ctx, files)
+	if storageErr != nil {
+		log.Printf("media storage unavailable: %v", storageErr)
 	}
 	owned, cancel := context.WithCancel(ctx)
 	return &Service{
-		videos:   videos,
-		repo:     repo,
-		storage:  storage,
-		provider: provider,
-		ctx:      owned,
-		cancel:   cancel,
-		timeout:  timeout,
-		failures: make(map[video.VideoSourceID]string),
+		videos:     videos,
+		storageErr: storageErr,
+		repo:       repo,
+		storage:    storage,
+		provider:   provider,
+		ctx:        owned,
+		cancel:     cancel,
+		timeout:    timeout,
+		failures:   make(map[video.VideoSourceID]string),
 	}, nil
 }
 
@@ -99,6 +103,14 @@ func (s *Service) Get(ctx context.Context, videoID video.VideoID, sourceID video
 
 // state exige le verrou : disponibilité, suppression et publication ne doivent pas se croiser.
 func (s *Service) state(ctx context.Context, sourceID video.VideoSourceID) (State, error) {
+	// L'activité inclut le nettoyage final : available ne doit jamais précéder sa libération.
+	if s.active == sourceID {
+		return State{Status: "downloading"}, nil
+	}
+	if s.storageErr != nil {
+		return State{}, fmt.Errorf("media storage unavailable: %w", s.storageErr)
+	}
+
 	f, err := s.repo.BySource(ctx, sourceID)
 	if err == nil {
 		if err := s.storage.Check(f); err != nil {
@@ -184,7 +196,7 @@ func (s *Service) acquire(ctx context.Context, source video.VideoSource) error {
 	if err != nil {
 		return err
 	}
-	if acquired.Size <= 0 || acquired.DurationMS <= 0 || (acquired.Format != "mp4" && acquired.Format != "webm") {
+	if acquired.Size <= 0 || acquired.DurationMS <= 0 || strings.TrimSpace(acquired.Format) == "" {
 		return ErrInvalid
 	}
 	s.mu.Lock()
@@ -206,25 +218,18 @@ func (s *Service) acquire(ctx context.Context, source video.VideoSource) error {
 		AddedAt:        time.Now().UTC().Truncate(time.Millisecond),
 	})
 	if err != nil {
-		// Un résultat de commit incertain ne justifie jamais d'effacer un fichier référencé.
+		// Une confirmation du fichier exact transforme le commit incertain en succès.
+		// Sinon les octets publiés restent récupérables ; l'absence SQL n'autorise aucun effacement.
 		checkCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		files, readErr := s.repo.List(checkCtx)
-		if readErr == nil {
-			referenced := false
-			for _, f := range files {
-				if f.Path == path {
-					referenced = true
-					break
-				}
-			}
-			if !referenced {
-				if cleanupErr := s.storage.RemovePublished(path); cleanupErr != nil {
-					log.Printf("media orphan cleanup: %v", cleanupErr)
-				}
-			}
+		saved, readErr := s.repo.BySource(checkCtx, source.ID)
+		if readErr == nil && saved.Path == path && saved.VideoID == source.VideoID &&
+			saved.Format == acquired.Format && saved.Size == acquired.Size &&
+			saved.DurationMS == acquired.DurationMS {
+			return nil
 		}
 	}
+
 	return err
 }
 
@@ -238,6 +243,9 @@ func (s *Service) Delete(ctx context.Context, videoID video.VideoID, id int64) e
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.storageErr != nil {
+		return fmt.Errorf("media storage unavailable: %w", s.storageErr)
+	}
 	f, err := s.repo.Get(ctx, id)
 	if errors.Is(err, ErrNotFound) {
 		return nil
@@ -255,7 +263,7 @@ func (s *Service) Delete(ctx context.Context, videoID video.VideoID, id int64) e
 		return err
 	}
 	if err := s.repo.Delete(ctx, id); err != nil {
-		// Le rapprochement restaurera ou effacera selon la base en cas d'issue incertaine.
+		// Une référence encore présente autorise une restauration ; sinon préserver les octets.
 		checkCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		if _, readErr := s.repo.Get(checkCtx, id); readErr == nil {

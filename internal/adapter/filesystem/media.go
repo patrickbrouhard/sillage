@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,7 +14,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/media"
 )
 
-var mediaName = regexp.MustCompile(`^media-[a-f0-9]{32}\.(mp4|webm)$`)
+var mediaName = regexp.MustCompile(`^media-[a-f0-9]{32}\.[a-z0-9][a-z0-9_-]{0,31}$`)
 var pendingName = regexp.MustCompile(`^\.pending-[0-9]+$`)
 
 // Media conserve exclusivement les fichiers nommés par Sillage dans sa racine.
@@ -23,6 +24,9 @@ type Media struct{ root string }
 func NewMedia(root string) *Media { return &Media{root: root} }
 
 func (s *Media) path(name string) (string, error) {
+	if err := s.checkRoot(); err != nil {
+		return "", err
+	}
 	if !mediaName.MatchString(name) {
 		return "", fmt.Errorf("invalid managed media name")
 	}
@@ -50,50 +54,51 @@ func regular(path string) (os.FileInfo, error) {
 	return info, nil
 }
 
-// Recover rapproche seulement les noms maîtrisés ; une référence douteuse interdit le nettoyage.
+// checkRoot refuse une racine remplacée par un lien avant tout accès aux médias.
+func (s *Media) checkRoot() error {
+	info, err := os.Lstat(s.root)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("invalid media root")
+	}
+	return nil
+}
+
+// Recover conserve tous les fichiers abandonnés et restaure seulement une suppression sûre.
+// Les erreurs d'une entrée restent locales ; seule une racine inutilisable désactive le stockage.
 func (s *Media) Recover(ctx context.Context, files []media.File) error {
 	if err := os.MkdirAll(s.root, 0700); err != nil {
 		return err
 	}
-	root, err := os.Lstat(s.root)
-	if err != nil {
+	if err := s.checkRoot(); err != nil {
 		return err
-	}
-	if !root.IsDir() || root.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("invalid media root")
-	}
-	referenced := make(map[string]bool)
-	for _, f := range files {
-		if _, err := s.path(f.Path); err != nil {
-			return err
-		}
-		referenced[f.Path] = true
 	}
 	entries, err := os.ReadDir(s.root)
 	if err != nil {
 		return err
 	}
-	// Valider toutes les entrées concernées avant la première mutation.
-	for _, entry := range entries {
-		name := entry.Name()
-		if strings.HasSuffix(name, ".deleting") && referenced[strings.TrimSuffix(name, ".deleting")] {
-			original := filepath.Join(s.root, strings.TrimSuffix(name, ".deleting"))
-			if _, err := os.Lstat(original); !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("ambiguous interrupted deletion")
+	referenced := make(map[string]media.File)
+	for _, f := range files {
+		if _, err := s.path(f.Path); err != nil {
+			log.Printf("media recovery: invalid reference id=%d: %v", f.ID, err)
+			continue
+		}
+		referenced[f.Path] = f
+		path := filepath.Join(s.root, f.Path)
+		_, originalErr := os.Lstat(path)
+		_, deletingErr := os.Lstat(path + ".deleting")
+		if errors.Is(originalErr, os.ErrNotExist) && deletingErr == nil {
+			// La taille et la lisibilité doivent correspondre avant tout renommage.
+			if err := s.checkFile(path+".deleting", f.Size); err != nil {
+				log.Printf("media recovery: cannot restore id=%d: %v", f.ID, err)
+			} else if err := s.Restore(f); err != nil {
+				log.Printf("media recovery: restore id=%d: %v", f.ID, err)
 			}
 		}
-		if mediaName.MatchString(name) || (strings.HasSuffix(name, ".deleting") && mediaName.MatchString(strings.TrimSuffix(name, ".deleting"))) {
-			if _, err := regular(filepath.Join(s.root, name)); err != nil {
-				return err
-			}
-		} else if pendingName.MatchString(name) {
-			info, err := entry.Info()
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-				return fmt.Errorf("invalid staging directory")
-			}
+		if err := s.Check(f); err != nil {
+			log.Printf("media recovery: unavailable id=%d: %v", f.ID, err)
 		}
 	}
 	for _, entry := range entries {
@@ -101,38 +106,31 @@ func (s *Media) Recover(ctx context.Context, files []media.File) error {
 			return err
 		}
 		name := entry.Name()
-		path := filepath.Join(s.root, name)
-		switch {
-		case pendingName.MatchString(name):
-			if err := os.RemoveAll(path); err != nil {
-				return err
-			}
-		case strings.HasSuffix(name, ".deleting") && mediaName.MatchString(strings.TrimSuffix(name, ".deleting")):
-			original := strings.TrimSuffix(name, ".deleting")
-			if referenced[original] {
-				if _, err := os.Lstat(filepath.Join(s.root, original)); !errors.Is(err, os.ErrNotExist) {
-					return fmt.Errorf("ambiguous interrupted deletion")
-				}
-				if err := os.Rename(path, filepath.Join(s.root, original)); err != nil {
-					return err
-				}
-			} else if err := os.Remove(path); err != nil {
-				return err
-			}
-		case mediaName.MatchString(name) && !referenced[name]:
-			if err := os.Remove(path); err != nil {
-				return err
+		_, known := referenced[name]
+		if pendingName.MatchString(name) || (mediaName.MatchString(name) && !known) ||
+			(strings.HasSuffix(name, ".deleting") && mediaName.MatchString(strings.TrimSuffix(name, ".deleting"))) {
+			// Un nom abandonné, même .deleting, ne prouve jamais une intention actuelle d'effacement.
+			if _, err := os.Lstat(filepath.Join(s.root, name)); err == nil {
+				log.Printf("media recovery: preserved entry %q; explicit maintenance required", name)
 			}
 		}
 	}
-	return syncDirectory(s.root)
+	return nil
 }
 
 // Prepare réserve un répertoire sur le filesystem de destination.
-func (s *Media) Prepare() (string, error) { return os.MkdirTemp(s.root, ".pending-") }
+func (s *Media) Prepare() (string, error) {
+	if err := s.checkRoot(); err != nil {
+		return "", err
+	}
+	return os.MkdirTemp(s.root, ".pending-")
+}
 
 // Discard ne nettoie que la zone temporaire réservée par cet adapter.
 func (s *Media) Discard(stage string) error {
+	if err := s.checkRoot(); err != nil {
+		return err
+	}
 	if filepath.Clean(filepath.Dir(stage)) != filepath.Clean(s.root) || !pendingName.MatchString(filepath.Base(stage)) {
 		return fmt.Errorf("invalid staging path")
 	}
@@ -141,10 +139,20 @@ func (s *Media) Discard(stage string) error {
 
 // Publish synchronise puis renomme le fichier complet avant toute écriture SQL.
 func (s *Media) Publish(ctx context.Context, stage string, acquired media.Acquired) (string, error) {
+	if err := s.checkRoot(); err != nil {
+		return "", err
+	}
+	infoStage, err := os.Lstat(stage)
+	if err != nil {
+		return "", err
+	}
+	if !infoStage.IsDir() || infoStage.Mode()&os.ModeSymlink != 0 {
+		return "", media.ErrInvalid
+	}
 	if filepath.Clean(filepath.Dir(stage)) != filepath.Clean(s.root) || !pendingName.MatchString(filepath.Base(stage)) {
 		return "", fmt.Errorf("invalid staging path")
 	}
-	if acquired.Format != "mp4" && acquired.Format != "webm" {
+	if !mediaName.MatchString("media-" + strings.Repeat("0", 32) + "." + acquired.Format) {
 		return "", media.ErrInvalid
 	}
 	source := filepath.Join(stage, "media."+acquired.Format)
@@ -171,7 +179,10 @@ func (s *Media) Publish(ctx context.Context, stage string, acquired media.Acquir
 		return "", err
 	}
 	name := fmt.Sprintf("media-%x.%s", randBytes(), acquired.Format)
-	dest, _ := s.path(name)
+	dest, err := s.path(name)
+	if err != nil {
+		return "", err
+	}
 	if _, err := os.Lstat(dest); !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("media destination exists or inaccessible")
 	}
@@ -197,11 +208,19 @@ func (s *Media) Check(f media.File) error {
 	if err != nil {
 		return err
 	}
+	if _, err := os.Lstat(path + ".deleting"); !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("ambiguous interrupted deletion")
+	}
+	return s.checkFile(path, f.Size)
+}
+
+// checkFile vérifie uniquement un fichier régulier, lisible et de taille attendue.
+func (s *Media) checkFile(path string, size int64) error {
 	info, err := regular(path)
 	if err != nil {
 		return err
 	}
-	if info.Size() != f.Size {
+	if info.Size() != size {
 		return fmt.Errorf("media size changed")
 	}
 	handle, err := os.Open(path)
@@ -209,23 +228,6 @@ func (s *Media) Check(f media.File) error {
 		return err
 	}
 	return handle.Close()
-}
-
-// RemovePublished nettoie un orphelin dont l'absence de référence SQL est confirmée.
-func (s *Media) RemovePublished(name string) error {
-	path, err := s.path(name)
-	if err != nil {
-		return err
-	}
-	if _, err := regular(path); errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return err
-	}
-	if err := os.Remove(path); err != nil {
-		return err
-	}
-	return syncDirectory(s.root)
 }
 
 // StageDelete conserve une possibilité de restauration avant la suppression SQL.

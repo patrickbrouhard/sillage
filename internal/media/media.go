@@ -76,7 +76,7 @@ type Provider interface {
 
 // Storage maîtrise les chemins, la publication et la récupération après interruption.
 type Storage interface {
-	// Recover répare les interruptions avant toute opération ; une incertitude interdit le nettoyage.
+	// Recover restaure seulement les suppressions sûres et signale les anomalies sans effacer.
 	Recover(context.Context, []File) error
 	// Prepare réserve une zone temporaire sur le filesystem final.
 	Prepare() (string, error)
@@ -86,8 +86,6 @@ type Storage interface {
 	Publish(context.Context, string, Acquired) (string, error)
 	// Check vérifie présence, lisibilité et taille sans accès distant.
 	Check(File) error
-	// RemovePublished efface un fichier dont l’absence de référence a été confirmée.
-	RemovePublished(string) error
 	// StageDelete déplace le fichier pour permettre une restauration après échec SQL.
 	StageDelete(File) error
 	// Restore restaure les octets si leur référence existe toujours.

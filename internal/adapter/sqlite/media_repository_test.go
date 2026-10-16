@@ -2,8 +2,12 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"io/fs"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/media"
@@ -61,5 +65,82 @@ func TestMediaProvenanceUniquenessAndKnowledgeSurvivesDeletion(t *testing.T) {
 	f.Format = "webm"
 	if _, err := repo.Save(ctx, f); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestMediaMigrationPreservesHistory couvre une base v6 existante, même sans ligne restante.
+func TestMediaMigrationPreservesHistory(t *testing.T) {
+	for _, empty := range []bool{false, true} {
+		t.Run(fmt.Sprint(empty), func(t *testing.T) {
+			ctx := context.Background()
+			db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "old.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			db.SetMaxOpenConns(1)
+			if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+				t.Fatal(err)
+			}
+			files := fstest.MapFS{}
+			names, _ := fs.Glob(migrationFiles, "migrations/*.sql")
+			for _, name := range names[:6] {
+				data, _ := migrationFiles.ReadFile(name)
+				files[name] = &fstest.MapFile{Data: data}
+			}
+			if err := migrate(ctx, db, files); err != nil {
+				t.Fatal(err)
+			}
+			videos := NewVideoRepository(db)
+			v, err := videos.Create(ctx, video.Video{CreatedAt: time.Now().UTC(), Sources: []video.VideoSource{{Provider: "youtube", ExternalID: "abcdefghijk", Title: "old"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			repo := NewMediaRepository(db)
+			source := v.Sources[0].ID
+			original := media.File{VideoID: v.ID, OriginSourceID: &source, Path: "old.mp4", Format: "mp4", Size: 8, DurationMS: 1000, AddedAt: time.Now().UTC().Truncate(time.Millisecond)}
+			saved, err := repo.Save(ctx, original)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Un identifiant déjà utilisé ne doit jamais être réattribué après reconstruction.
+			if _, err := db.Exec("UPDATE sqlite_sequence SET seq = 99 WHERE name = 'media_files'"); err != nil {
+				t.Fatal(err)
+			}
+			if empty {
+				if err := repo.Delete(ctx, saved.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := migrate(ctx, db, migrationFiles); err != nil {
+				t.Fatal(err)
+			}
+			if !empty {
+				got, err := repo.Get(ctx, saved.ID)
+				if err != nil || got.Path != saved.Path || got.OriginSourceID == nil || *got.OriginSourceID != source || !got.AddedAt.Equal(saved.AddedAt) {
+					t.Fatalf("%+v %v", got, err)
+				}
+			}
+			original.OriginSourceID = nil
+			original.Path = "new.mkv"
+			original.Format = "mkv"
+			next, err := repo.Save(ctx, original)
+			if err != nil || next.ID != 100 {
+				t.Fatalf("%+v %v", next, err)
+			}
+			original.Path = "invalid"
+			original.Format = " "
+			if _, err := repo.Save(ctx, original); err == nil {
+				t.Fatal("empty format accepted")
+			}
+			rows, err := db.Query("PRAGMA foreign_key_check")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer rows.Close()
+			if rows.Next() {
+				t.Fatal("broken foreign key")
+			}
+		})
 	}
 }

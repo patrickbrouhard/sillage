@@ -238,3 +238,23 @@ func TestServerStopsActiveMediaBeforeClosingDatabase(t *testing.T) {
 		t.Fatalf("staging survived: %v %v", entries, err)
 	}
 }
+
+func TestMediaStorageFaultDoesNotStopHTTPInitialization(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.Mkdir("data", 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("data/media", []byte("inaccessible media root"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	err = run(context.Background(), config{addr: listener.Addr().String(), postTimeout: time.Minute, downloadTimeout: time.Hour})
+	// L'adresse occupée est atteinte seulement si l'initialisation média a laissé le serveur continuer.
+	if err == nil || !strings.Contains(err.Error(), "address already in use") {
+		t.Fatalf("server stopped before HTTP: %v", err)
+	}
+}

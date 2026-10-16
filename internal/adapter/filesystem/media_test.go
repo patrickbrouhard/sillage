@@ -61,7 +61,7 @@ func TestMediaRecoveryAtPublicationAndDeletionBoundaries(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(entries) != 1+len(files) {
+			if len(entries) != 3 {
 				t.Fatalf("entries: %v", entries)
 			}
 			if len(files) > 0 {
@@ -79,8 +79,8 @@ func TestMediaRecoveryAtPublicationAndDeletionBoundaries(t *testing.T) {
 func TestMediaRecoveryPreservesUncertainPaths(t *testing.T) {
 	s := NewMedia(t.TempDir())
 	orphan := published(t, s)
-	if err := s.Recover(context.Background(), []media.File{{Path: "../outside"}}); err == nil {
-		t.Fatal("accepted unsafe reference")
+	if err := s.Recover(context.Background(), []media.File{{Path: "../outside"}}); err != nil {
+		t.Fatal(err)
 	}
 	if err := s.Check(orphan); err != nil {
 		t.Fatal("deleted before validating references", err)
@@ -93,8 +93,8 @@ func TestMediaRecoveryPreservesUncertainPaths(t *testing.T) {
 	if err := os.Symlink(target, filepath.Join(s.root, name)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Recover(context.Background(), nil); err == nil {
-		t.Fatal("accepted symlink")
+	if err := s.Recover(context.Background(), nil); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := os.Stat(target); err != nil {
 		t.Fatal(err)
@@ -123,5 +123,67 @@ func TestMediaPublicationRejectsPartialAndDeletionCanRestore(t *testing.T) {
 	}
 	if err := s.Check(f); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRecoveryAfterOldDatabaseRestorePreservesRecentMedia(t *testing.T) {
+	storage := NewMedia(t.TempDir())
+	old := published(t, storage)
+	recent := published(t, storage)
+	if err := storage.Recover(context.Background(), []media.File{old}); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.Check(recent); err != nil {
+		t.Fatal("recent media lost after older database restore", err)
+	}
+}
+
+func TestRecoveryPreservesConflictingDeletion(t *testing.T) {
+	storage := NewMedia(t.TempDir())
+	f := published(t, storage)
+	path := filepath.Join(storage.root, f.Path)
+	if err := os.WriteFile(path+".deleting", []byte("different"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.Recover(context.Background(), []media.File{f}); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{path, path + ".deleting"} {
+		if _, err := os.Stat(name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := storage.Check(f); err == nil {
+		t.Fatal("ambiguous file available")
+	}
+	if err := storage.StageDelete(f); err == nil {
+		t.Fatal("ambiguous deletion allowed")
+	}
+}
+
+func TestAdditionalContainerAndUnsafeNames(t *testing.T) {
+	storage := NewMedia(t.TempDir())
+	for _, format := range []string{"mkv", "mov", "../../outside"} {
+		stage, err := storage.Prepare()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer storage.Discard(stage)
+		if format == "../../outside" {
+			if _, err := storage.Publish(context.Background(), stage, media.Acquired{Format: format, Size: 8, DurationMS: 1000}); err == nil {
+				t.Fatal("unsafe extension accepted")
+			}
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(stage, "media."+format), []byte("complete"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		name, err := storage.Publish(context.Background(), stage, media.Acquired{Format: format, Size: 8, DurationMS: 1000})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := storage.Check(media.File{Path: name, Size: 8}); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
