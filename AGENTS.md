@@ -241,7 +241,7 @@ One server per data directory, application-owned jobs, 6h default timeout, no qu
 Local playback, screenshots, imports and interactive storage maintenance remain future.
 
 
-## Step 7.1 — Acquisition metadata (approved, implementation pending)
+## Step 7.1 — Acquisition metadata (implemented)
 
 Use one yt-dlp invocation with native identity/finished filters before acquisition
 and minimal structured output. Keep existing temporal and auxiliary-stream checks;

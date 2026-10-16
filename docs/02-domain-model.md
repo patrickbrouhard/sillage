@@ -827,7 +827,26 @@ format
 size
 duration_ms
 added_at
+video_codec?
+audio_codec?
+width?
+height?
+fps?
+audio_language?
 ```
+
+La migration additive 0008 conserve ces six nouveaux attributs nullable, sans
+réanalyse des anciens fichiers. ffprobe fournit les noms de codecs, les dimensions
+encodées et la cadence moyenne exploitable (fps), sinon NULL. Les nouvelles
+acquisitions renseignent les codecs et dimensions nécessaires à leur validation.
+Les dimensions ne décrivent pas une éventuelle rotation ou un rapport de pixels.
+
+Pour YouTube, audio_language provient exclusivement du format audio effectivement
+sélectionné par yt-dlp : membre audio de requested_formats ou format combiné.
+Ce champ déclaratif peut être inconnu et ne décrit pas nécessairement l'original.
+Ni tag ffprobe ni original_audio_language ne le complètent. Les inférences internes
+de yt-dlp sont acceptées ; une différence avec la source ne bloque pas l'acquisition.
+L'édition manuelle, la réanalyse et les métadonnées des imports locaux restent futures.
 
 Le fichier local n'est pas une nouvelle `Video`.
 
@@ -1181,14 +1200,3 @@ Ne pas ajouter prématurément au modèle :
 - suppression des personnes et publishers et rafraîchissement de leurs métadonnées.
 
 Ces concepts pourront être introduits lorsqu'un besoin réel apparaîtra.
-
-
-### Acquisition simplifiée et métadonnées — décisions validées, à implémenter
-
-Migration additive 0008 prévue : video_codec, audio_codec, width, height, fps,
-audio_language, tous nullable pour les anciens médias, sans réanalyse au démarrage.
-Les nouvelles acquisitions renseignent codecs et dimensions validés par ffprobe ;
-fps désigne la cadence moyenne exploitable, sinon NULL. audio_language désigne
-la langue déclarée du format audio retenu par yt-dlp, distincte de l'original
-sur VideoSource ; aucun repli ffprobe ni copie de la source. Format reste ouvert.
-L'édition manuelle et les métadonnées des imports locaux restent futures.

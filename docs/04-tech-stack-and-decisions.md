@@ -1083,13 +1083,13 @@ d'un format combiné ; l'identification certaine de l'original n'est plus requis
 La politique des transcriptions et original_audio_language reste inchangée.
 ffprobe contrôle le résultat complet avant publication.
 
-Une seule invocation est prévue pour extraction, sélection et acquisition ; les configurations utilisateur sont ignorées.
+Une seule invocation réalise extraction, sélection et acquisition ; les configurations utilisateur sont ignorées.
 Aucune playlist, reprise automatique, coupe ou omission de fragment.
 Les réessais réseau/fragments restent bornés à 3, l'attente socket à 30s,
 et l'ensemble au délai du service. Aucun catalogue de codecs n'est introduit.
 
 Tolérance de durée : max(1 seconde, min(3 secondes, 0,1 % de la référence)).
-Comparer découverte actuelle et durée stockée si connue, sans rafraîchissement.
+Comparer durée distante actuelle exploitable et durée stockée si connue, sans rafraîchissement.
 La validation n'est ni un checksum, ni une preuve d'identité, ni un décodage intégral.
 Les tests locaux génèrent MP4, WebM, MKV et MOV avec ffmpeg, puis les valident
 avec ffprobe. Les précédents essais MP4 restent des observations historiques ;
@@ -1104,8 +1104,8 @@ publication. Une anomalie média isolée n'interdit pas l'accès à la connaissa
 
 ### Sélection native et contrôles du correctif
 
-Décision validée — acquisition simplifiée à implémenter : bv*+ba/b, res:1080,
-une seule piste audio et vidéo. Supprimer le filtrage audio et le JSON réinjecté.
+Acquisition simplifiée implémentée : bv*+ba/b, res:1080,
+une seule piste audio et vidéo. Le filtrage audio et le JSON réinjecté sont supprimés.
 Les filtres natifs vérifient l'identité YouTube attendue et le statut terminé
 avant acquisition. Des sorties JSON minimales pre_process et after_move décrivent
 le statut, la durée distante éventuelle, la sélection audio et le chemin final.
@@ -1137,3 +1137,11 @@ La préférence de résolution ne signifie ni limite de taille, ni essai systém
 de toutes les autres qualités après un échec. La version yt-dlp reste épinglée
 dans Docker ; les tests CI installent cette même version et exercent le vrai
 sélecteur sur des métadonnées synthétiques, sans accès YouTube.
+
+La cadence moyenne est lue dans avg_frame_rate : rapport numérique fini et positif,
+sinon NULL. Les chaînes de codecs sont celles de ffprobe. Les six nouveaux attributs
+sont nullable en migration 0008 ; aucun examen des anciens octets au démarrage.
+Une langue yt-dlp absente, mal formée ou indéterminée (und, mul, zxx, sans distinction
+de casse) devient NULL. Les sous-étiquettes déclarées ne sont pas inventées.
+Le téléchargement n'émet plus media_audio_ambiguous ni media_format_unavailable ;
+un échec de sélection/acquisition natif devient download_failed, sans analyse de stderr.

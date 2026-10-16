@@ -1430,12 +1430,14 @@ Le projet privilégie :
 
 ## Téléchargement local — étape 7.1
 
-Correctif de simplification et conservation implémenté ; les routes et l’UX restent inchangées.
+Correctif acquisition/métadonnées implémenté ; les routes restent inchangées.
 
 Depuis le workspace YouTube, **Télécharger** conserve volontairement la source
 de travail. Le bouton reste visible quand le lecteur est masqué ou indisponible.
 La lecture continue dans YouTube : aucun lecteur local ni endpoint vidéo n'est livré.
-La disponibilité affiche conteneur, taille et durée. **Supprimer le fichier local**
+La disponibilité affiche conteneur, taille et durée. Le bloc **Fichier local**
+dans **Métadonnées et sources** décrit aussi dimensions encodées, FPS moyens,
+codecs et langue audio déclarée, à partir de la même consultation. **Supprimer le fichier local**
 demande confirmation et préserve vidéo, source, note, transcription et futurs assets.
 
 Un seul transfert global est accepté, sans file. Quitter/recharger la page ne
@@ -1458,7 +1460,11 @@ La politique des transcriptions et original_audio_language reste inchangée.
 ffprobe contrôle le résultat complet avant publication.
 
 Tolérance temporelle : max(1s, min(3s, 0,1% de la référence)), comparée à la découverte
-et aux métadonnées enregistrées. Aucun rafraîchissement implicite.
+lorsqu'elle est exploitable, et aux métadonnées enregistrées. La durée distante
+peut manquer ; la durée locale reste obligatoire. Aucun rafraîchissement implicite.
+Une seule invocation yt-dlp applique le filtre d'identité/statut avant acquisition,
+puis expose la sélection et le chemin final. ffprobe reste un processus distinct.
+Les contrôles start_time et de flux auxiliaires n'ont pas été assouplis.
 
 ### API de conservation
 
@@ -1478,7 +1484,13 @@ GET et POST réussis :
     "format": "mp4",
     "size": 533916,
     "duration_ms": 19064,
-    "added_at": "2026-10-15T19:00:00Z"
+    "added_at": "2026-10-15T19:00:00Z",
+    "video_codec": "h264",
+    "audio_codec": "aac",
+    "width": 640,
+    "height": 360,
+    "fps": 29.97002997002997,
+    "audio_language": null
   },
   "error": null
 }
@@ -1499,7 +1511,7 @@ Cache-Control: no-store sur les lectures d'état et les démarrages réussis.
 | Échec local de consultation/suppression | 500 internal_error |
 
 Un échec après acceptation est consultable en GET 200, status=failed, avec :
-media_format_unavailable, media_audio_ambiguous, media_unfinished,
+media_unfinished,
 media_duration_mismatch, media_invalid, download_failed, download_timeout,
 download_interrupted ou internal_error. Les diagnostics détaillés restent dans
 les logs serveur. Aucune analyse de stderr ne pilote les décisions métier.
@@ -1570,15 +1582,23 @@ sur un ID absent ne recherche ni n’efface ce fichier. Les suppressions explici
 vivantes gardent leur protocole de confirmation SQL avant effacement.
 Le stockage peut donc croître avec les interruptions ; la maintenance interactive
 n’est pas encore livrée. Les diagnostics de rapprochement sont dans les logs serveur.
-Les temporaires abandonnés peuvent contenir des URL signées ou métadonnées de
-découverte : conserver les droits privés de data/, ne jamais le servir directement.
+Des temporaires historiques peuvent contenir des URL signées ou métadonnées de
+découverte ; la nouvelle acquisition ne crée plus ce JSON : conserver les droits privés de data/, ne jamais le servir directement.
 Aucun checksum, décodage intégral ou garantie universelle de lecture navigateur.
 
 L’état downloading inclut le nettoyage final. Dès que available est annoncé,
 l’activité résiduelle de cette acquisition ne bloque plus DELETE. La confirmation
 du fichier exact après un commit SQL incertain est traitée comme une réussite.
 
-Validation locale du correctif : Go/vet/build/TypeScript, race detector,
-310 tests Playwright, collections Postman sans avertissement puis 45 requêtes
+Validation locale du correctif acquisition/métadonnées : Go/vet/build/TypeScript, race detector,
+311 tests Playwright, collections Postman sans avertissement puis 45 requêtes
 et 135 assertions réussies. Les tests natifs yt-dlp sont hors réseau ; le test
 YouTube explicite et le cycle Docker restent séparés de la suite déterministe.
+
+Les six nouveaux champs sont nullable dans la migration additive 0008 : les anciens
+médias restent disponibles avec des valeurs inconnues, sans réanalyse au démarrage.
+Codecs et dimensions viennent de ffprobe ; fps est une moyenne exploitable, sinon NULL.
+audio_language vient uniquement de l'audio sélectionné par yt-dlp, jamais du tag
+ffprobe ni de VideoSource.original_audio_language. Les inférences internes de yt-dlp
+sont acceptées ; une différence avec l'original ne bloque pas le téléchargement.
+Aucun formulaire d'édition, filtre de recherche ou lecteur local n'est ajouté.

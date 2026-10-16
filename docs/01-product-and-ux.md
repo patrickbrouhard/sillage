@@ -975,10 +975,10 @@ non lisible par un futur lecteur Web. La maintenance des fichiers abandonnés
 sera une action explicite future, jamais un nettoyage silencieux au démarrage.
 
 
-### Acquisition simplifiée et métadonnées — décisions validées, à implémenter
+### Métadonnées du fichier local — correctif livré
 
-La section Métadonnées et sources accueillera un bloc distinct Fichier local
+La section Métadonnées et sources accueille un bloc distinct Fichier local
 pour la source de travail : conteneur, taille, dimensions encodées, FPS moyens,
-codecs, langue audio déclarée et durée. Les inconnues seront explicites.
-Le bloc partagera le suivi existant, sans second polling ni confirmation avant
+codecs, langue audio déclarée et durée. Les inconnues sont explicites.
+Le bloc partage le suivi existant, sans second polling ni confirmation avant
 téléchargement. Il ne représente pas une nouvelle VideoSource.

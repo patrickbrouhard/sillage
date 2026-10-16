@@ -1187,7 +1187,7 @@ sérialisées avec les consultations ; aucune transaction SQL ne couvre le rése
 ### Publication, suppression et rapprochement
 
 Racine fixe data/media, sous /app/data dans Docker. Une zone .pending-<nombre>
-contient la découverte, les pistes et le fichier final. La sortie validée est
+contient les pistes et le fichier final ; aucun JSON de découverte n’est réinjecté. La sortie validée est
 synchronisée puis renommée avec un nom aléatoire sûr avant insertion SQL.
 La base stocke seulement le nom relatif. Tout fichier déjà publié est conservé
 en cas d'erreur SQL ; une relecture peut confirmer un commit au résultat incertain.
@@ -1211,8 +1211,8 @@ nettoyage ou retéléchargement implicite après restauration de sauvegarde.
 
 REST utilise les états not_downloaded, downloading, available, failed. Le dernier
 échec est une réponse GET 200 avec error.code ; un problème de consultation utilise
-un statut d'erreur HTTP. Les DTO exposent id, format, size, duration_ms, added_at,
-jamais path. Le détail du contrat et les codes sont dans le README.
+un statut d'erreur HTTP. Les DTO exposent id, format, size, duration_ms, added_at et les six attributs
+nullable video_codec, audio_codec, width, height, fps, audio_language, jamais path. Le détail du contrat et les codes sont dans le README.
 
 SILLAGE_DOWNLOAD_TIMEOUT vaut 6h par défaut, indépendant de SILLAGE_POST_TIMEOUT.
 Les appels d'outils ont des sorties bornées. Sous Linux, chaque commande crée un
@@ -1226,10 +1226,21 @@ Il ne possède aucune référence au lecteur ou à l'éditeur. Les clés du work
 ne changent pas au gré des états de conservation.
 
 
-### Acquisition simplifiée et métadonnées — décisions validées, à implémenter
+### Acquisition simplifiée et métadonnées — correctif livré
 
-Le correctif validé utilisera une invocation yt-dlp avec contrôles natifs
+Le correctif utilise une invocation yt-dlp avec contrôles natifs
 avant acquisition, puis une validation ffprobe. Le port Acquired et File
-porteront les six nouvelles métadonnées nullable ; le DTO media_file existant
-les exposera sans nouvel endpoint. Un seul état React alimentera commandes et
+portent les six nouvelles métadonnées nullable ; le DTO media_file existant
+les expose sans nouvel endpoint. Un seul état React alimente commandes et
 métadonnées locales. Publication, récupération, concurrence et arrêt restent inchangés.
+
+Le filtre natif yt-dlp exige id, extractor_key=Youtube et live_status not_live/was_live
+avant téléchargement des octets. Les sorties préfixées source: (pre_process) et
+result: (after_move) sont des projections JSON minimales, bornées en mémoire.
+Un refus filtré peut sortir avec succès sans résultat final : le parser exige
+une identité cohérente, un statut terminé et un unique résultat avant ffprobe.
+Un échec de l'extracteur avant ce préambule reste download_failed.
+Le groupe de processus, le délai et le nettoyage temporaire existants sont conservés.
+useVideoDownload possède la consultation unique ; VideoDownload et LocalFileDetails
+la partagent. Les propriétés ajoutées sont aussi présentes dans les erreurs
+local_media_unavailable, afin de décrire un fichier enregistré devenu indisponible.

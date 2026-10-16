@@ -1606,9 +1606,28 @@ réelles et vidéos verticales réelles restent à éprouver ; la sélection cor
 est couverte par les scénarios synthétiques. Aucun lecteur local n’est livré.
 
 
-### Acquisition simplifiée et métadonnées — décisions validées, à implémenter
+### Acquisition simplifiée et métadonnées — correctif livré
 
-Prochain correctif validé : acquisition native en un appel, abandon du filtrage
+Correctif livré : acquisition native en un appel, abandon du filtrage
 audio strict, métadonnées techniques nullable et affichage du fichier de la source
 de travail. La sélection des transcriptions ne change pas. Réanalyse des anciens
 fichiers, édition de audio_language, recherche technique et imports restent futurs.
+
+Validation locale du correctif acquisition/métadonnées (2026-10-16) :
+- Go complet, vet/build, TypeScript et 311 tests Playwright réussis ;
+- race detector sur services média, stockage et SQLite ;
+- migrations v6/v7 vers v8, NULL historiques, relations et AUTOINCREMENT préservés ;
+- vrai yt-dlp hors YouTube : formats combinés/séparés, préférence 1080,
+  vertical/repli supérieur, original préféré à caractéristiques égales et doublage
+  admis sans original ; filtres d'identité/statut refusant les transferts média ;
+- ffprobe réel MP4/WebM/MKV/MOV, métadonnées mesurées, règles temporelles conservées ;
+- Postman déterministe : 45 requêtes, 135 assertions réussies ;
+- build Docker et smoke Compose réussis ;
+- cycle YouTube réel dans Docker sur jNQXAC9IVRw : WebM AV1/Opus, 320×240,
+  15 images/s, 19 021 ms, 474 494 octets, langue audio NULL. Redémarrage,
+  idempotence, suppression physique et note préservée vérifiés.
+
+Aucun nouvel essai réel multilingue n'est revendiqué : ce cas est couvert par le
+sélecteur natif sur des fixtures déterministes. L'essai multilingue rapporté par
+l'utilisateur reste une observation distincte. La sélection native n'est pas une
+garantie universelle d'audio original. Résultats CI à confirmer après poussée.
