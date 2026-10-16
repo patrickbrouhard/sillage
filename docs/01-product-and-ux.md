@@ -973,3 +973,12 @@ son minimum de 200 px pour préserver l'espace de transcription.
 Le correctif conserve cette UX. Un média conservé peut utiliser un conteneur
 non lisible par un futur lecteur Web. La maintenance des fichiers abandonnés
 sera une action explicite future, jamais un nettoyage silencieux au démarrage.
+
+
+### Acquisition simplifiée et métadonnées — décisions validées, à implémenter
+
+La section Métadonnées et sources accueillera un bloc distinct Fichier local
+pour la source de travail : conteneur, taille, dimensions encodées, FPS moyens,
+codecs, langue audio déclarée et durée. Les inconnues seront explicites.
+Le bloc partagera le suivi existant, sans second polling ni confirmation avant
+téléchargement. Il ne représente pas une nouvelle VideoSource.

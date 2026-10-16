@@ -1452,10 +1452,10 @@ sans --format-sort-force : préférence 1080 ou moins, repli supérieur possible
 Aucune préférence MP4 propre à Sillage ni liste fermée de codecs/conteneurs.
 Le conteneur final peut notamment être MP4, WebM ou MKV ; sa conservation ne
 garantit pas sa lecture par un futur lecteur Web.
-Sillage conserve le contrôle de l'identité audio : original fiable prioritaire,
-ambiguïtés refusées, aucun repli implicite vers un doublage. Les formats combinés
-vidéo+audio sont soumis au même contrôle. Aucun signal de sous-titres ne prouve
-l'originalité d'une piste. ffprobe contrôle le résultat complet avant publication.
+Sillage accepte la sélection audio native, y compris un doublage ou l'audio
+d'un format combiné ; l'identification certaine de l'original n'est plus requise.
+La politique des transcriptions et original_audio_language reste inchangée.
+ffprobe contrôle le résultat complet avant publication.
 
 Tolérance temporelle : max(1s, min(3s, 0,1% de la référence)), comparée à la découverte
 et aux métadonnées enregistrées. Aucun rafraîchissement implicite.

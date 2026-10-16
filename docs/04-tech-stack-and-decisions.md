@@ -1078,12 +1078,12 @@ sans --format-sort-force : préférence 1080 ou moins, repli supérieur possible
 Aucune préférence MP4 propre à Sillage ni liste fermée de codecs/conteneurs.
 Le conteneur final peut notamment être MP4, WebM ou MKV ; sa conservation ne
 garantit pas sa lecture par un futur lecteur Web.
-Sillage conserve le contrôle de l'identité audio : original fiable prioritaire,
-ambiguïtés refusées, aucun repli implicite vers un doublage. Les formats combinés
-vidéo+audio sont soumis au même contrôle. Aucun signal de sous-titres ne prouve
-l'originalité d'une piste. ffprobe contrôle le résultat complet avant publication.
+Sillage accepte la sélection audio native, y compris un doublage ou l'audio
+d'un format combiné ; l'identification certaine de l'original n'est plus requise.
+La politique des transcriptions et original_audio_language reste inchangée.
+ffprobe contrôle le résultat complet avant publication.
 
-La découverte est réutilisée ; les configurations utilisateur sont ignorées.
+Une seule invocation est prévue pour extraction, sélection et acquisition ; les configurations utilisateur sont ignorées.
 Aucune playlist, reprise automatique, coupe ou omission de fragment.
 Les réessais réseau/fragments restent bornés à 3, l'attente socket à 30s,
 et l'ensemble au délai du service. Aucun catalogue de codecs n'est introduit.
@@ -1104,25 +1104,23 @@ publication. Une anomalie média isolée n'interdit pas l'accès à la connaissa
 
 ### Sélection native et contrôles du correctif
 
-La découverte conserve temporairement les champs yt-dlp complets. Le service
-n’enregistre ni les URL de flux ni le JSON en base. L’adapter restreint la liste
-formats à l’identité audio admissible, y compris pour les formats combinés.
-Le signal original 10 prime ; plusieurs langues originales sont une erreur.
-Sans signal actuel, la langue originale connue doit être disponible ; sinon
-une seule langue pertinente est requise. Des rôles audio différents dans cette
-langue restent ambigus. Les variantes techniques ne sont pas classées par Go.
-Le champ language seul ne prouve pas l’originalité : yt-dlp peut le compléter
-depuis des captions. Sillage ne lit pas les sous-titres pour choisir un original.
-Une distinction de pistes que l’extracteur ne renseigne pas reste indétectable.
+Décision validée — acquisition simplifiée à implémenter : bv*+ba/b, res:1080,
+une seule piste audio et vidéo. Supprimer le filtrage audio et le JSON réinjecté.
+Les filtres natifs vérifient l'identité YouTube attendue et le statut terminé
+avant acquisition. Des sorties JSON minimales pre_process et after_move décrivent
+le statut, la durée distante éventuelle, la sélection audio et le chemin final.
+Aucun catalogue de formats, URL temporaire ou JSON brut n'est persisté.
+Une durée distante inconnue est admise ; une durée disponible et la durée stockée
+sur VideoSource restent comparées au fichier local. Les autres contrôles temporels
+(start_time, durées par flux) et le refus des flux auxiliaires restent inchangés.
 
-La sélection native utilise bv*+ba/b, res:1080, une seule piste audio et vidéo.
-Les anciens champs requested_formats/requested_downloads et les URL de réextraction
-sont retirés de la découverte réutilisée : --load-info-json ne doit pas réextraire
-la source après un échec et contourner le filtre audio. Un original devenu inaccessible
-fait échouer l’acquisition. Les autres champs de formats restent intacts (fragments,
-manifestes, en-têtes). Les configurations utilisateur sont toujours ignorées.
-Le fichier final est obtenu par --print after_move, avec comparaison de chemins
-absolus confinés dans la zone temporaire ; aucun titre ne définit le chemin.
+audio_language provient exclusivement de la représentation audio sélectionnée
+par yt-dlp (membre audio de requested_formats, ou format combiné), jamais de la
+langue globale agrégée, de ffprobe ou de VideoSource.original_audio_language.
+Les compléments internes de yt-dlp, y compris issus de captions, sont acceptés.
+Valeur absente ou inexploitable : NULL. Une différence avec l'original n'est pas
+une erreur. Les codecs, dimensions et FPS moyens proviennent de ffprobe.
+Aucune égalité technique systématique entre yt-dlp et ffprobe n'est exigée.
 
 ffprobe doit reconnaître le conteneur et exactement une piste vidéo et une audio,
 avec codecs identifiés, dimensions positives, taille réelle et durée cohérente.

@@ -1181,3 +1181,14 @@ Ne pas ajouter prématurément au modèle :
 - suppression des personnes et publishers et rafraîchissement de leurs métadonnées.
 
 Ces concepts pourront être introduits lorsqu'un besoin réel apparaîtra.
+
+
+### Acquisition simplifiée et métadonnées — décisions validées, à implémenter
+
+Migration additive 0008 prévue : video_codec, audio_codec, width, height, fps,
+audio_language, tous nullable pour les anciens médias, sans réanalyse au démarrage.
+Les nouvelles acquisitions renseignent codecs et dimensions validés par ffprobe ;
+fps désigne la cadence moyenne exploitable, sinon NULL. audio_language désigne
+la langue déclarée du format audio retenu par yt-dlp, distincte de l'original
+sur VideoSource ; aucun repli ffprobe ni copie de la source. Format reste ouvert.
+L'édition manuelle et les métadonnées des imports locaux restent futures.

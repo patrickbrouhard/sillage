@@ -1604,3 +1604,11 @@ préservée vérifiés. Smoke Docker/Compose réussi. Les petites différences d
 restent dans la tolérance existante. Les formations longues, pistes multilingues
 réelles et vidéos verticales réelles restent à éprouver ; la sélection correspondante
 est couverte par les scénarios synthétiques. Aucun lecteur local n’est livré.
+
+
+### Acquisition simplifiée et métadonnées — décisions validées, à implémenter
+
+Prochain correctif validé : acquisition native en un appel, abandon du filtrage
+audio strict, métadonnées techniques nullable et affichage du fichier de la source
+de travail. La sélection des transcriptions ne change pas. Réanalyse des anciens
+fichiers, édition de audio_language, recherche technique et imports restent futurs.

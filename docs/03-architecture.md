@@ -1224,3 +1224,12 @@ Aucune annulation utilisateur ; les états transitoires sont oubliés au redéma
 Le composant VideoDownload est un enfant indépendant des commandes de YouTubePlayer.
 Il ne possède aucune référence au lecteur ou à l'éditeur. Les clés du workspace
 ne changent pas au gré des états de conservation.
+
+
+### Acquisition simplifiée et métadonnées — décisions validées, à implémenter
+
+Le correctif validé utilisera une invocation yt-dlp avec contrôles natifs
+avant acquisition, puis une validation ffprobe. Le port Acquired et File
+porteront les six nouvelles métadonnées nullable ; le DTO media_file existant
+les exposera sans nouvel endpoint. Un seul état React alimentera commandes et
+métadonnées locales. Publication, récupération, concurrence et arrêt restent inchangés.
