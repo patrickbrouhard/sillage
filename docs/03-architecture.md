@@ -1160,7 +1160,7 @@ La suppression vise une identité précise. Aucun endpoint des octets vidéo.
 Acquisition dans une zone maîtrisée de data/media, sur le filesystem final :
 validation, synchronisation, renommage puis transaction SQLite courte.
 Disponibilité seulement après finalisation complète, y compris libération de l’activité.
-Le correctif prévoit un rapprochement conservateur, sans effacement compensatoire.
+Le rapprochement est conservateur, sans effacement compensatoire.
 Suppression récupérable via déplacement provisoire puis suppression SQL et physique.
 Une disparition extérieure est signalée, sans téléchargement automatique.
 
@@ -1176,7 +1176,9 @@ puis réserve la place avant la goroutine. Le contexte de travail dérive du ser
 jamais de la requête. Les derniers échecs sont bornés à 64 sources en mémoire ;
 l'éviction d'une ancienne erreur n'est pas un historique.
 
-Get consulte SQLite puis présence, taille et lisibilité du fichier ; il ne lance
+Get expose downloading tant que l’opération reste active, nettoyage final compris.
+Après libération atomique de l’activité et de son résultat sous verrou, Get consulte
+SQLite puis présence, taille et lisibilité du fichier ; il ne lance
 ni yt-dlp ni ffprobe. Il ne prouve donc pas l'intégrité d'un fichier modifié à taille
 identique. L'état disponible est déduit de la référence durable et du disque,
 pas d'une ancienne valeur en mémoire. La suppression et la publication sont
@@ -1196,6 +1198,10 @@ les octets. Au démarrage, seul un .deleting référencé, sûr et sans original
 restent intacts et sont signalés. Aucun écrasement en présence de deux versions.
 Les anomalies isolées n'empêchent pas le serveur de donner accès aux connaissances.
 Les opérations sur un média dangereux ou inaccessible échouent explicitement.
+Une racine média inutilisable au démarrage désactive les opérations média jusqu’au
+redémarrage après réparation ; le reste du serveur continue. Les anomalies isolées
+sont consignées dans les logs et les références indisponibles restent des erreurs
+de consultation. Aucun nouvel endpoint de maintenance ou diagnostic n’est ajouté.
 
 Ce protocole ne crée pas de transaction commune SQLite/filesystem. Une seule
 instance utilise data/. Une maintenance explicite reste future ; aucun rattachement,

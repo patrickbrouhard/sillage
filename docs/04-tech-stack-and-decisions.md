@@ -1070,7 +1070,7 @@ la grammaire des liens ordinaires prise en charge par UX 1.2b.1.
 Le pictogramme ◷ reste inchangé. Aucun domaine, REST, stockage ou moteur générique.
 
 
-## Téléchargement 7.1 — correctif validé, implémentation en cours
+## Téléchargement 7.1 — correctif implémenté
 
 Vidéos YouTube terminées, vidéo et audio sans réencodage ni modification volontaire
 de timeline. Le correctif validé délègue le classement à yt-dlp avec -S "res:1080",
@@ -1091,8 +1091,9 @@ et l'ensemble au délai du service. Aucun catalogue de codecs n'est introduit.
 Tolérance de durée : max(1 seconde, min(3 secondes, 0,1 % de la référence)).
 Comparer découverte actuelle et durée stockée si connue, sans rafraîchissement.
 La validation n'est ni un checksum, ni une preuve d'identité, ni un décodage intégral.
-Les essais réels devront couvrir les nouvelles combinaisons ; les précédents essais
-MP4/WebM et vidéo YouTube courte restent des observations historiques.
+Les tests locaux génèrent MP4, WebM, MKV et MOV avec ffmpeg, puis les valident
+avec ffprobe. Les précédents essais MP4 restent des observations historiques ;
+la nouvelle sélection a produit un WebM AV1/Opus dans Docker.
 
 Le rapprochement ne supprime aucun fichier abandonné : médias complets sans référence,
 .pending et .deleting non référencés sont conservés et signalés. Une restauration
@@ -1100,3 +1101,41 @@ d'ancienne base ne doit jamais transformer les fichiers récents en données jet
 Une opération vivante nettoie ses temporaires ; une suppression explicite peut
 effacer les octets après confirmation SQL. Aucun effacement compensatoire après
 publication. Une anomalie média isolée n'interdit pas l'accès à la connaissance.
+
+### Sélection native et contrôles du correctif
+
+La découverte conserve temporairement les champs yt-dlp complets. Le service
+n’enregistre ni les URL de flux ni le JSON en base. L’adapter restreint la liste
+formats à l’identité audio admissible, y compris pour les formats combinés.
+Le signal original 10 prime ; plusieurs langues originales sont une erreur.
+Sans signal actuel, la langue originale connue doit être disponible ; sinon
+une seule langue pertinente est requise. Des rôles audio différents dans cette
+langue restent ambigus. Les variantes techniques ne sont pas classées par Go.
+Le champ language seul ne prouve pas l’originalité : yt-dlp peut le compléter
+depuis des captions. Sillage ne lit pas les sous-titres pour choisir un original.
+Une distinction de pistes que l’extracteur ne renseigne pas reste indétectable.
+
+La sélection native utilise bv*+ba/b, res:1080, une seule piste audio et vidéo.
+Les anciens champs requested_formats/requested_downloads et les URL de réextraction
+sont retirés de la découverte réutilisée : --load-info-json ne doit pas réextraire
+la source après un échec et contourner le filtre audio. Un original devenu inaccessible
+fait échouer l’acquisition. Les autres champs de formats restent intacts (fragments,
+manifestes, en-têtes). Les configurations utilisateur sont toujours ignorées.
+Le fichier final est obtenu par --print after_move, avec comparaison de chemins
+absolus confinés dans la zone temporaire ; aucun titre ne définit le chemin.
+
+ffprobe doit reconnaître le conteneur et exactement une piste vidéo et une audio,
+avec codecs identifiés, dimensions positives, taille réelle et durée cohérente.
+Il n’y a plus de plafond dimensionnel ni de liste de codecs admis. Des alias de
+démuxeurs sont normalisés ; le DocType EBML distingue MKV de WebM.
+Une extension de sortie inconnue dont le conteneur ne peut pas être confirmé
+échoue explicitement plutôt que d’enregistrer une métadonnée approximative.
+Le nom interne garde une extension technique sûre : 1 à 32 caractères ASCII,
+premier caractère alphanumérique minuscule, puis lettres minuscules, chiffres,
+tiret ou underscore. Cette sécurité de chemin ne définit pas le modèle métier.
+
+Le sélecteur natif peut privilégier ses critères hasvid/ie_pref avant res:1080.
+La préférence de résolution ne signifie ni limite de taille, ni essai systématique
+de toutes les autres qualités après un échec. La version yt-dlp reste épinglée
+dans Docker ; les tests CI installent cette même version et exercent le vrai
+sélecteur sur des métadonnées synthétiques, sans accès YouTube.

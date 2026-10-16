@@ -1183,9 +1183,10 @@ Une future source locale pourra coexister avec un `MediaFile`. L'identité exact
 
 ### 7.1 — Télécharger et conserver une vidéo YouTube
 
-7.1a et 7.1b livrés ; correctif de simplification/conservation validé, en cours.
+7.1a et 7.1b livrés ; correctif de simplification/conservation implémenté.
 La CI du commit 2e4b6cc a révélé une incohérence available/activité résiduelle ;
-le correctif doit valider aussi les étapes Postman précédemment ignorées.
+la transition est corrigée et les étapes Postman sont validées localement.
+La CI réexécute Go, Postman, le navigateur et le packaging sur les commits poussés.
 - 7.1a : service asynchrone, MediaFile avec provenance, validation, stockage,
   suivi REST, suppression et récupération après interruption.
 - 7.1b : actions visibles dans le workspace, suivi et confirmation de suppression,
@@ -1558,7 +1559,7 @@ Quand plusieurs directions sont possibles :
 Ne pas construire aujourd'hui une abstraction destinée à une fonctionnalité hypothétique de demain si le modèle actuel permet de l'ajouter plus tard proprement.
 
 
-### Validation de 7.1
+### Validation de la première version de 7.1 (avant correctif)
 
 Tests Go, vet, builds et TypeScript réussis ; race detector sur serveur, service,
 adapters et REST. Tests déterministes de concurrence, provenance, erreurs, publication,
@@ -1577,3 +1578,29 @@ Docker embarque Deno. Pas de validation réelle revendiquée pour formation long
 1080p vertical, doublage ambigu ou lecture Web locale. Ces cas de sélection sont
 couverts de manière déterministe, la lecture locale reste hors périmètre.
 Avertissement Vite préexistant sur le chunk CodeMirror > 500 kB conservé.
+
+### Validation du correctif de simplification/conservation 7.1
+
+Migration réelle v6 -> v7 avec/sans média restant, compteur AUTOINCREMENT historique
+préservé. Tests de fichiers orphelins après restauration d’ancienne base, frontières
+de suppression, conflits, chemins dangereux et démarrage malgré une racine média
+inutilisable. La finalisation est bloquée par une barrière de test : Get/Start restent
+downloading, puis DELETE réussit dès available, sans temporisation corrective.
+Les erreurs de commit SQL confirmées et non confirmées préservent les octets.
+
+Sélecteur yt-dlp réel hors réseau : préférence 1080, vertical, repli supérieur,
+exclusion des doublages combinés et absence de réextraction après original indisponible.
+Formats supplémentaires traversants : MKV dans le parcours REST/SQLite/navigateur ;
+ffprobe réel sur MP4/WebM/MKV/MOV. Tests audio et validation de durées conservés.
+Go, vet, builds, TypeScript et détecteur de courses réussis ; 310 tests navigateur
+passent, les 5 parcours média ont aussi été rejoués après normalisation des chemins.
+Collections Postman lintées sans erreur/avertissement ; 45 requêtes et 135 assertions
+exécutées et réussies. La CI installe désormais yt-dlp épinglé et ffmpeg pour ne pas
+ignorer les tests natifs lorsque les outils ne sont pas préinstallés.
+
+Essai réel jNQXAC9IVRw : WebM, 19,028s en WSL ; WebM AV1/Opus, environ 19,021s
+dans Docker. Cycle REST, redémarrage, idempotence, effacement explicite et note
+préservée vérifiés. Smoke Docker/Compose réussi. Les petites différences de durée
+restent dans la tolérance existante. Les formations longues, pistes multilingues
+réelles et vidéos verticales réelles restent à éprouver ; la sélection correspondante
+est couverte par les scénarios synthétiques. Aucun lecteur local n’est livré.

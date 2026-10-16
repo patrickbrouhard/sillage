@@ -1430,7 +1430,7 @@ Le projet privilégie :
 
 ## Téléchargement local — étape 7.1
 
-Correctif de simplification et conservation validé ; implémentation en cours.
+Correctif de simplification et conservation implémenté ; les routes et l’UX restent inchangées.
 
 Depuis le workspace YouTube, **Télécharger** conserve volontairement la source
 de travail. Le bouton reste visible quand le lecteur est masqué ou indisponible.
@@ -1514,7 +1514,8 @@ Une suppression cible l'ID affiché : un ancien onglet ne supprime pas son rempl
 La migration 0006 ajoute media_files, l'unicité du chemin/de la source et la FK
 composée source–vidéo. origin_source_id reste nullable pour le modèle général ;
 le téléchargement le renseigne obligatoirement. Aucun endpoint d'import local.
-Le correctif prévoit la migration 0007 ouvrant format sans modifier les identités.
+La migration 0007 ouvre format sans modifier les identités ni réutiliser les anciens
+identifiants supprimés. Le conteneur est une chaîne non vide, pas une énumération.
 Les fichiers complets sont publiés sous data/media avec des noms aléatoires sûrs,
 puis référencés en base. Aucun partiel n'est déclaré disponible.
 
@@ -1522,12 +1523,14 @@ Au démarrage, les médias sans référence, temporaires abandonnés et .deletin
 non référencés restent conservés et signalés dans les logs. Un .deleting référencé
 peut être restauré seulement sans conflit et après vérifications. Une anomalie
 isolée ne bloque pas les connaissances. Aucun nettoyage compensatoire d'un fichier
-publié après échec SQL. Les opérations dangereuses sont refusées explicitement.
+publié après échec SQL. Les opérations dangereuses sont refusées explicitement. Une racine média inutilisable
+au démarrage nécessite réparation puis redémarrage pour réactiver ces opérations.
 Seule une suppression utilisateur vivante et confirmée en base efface un média.
 La maintenance interactive reste future. Une seule instance utilise data/.
 
 Sauvegarder/restaurer à froid **tout data/**, base et médias ensemble.
-Une copie de la seule base ne conserve pas les vidéos. Les imports manuels dans
+Une copie de la seule base ne conserve pas les vidéos. Restaurer une ancienne base
+ne supprime pas les médias plus récents : ils restent sur disque sans rattachement. Les imports manuels dans
 data/media ne sont pas supportés ; ne pas modifier les fichiers gérés.
 SILLAGE_DOWNLOAD_TIMEOUT accepte une durée Go strictement positive, par exemple 90m.
 Le délai par défaut est 6h ; les longues formations lentes peuvent nécessiter davantage.
@@ -1558,3 +1561,24 @@ et un bind mount temporaires, puis supprime ses données. Il vérifie acquisitio
 redémarrage, absence de doublon, suppression physique et conservation de la note.
 La disponibilité de la vidéo distante n'est pas garantie. Pour le bilan d'essais
 effectivement réalisés et leurs limites, voir docs/05-roadmap-and-open-questions.md.
+
+### Limites opérationnelles du correctif 7.1
+
+Un fichier complet publié reste sur disque même si son enregistrement SQL échoue.
+Un .deleting sans référence reste également conservé après crash ; répéter DELETE
+sur un ID absent ne recherche ni n’efface ce fichier. Les suppressions explicites
+vivantes gardent leur protocole de confirmation SQL avant effacement.
+Le stockage peut donc croître avec les interruptions ; la maintenance interactive
+n’est pas encore livrée. Les diagnostics de rapprochement sont dans les logs serveur.
+Les temporaires abandonnés peuvent contenir des URL signées ou métadonnées de
+découverte : conserver les droits privés de data/, ne jamais le servir directement.
+Aucun checksum, décodage intégral ou garantie universelle de lecture navigateur.
+
+L’état downloading inclut le nettoyage final. Dès que available est annoncé,
+l’activité résiduelle de cette acquisition ne bloque plus DELETE. La confirmation
+du fichier exact après un commit SQL incertain est traitée comme une réussite.
+
+Validation locale du correctif : Go/vet/build/TypeScript, race detector,
+310 tests Playwright, collections Postman sans avertissement puis 45 requêtes
+et 135 assertions réussies. Les tests natifs yt-dlp sont hors réseau ; le test
+YouTube explicite et le cycle Docker restent séparés de la suite déterministe.

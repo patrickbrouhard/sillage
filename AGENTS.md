@@ -224,7 +224,7 @@ stable accessible status near the editor. Invalid/nested headers and literal tit
 remain inert. No domain, persistence or REST changes.
 
 
-## Step 7.1 — Corrective policy (approved, implementation in progress)
+## Step 7.1 — Corrective policy (implemented)
 
 Preserve explicit conservation, provenance, source/video ownership and one file per
 source. Migration 0007 opens format without losing data or AUTOINCREMENT history.
