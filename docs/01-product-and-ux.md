@@ -969,3 +969,7 @@ est suivie d'un GET, sans nouveau POST. La saturation du serveur reste visible.
 La navigation quitte uniquement le suivi navigateur, pas le travail serveur.
 Le bandeau est compact sur desktop ; la hauteur du lecteur est ajustée en conservant
 son minimum de 200 px pour préserver l'espace de transcription.
+
+Le correctif conserve cette UX. Un média conservé peut utiliser un conteneur
+non lisible par un futur lecteur Web. La maintenance des fichiers abandonnés
+sera une action explicite future, jamais un nettoyage silencieux au démarrage.

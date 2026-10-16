@@ -1159,8 +1159,8 @@ La suppression vise une identité précise. Aucun endpoint des octets vidéo.
 
 Acquisition dans une zone maîtrisée de data/media, sur le filesystem final :
 validation, synchronisation, renommage puis transaction SQLite courte.
-Disponibilité seulement après succès complet. Nettoyage compensatoire et rapprochement
-ciblé au démarrage, sans destruction si la base ou l'identité du fichier est incertaine.
+Disponibilité seulement après finalisation complète, y compris libération de l’activité.
+Le correctif prévoit un rapprochement conservateur, sans effacement compensatoire.
 Suppression récupérable via déplacement provisoire puis suppression SQL et physique.
 Une disparition extérieure est signalée, sans téléchargement automatique.
 
@@ -1185,26 +1185,21 @@ sérialisées avec les consultations ; aucune transaction SQL ne couvre le rése
 ### Publication, suppression et rapprochement
 
 Racine fixe data/media, sous /app/data dans Docker. Une zone .pending-<nombre>
-contient découverte temporaire, pistes et sortie media.mp4 ou media.webm.
-La sortie validée est synchronisée puis renommée en media-<32 hex>.mp4/webm ;
-le répertoire est synchronisé avant insertion SQL. La base stocke seulement le nom.
-En cas d'erreur SQL, une relecture indépendante bornée vérifie les références avant
-suppression compensatoire. Un résultat incertain préserve les octets pour le démarrage.
+contient la découverte, les pistes et le fichier final. La sortie validée est
+synchronisée puis renommée avec un nom aléatoire sûr avant insertion SQL.
+La base stocke seulement le nom relatif. Tout fichier déjà publié est conservé
+en cas d'erreur SQL ; une relecture peut confirmer un commit au résultat incertain.
 
-La suppression renomme le fichier avec le suffixe .deleting, synchronise la racine,
-supprime la ligne puis les octets. Le démarrage restaure une suppression non validée
-en base, termine une suppression validée, retire les zones temporaires et les fichiers
-publiés non référencés. Il valide d'abord les références et les entrées gérées :
-liens symboliques, noms invalides ou deux versions contradictoires bloquent le
-démarrage sans nettoyage arbitraire. Les noms étrangers restent intacts.
-Un fichier référencé absent ne bloque pas le serveur : sa consultation signale
-local_media_unavailable. Une suppression explicite peut retirer sa référence.
-L'échec d'effacement après commit laisse un .deleting récupérable au redémarrage.
+La suppression vivante renomme en .deleting, synchronise, supprime la ligne puis
+les octets. Au démarrage, seul un .deleting référencé, sûr et sans original peut
+être restauré. Les orphelins, temporaires abandonnés et .deleting sans référence
+restent intacts et sont signalés. Aucun écrasement en présence de deux versions.
+Les anomalies isolées n'empêchent pas le serveur de donner accès aux connaissances.
+Les opérations sur un média dangereux ou inaccessible échouent explicitement.
 
-Ce protocole récupère des interruptions ; il ne crée pas de transaction atomique
-commune à SQLite et au filesystem. Le déploiement garde une seule instance par data/.
-Un stockage défaillant, une restauration incohérente ou une modification extérieure
-nécessite une intervention ; aucun retéléchargement implicite.
+Ce protocole ne crée pas de transaction commune SQLite/filesystem. Une seule
+instance utilise data/. Une maintenance explicite reste future ; aucun rattachement,
+nettoyage ou retéléchargement implicite après restauration de sauvegarde.
 
 ### Transport et cycle serveur
 

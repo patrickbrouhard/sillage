@@ -224,27 +224,18 @@ stable accessible status near the editor. Invalid/nested headers and literal tit
 remain inert. No domain, persistence or REST changes.
 
 
-## Step 7.1 — Local media (implemented)
+## Step 7.1 — Corrective policy (approved, implementation in progress)
 
-Keep remote/local representations complementary. Downloads are explicit user actions.
-MediaFile belongs to Video, with mandatory origin_source_id for YouTube and matching
-video ownership. One retained file per source in this increment. Preserve knowledge
-on deletion. Download audio+video of finished videos, Full HD in either orientation,
-quality before container, MP4 preferred at equal quality, WebM allowed, no MKV or
-reencoding. Prefer reliably identified original audio; reject genuine ambiguity.
-Validate with ffprobe and reject significant duration divergence. Publish complete
-files before SQL, reconcile only managed paths safely, recover interrupted deletion.
-Application-owned asynchronous work: one global active download, no queue or durable
-jobs. Stop child processes on server shutdown. Workspace controls stay visible without
-remounting editor/player. Local playback and screenshots remain out of scope.
-
-
-Media uses internal/media.File, migration 0006, relative managed names under
-data/media and a composite source/video foreign key. Download state is transient;
-missing registered files are consultation errors, never an invitation to redownload.
-Accepted codecs: MP4 H.264/AV1 + AAC; WebM VP8/VP9/AV1 + Opus/Vorbis.
-Rank dimensions and FPS before container preference. Duration tolerance is
-max(1s, min(3s, 0.1% of reference duration)); compare discovery and stored source
-when known, without refresh. SILLAGE_DOWNLOAD_TIMEOUT defaults to 6h.
-Recovery must preserve referenced files and stop on uncertainty. Delete targets
-the exact media ID. Only one server may use a data directory.
+Preserve explicit conservation, provenance, source/video ownership and one file per
+source. Migration 0007 opens format without losing data or AUTOINCREMENT history.
+Use native yt-dlp sorting res:1080 without format-sort-force, custom MP4 preference
+or codec/container allowlists. Audio identity remains guarded, including combined
+formats; never silently substitute a dub. Validate finished audio+video with ffprobe.
+Preserve timeline, no reencoding. Duration tolerance remains max(1s,min(3s,0.1%)).
+Keep published or abandoned files regardless of missing SQL references. Startup
+may safely restore referenced .deleting files but never erase abandoned files.
+Live explicit deletion may remove bytes after SQL confirmation; live operations
+may clean their own temporary directory. Isolate media anomalies from knowledge.
+Expose downloading until finalization releases activity; available must allow deletion.
+One server per data directory, application-owned jobs, 6h default timeout, no queue.
+Local playback, screenshots, imports and interactive storage maintenance remain future.

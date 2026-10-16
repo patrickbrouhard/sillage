@@ -881,7 +881,9 @@ sans preuve d'identité parfaite. Une divergence significative empêche la publi
 Aucun rafraîchissement implicite des métadonnées ou contrôle périodique YouTube.
 Supprimer le fichier ne supprime aucune vidéo, source, note, transcription ou Asset.
 La migration 0006 crée media_files : identité AUTOINCREMENT, chemin unique,
-format MP4/WebM, taille et durée strictement positives, date UTC milliseconde.
+taille et durée strictement positives, date UTC milliseconde. Le correctif prévoit
+la migration 0007 : format non vide sans liste fermée, données et compteur
+AUTOINCREMENT préservés. Le conteneur ne dépend pas de la provenance.
 Une FK composée (origin_source_id, video_id) garantit la cohérence source–vidéo ;
 un index unique partiel sur origin_source_id impose une représentation par source
 dans cette tranche. La provenance facultative permet le modèle général mais aucune

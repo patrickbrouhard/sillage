@@ -1430,6 +1430,8 @@ Le projet privilégie :
 
 ## Téléchargement local — étape 7.1
 
+Correctif de simplification et conservation validé ; implémentation en cours.
+
 Depuis le workspace YouTube, **Télécharger** conserve volontairement la source
 de travail. Le bouton reste visible quand le lecteur est masqué ou indisponible.
 La lecture continue dans YouTube : aucun lecteur local ni endpoint vidéo n'est livré.
@@ -1444,18 +1446,19 @@ interrompus ne reprennent pas et redeviennent non téléchargés. Les fichiers p
 
 ### Politique média
 
-Vidéos terminées uniquement. Maximum 1920×1080 ou 1080×1920, qualité avant conteneur,
-MP4 à qualité équivalente, WebM accepté, jamais MKV. Combinaisons retenues :
-MP4 H.264/AV1 + AAC ; WebM VP8/VP9/AV1 + Opus/Vorbis. Aucun réencodage,
-découpage, changement de timeline ou saut de fragments. L'audio original est privilégié
-sur les signaux audio disponibles ; une ambiguïté réelle est refusée.
-Ces choix préparent une future lecture Web sans garantir tous les navigateurs.
+Vidéos YouTube terminées, vidéo et audio sans réencodage ni modification volontaire
+de timeline. Le correctif validé délègue le classement à yt-dlp avec -S "res:1080",
+sans --format-sort-force : préférence 1080 ou moins, repli supérieur possible.
+Aucune préférence MP4 propre à Sillage ni liste fermée de codecs/conteneurs.
+Le conteneur final peut notamment être MP4, WebM ou MKV ; sa conservation ne
+garantit pas sa lecture par un futur lecteur Web.
+Sillage conserve le contrôle de l'identité audio : original fiable prioritaire,
+ambiguïtés refusées, aucun repli implicite vers un doublage. Les formats combinés
+vidéo+audio sont soumis au même contrôle. Aucun signal de sous-titres ne prouve
+l'originalité d'une piste. ffprobe contrôle le résultat complet avant publication.
 
-ffprobe contrôle flux, codecs, dimensions, taille et durée ; le DocType distingue
-WebM de Matroska. Comparaison avec la découverte et la durée enregistrée si connue :
-tolérance max(1s, min(3s, 0,1% de la référence)). Une divergence significative refuse
-la publication ; aucune métadonnée de source n'est rafraîchie implicitement.
-Les contrôles ne constituent ni une preuve d'identité ni un décodage intégral.
+Tolérance temporelle : max(1s, min(3s, 0,1% de la référence)), comparée à la découverte
+et aux métadonnées enregistrées. Aucun rafraîchissement implicite.
 
 ### API de conservation
 
@@ -1511,16 +1514,17 @@ Une suppression cible l'ID affiché : un ancien onglet ne supprime pas son rempl
 La migration 0006 ajoute media_files, l'unicité du chemin/de la source et la FK
 composée source–vidéo. origin_source_id reste nullable pour le modèle général ;
 le téléchargement le renseigne obligatoirement. Aucun endpoint d'import local.
-Les fichiers sont publiés sous data/media/media-<32 hex>.mp4 ou .webm,
-puis référencés en base ; aucun partiel n'est déclaré disponible.
+Le correctif prévoit la migration 0007 ouvrant format sans modifier les identités.
+Les fichiers complets sont publiés sous data/media avec des noms aléatoires sûrs,
+puis référencés en base. Aucun partiel n'est déclaré disponible.
 
-Le démarrage rapproche exclusivement les noms maîtrisés : temporaires, orphelins
-non référencés et suppressions .deleting. Une suppression interrompue est restaurée
-si la ligne existe, terminée sinon. Liens symboliques, références invalides ou versions
-contradictoires bloquent le rapprochement ; ne pas effacer ces fichiers arbitrairement.
-Les fichiers étrangers ne sont pas nettoyés. Un fichier référencé manquant est signalé
-par l'API et peut être supprimé explicitement, sans acquisition automatique.
-Le rapprochement suppose une seule instance par répertoire de données.
+Au démarrage, les médias sans référence, temporaires abandonnés et .deleting
+non référencés restent conservés et signalés dans les logs. Un .deleting référencé
+peut être restauré seulement sans conflit et après vérifications. Une anomalie
+isolée ne bloque pas les connaissances. Aucun nettoyage compensatoire d'un fichier
+publié après échec SQL. Les opérations dangereuses sont refusées explicitement.
+Seule une suppression utilisateur vivante et confirmée en base efface un média.
+La maintenance interactive reste future. Une seule instance utilise data/.
 
 Sauvegarder/restaurer à froid **tout data/**, base et médias ensemble.
 Une copie de la seule base ne conserve pas les vidéos. Les imports manuels dans

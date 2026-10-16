@@ -227,3 +227,6 @@ systématique. L'utilisateur décide de télécharger et conserver un média ;
 la durée, le type de contenu ou des captures envisagées ne déclenchent jamais
 une conservation automatique. La connaissance reste indépendante du média local.
 La sélection technique d'une méthode de capture est une question distincte.
+
+La préservation prime sur le nettoyage automatique : une absence de référence
+SQLite ne rend jamais un média utilisateur jetable.

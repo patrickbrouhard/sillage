@@ -1183,15 +1183,17 @@ Une future source locale pourra coexister avec un `MediaFile`. L'identité exact
 
 ### 7.1 — Télécharger et conserver une vidéo YouTube
 
-Implémentation 7.1a et 7.1b terminée, validée automatiquement ; retour UX utilisateur à recueillir.
+7.1a et 7.1b livrés ; correctif de simplification/conservation validé, en cours.
+La CI du commit 2e4b6cc a révélé une incohérence available/activité résiduelle ;
+le correctif doit valider aussi les étapes Postman précédemment ignorées.
 - 7.1a : service asynchrone, MediaFile avec provenance, validation, stockage,
   suivi REST, suppression et récupération après interruption.
 - 7.1b : actions visibles dans le workspace, suivi et confirmation de suppression,
   sans perturbation du lecteur, de la transcription ni de la session de note.
 
 Les deux jalons, les validations et la confrontation finale documentation/code
-sont traités. Conservation volontaire durable, MP4/WebM sans réencodage,
-qualité prioritaire sous plafond 1080p. Voir les contrats dans les documents 01 à 04.
+ont été traités pour la première version. Le correctif remplace ses restrictions
+par le classement natif res:1080, sans préférence MP4 ni liste fermée de conteneurs. Voir les contrats dans les documents 01 à 04.
 
 ### Incréments ultérieurs
 
@@ -1438,9 +1440,12 @@ Restent ouverts :
 
 ## 17. Questions ouvertes — média
 
-La politique 7.1 est actée et implémentée : MP4/WebM, qualité prioritaire sous
-plafond Full HD, conservation volontaire jusqu'à suppression, noms internes aléatoires,
-nettoyage ciblé et provenance obligatoire YouTube. Restent ouverts :
+Le correctif 7.1 validé conserve la provenance obligatoire YouTube et les noms sûrs,
+délègue la qualité à yt-dlp (res:1080) et préserve les fichiers abandonnés.
+Maintenance future, explicitement déclenchée : analyse des orphelins, temporaires
+et suppressions interrompues ; sélection et confirmation avant effacement.
+Étudier aussi la récupération ou le rattachement de médias complets.
+Restent ouverts :
 - stratégie de capture distante/locale et précision selon les sources ;
 - lecture Web locale et compatibilité des profils/codecs selon les navigateurs ;
 - préférences avancées, plusieurs qualités et audio seul ;
