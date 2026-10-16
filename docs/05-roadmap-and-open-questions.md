@@ -1630,4 +1630,11 @@ Validation locale du correctif acquisition/métadonnées (2026-10-16) :
 Aucun nouvel essai réel multilingue n'est revendiqué : ce cas est couvert par le
 sélecteur natif sur des fixtures déterministes. L'essai multilingue rapporté par
 l'utilisateur reste une observation distincte. La sélection native n'est pas une
-garantie universelle d'audio original. Résultats CI à confirmer après poussée.
+garantie universelle d'audio original.
+
+CI vérifiée le 2026-10-17 sur le commit a9168f0 :
+[API tests](https://github.com/patrickbrouhard/sillage/actions/runs/38943645236)
+réussi (Go/Postman et navigateur), et
+[Docker distribution](https://github.com/patrickbrouhard/sillage/actions/runs/38943645358)
+réussi. Les étapes Postman ont effectivement exécuté 45 requêtes et 135 assertions,
+sans échec ; elles n'ont pas été ignorées.
