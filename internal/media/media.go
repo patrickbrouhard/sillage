@@ -10,6 +10,8 @@ import (
 )
 
 // File représente un fichier complet publié ; OriginSourceID est facultatif hors téléchargement.
+// Les caractéristiques nullable préservent les fichiers antérieurs à leur mesure.
+// FPS est une moyenne ; AudioLanguage décrit la piste conservée, pas l'original de la source.
 type File struct {
 	ID             int64
 	VideoID        video.VideoID
@@ -19,6 +21,12 @@ type File struct {
 	Size           int64
 	DurationMS     int64
 	AddedAt        time.Time
+	VideoCodec     *string
+	AudioCodec     *string
+	Width          *int
+	Height         *int
+	FPS            *float64
+	AudioLanguage  *string
 }
 
 // State décrit la disponibilité durable et l'activité éphémère d'une source.
@@ -33,8 +41,6 @@ var (
 	ErrBusy        = errors.New("download busy")
 	ErrUnavailable = errors.New("local media unavailable")
 	ErrUnsupported = errors.New("source unsupported")
-	ErrSelection   = errors.New("no compatible formats")
-	ErrAudio       = errors.New("ambiguous audio")
 	ErrUnfinished  = errors.New("video unfinished")
 	ErrDuration    = errors.New("duration mismatch")
 	ErrDownload    = errors.New("download failed")
@@ -63,9 +69,15 @@ type VideoReader interface {
 
 // Acquired décrit le fichier validé media.<Format> dans la zone temporaire.
 type Acquired struct {
-	Format     string
-	Size       int64
-	DurationMS int64
+	Format        string
+	Size          int64
+	DurationMS    int64
+	VideoCodec    *string
+	AudioCodec    *string
+	Width         *int
+	Height        *int
+	FPS           *float64
+	AudioLanguage *string
 }
 
 // Provider acquiert et valide sans publier ni modifier la base.
@@ -103,10 +115,6 @@ func Code(err error) string {
 		return "download_interrupted"
 	case errors.Is(err, ErrUnsupported):
 		return "media_source_unsupported"
-	case errors.Is(err, ErrSelection):
-		return "media_format_unavailable"
-	case errors.Is(err, ErrAudio):
-		return "media_audio_ambiguous"
 	case errors.Is(err, ErrUnfinished):
 		return "media_unfinished"
 	case errors.Is(err, ErrDuration):

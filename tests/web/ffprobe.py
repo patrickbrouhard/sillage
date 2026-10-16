@@ -10,7 +10,7 @@ if path.name != "media.mkv" or path.read_bytes() != bytes.fromhex("1a45dfa38b428
 print(json.dumps({
     "format": {"format_name": "matroska,webm", "duration": "125", "size": str(path.stat().st_size)},
     "streams": [
-        {"codec_type": "video", "codec_name": "h264", "width": 640, "height": 360},
-        {"codec_type": "audio", "codec_name": "aac"},
+        {"codec_type": "video", "codec_name": "h264", "width": 640, "height": 360, "avg_frame_rate": "30000/1001"},
+        {"codec_type": "audio", "codec_name": "aac", "tags": {"language": "eng"}},
     ],
 }))

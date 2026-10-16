@@ -8,16 +8,10 @@ from urllib.parse import parse_qs, urlparse
 
 
 def main():
-    """Reproduit les deux commandes d'acquisition et les imports existants."""
+    """Reproduit l'acquisition média unique et les commandes de transcription existantes."""
     args = sys.argv[1:]
     if "--load-info-json" in args:
         output = Path(args[args.index("--output") + 1])
-        if "--format" in args:
-            if args[args.index("--format") + 1] != "bv*+ba/b":
-                raise ValueError("Unexpected media selection")
-            (output.parent / "media.mkv").write_bytes(bytes.fromhex("1a45dfa38b428288") + b"matroska")
-            print(json.dumps(str((output.parent / "media.mkv").resolve())))
-            return
         track = args[args.index("--sub-langs") + 1].removeprefix("^").removesuffix("$")
         if track not in ("fr-orig", "en-orig"):
             raise ValueError("Unexpected caption selection")
@@ -31,6 +25,19 @@ def main():
 
     url = urlparse(args[-1])
     external_id = parse_qs(url.query).get("v", [url.path.rsplit("/", 1)[-1]])[0]
+    if "--format" in args:
+        if args[args.index("--format") + 1] != "bv*+ba/b" or "--match-filters" not in args:
+            raise ValueError("Unexpected media selection")
+        output = Path(args[args.index("--output") + 1])
+        path = (output.parent / "media.mkv").resolve()
+        info = {"id": external_id, "extractor_key": "Youtube", "live_status": "not_live", "duration": 125}
+        print("source:" + json.dumps(info))
+        path.write_bytes(bytes.fromhex("1a45dfa38b428288") + b"matroska")
+        # L'original de la source reste anglais ; le fichier annonce un doublage.
+        info.update(filepath=str(path), acodec="aac", language="fr-FR")
+        print("result:" + json.dumps({"file": info, "tracks": []}))
+        return
+
     metadata = {
         "extractor_key": "Youtube", "id": "sillage-test",
         "title": "Comprendre SQLite et ses transactions", "duration": 125,

@@ -56,6 +56,31 @@ func TestMediaRESTContract(t *testing.T) {
 	if w = request("POST", path, ""); w.Code != 200 || strings.Contains(w.Body.String(), "SECRET") {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
+	var legacy struct {
+		File map[string]any `json:"media_file"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &legacy); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"video_codec", "audio_codec", "width", "height", "fps", "audio_language"} {
+		value, exists := legacy.File[key]
+		if !exists || value != nil {
+			t.Fatalf("legacy %s=%v", key, value)
+		}
+	}
+	vc, ac, lang := "av1", "opus", "fr-FR"
+	width, height, fps := 1080, 1920, 29.97
+	stub.state.File.VideoCodec, stub.state.File.AudioCodec, stub.state.File.AudioLanguage = &vc, &ac, &lang
+	stub.state.File.Width, stub.state.File.Height, stub.state.File.FPS = &width, &height, &fps
+	w = request("GET", path, "")
+	if err := json.Unmarshal(w.Body.Bytes(), &legacy); err != nil {
+		t.Fatal(err)
+	}
+	if legacy.File["video_codec"] != vc || legacy.File["audio_codec"] != ac ||
+		legacy.File["width"] != float64(width) || legacy.File["height"] != float64(height) ||
+		legacy.File["fps"] != fps || legacy.File["audio_language"] != lang {
+		t.Fatal(legacy.File)
+	}
 	stub.err = media.ErrBusy
 	if w = request("POST", path, ""); w.Code != 503 || w.Header().Get("Retry-After") == "" {
 		t.Fatal(w.Code)

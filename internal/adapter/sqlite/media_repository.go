@@ -23,14 +23,36 @@ const mediaColumns = `
  format,
  size,
  duration_ms,
- added_at
+ added_at,
+ video_codec,
+ audio_codec,
+ width,
+ height,
+ fps,
+ audio_language
 `
 
+// scanMedia conserve les NULL historiques dans des pointeurs, sans valeurs inventées.
 func scanMedia(row interface{ Scan(...any) error }) (media.File, error) {
 	var f media.File
 	var source sql.NullInt64
 	var added string
-	err := row.Scan(&f.ID, &f.VideoID, &source, &f.Path, &f.Format, &f.Size, &f.DurationMS, &added)
+	err := row.Scan(
+		&f.ID,
+		&f.VideoID,
+		&source,
+		&f.Path,
+		&f.Format,
+		&f.Size,
+		&f.DurationMS,
+		&added,
+		&f.VideoCodec,
+		&f.AudioCodec,
+		&f.Width,
+		&f.Height,
+		&f.FPS,
+		&f.AudioLanguage,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return f, media.ErrNotFound
 	}
@@ -95,11 +117,31 @@ func (r *MediaRepository) Save(ctx context.Context, f media.File) (media.File, e
   format,
   size,
   duration_ms,
-  added_at
+  added_at,
+  video_codec,
+  audio_codec,
+  width,
+  height,
+  fps,
+  audio_language
  )
- VALUES (?, ?, ?, ?, ?, ?, ?)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
  RETURNING id
- `, f.VideoID, f.OriginSourceID, f.Path, f.Format, f.Size, f.DurationMS, formatDate(f.AddedAt)).Scan(&f.ID)
+ `,
+		f.VideoID,
+		f.OriginSourceID,
+		f.Path,
+		f.Format,
+		f.Size,
+		f.DurationMS,
+		formatDate(f.AddedAt),
+		f.VideoCodec,
+		f.AudioCodec,
+		f.Width,
+		f.Height,
+		f.FPS,
+		f.AudioLanguage,
+	).Scan(&f.ID)
 	return f, err
 }
 

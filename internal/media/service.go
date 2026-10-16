@@ -215,6 +215,12 @@ func (s *Service) acquire(ctx context.Context, source video.VideoSource) error {
 		Format:         acquired.Format,
 		Size:           acquired.Size,
 		DurationMS:     acquired.DurationMS,
+		VideoCodec:     acquired.VideoCodec,
+		AudioCodec:     acquired.AudioCodec,
+		Width:          acquired.Width,
+		Height:         acquired.Height,
+		FPS:            acquired.FPS,
+		AudioLanguage:  acquired.AudioLanguage,
 		AddedAt:        time.Now().UTC().Truncate(time.Millisecond),
 	})
 	if err != nil {

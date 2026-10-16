@@ -89,6 +89,10 @@ def main():
             else:
                 raise RuntimeError("Download did not finish")
             media = state["media_file"]
+            assert media["video_codec"] and media["audio_codec"]
+            assert media["width"] > 0 and media["height"] > 0
+            assert media["fps"] is None or media["fps"] > 0
+            assert "audio_language" in media
             assert request(path, "POST")["media_file"]["id"] == media["id"]
             with sqlite3.connect(data / "sillage.db") as database:
                 stored = database.execute("SELECT path FROM media_files WHERE id = ?", (media["id"],)).fetchone()[0]
@@ -101,7 +105,7 @@ def main():
             print("Acquisition et ffprobe dans Docker :", media, probe, flush=True)
             command("docker", "restart", "-t", "12", name)
             ready()
-            assert request(path)["media_file"]["id"] == media["id"]
+            assert request(path)["media_file"] == media
             request(f"videos/{video['id']}/media-files/{media['id']}", "DELETE", expected=204)
             assert request(path)["status"] == "not_downloaded"
             assert request(note_path)["content_md"] == "Connaissance préservée"

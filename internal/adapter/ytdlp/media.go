@@ -27,126 +27,102 @@ type MediaClient struct {
 	ProbeBinary string
 }
 
-type mediaFormat struct {
-	ID                 string  `json:"format_id"`
-	Extension          string  `json:"ext"`
-	VideoCodec         string  `json:"vcodec"`
-	AudioCodec         string  `json:"acodec"`
-	Width              int     `json:"width"`
-	Height             int     `json:"height"`
-	FPS                float64 `json:"fps"`
-	Language           string  `json:"language"`
-	LanguagePreference int     `json:"language_preference"`
-	URL                string  `json:"url"`
+// mediaInfo ne conserve que l'identité et les informations utiles à la validation.
+type mediaInfo struct {
+	ID         string  `json:"id"`
+	Extractor  string  `json:"extractor_key"`
+	Duration   float64 `json:"duration"`
+	LiveStatus string  `json:"live_status"`
+	Path       string  `json:"filepath"`
+	AudioCodec string  `json:"acodec"`
+	Language   string  `json:"language"`
 }
 
-type mediaDiscovery struct {
-	ID         string        `json:"id"`
-	Extractor  string        `json:"extractor_key"`
-	Type       string        `json:"_type"`
-	Duration   float64       `json:"duration"`
-	LiveStatus string        `json:"live_status"`
-	IsLive     bool          `json:"is_live"`
-	Formats    []mediaFormat `json:"formats"`
+type selectedAudio struct {
+	Codec    string `json:"acodec"`
+	Language string `json:"language"`
 }
 
-// filterMediaAudio ne classe aucun format : il restreint seulement l'identité audio.
-// Les variantes techniques restent à départager par le sélecteur natif de yt-dlp.
-func filterMediaAudio(data []byte, d mediaDiscovery, knownLanguage string) ([]byte, error) {
-	languages := make(map[string]bool)
-	originals := make(map[string]bool)
-	for _, f := range d.Formats {
-		if f.AudioCodec == "" || f.AudioCodec == "none" || f.LanguagePreference < -1 {
-			continue
-		}
-		languages[f.Language] = true
-		if f.LanguagePreference == originalAudioPreference && usableLanguage(f.Language) {
-			originals[f.Language] = true
+// mediaDownloadArgs laisse le choix des représentations à yt-dlp. Le filtre natif
+// s'exécute avant les octets ; le préambule permet de diagnostiquer un refus sans stderr.
+func mediaDownloadArgs(id, stage string) []string {
+	return []string{
+		"--ignore-config", "--no-playlist", "--no-progress", "--no-cache-dir",
+		"--socket-timeout", "30", "--retries", "3", "--fragment-retries", "3",
+		"--no-simulate", "--no-continue", "--abort-on-unavailable-fragments",
+		"--no-keep-video", "--no-audio-multistreams", "--no-video-multistreams",
+		"--format", "bv*+ba/b", "-S", "res:1080",
+		"--match-filters", "id = '" + id + "' & extractor_key = 'Youtube' & live_status ~= '^(not_live|was_live)$'",
+		"--print", "pre_process:source:%(.{id,extractor_key,live_status,duration})j",
+		"--print", `after_move:result:{"file":%(.{id,extractor_key,live_status,duration,filepath,acodec,language})j,"tracks":%(requested_formats.:.{acodec,language}|)j}`,
+		"--output", filepath.Join(stage, "media.%(ext)s"),
+		"--", "https://www.youtube.com/watch?v=" + id,
+	}
+}
+
+// parseMediaOutput exige un résultat final unique ; un filtrage sans téléchargement
+// peut réussir au niveau processus et ne doit jamais être confondu avec une acquisition.
+func parseMediaOutput(output []byte, id string) (mediaInfo, *string, error) {
+	var source *mediaInfo
+	var result *struct {
+		File   mediaInfo       `json:"file"`
+		Tracks []selectedAudio `json:"tracks"`
+	}
+	for _, line := range bytes.Split(bytes.TrimSpace(output), []byte("\n")) {
+		switch {
+		case bytes.HasPrefix(line, []byte("source:")):
+			if source != nil || json.Unmarshal(bytes.TrimPrefix(line, []byte("source:")), &source) != nil || source == nil {
+				return mediaInfo{}, nil, media.ErrInvalid
+			}
+		case bytes.HasPrefix(line, []byte("result:")):
+			if result != nil || json.Unmarshal(bytes.TrimPrefix(line, []byte("result:")), &result) != nil || result == nil {
+				return mediaInfo{}, nil, media.ErrInvalid
+			}
+		default:
+			return mediaInfo{}, nil, media.ErrInvalid
 		}
 	}
-	language := ""
-	requireOriginal := false
-	switch {
-	case len(originals) > 1:
-		return nil, media.ErrAudio
-	case len(originals) == 1:
-		requireOriginal = true
-		for value := range originals {
-			language = value
-		}
-	case knownLanguage != "":
-		// L'original connu absent n'autorise pas le repli vers une langue disponible différente.
-		if !languages[knownLanguage] {
-			return nil, media.ErrSelection
-		}
-		language = knownLanguage
-	case len(languages) == 1:
-		for value := range languages {
-			language = value
-		}
-	case len(languages) == 0:
-		return nil, media.ErrSelection
-	default:
-		return nil, media.ErrAudio
+	if source == nil || source.ID != id || source.Extractor != "Youtube" {
+		return mediaInfo{}, nil, media.ErrInvalid
 	}
-	// Sans signal original, des rôles audio différents dans une même langue
-	// ne sont pas de simples variantes de codec : le défaut ne prouve pas l’originalité.
-	roles := make(map[int]bool)
-	if !requireOriginal {
-		for _, f := range d.Formats {
-			if f.AudioCodec != "" && f.AudioCodec != "none" && f.Language == language && f.LanguagePreference >= -1 {
-				roles[f.LanguagePreference] = true
+	if source.LiveStatus != "not_live" && source.LiveStatus != "was_live" {
+		return mediaInfo{}, nil, media.ErrUnfinished
+	}
+	if result == nil || result.File.ID != id || result.File.Extractor != "Youtube" ||
+		result.File.LiveStatus != source.LiveStatus || result.File.Path == "" {
+		return mediaInfo{}, nil, media.ErrInvalid
+	}
+	// En cas d'assemblage, la langue globale peut agréger les composants.
+	// Seule la représentation audio effectivement retenue fait référence.
+	language := result.File.Language
+	if len(result.Tracks) > 0 {
+		count := 0
+		language = ""
+		for _, track := range result.Tracks {
+			if track.Codec != "" && track.Codec != "none" {
+				count++
+				language = track.Language
 			}
 		}
-		if len(roles) > 1 {
-			return nil, media.ErrAudio
+		if count != 1 {
+			return mediaInfo{}, nil, media.ErrInvalid
 		}
+	} else if result.File.AudioCodec == "" || result.File.AudioCodec == "none" {
+		return mediaInfo{}, nil, media.ErrInvalid
 	}
-	allowedAudio := func(f mediaFormat) bool {
-		return f.AudioCodec == "none" || (f.AudioCodec != "" && f.Language == language &&
-			f.LanguagePreference >= -1 && (!requireOriginal || f.LanguagePreference == originalAudioPreference))
+	var declared *string
+	if usableLanguage(strings.ToLower(language)) {
+		declared = &language
 	}
-	// Préserver les champs inconnus de yt-dlp (manifestes, fragments, en-têtes).
-	// Les formats combinés non admissibles sont retirés eux aussi.
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, media.ErrInvalid
-	}
-	var formats []json.RawMessage
-	if err := json.Unmarshal(raw["formats"], &formats); err != nil {
-		return nil, media.ErrInvalid
-	}
-	filtered := make([]json.RawMessage, 0, len(formats))
-	for _, item := range formats {
-		var f mediaFormat
-		if err := json.Unmarshal(item, &f); err != nil {
-			return nil, media.ErrInvalid
-		}
-		if allowedAudio(f) {
-			filtered = append(filtered, item)
-		}
-	}
-	raw["formats"], _ = json.Marshal(filtered)
-	// La sélection précédente de la découverte ne doit pas survivre au filtre métier.
-	delete(raw, "requested_formats")
-	delete(raw, "requested_downloads")
-	// download_with_info_file réextrait sinon l’URL après erreur, ce qui perdrait notre filtre.
-	delete(raw, "webpage_url")
-	delete(raw, "original_url")
-	delete(raw, "url")
-	raw["_type"] = json.RawMessage(`"video"`)
-	return json.Marshal(raw)
+	return result.File, declared, nil
 }
 
-// Download filtre l’identité audio puis laisse yt-dlp choisir et assembler les formats.
+// Download extrait, sélectionne et acquiert en un appel, puis valide le fichier réel.
 func (c MediaClient) Download(ctx context.Context, source video.VideoSource, stage string) (media.Acquired, error) {
-	// yt-dlp expose un chemin absolu après déplacement, même avec une sortie relative.
-	// Comparer deux chemins absolus préserve le contrôle de confinement en production.
 	stage, err := filepath.Abs(stage)
 	if err != nil {
 		return media.Acquired{}, err
 	}
-
 	if source.Provider != "youtube" || !regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`).MatchString(source.ExternalID) {
 		return media.Acquired{}, media.ErrUnsupported
 	}
@@ -154,74 +130,46 @@ func (c MediaClient) Download(ctx context.Context, source video.VideoSource, sta
 	if binary == "" {
 		binary = "yt-dlp"
 	}
-	common := []string{"--ignore-config", "--no-playlist", "--no-progress", "--no-cache-dir", "--socket-timeout", "30", "--retries", "3", "--fragment-retries", "3"}
-	args := append(append([]string{}, common...), "--dump-single-json", "--simulate", "-S", "res:1080", "--", "https://www.youtube.com/watch?v="+source.ExternalID)
-	data, err := mediaCommand(ctx, binary, args...)
+	output, err := mediaCommand(ctx, binary, mediaDownloadArgs(source.ExternalID, stage)...)
 	if err != nil {
 		return media.Acquired{}, err
 	}
-	var discovery mediaDiscovery
-	if err := json.Unmarshal(data, &discovery); err != nil {
-		return media.Acquired{}, media.ErrInvalid
-	}
-	if discovery.ID != source.ExternalID || discovery.Extractor != "Youtube" || (discovery.Type != "" && discovery.Type != "video") {
-		return media.Acquired{}, media.ErrInvalid
-	}
-	if discovery.IsLive || (discovery.LiveStatus != "not_live" && discovery.LiveStatus != "was_live") || discovery.Duration <= 0 {
-		return media.Acquired{}, media.ErrUnfinished
-	}
-	data, err = filterMediaAudio(data, discovery, source.OriginalAudioLanguage)
+	info, language, err := parseMediaOutput(output, source.ExternalID)
 	if err != nil {
 		return media.Acquired{}, err
 	}
-	info := filepath.Join(stage, "source.json")
-	if err := os.WriteFile(info, data, 0600); err != nil {
-		return media.Acquired{}, err
-	}
-	args = append(append([]string{}, common...),
-		"--load-info-json", info, "--no-simulate", "--no-continue",
-		"--abort-on-unavailable-fragments", "--no-keep-video",
-		"--no-audio-multistreams", "--no-video-multistreams",
-		"--format", "bv*+ba/b", "-S", "res:1080",
-		"--print", "after_move:%(filepath)j",
-		"--output", filepath.Join(stage, "media.%(ext)s"))
-	output, err := mediaCommand(ctx, binary, args...)
-	if err != nil {
-		return media.Acquired{}, err
-	}
-	var path string
-	if err := json.Unmarshal(bytes.TrimSpace(output), &path); err != nil {
-		return media.Acquired{}, media.ErrInvalid
-	}
-	// Ne jamais publier un chemin extérieur ou un nom dérivé d'un titre distant.
+	path := info.Path
 	container := strings.TrimPrefix(filepath.Ext(path), ".")
+	// Le chemin final est encore temporaire et ne doit dépendre d'aucun titre.
 	if filepath.Clean(filepath.Dir(path)) != filepath.Clean(stage) ||
 		filepath.Base(path) != "media."+container ||
 		!regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`).MatchString(container) {
 		return media.Acquired{}, media.ErrInvalid
 	}
-
 	probe := c.ProbeBinary
 	if probe == "" {
 		probe = "ffprobe"
 	}
-	data, err = mediaCommand(ctx, probe, "-v", "error", "-show_format", "-show_streams", "-of", "json", path)
+	data, err := mediaCommand(ctx, probe, "-v", "error", "-show_format", "-show_streams", "-of", "json", path)
 	if err != nil {
 		if ctx.Err() != nil {
 			return media.Acquired{}, ctx.Err()
 		}
 		return media.Acquired{}, fmt.Errorf("%w: probe: %v", media.ErrInvalid, err)
 	}
-	return validateProbe(data, path, container, discovery.Duration, source.DurationMS)
+	acquired, err := validateProbe(data, path, container, info.Duration, source.DurationMS)
+	acquired.AudioLanguage = language
+	return acquired, err
 }
 
 type probeStream struct {
-	Type     string `json:"codec_type"`
-	Codec    string `json:"codec_name"`
-	Width    int    `json:"width"`
-	Height   int    `json:"height"`
-	Duration string `json:"duration"`
-	Start    string `json:"start_time"`
+	Type        string `json:"codec_type"`
+	Codec       string `json:"codec_name"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
+	Duration    string `json:"duration"`
+	Start       string `json:"start_time"`
+	AverageRate string `json:"avg_frame_rate"`
 }
 type probeResult struct {
 	Streams []probeStream `json:"streams"`
@@ -287,13 +235,37 @@ func validateProbe(data []byte, path, container string, remoteDuration float64, 
 	if videos != 1 || audios != 1 || videoStream.Width <= 0 || videoStream.Height <= 0 || videoStream.Codec == "" || videoStream.Codec == "unknown" || audioStream.Codec == "" || audioStream.Codec == "unknown" {
 		return media.Acquired{}, media.ErrInvalid
 	}
-	if math.Abs(duration-remoteDuration) > durationTolerance(remoteDuration) {
+	if remoteDuration > 0 && !math.IsInf(remoteDuration, 0) && math.Abs(duration-remoteDuration) > durationTolerance(remoteDuration) {
 		return media.Acquired{}, fmt.Errorf("%w: local=%g discovered=%g seconds", media.ErrDuration, duration, remoteDuration)
 	}
 	if storedDuration != nil && math.Abs(duration-float64(*storedDuration)/1000) > durationTolerance(float64(*storedDuration)/1000) {
 		return media.Acquired{}, fmt.Errorf("%w: local=%g stored=%g seconds", media.ErrDuration, duration, float64(*storedDuration)/1000)
 	}
-	return media.Acquired{Format: container, Size: size, DurationMS: int64(math.Round(duration * 1000))}, nil
+	return media.Acquired{
+		Format:     container,
+		Size:       size,
+		DurationMS: int64(math.Round(duration * 1000)),
+		VideoCodec: &videoStream.Codec,
+		AudioCodec: &audioStream.Codec,
+		Width:      &videoStream.Width,
+		Height:     &videoStream.Height,
+		FPS:        averageFPS(videoStream.AverageRate),
+	}, nil
+}
+
+// averageFPS interprète la cadence moyenne rationnelle ; une cadence inconnue reste NULL.
+func averageFPS(rate string) *float64 {
+	numerator, denominator, ok := strings.Cut(rate, "/")
+	if !ok {
+		return nil
+	}
+	n, en := strconv.ParseFloat(numerator, 64)
+	d, ed := strconv.ParseFloat(denominator, 64)
+	fps := n / d
+	if en != nil || ed != nil || n <= 0 || d <= 0 || math.IsNaN(fps) || math.IsInf(fps, 0) || fps <= 0 {
+		return nil
+	}
+	return &fps
 }
 
 // probeContainerMatches normalise les alias des démuxeurs, sans limiter les conteneurs admis.

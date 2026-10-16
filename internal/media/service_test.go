@@ -44,7 +44,10 @@ func (p *provider) Download(ctx context.Context, _ video.VideoSource, dir string
 	if err := os.WriteFile(filepath.Join(dir, "media.mp4"), []byte("complete"), 0600); err != nil {
 		return media.Acquired{}, err
 	}
-	return media.Acquired{Format: "mp4", Size: 8, DurationMS: 10000}, nil
+	vc, ac, language := "h264", "aac", "fr-FR"
+	width, height, fps := 1920, 1080, 29.97
+	return media.Acquired{Format: "mp4", Size: 8, DurationMS: 10000,
+		VideoCodec: &vc, AudioCodec: &ac, Width: &width, Height: &height, FPS: &fps, AudioLanguage: &language}, nil
 }
 
 func setup(t *testing.T, p *provider, timeout time.Duration) (*media.Service, *sqlite.MediaRepository, *filesystem.Media, video.Video, video.Video) {
@@ -147,7 +150,7 @@ func TestFailureTimeoutAndShutdown(t *testing.T) {
 		close   bool
 		want    string
 	}{
-		{"provider", media.ErrAudio, time.Minute, false, "media_audio_ambiguous"},
+		{"provider", media.ErrDownload, time.Minute, false, "download_failed"},
 		{"timeout", nil, 20 * time.Millisecond, false, "download_timeout"},
 		{"shutdown", nil, time.Minute, true, "download_interrupted"},
 	} {
@@ -366,5 +369,21 @@ func TestMediaAnomalyDoesNotPreventServiceCreation(t *testing.T) {
 	}
 	if _, err := service.Get(context.Background(), v.ID, v.Sources[0].ID); err == nil {
 		t.Fatal("unavailable storage reported absent")
+	}
+}
+
+// TestDownloadPersistsTechnicalMetadata vérifie le passage fournisseur/service/SQLite.
+func TestDownloadPersistsTechnicalMetadata(t *testing.T) {
+	s, repo, _, v, _ := setup(t, &provider{}, time.Minute)
+	if _, err := s.Start(context.Background(), v.ID, v.Sources[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	state := waitState(t, s, v, "available")
+	file, err := repo.Get(context.Background(), state.File.ID)
+	if err != nil || file.VideoCodec == nil || *file.VideoCodec != "h264" ||
+		file.AudioCodec == nil || *file.AudioCodec != "aac" || file.Width == nil || *file.Width != 1920 ||
+		file.Height == nil || *file.Height != 1080 || file.FPS == nil || *file.FPS != 29.97 ||
+		file.AudioLanguage == nil || *file.AudioLanguage != "fr-FR" {
+		t.Fatalf("%+v %v", file, err)
 	}
 }

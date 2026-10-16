@@ -99,7 +99,12 @@ func TestMediaMigrationPreservesHistory(t *testing.T) {
 			repo := NewMediaRepository(db)
 			source := v.Sources[0].ID
 			original := media.File{VideoID: v.ID, OriginSourceID: &source, Path: "old.mp4", Format: "mp4", Size: 8, DurationMS: 1000, AddedAt: time.Now().UTC().Truncate(time.Millisecond)}
-			saved, err := repo.Save(ctx, original)
+			saved := original
+			err = db.QueryRow(`
+ INSERT INTO media_files (video_id, origin_source_id, path, format, size, duration_ms, added_at)
+ VALUES (?, ?, ?, ?, ?, ?, ?)
+ RETURNING id
+ `, original.VideoID, original.OriginSourceID, original.Path, original.Format, original.Size, original.DurationMS, formatDate(original.AddedAt)).Scan(&saved.ID)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -142,5 +147,65 @@ func TestMediaMigrationPreservesHistory(t *testing.T) {
 				t.Fatal("broken foreign key")
 			}
 		})
+	}
+}
+
+// TestMediaMetadataMigration conserve une base v7 sans inventer les métadonnées anciennes.
+func TestMediaMetadataMigration(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "v7.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		t.Fatal(err)
+	}
+	files := fstest.MapFS{}
+	names, _ := fs.Glob(migrationFiles, "migrations/*.sql")
+	for _, name := range names[:7] {
+		data, _ := migrationFiles.ReadFile(name)
+		files[name] = &fstest.MapFile{Data: data}
+	}
+	if err := migrate(ctx, db, files); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+ INSERT INTO videos (id, created_at) VALUES (1, '2026-10-16T10:00:00.000Z');
+ INSERT INTO media_files (id,video_id,path,format,size,duration_ms,added_at)
+ VALUES (41,1,'legacy.mov','mov',100,2000,'2026-10-16T10:00:00.000Z');
+ UPDATE sqlite_sequence SET seq = 99 WHERE name = 'media_files';
+ `); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate(ctx, db, migrationFiles); err != nil {
+		t.Fatal(err)
+	}
+	repo := NewMediaRepository(db)
+	old, err := repo.Get(ctx, 41)
+	if err != nil || old.Path != "legacy.mov" || old.VideoCodec != nil || old.AudioCodec != nil ||
+		old.Width != nil || old.Height != nil || old.FPS != nil || old.AudioLanguage != nil {
+		t.Fatalf("%+v %v", old, err)
+	}
+	old.Path = "new.mkv"
+	old.Format = "mkv"
+	vc, ac, lang := "hevc", "opus", "fr-FR"
+	w, h, fps := 1080, 1920, 29.97
+	old.VideoCodec, old.AudioCodec, old.AudioLanguage = &vc, &ac, &lang
+	old.Width, old.Height, old.FPS = &w, &h, &fps
+	saved, err := repo.Save(ctx, old)
+	if err != nil || saved.ID != 100 {
+		t.Fatalf("%+v %v", saved, err)
+	}
+	got, err := repo.Get(ctx, saved.ID)
+	if err != nil || got.VideoCodec == nil || *got.VideoCodec != vc || got.FPS == nil || *got.FPS != fps ||
+		got.AudioLanguage == nil || *got.AudioLanguage != lang {
+		t.Fatalf("%+v %v", got, err)
+	}
+	for _, assignment := range []string{"width = 0", "height = -1", "fps = 0", "video_codec = ''", "audio_codec = ' '", "audio_language = ''"} {
+		if _, err := db.Exec("UPDATE media_files SET " + assignment + " WHERE id = 100"); err == nil {
+			t.Fatal(assignment)
+		}
 	}
 }

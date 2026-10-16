@@ -20,66 +20,34 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
+// Ces données synthétiques sont réservées aux tests du sélecteur natif.
+type mediaFormat struct {
+	ID                 string  `json:"format_id"`
+	Extension          string  `json:"ext"`
+	VideoCodec         string  `json:"vcodec"`
+	AudioCodec         string  `json:"acodec"`
+	Width              int     `json:"width"`
+	Height             int     `json:"height"`
+	FPS                float64 `json:"fps"`
+	Language           string  `json:"language"`
+	LanguagePreference int     `json:"language_preference"`
+	URL                string  `json:"url"`
+}
+
 func format(id, ext, vc, ac, language string, w, h int) mediaFormat {
 	return mediaFormat{ID: id, Extension: ext, VideoCodec: vc, AudioCodec: ac, Language: language, Width: w, Height: h, FPS: 30, URL: "https://example.test/media"}
 }
 
-func filteredDiscovery(t *testing.T, formats []mediaFormat, known string) ([]byte, error) {
+func nativeDiscovery(t *testing.T, formats []mediaFormat) []byte {
 	t.Helper()
-	d := mediaDiscovery{ID: "abcdefghijk", Extractor: "Youtube", LiveStatus: "not_live", Duration: 60, Formats: formats}
-	data, _ := json.Marshal(d)
-	var raw map[string]any
-	json.Unmarshal(data, &raw)
-	raw["title"] = "Deterministic media"
-	data, _ = json.Marshal(raw)
-	return filterMediaAudio(data, d, known)
-}
-
-func TestMediaAudioIdentity(t *testing.T) {
-	v := format("v", "mp4", "h264", "none", "", 1920, 1080)
-	en := format("en", "m4a", "none", "aac", "en", 0, 0)
-	fr := format("fr", "webm", "none", "opus", "fr", 0, 0)
-	combined := format("dub", "mp4", "h264", "aac", "fr", 1920, 1080)
-	for _, test := range []struct {
-		name    string
-		formats []mediaFormat
-		known   string
-		want    error
-	}{
-		{"ambiguous", []mediaFormat{v, en, fr}, "", media.ErrAudio},
-		{"known", []mediaFormat{v, en, fr}, "en", nil},
-		{"missing_original", []mediaFormat{v, fr}, "en", media.ErrSelection},
-		{"one_track", []mediaFormat{v, en}, "", nil},
-		{"combined_unknown", []mediaFormat{format("18", "mp4", "h264", "aac", "", 640, 360)}, "", nil},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := filteredDiscovery(t, test.formats, test.known)
-			if !errors.Is(err, test.want) {
-				t.Fatal(err)
-			}
-		})
-	}
-	// Un défaut et une autre piste de même langue restent ambigus sans signal original.
-	otherEn := en
-	otherEn.ID = "other-en"
-	otherEn.LanguagePreference = 5
-	if _, err := filteredDiscovery(t, []mediaFormat{v, en, otherEn}, ""); !errors.Is(err, media.ErrAudio) {
-		t.Fatal(err)
-	}
-	en.LanguagePreference = 10
-	data, err := filteredDiscovery(t, []mediaFormat{v, en, fr, combined}, "fr")
+	data, err := json.Marshal(map[string]any{
+		"id": "abcdefghijk", "extractor_key": "Youtube", "live_status": "not_live",
+		"duration": 60, "formats": formats, "title": "Deterministic media",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var d mediaDiscovery
-	json.Unmarshal(data, &d)
-	if len(d.Formats) != 2 || d.Formats[1].ID != "en" {
-		t.Fatalf("%s", data)
-	}
-	fr.LanguagePreference = 10
-	if _, err := filteredDiscovery(t, []mediaFormat{v, en, fr}, ""); !errors.Is(err, media.ErrAudio) {
-		t.Fatal(err)
-	}
+	return data
 }
 
 // TestNativeMediaSelection exerce le véritable sélecteur sur des métadonnées locales, sans réseau.
@@ -98,13 +66,10 @@ func TestNativeMediaSelection(t *testing.T) {
 		{"prefer_1080", []mediaFormat{format("720", "mp4", "h264", "none", "", 1280, 720), format("1080", "webm", "vp9", "none", "", 1920, 1080), format("2160", "mp4", "av1", "none", "", 3840, 2160)}, "1080"},
 		{"vertical", []mediaFormat{format("720", "mp4", "h264", "none", "", 720, 1280), format("1080", "webm", "vp9", "none", "", 1080, 1920)}, "1080"},
 		{"higher_fallback", []mediaFormat{format("1440", "webm", "vp9", "none", "", 2560, 1440), format("2160", "mp4", "av1", "none", "", 3840, 2160)}, "1440"},
-		{"combined_dub_excluded", []mediaFormat{format("v", "mp4", "h264", "none", "", 1280, 720), format("dub", "mp4", "h264", "aac", "fr", 1920, 1080)}, "v"},
+		{"combined_dub_accepted", []mediaFormat{format("v", "mp4", "h264", "none", "", 1280, 720), format("dub", "mp4", "h264", "aac", "fr", 1920, 1080)}, "dub"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			data, err := filteredDiscovery(t, append(test.videos, audio), "")
-			if err != nil {
-				t.Fatal(err)
-			}
+			data := nativeDiscovery(t, append(test.videos, audio))
 			path := filepath.Join(t.TempDir(), "info.json")
 			os.WriteFile(path, data, 0600)
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -115,11 +80,12 @@ func TestNativeMediaSelection(t *testing.T) {
 			}
 			var selected struct {
 				Formats []mediaFormat `json:"requested_formats"`
+				ID      string        `json:"format_id"`
 			}
 			if err := json.Unmarshal(output, &selected); err != nil {
 				t.Fatal(err)
 			}
-			if len(selected.Formats) != 2 || selected.Formats[0].ID != test.want || selected.Formats[1].ID != "a" {
+			if selected.ID != test.want && (len(selected.Formats) != 2 || selected.Formats[0].ID != test.want || selected.Formats[1].ID != "a") {
 				t.Fatalf("%s", output)
 			}
 		})
@@ -260,9 +226,10 @@ func TestWebMRejectsMatroskaDespiteSharedProbeDemuxer(t *testing.T) {
 
 func TestProbeTimeoutRemainsDownloadTimeout(t *testing.T) {
 	stage := t.TempDir()
-	discovery := `{"id":"abcdefghijk","extractor_key":"Youtube","live_status":"not_live","duration":10,"formats":[{"format_id":"18","ext":"mp4","vcodec":"avc1","acodec":"mp4a","width":640,"height":360,"url":"https://example.test/media"}]}`
+	output := "source:{\"id\":\"abcdefghijk\",\"extractor_key\":\"Youtube\",\"live_status\":\"not_live\"}\n" +
+		"result:{\"file\":{\"id\":\"abcdefghijk\",\"extractor_key\":\"Youtube\",\"live_status\":\"not_live\",\"acodec\":\"aac\",\"filepath\":\"" + stage + "/media.mp4\"},\"tracks\":[]}\n"
 	downloader := filepath.Join(stage, "download")
-	script := "#!/bin/sh\ncase \"$*\" in *--dump-single-json*) printf '%s' '" + discovery + "';; *) printf complete > '" + stage + "/media.mp4'; printf '\"%s\"' '" + stage + "/media.mp4';; esac\n"
+	script := "#!/bin/sh\nprintf complete > '" + stage + "/media.mp4'\nprintf '%s' '" + output + "'\n"
 	if err := os.WriteFile(downloader, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -278,50 +245,186 @@ func TestProbeTimeoutRemainsDownloadTimeout(t *testing.T) {
 	}
 }
 
-// TestUnavailableOriginalNeverReextracts couvre le repli implicite de --load-info-json.
-func TestUnavailableOriginalNeverReextracts(t *testing.T) {
+// TestNativeAcquisitionProtocol exerce filtres, assemblage et projections JSON du vrai
+// exécutable avec des octets synthétiques locaux ; aucune dépendance à YouTube.
+func TestNativeAcquisitionProtocol(t *testing.T) {
+	for _, tool := range []string{"yt-dlp", "ffmpeg", "ffprobe"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skip(tool + " unavailable")
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	dir := t.TempDir()
+	full := filepath.Join(dir, "combined.mp4")
+	if _, err := mediaCommand(ctx, "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=320x180:r=25", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "2", "-c:v", "libx264", "-c:a", "aac", full); err != nil {
+		t.Fatal(err)
+	}
+	for _, part := range []struct{ name, flag string }{{"video.mp4", "-an"}, {"audio.m4a", "-vn"}} {
+		if _, err := mediaCommand(ctx, "ffmpeg", "-v", "error", "-i", full, part.flag, "-c", "copy", filepath.Join(dir, part.name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		http.ServeFile(w, r, filepath.Join(dir, filepath.Base(r.URL.Path)))
+	}))
+	defer server.Close()
+	for _, test := range []struct {
+		name, status, id string
+		split            bool
+		want             error
+	}{
+		{"combined", "not_live", "abcdefghijk", false, nil},
+		{"split", "was_live", "abcdefghijk", true, nil},
+		{"live", "is_live", "abcdefghijk", false, media.ErrUnfinished},
+		{"upcoming", "is_upcoming", "abcdefghijk", false, media.ErrUnfinished},
+		{"processing", "post_live", "abcdefghijk", false, media.ErrUnfinished},
+		{"unknown", "", "abcdefghijk", false, media.ErrUnfinished},
+		{"wrong_identity", "not_live", "wrongid1234", false, media.ErrInvalid},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stage := t.TempDir()
+			combined := format("combined", "mp4", "h264", "aac", "fr-FR", 320, 180)
+			combined.URL = server.URL + "/combined.mp4"
+			formats := []mediaFormat{combined}
+			if test.split {
+				v := format("v", "mp4", "h264", "none", "de", 320, 180)
+				a := format("a", "m4a", "none", "aac", "en-US", 0, 0)
+				v.URL, a.URL = server.URL+"/video.mp4", server.URL+"/audio.m4a"
+				formats = []mediaFormat{v, a}
+			}
+			data, _ := json.Marshal(map[string]any{
+				"id": test.id, "extractor_key": "Youtube", "live_status": test.status,
+				"title": "Synthetic", "formats": formats,
+				// La durée distante manque volontairement.
+			})
+			input := filepath.Join(stage, "input.json")
+			if err := os.WriteFile(input, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			args := mediaDownloadArgs("abcdefghijk", stage)
+			// Seule l'extraction réseau est remplacée par une fixture ; filtres et sorties
+			// sont exactement ceux de production, dans la même invocation.
+			args = append(args[:len(args)-2], "--load-info-json", input)
+			before := requests.Load()
+			output, err := mediaCommand(ctx, "yt-dlp", args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			info, language, err := parseMediaOutput(output, "abcdefghijk")
+			if !errors.Is(err, test.want) {
+				t.Fatalf("%v output=%s", err, output)
+			}
+			if test.want != nil {
+				if requests.Load() != before {
+					t.Fatal("rejected video downloaded bytes")
+				}
+				return
+			}
+			wantLanguage := "fr-FR"
+			if test.split {
+				wantLanguage = "en-US"
+			}
+			if language == nil || *language != wantLanguage {
+				t.Fatalf("language=%v output=%s", language, output)
+			}
+			probe, err := mediaCommand(ctx, "ffprobe", "-v", "error", "-show_format", "-show_streams", "-of", "json", info.Path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			acquired, err := validateProbe(probe, info.Path, strings.TrimPrefix(filepath.Ext(info.Path), "."), info.Duration, nil)
+			if err != nil {
+				t.Fatalf("%v: %s", err, probe)
+			}
+			if acquired.VideoCodec == nil || *acquired.VideoCodec != "h264" || acquired.AudioCodec == nil || *acquired.AudioCodec != "aac" ||
+				acquired.Width == nil || *acquired.Width != 320 || acquired.Height == nil || *acquired.Height != 180 || acquired.FPS == nil || *acquired.FPS != 25 {
+				t.Fatalf("missing measured metadata: %+v", acquired)
+			}
+		})
+	}
+}
+
+func TestSelectedAudioLanguageAndProtocol(t *testing.T) {
+	source := "source:{\"id\":\"abcdefghijk\",\"extractor_key\":\"Youtube\",\"live_status\":\"not_live\"}\n"
+	for _, test := range []struct{ name, language, tracks, want string }{
+		{"combined", "fr-FR", `[]`, "fr-FR"},
+		{"unknown", "", `[]`, ""},
+		{"undefined", "und", `[]`, ""},
+		{"invalid", "English audio", `[]`, ""},
+		{"split_ignores_aggregate", "de+fr", `[{"acodec":"none","language":"de"},{"acodec":"opus","language":"en-US"}]`, "en-US"},
+		{"split_unknown", "en-US", `[{"acodec":"none"},{"acodec":"opus"}]`, ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			info, _ := json.Marshal(mediaInfo{ID: "abcdefghijk", Extractor: "Youtube", LiveStatus: "not_live", Path: "/tmp/media.mp4", AudioCodec: "aac", Language: test.language})
+			output := source + "result:{\"file\":" + string(info) + ",\"tracks\":" + test.tracks + "}\n"
+			_, lang, err := parseMediaOutput([]byte(output), "abcdefghijk")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.want == "" && lang != nil || test.want != "" && (lang == nil || *lang != test.want) {
+				t.Fatalf("language=%v", lang)
+			}
+			if _, _, err := parseMediaOutput([]byte(output+output), "abcdefghijk"); !errors.Is(err, media.ErrInvalid) {
+				t.Fatal("duplicate result accepted")
+			}
+		})
+	}
+	if _, _, err := parseMediaOutput([]byte(source), "abcdefghijk"); !errors.Is(err, media.ErrInvalid) {
+		t.Fatal("missing final result accepted")
+	}
+}
+
+func TestAverageFPS(t *testing.T) {
+	for _, invalid := range []string{"", "0/0", "25/0", "-25/1", "NaN/1", "Inf/1", "25", "N/A"} {
+		if averageFPS(invalid) != nil {
+			t.Fatal(invalid)
+		}
+	}
+	fps := averageFPS("30000/1001")
+	if fps == nil || *fps < 29.97 || *fps > 29.971 {
+		t.Fatal(fps)
+	}
+}
+
+// TestNativeAudioPreference garde le choix original comme observation, pas comme filtre Sillage.
+func TestNativeAudioPreference(t *testing.T) {
 	binary, err := exec.LookPath("yt-dlp")
 	if err != nil {
 		t.Skip("yt-dlp unavailable")
 	}
-	var forbidden atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/original" {
-			forbidden.Add(1)
-		}
-		http.NotFound(w, r)
-	}))
-	defer server.Close()
-	original := format("18", "mp4", "h264", "aac", "en", 640, 360)
+	v := format("v", "mp4", "h264", "none", "", 1920, 1080)
+	original := format("original", "webm", "none", "opus", "en-US", 0, 0)
 	original.LanguagePreference = 10
-	original.URL = server.URL + "/original"
-	dub := format("dub", "mp4", "h264", "aac", "fr", 1920, 1080)
-	dub.URL = server.URL + "/dub"
-	d := mediaDiscovery{ID: "abcdefghijk", Type: "video", Extractor: "Youtube", Duration: 60, LiveStatus: "not_live", Formats: []mediaFormat{original, dub}}
-	data, _ := json.Marshal(d)
-	var raw map[string]any
-	json.Unmarshal(data, &raw)
-	raw["title"] = "Unavailable original"
-	raw["webpage_url"] = server.URL + "/fallback"
-	raw["url"] = dub.URL
-	data, _ = json.Marshal(raw)
-	data, err = filterMediaAudio(data, d, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir := t.TempDir()
-	path := filepath.Join(dir, "info.json")
-	if err := os.WriteFile(path, data, 0600); err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	_, err = mediaCommand(ctx, binary, "--ignore-config", "--no-cache-dir", "--load-info-json", path,
-		"--no-simulate", "--retries", "0", "--socket-timeout", "2", "-S", "res:1080", "-f", "bv*+ba/b", "-o", filepath.Join(dir, "media.%(ext)s"))
-	if err == nil {
-		t.Fatal("unavailable original succeeded")
-	}
-	if forbidden.Load() != 0 {
-		t.Fatal("audio policy bypassed through reextraction or dub")
+	dub := format("dub", "webm", "none", "opus", "fr-FR", 0, 0)
+	dub.LanguagePreference = -1
+	for _, originalPresent := range []bool{true, false} {
+		formats := []mediaFormat{v, dub}
+		want := "fr-FR"
+		if originalPresent {
+			formats = append(formats, original)
+			want = "en-US"
+		}
+		dir := t.TempDir()
+		path := filepath.Join(dir, "info.json")
+		if err := os.WriteFile(path, nativeDiscovery(t, formats), 0600); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		output, err := mediaCommand(ctx, binary, "--ignore-config", "--no-cache-dir", "--simulate", "--dump-single-json", "--load-info-json", path, "-S", "res:1080", "-f", "bv*+ba/b")
+		cancel()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var result struct {
+			Formats []selectedAudio `json:"requested_formats"`
+		}
+		if err := json.Unmarshal(output, &result); err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Formats) != 2 || result.Formats[1].Language != want {
+			t.Fatalf("%s", output)
+		}
 	}
 }

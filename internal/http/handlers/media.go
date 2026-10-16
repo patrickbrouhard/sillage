@@ -31,11 +31,17 @@ type MediaHandler struct{ service MediaService }
 func NewMediaHandler(service MediaService) *MediaHandler { return &MediaHandler{service: service} }
 
 type mediaResponse struct {
-	ID         int64     `json:"id"`
-	Format     string    `json:"format"`
-	Size       int64     `json:"size"`
-	DurationMS int64     `json:"duration_ms"`
-	AddedAt    time.Time `json:"added_at"`
+	VideoCodec    *string   `json:"video_codec"`
+	AudioCodec    *string   `json:"audio_codec"`
+	Width         *int      `json:"width"`
+	Height        *int      `json:"height"`
+	FPS           *float64  `json:"fps"`
+	AudioLanguage *string   `json:"audio_language"`
+	ID            int64     `json:"id"`
+	Format        string    `json:"format"`
+	Size          int64     `json:"size"`
+	DurationMS    int64     `json:"duration_ms"`
+	AddedAt       time.Time `json:"added_at"`
 }
 type downloadResponse struct {
 	Status    string         `json:"status"`
@@ -51,7 +57,11 @@ func mediaDTO(f *media.File) *mediaResponse {
 	if f == nil {
 		return nil
 	}
-	return &mediaResponse{ID: f.ID, Format: f.Format, Size: f.Size, DurationMS: f.DurationMS, AddedAt: f.AddedAt}
+	return &mediaResponse{
+		ID: f.ID, Format: f.Format, Size: f.Size, DurationMS: f.DurationMS, AddedAt: f.AddedAt,
+		VideoCodec: f.VideoCodec, AudioCodec: f.AudioCodec,
+		Width: f.Width, Height: f.Height, FPS: f.FPS, AudioLanguage: f.AudioLanguage,
+	}
 }
 
 func downloadDTO(state media.State) downloadResponse {

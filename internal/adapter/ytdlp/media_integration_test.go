@@ -2,6 +2,7 @@ package ytdlp
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -21,5 +22,6 @@ func TestYouTubeMediaIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("YouTube %s: format=%s duration=%d ms size=%d bytes", id, result.Format, result.DurationMS, result.Size)
+	data, _ := json.Marshal(result)
+	t.Logf("YouTube %s: %s", id, data)
 }
