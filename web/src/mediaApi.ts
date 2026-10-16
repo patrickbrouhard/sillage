@@ -5,6 +5,12 @@ export interface MediaFile {
   size: number
   duration_ms: number
   added_at: string
+  video_codec: string | null
+  audio_codec: string | null
+  width: number | null
+  height: number | null
+  fps: number | null
+  audio_language: string | null
 }
 
 /** État local de conservation, distinct d'une erreur de consultation. */
@@ -19,8 +25,6 @@ const messages: Record<string, string> = {
   download_timeout: 'Le délai de téléchargement est dépassé. Vous pouvez réessayer.',
   download_interrupted: 'Le téléchargement a été interrompu.',
   download_failed: 'Le téléchargement du média a échoué. Vous pouvez réessayer.',
-  media_format_unavailable: 'Aucune représentation vidéo et audio admissible n’est disponible.',
-  media_audio_ambiguous: 'Plusieurs pistes audio sont possibles. Sillage ne peut pas identifier l’audio original de façon fiable.',
   media_unfinished: 'Cette vidéo n’est pas encore disponible comme vidéo terminée.',
   media_duration_mismatch: 'La durée du fichier ne correspond pas suffisamment à celle de la source. Le fichier n’a pas été conservé.',
   media_invalid: 'Le fichier obtenu n’a pas passé les contrôles de validation.',
@@ -48,6 +52,11 @@ export class MediaError extends Error {
 function validMedia(value: unknown): value is MediaFile {
   if (!value || typeof value !== 'object') return false
   const f = value as MediaFile
+  const text = (value: unknown) => value === null || (typeof value === 'string' && value.trim().length > 0)
+  const dimension = (value: unknown) => value === null || (typeof value === 'number' && Number.isSafeInteger(value) && value > 0)
+  if (!text(f.video_codec) || !text(f.audio_codec) || !text(f.audio_language) ||
+    !dimension(f.width) || !dimension(f.height) ||
+    !(f.fps === null || (typeof f.fps === 'number' && Number.isFinite(f.fps) && f.fps > 0))) return false
   return Number.isSafeInteger(f.id) && f.id > 0 && typeof f.format === 'string' && f.format.trim().length > 0 &&
     Number.isSafeInteger(f.size) && f.size > 0 && Number.isSafeInteger(f.duration_ms) &&
     f.duration_ms > 0 && typeof f.added_at === 'string' && Number.isFinite(Date.parse(f.added_at))

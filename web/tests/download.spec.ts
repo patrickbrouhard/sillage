@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 
-const file = { id: 17, format: 'mkv', size: 2_000_000, duration_ms: 125_000, added_at: '2026-10-15T12:00:00.000Z' }
+const file = { id: 17, format: 'mkv', size: 2_000_000, duration_ms: 125_000, added_at: '2026-10-15T12:00:00.000Z', video_codec: 'av1', audio_codec: 'opus', width: 1080, height: 1920, fps: 29.97003, audio_language: 'en-US' }
 const absent = { status: 'not_downloaded', media_file: null, error: null }
 const active = { status: 'downloading', media_file: null, error: null }
 const available = { status: 'available', media_file: file, error: null }
@@ -14,7 +14,14 @@ test('téléchargement réel simulé, rechargement et suppression préservent la
   await page.getByRole('button', { name: 'Télécharger', exact: true }).click()
   await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
   const downloaded = (await (await request.get(downloadURL)).json()).media_file
-  expect(downloaded.format).toBe('mkv')
+  expect(downloaded).toMatchObject({ format: 'mkv', video_codec: 'h264', audio_codec: 'aac',
+    width: 640, height: 360, audio_language: 'fr-FR' })
+  expect(downloaded.fps).toBeCloseTo(30000 / 1001)
+  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  const metadata = page.getByRole('region', { name: 'Fichier local', exact: true })
+  await expect(metadata).toContainText('640 × 360')
+  await expect(metadata).toContainText('fr-FR')
+  await expect(metadata).toContainText('29,97 images/s')
   const first = downloaded.id
   await page.reload()
   await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
@@ -95,7 +102,7 @@ test('erreur de consultation distincte, fichier manquant supprimable et échec d
   await page.route('**/download', route => {
     if (mode === 'network') return route.abort()
     if (mode === 'missing') return route.fulfill({ status: 409, json: { error: { code: 'local_media_unavailable' }, media_file: file } })
-    return route.fulfill({ json: { status: 'failed', media_file: null, error: { code: 'media_audio_ambiguous', message: 'internal' } } })
+    return route.fulfill({ json: { status: 'failed', media_file: null, error: { code: 'media_unfinished', message: 'internal' } } })
   })
   await page.route('**/media-files/*', route => { deletes++; mode = 'failed'; return route.fulfill({ status: 204 }) })
   await page.goto(`/videos/${video.id}`)
@@ -106,7 +113,7 @@ test('erreur de consultation distincte, fichier manquant supprimable et échec d
   await expect(page.getByText(/Le fichier enregistré est absent/)).toBeVisible()
   await page.getByRole('button', { name: 'Supprimer le fichier local' }).click()
   await page.getByRole('button', { name: 'Confirmer la suppression' }).click()
-  await expect(page.getByText(/Plusieurs pistes audio sont possibles/)).toBeVisible()
+  await expect(page.getByText(/Cette vidéo n’est pas encore disponible/)).toBeVisible()
   expect(deletes).toBe(1)
 })
 
@@ -128,4 +135,34 @@ test('serveur occupé et suppression refusée restent visibles sans réessai aut
   await page.getByRole('button', { name: 'Supprimer le fichier local' }).click()
   await page.getByRole('button', { name: 'Confirmer la suppression' }).click()
   await expect(page.getByText(/Une erreur interne empêche cette opération/)).toBeVisible()
+})
+
+
+test('métadonnées locales partagent la consultation et présentent les inconnues des anciens fichiers', async ({ page, request }) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trdl0000006' } })).json()
+  let gets = 0
+  let legacy = false
+  await page.route('**/download', route => {
+    gets++
+    return route.fulfill({ json: { ...available, media_file: legacy ? {
+      ...file, video_codec: null, audio_codec: null, width: null, height: null, fps: null, audio_language: null,
+    } : file } })
+  })
+  await page.goto('/videos/' + video.id)
+  await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
+  const before = gets
+  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  const metadata = page.getByRole('region', { name: 'Fichier local', exact: true })
+  await expect(metadata).toContainText('1080 × 1920')
+  await expect(metadata).toContainText('en-US')
+  await expect(metadata).toContainText('av1')
+  await expect(metadata).toContainText('opus')
+  expect(gets).toBe(before)
+  legacy = true
+  await page.reload()
+  await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
+  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  await expect(metadata).toContainText('Inconnues')
+  await expect(metadata).not.toContainText('1080')
+  await expect(metadata).not.toContainText('en-US')
 })
