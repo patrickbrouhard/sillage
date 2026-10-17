@@ -18,6 +18,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
 	"github.com/patrickbrouhard/sillage/internal/asset"
 	api "github.com/patrickbrouhard/sillage/internal/http"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/note"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
@@ -32,10 +33,22 @@ type config struct {
 	postTimeout     time.Duration
 	downloadTimeout time.Duration
 	webDir          string
+	logLevel        string
+	logFormat       string
 }
 
 func loadConfig() (config, error) {
 	cfg := config{addr: "127.0.0.1:8080", postTimeout: 60 * time.Second, downloadTimeout: 6 * time.Hour}
+	cfg.logLevel, cfg.logFormat = "INFO", "text"
+	if value, ok := os.LookupEnv("SILLAGE_LOG_LEVEL"); ok {
+		cfg.logLevel = value
+	}
+	if value, ok := os.LookupEnv("SILLAGE_LOG_FORMAT"); ok {
+		cfg.logFormat = value
+	}
+	if _, err := logging.New(os.Stdout, cfg.logLevel, cfg.logFormat); err != nil {
+		return config{}, err
+	}
 	cfg.webDir = os.Getenv("SILLAGE_WEB_DIR")
 	if v, ok := os.LookupEnv("SILLAGE_HTTP_ADDR"); ok {
 		cfg.addr = v
@@ -55,14 +68,13 @@ func loadConfig() (config, error) {
 		cfg.downloadTimeout = duration
 	}
 	if _, _, err := net.SplitHostPort(cfg.addr); err != nil {
-		return config{}, fmt.Errorf("invalid SILLAGE_HTTP_ADDR: %w", err)
+		return config{}, fmt.Errorf("invalid SILLAGE_HTTP_ADDR")
 	}
 	return cfg, nil
 }
 
 func main() {
 	if err := runMain(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -70,11 +82,15 @@ func main() {
 func runMain() error {
 	cfg, err := loadConfig()
 	if err != nil {
+		// Le format de secours est déterministe si la configuration est invalide.
+		logger, _ := logging.New(os.Stdout, "INFO", "json")
+		logger.Error("Server configuration failed", "event", "server.configuration_failed", "reason", err.Error())
 		return err
 	}
+	logger, _ := logging.New(os.Stdout, cfg.logLevel, cfg.logFormat)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return run(ctx, cfg)
+	return run(logging.WithLogger(ctx, logger), cfg)
 }
 
 // newHTTPServer borne les lectures sans couper la réponse du timeout applicatif.
@@ -91,7 +107,18 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 }
 
 // run crée le dossier de données fixe ; aucune ancienne base n'est déplacée.
-func run(ctx context.Context, cfg config) error {
+func run(ctx context.Context, cfg config) (result error) {
+	logger := logging.From(ctx).With("component", "server")
+	phase := "database"
+	logger.InfoContext(ctx, "Server starting", "event", "server.starting")
+	defer func() {
+		if result != nil {
+			logger.ErrorContext(ctx, "Server failed", "event", "server.failed", "stage", phase, logging.Error(result))
+		} else {
+			logger.InfoContext(ctx, "Server stopped", "event", "server.stopped")
+		}
+	}()
+
 	if err := os.MkdirAll(filepath.Dir(databasePath), 0700); err != nil {
 		return fmt.Errorf("create database directory: %w", err)
 	}
@@ -109,6 +136,7 @@ func run(ctx context.Context, cfg config) error {
 		provider,
 		filesystem.NewTranscripts("data/transcripts", ytdlp.ParseJSON3),
 	)
+	phase = "media_recovery"
 	downloads, err := media.NewService(
 		ctx, videos, sqlite.NewMediaRepository(db), filesystem.NewMedia("data/media"),
 		ytdlp.MediaClient{}, cfg.downloadTimeout,
@@ -117,6 +145,7 @@ func run(ctx context.Context, cfg config) error {
 		return fmt.Errorf("initialize media: %w", err)
 	}
 	defer downloads.Close()
+	phase = "capture_recovery"
 	captures, err := asset.NewService(ctx, videos, sqlite.NewAssetRepository(db), downloads, ytdlp.CaptureClient{}, filesystem.NewAssets("data/assets"), 2*time.Minute)
 	if err != nil {
 		return fmt.Errorf("initialize captures: %w", err)
@@ -134,6 +163,7 @@ func run(ctx context.Context, cfg config) error {
 		captures,
 	)
 	// Le build est facultatif pour garder le lancement API seul indépendant de Node.
+	phase = "frontend"
 	if cfg.webDir != "" {
 		root, err := os.OpenRoot(cfg.webDir)
 		if err != nil {
@@ -145,12 +175,16 @@ func run(ctx context.Context, cfg config) error {
 			return err
 		}
 	}
-	server := newHTTPServer(cfg.addr, handler)
+	server := newHTTPServer(cfg.addr, api.WithLogging(logging.From(ctx), handler))
+	server.ErrorLog = api.ServerErrorLog(logger)
 	server.BaseContext = func(net.Listener) context.Context { return ctx }
+	phase = "listen"
 	listener, err := net.Listen("tcp", cfg.addr)
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
+	phase = "serve"
+	logger.InfoContext(ctx, "Server ready", "event", "server.ready")
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(listener) }()
 	select {
@@ -160,6 +194,8 @@ func run(ctx context.Context, cfg config) error {
 		}
 		return err
 	case <-ctx.Done():
+		phase = "shutdown"
+		logger.InfoContext(ctx, "Server stopping", "event", "server.stopping")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {

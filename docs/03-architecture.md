@@ -1280,3 +1280,18 @@ Le groupe de processus, le délai et le nettoyage temporaire existants sont cons
 useVideoDownload possède la consultation unique ; VideoDownload et LocalFileDetails
 la partagent. Les propriétés ajoutées sont aussi présentes dans les erreurs
 local_media_unavailable, afin de décrire un fichier enregistré devenu indisponible.
+
+
+## Journalisation HTTP
+
+Le logger slog est construit au point de composition et porté par le contexte.
+internal/logging ne connaît ni HTTP ni les adapters. Les objets métier restent
+indépendants de la journalisation. Les services ne lisent pas le contexte Chi.
+
+Le middleware extérieur couvre l'API et la SPA avec RequestLogger et Recoverer
+de Chi. Les handlers enrichissent une seule entrée HTTP avec un code public et
+un diagnostic sûr. Le modèle de route est récupéré après résolution ; aucune URL
+arbitraire n'est journalisée. Les panics n'exposent pas leur valeur. Le writer
+Chi conserve les capacités de réponse ; HEAD, Range, flush progressif et hijack
+sont vérifiés. Une requête abandonnée sans réponse n'est pas comptée comme 200.
+Les crashes du runtime peuvent rester sur stderr hors de ce mécanisme.

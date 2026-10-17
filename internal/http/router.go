@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/patrickbrouhard/sillage/internal/http/handlers"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 )
 
 // NewRouter expose vidéos, notes, tags et transcriptions sous le préfixe versionné.
@@ -22,6 +23,12 @@ func NewRouter(
 	captures ...handlers.AssetService,
 ) http.Handler {
 	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() { requestlog.Route(r, chi.RouteContext(r.Context()).RoutePattern()) }()
+			next.ServeHTTP(w, r)
+		})
+	})
 	h := handlers.NewVideoHandler(service, postTimeout)
 	t := handlers.NewTranscriptHandler(transcripts, postTimeout)
 	k := handlers.NewKnowledgeHandler(notes, tags)

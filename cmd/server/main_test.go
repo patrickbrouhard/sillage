@@ -21,7 +21,7 @@ import (
 
 func clearConfig(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"SILLAGE_HTTP_ADDR", "SILLAGE_POST_TIMEOUT", "SILLAGE_WEB_DIR", "SILLAGE_DOWNLOAD_TIMEOUT"} {
+	for _, key := range []string{"SILLAGE_HTTP_ADDR", "SILLAGE_POST_TIMEOUT", "SILLAGE_WEB_DIR", "SILLAGE_DOWNLOAD_TIMEOUT", "SILLAGE_LOG_LEVEL", "SILLAGE_LOG_FORMAT"} {
 		t.Setenv(key, "")
 		if err := os.Unsetenv(key); err != nil {
 			t.Fatal(err)
@@ -256,5 +256,23 @@ func TestMediaStorageFaultDoesNotStopHTTPInitialization(t *testing.T) {
 	// L'adresse occupée est atteinte seulement si l'initialisation média a laissé le serveur continuer.
 	if err == nil || !strings.Contains(err.Error(), "address already in use") {
 		t.Fatalf("server stopped before HTTP: %v", err)
+	}
+}
+
+func TestLoggingConfig(t *testing.T) {
+	clearConfig(t)
+	cfg, err := loadConfig()
+	if err != nil || cfg.logLevel != "INFO" || cfg.logFormat != "text" {
+		t.Fatal(cfg, err)
+	}
+	t.Setenv("SILLAGE_LOG_FORMAT", "json")
+	t.Setenv("SILLAGE_LOG_LEVEL", "DEBUG")
+	cfg, err = loadConfig()
+	if err != nil || cfg.logFormat != "json" || cfg.logLevel != "DEBUG" {
+		t.Fatal(cfg, err)
+	}
+	t.Setenv("SILLAGE_LOG_LEVEL", "PRIVATE")
+	if _, err = loadConfig(); err == nil || strings.Contains(err.Error(), "PRIVATE") {
+		t.Fatal(err)
 	}
 }

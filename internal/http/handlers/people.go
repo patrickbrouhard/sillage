@@ -110,7 +110,7 @@ func (h *PeopleHandler) ResolvePublisher(w http.ResponseWriter, r *http.Request)
 		status = http.StatusCreated
 		w.Header().Set("Location", "/api/v1/publishers/"+strconv.FormatInt(int64(result.Publisher.ID), 10))
 	}
-	writeJSON(w, status, toPublisherResponse(result.Publisher))
+	writeJSON(w, r, status, toPublisherResponse(result.Publisher))
 }
 
 // ListPublishers restitue le catalogue local, y compris les comptes sans vidéos.
@@ -120,15 +120,15 @@ func (h *PeopleHandler) ListPublishers(w http.ResponseWriter, r *http.Request) {
 		respondPeopleError(w, r, err)
 		return
 	}
-	writePublishers(w, items)
+	writePublishers(w, r, items)
 }
 
-func writePublishers(w http.ResponseWriter, items []video.Publisher) {
+func writePublishers(w http.ResponseWriter, r *http.Request, items []video.Publisher) {
 	result := make([]publisherResponse, 0, len(items))
 	for _, p := range items {
 		result = append(result, toPublisherResponse(p))
 	}
-	writeJSON(w, 200, struct {
+	writeJSON(w, r, 200, struct {
 		Publishers []publisherResponse `json:"publishers"`
 	}{result})
 }
@@ -144,7 +144,7 @@ func (h *PeopleHandler) GetPublisher(w http.ResponseWriter, r *http.Request) {
 		respondPeopleError(w, r, err)
 		return
 	}
-	writeJSON(w, 200, toPublisherResponse(p))
+	writeJSON(w, r, 200, toPublisherResponse(p))
 }
 
 // CreatePerson conserve des identités distinctes pour les homonymes.
@@ -161,7 +161,7 @@ func (h *PeopleHandler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Location", "/api/v1/persons/"+strconv.FormatInt(int64(p.ID), 10))
-	writeJSON(w, 201, toPersonResponse(p))
+	writeJSON(w, r, 201, toPersonResponse(p))
 }
 
 // RenamePerson adapte une correction de nom sans modifier les liens.
@@ -181,7 +181,7 @@ func (h *PeopleHandler) RenamePerson(w http.ResponseWriter, r *http.Request) {
 		respondPeopleError(w, r, err)
 		return
 	}
-	writeJSON(w, 200, toPersonResponse(p))
+	writeJSON(w, r, 200, toPersonResponse(p))
 }
 
 // ListPersons inclut les personnes sans compte ni vidéo.
@@ -195,7 +195,7 @@ func (h *PeopleHandler) ListPersons(w http.ResponseWriter, r *http.Request) {
 	for _, p := range items {
 		result = append(result, toPersonResponse(p))
 	}
-	writeJSON(w, 200, struct {
+	writeJSON(w, r, 200, struct {
 		Persons []personResponse `json:"persons"`
 	}{result})
 }
@@ -211,18 +211,18 @@ func (h *PeopleHandler) GetPerson(w http.ResponseWriter, r *http.Request) {
 		respondPeopleError(w, r, err)
 		return
 	}
-	writeJSON(w, 200, toPersonResponse(p))
+	writeJSON(w, r, 200, toPersonResponse(p))
 }
 
 // nullableID distingue un champ absent d'un retrait explicite par null.
-func nullableID(w http.ResponseWriter, raw json.RawMessage) (*int64, bool) {
+func nullableID(w http.ResponseWriter, r *http.Request, raw json.RawMessage) (*int64, bool) {
 	if len(raw) == 0 {
-		writeError(w, 400, "bad_request", "association field is required")
+		writeError(w, r, 400, "bad_request", "association field is required")
 		return nil, false
 	}
 	var id *int64
 	if err := json.Unmarshal(raw, &id); err != nil || (id != nil && *id <= 0) {
-		writeError(w, 400, "bad_request", "invalid association id")
+		writeError(w, r, 400, "bad_request", "invalid association id")
 		return nil, false
 	}
 	return id, true
@@ -232,7 +232,7 @@ func nullableID(w http.ResponseWriter, raw json.RawMessage) (*int64, bool) {
 func emptyBody(w http.ResponseWriter, r *http.Request) bool {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1))
 	if err != nil || len(body) != 0 {
-		writeError(w, 400, "bad_request", "request body must be empty")
+		writeError(w, r, 400, "bad_request", "request body must be empty")
 		return false
 	}
 	return true
@@ -250,7 +250,7 @@ func (h *PeopleHandler) SetPublisherPerson(w http.ResponseWriter, r *http.Reques
 	if !readKnowledgeJSON(w, r, 16<<10, &input) {
 		return
 	}
-	value, ok := nullableID(w, input.PersonID)
+	value, ok := nullableID(w, r, input.PersonID)
 	if !ok {
 		return
 	}
@@ -282,7 +282,7 @@ func (h *PeopleHandler) SetSourcePublisher(w http.ResponseWriter, r *http.Reques
 	if !readKnowledgeJSON(w, r, 16<<10, &input) {
 		return
 	}
-	value, ok := nullableID(w, input.PublisherID)
+	value, ok := nullableID(w, r, input.PublisherID)
 	if !ok {
 		return
 	}
@@ -329,7 +329,7 @@ func (h *PeopleHandler) PublisherVideos(w http.ResponseWriter, r *http.Request) 
 		respondPeopleError(w, r, err)
 		return
 	}
-	writeVideos(w, items)
+	writeVideos(w, r, items)
 }
 
 // PersonPublishers expose les comptes dont la personne est la référence.
@@ -343,7 +343,7 @@ func (h *PeopleHandler) PersonPublishers(w http.ResponseWriter, r *http.Request)
 		respondPeopleError(w, r, err)
 		return
 	}
-	writePublishers(w, items)
+	writePublishers(w, r, items)
 }
 
 // PersonVideos valide un seul mode de navigation, sans fusionner les associations.
@@ -354,13 +354,13 @@ func (h *PeopleHandler) PersonVideos(w http.ResponseWriter, r *http.Request) {
 	}
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		writeError(w, 400, "bad_request", "invalid query")
+		writeError(w, r, 400, "bad_request", "invalid query")
 		return
 	}
 	relation := "all"
 	if values, present := query["relation"]; present {
 		if len(values) != 1 {
-			writeError(w, 400, "bad_request", "invalid relation")
+			writeError(w, r, 400, "bad_request", "invalid relation")
 			return
 		}
 		relation = values[0]
@@ -370,15 +370,15 @@ func (h *PeopleHandler) PersonVideos(w http.ResponseWriter, r *http.Request) {
 		respondPeopleError(w, r, err)
 		return
 	}
-	writeVideos(w, items)
+	writeVideos(w, r, items)
 }
 
-func writeVideos(w http.ResponseWriter, items []video.Video) {
+func writeVideos(w http.ResponseWriter, r *http.Request, items []video.Video) {
 	result := videoListResponse{Videos: make([]videoResponse, 0, len(items))}
 	for _, v := range items {
 		result.Videos = append(result.Videos, toVideoResponse(v))
 	}
-	writeJSON(w, 200, result)
+	writeJSON(w, r, 200, result)
 }
 
 // AddPublisherTags conserve les conventions de l'ajout additif sur les vidéos.
@@ -398,7 +398,7 @@ func (h *PeopleHandler) AddPublisherTags(w http.ResponseWriter, r *http.Request)
 		respondPeopleError(w, r, err)
 		return
 	}
-	writeJSON(w, 200, tagsResponse{Tags: toTagResponses(tags)})
+	writeJSON(w, r, 200, tagsResponse{Tags: toTagResponses(tags)})
 }
 
 // AddPersonTags ne propage aucun tag aux comptes ou vidéos associés.
@@ -418,7 +418,7 @@ func (h *PeopleHandler) AddPersonTags(w http.ResponseWriter, r *http.Request) {
 		respondPeopleError(w, r, err)
 		return
 	}
-	writeJSON(w, 200, tagsResponse{Tags: toTagResponses(tags)})
+	writeJSON(w, r, 200, tagsResponse{Tags: toTagResponses(tags)})
 }
 
 // RemovePublisherTag retire une association, jamais une entrée du catalogue.
@@ -462,13 +462,13 @@ func respondPeopleError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 	switch {
 	case errors.Is(err, video.ErrPublisherNotFound):
-		writeError(w, 404, "publisher_not_found", "publisher not found")
+		writeError(w, r, 404, "publisher_not_found", "publisher not found")
 	case errors.Is(err, video.ErrPersonNotFound):
-		writeError(w, 404, "person_not_found", "person not found")
+		writeError(w, r, 404, "person_not_found", "person not found")
 	case errors.Is(err, video.ErrVideoSourceNotFound):
-		writeError(w, 404, "video_source_not_found", "video source not found")
+		writeError(w, r, 404, "video_source_not_found", "video source not found")
 	case errors.Is(err, video.ErrInvalidInput):
-		writeError(w, 400, "bad_request", "invalid request")
+		writeError(w, r, 400, "bad_request", "invalid request")
 	default:
 		respondError(w, r, err)
 	}

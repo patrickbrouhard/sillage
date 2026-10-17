@@ -1602,3 +1602,13 @@ audio_language vient uniquement de l'audio sélectionné par yt-dlp, jamais du t
 ffprobe ni de VideoSource.original_audio_language. Les inférences internes de yt-dlp
 sont acceptées ; une différence avec l'original ne bloque pas le téléchargement.
 Aucun formulaire d'édition, filtre de recherche ou lecteur local n'est ajouté.
+
+
+### Journalisation structurée
+
+Le serveur accepte SILLAGE_LOG_LEVEL=DEBUG|INFO|WARN|ERROR (INFO par défaut)
+et SILLAGE_LOG_FORMAT=text|json (text par défaut hors Docker), sur stdout.
+Le niveau est choisi au démarrage. GET/HEAD, polling et autosave réussis restent
+en DEBUG ; les anomalies restent visibles. X-Request-ID est généré côté serveur
+et permet de retrouver le bilan HTTP. Aucun corps ni stderr brut d'outil n'est
+journalisé ; les catégories techniques et codes de sortie restent disponibles.

@@ -1688,3 +1688,10 @@ Le plan en cinq incréments est approuvé : socle sûr, HTTP corrélé, opérati
 asynchrones, couverture ciblée et distribution. Premier jalon : les erreurs
 d'exécution yt-dlp conservent catégorie fermée, code de sortie et classifications
 Go, sans recopier stderr. Les règles de repli des captures restent inchangées.
+
+
+Jalon socle/HTTP : configuration slog, logger contextualisé, bilan unique Chi,
+identifiant serveur, catégories de routes et diagnostics de panic contrôlés.
+Les adaptations HTTP des incréments 1 et 2 sont regroupées pour éviter une
+migration intermédiaire. Les tests couvrent niveaux, confidentialité, HEAD,
+Range, streaming, hijack, annulation et panic. Migration asynchrone à suivre.

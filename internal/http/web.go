@@ -3,6 +3,7 @@ package http
 import (
 	"bytes"
 	"fmt"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"io/fs"
 	"net/http"
 	"path"
@@ -30,6 +31,7 @@ func NewWebHandler(api http.Handler, files fs.FS) (http.Handler, error) {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
+		requestlog.Route(r, "web")
 		name := strings.TrimPrefix(r.URL.Path, "/")
 		// Ne pas nettoyer un chemin invalide en le transformant en ressource valide.
 		if name != "" && !fs.ValidPath(name) {
@@ -46,6 +48,7 @@ func NewWebHandler(api http.Handler, files fs.FS) (http.Handler, error) {
 			if strings.HasPrefix(name, "assets/") {
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			}
+			requestlog.Route(r, "static")
 			static.ServeHTTP(w, r)
 			return
 		}
