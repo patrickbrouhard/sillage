@@ -129,6 +129,7 @@ func TestCaptureYouTubeIntegration(t *testing.T) {
 		{"uJMjlKksSks", 120000},
 		{"uJMjlKksSks", 73479},
 		{"CcsgednSRfE", 301000},
+		{"G2B0YWuJUgI", 95140},
 	} {
 		t.Run(target.id, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -352,6 +353,77 @@ func TestCaptureHLSFallbackBoundaries(t *testing.T) {
 				if _, err := os.Stat(filepath.Join(root, "frame.png")); !os.IsNotExist(err) {
 					t.Fatal("failed capture wrote image")
 				}
+			}
+		})
+	}
+}
+
+// TestCaptureNativeTransportSelection exerce les arguments de production avec le vrai
+// sélecteur yt-dlp sur des formats synthétiques, sans connexion à YouTube.
+func TestCaptureNativeTransportSelection(t *testing.T) {
+	binary, err := exec.LookPath("yt-dlp")
+	if err != nil {
+		t.Skip("yt-dlp unavailable")
+	}
+	makeFormat := func(id, protocol string, width, height, preference int) map[string]any {
+		return map[string]any{
+			"format_id": id, "url": "https://example.test/" + id, "protocol": protocol,
+			"width": width, "height": height, "vcodec": "h264", "acodec": "none",
+			"ext": "mp4", "fps": 30, "preference": preference, "quality": preference,
+		}
+	}
+	for _, tc := range []struct {
+		name    string
+		formats []map[string]any
+		want    string
+	}{
+		{"equal_dimensions_override_extractor_preference", []map[string]any{
+			makeFormat("hls", "m3u8_native", 1920, 1080, 10),
+			makeFormat("direct", "https", 1920, 1080, -1)}, "direct"},
+		{"higher_hls_preserved", []map[string]any{
+			makeFormat("hls4k", "m3u8_native", 3840, 2160, 0),
+			makeFormat("direct", "https", 1920, 1080, 10)}, "hls4k"},
+		{"higher_https_preserved", []map[string]any{
+			makeFormat("hls", "m3u8_native", 1920, 1080, 10),
+			makeFormat("direct4k", "https", 3840, 2160, 0)}, "direct4k"},
+		{"hls_only", []map[string]any{makeFormat("hls", "m3u8_native", 1920, 1080, 0)}, "hls"},
+		{"portrait", []map[string]any{
+			makeFormat("hls", "m3u8_native", 1080, 1920, 10),
+			makeFormat("direct", "https", 1080, 1920, 0)}, "direct"},
+		{"different_width_not_equal_resolution", []map[string]any{
+			makeFormat("wide", "m3u8_native", 2048, 1080, 0),
+			makeFormat("direct", "https", 1920, 1080, 0)}, "wide"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Un format audio favorisé ne doit pas gagner malgré --format-sort-force.
+			audio := map[string]any{"format_id": "audio", "url": "https://example.test/audio",
+				"protocol": "https", "ext": "m4a", "vcodec": "none", "acodec": "aac", "preference": 100}
+			data, err := json.Marshal(map[string]any{
+				"id": "abcdefghijk", "extractor_key": "Youtube", "live_status": "not_live",
+				"title": "Synthetic capture", "formats": append(tc.formats, audio),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(t.TempDir(), "info.json")
+			if err := os.WriteFile(path, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			args := captureRemoteArgs("abcdefghijk", "bv*")
+			// Remplacer seulement l'acquisition réseau ; conserver sélection, tri et sortie réels.
+			args = append(args[:len(args)-2], "--load-info-json", path)
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			result, err := mediaCommand(ctx, binary, args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var selected captureInput
+			if err := json.Unmarshal(result, &selected); err != nil {
+				t.Fatal(err)
+			}
+			if selected.URL != "https://example.test/"+tc.want {
+				t.Fatalf("selected %s, want %s", selected.URL, tc.want)
 			}
 		})
 	}

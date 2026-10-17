@@ -607,6 +607,8 @@ de lecture/décodage local permet un repli distant ; les erreurs de stockage,
 SQLite et d'arrêt ne le permettent pas. Aucun téléchargement complet permanent
 n'est déclenché implicitement.
 
+À dimensions identiques, HTTPS direct est préféré à HLS dès la sélection.
+Une résolution supérieure reste prioritaire, même disponible uniquement en HLS.
 Un échec du flux HLS peut conduire à un unique essai HTTPS de même largeur et
 hauteur. Codec et débit peuvent différer ; aucune baisse de résolution n'est
 effectuée automatiquement.

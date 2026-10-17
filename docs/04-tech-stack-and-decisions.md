@@ -1153,7 +1153,10 @@ un échec de sélection/acquisition natif devient download_failed, sans analyse 
 - Local prioritaire uniquement pour la même VideoSource, avec emprunt protégé
   contre la suppression. Aucun fichier partiel n'est utilisé.
 - Distant : résolution yt-dlp fraîche à chaque capture, sélection vidéo `bv*`
-  avec classement `res`, sans plafond 1080p. Les en-têtes nécessaires sont
+  avec classement `res,width,height,proto` et `--format-sort-force`, sans plafond 1080p.
+  La résolution puis les dimensions passent avant le protocole : HTTPS gagne à
+  dimensions identiques, même si l'extracteur préfère HLS. Ce classement forcé
+  est réservé aux captures ; la politique de téléchargement 7.1 reste inchangée. Les en-têtes nécessaires sont
   transmis à ffprobe/ffmpeg ; URL signées et en-têtes ne sont ni persistés ni
   journalisés. Pas de cache vidéo conservé. Selon le protocole/serveur, le trafic
   nécessaire au probe et au seek peut néanmoins être important.
@@ -1250,3 +1253,30 @@ Validation réelle après correctif : les trois cas passent, dont 1920 × 1080
 résolution différente, l'absence de boucle et la non-divulgation des diagnostics.
 Ces résultats ne garantissent pas la disponibilité future des URL YouTube ni
 l'identité visuelle avec l'iframe.
+
+### Préférence HTTPS à dimensions identiques
+
+Les essais manuels ont montré 81,3 secondes de décodage HLS sans image sur une
+capture à 95 140 ms, puis environ 4,5 secondes pour résoudre et extraire son
+alternative HTTPS. La sélection privilégie désormais directement HTTPS lorsque
+les dimensions sont identiques. Un HLS de résolution supérieure reste éligible ;
+le correctif n'introduit ni plafond ni baisse de résolution.
+
+Le tri natif yt-dlp est forcé uniquement pour les captures afin que les
+préférences de l'extracteur ne contredisent pas cette règle. `res` classe la plus
+petite dimension ; largeur et hauteur départagent ensuite les formats avant
+le protocole. Le sélecteur vidéo `bv*` conserve l'exclusion de l'audio seul.
+Les différences possibles de codec, débit, cadence et HDR entre représentations
+restent le compromis accepté. Priorité locale, seek précis, repli contraint et
+budget partagé de renouvellement 403 sont conservés.
+
+Six tests déterministes utilisent le vrai sélecteur yt-dlp avec les arguments de
+production et des métadonnées synthétiques : égalité de dimensions avec préférence
+extracteur contraire, résolutions supérieures HTTPS/HLS, HLS seul, portrait et
+largeurs différentes. Ils ne nécessitent aucune connexion à YouTube.
+
+Validation réelle : la vidéo du test lent (`G2B0YWuJUgI`) produit désormais un PNG
+1920 × 1080 à 95 140 ms en environ 4,3 secondes, avec sélection HTTPS immédiate.
+Les autres essais passent également : 320 × 240 à 1,5 s, 1080p à 73,479 s et
+120 s, 4K à 301 s. Ces mesures ponctuelles ne constituent pas un engagement de
+latence ; un HLS seul à la meilleure résolution et les refus 403 restent possibles.

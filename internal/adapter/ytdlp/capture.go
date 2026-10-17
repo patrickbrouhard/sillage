@@ -39,10 +39,12 @@ type captureInput struct {
 	Height     int               `json:"height"`
 }
 
+// captureRemoteArgs privilégie les dimensions puis HTTPS, avant les préférences de l'extracteur.
+// Le sélecteur bv* exclut l'audio seul même avec le classement forcé, réservé aux captures.
 func captureRemoteArgs(id, selector string) []string {
 	return []string{
 		"--ignore-config", "--no-playlist", "--no-cache-dir", "--skip-download",
-		"--socket-timeout", "15", "--retries", "1", "-f", selector, "-S", "res",
+		"--socket-timeout", "15", "--retries", "1", "-f", selector, "--format-sort-force", "-S", "res,width,height,proto",
 		"--print", "%(.{id,extractor_key,live_status,url,http_headers,protocol,width,height})j",
 		"--", "https://www.youtube.com/watch?v=" + id,
 	}
