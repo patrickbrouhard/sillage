@@ -1,12 +1,15 @@
 package ytdlp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"image/png"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -130,4 +133,32 @@ func TestCaptureYouTubeIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("remote PNG %dx%d at 1500 ms", cfg.Width, cfg.Height)
+}
+
+// TestCaptureDiagnosticsNeverExposePrivateOutput vérifie les erreurs et les logs réels.
+func TestCaptureDiagnosticsNeverExposePrivateOutput(t *testing.T) {
+	for _, tc := range []struct{ stage, detail, want string }{
+		{"resolve", "HTTP Error 403: Forbidden", "http_403"},
+		{"probe", "Invalid data found when processing input", "invalid_media"},
+		{"decode", "Resource temporarily unavailable", "resource_unavailable"},
+		{"decode", "arbitrary failure", "tool_failed"},
+	} {
+		t.Run(tc.stage+"_"+tc.want, func(t *testing.T) {
+			script := writeExecutable(t, "#!/bin/sh\nprintf '%s\\n' '"+tc.detail+" https://secret.test/signed?token=PRIVATE Cookie: PRIVATE Authorization: PRIVATE' >&2\nexit 1\n")
+			var logs bytes.Buffer
+			previous := log.Writer()
+			log.SetOutput(&logs)
+			defer log.SetOutput(previous)
+			_, err := captureCommand(context.Background(), tc.stage, script)
+			if !errors.Is(err, asset.ErrExtract) || !strings.Contains(err.Error(), "stage="+tc.stage) || !strings.Contains(err.Error(), "reason="+tc.want) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			combined := err.Error() + logs.String()
+			for _, secret := range []string{"PRIVATE", "secret.test", "Cookie", "Authorization", "https:"} {
+				if strings.Contains(combined, secret) {
+					t.Fatalf("private output leaked")
+				}
+			}
+		})
+	}
 }

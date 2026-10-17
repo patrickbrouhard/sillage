@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net/url"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/asset"
 	"github.com/patrickbrouhard/sillage/internal/video"
@@ -32,13 +34,16 @@ type captureInput struct {
 	ID         string            `json:"id"`
 	Extractor  string            `json:"extractor_key"`
 	LiveStatus string            `json:"live_status"`
+	Protocol   string            `json:"protocol"`
+	Width      int               `json:"width"`
+	Height     int               `json:"height"`
 }
 
 func captureRemoteArgs(id string) []string {
 	return []string{
 		"--ignore-config", "--no-playlist", "--no-cache-dir", "--skip-download",
 		"--socket-timeout", "15", "--retries", "1", "-f", "bv*", "-S", "res",
-		"--print", "%(.{id,extractor_key,live_status,url,http_headers})j",
+		"--print", "%(.{id,extractor_key,live_status,url,http_headers,protocol,width,height})j",
 		"--", "https://www.youtube.com/watch?v=" + id,
 	}
 }
@@ -61,13 +66,13 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 		if source.Provider != "youtube" || !regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`).MatchString(source.ExternalID) {
 			return asset.ErrExtract
 		}
-		data, err := mediaCommand(ctx, binary, captureRemoteArgs(source.ExternalID)...)
+		data, err := captureCommand(ctx, "resolve", binary, captureRemoteArgs(source.ExternalID)...)
 		if err != nil {
-			return extractionError(ctx, err)
+			return err
 		}
 		var remote captureInput
 		if err := json.Unmarshal(data, &remote); err != nil {
-			return extractionError(ctx, err)
+			return fmt.Errorf("%w: stage=resolve reason=invalid_json", asset.ErrExtract)
 		}
 		parsed, err := url.Parse(remote.URL)
 		if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil ||
@@ -75,6 +80,7 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 			(remote.LiveStatus != "not_live" && remote.LiveStatus != "was_live") {
 			return asset.ErrExtract
 		}
+		log.Printf("capture source=%d timestamp_ms=%d transport=%s width=%d height=%d", source.ID, timestamp, captureTransport(remote.Protocol), remote.Width, remote.Height)
 		input = remote.URL
 		options = []string{"-protocol_whitelist", "http,https,tcp,tls,crypto", "-rw_timeout", "15000000"}
 		keys := make([]string, 0, len(remote.Headers))
@@ -97,9 +103,9 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 	// Les propriétés d'affichage ne sont pas déduites des seules dimensions MediaFile.
 	args := append([]string{"-v", "error"}, options...)
 	args = append(args, "-select_streams", "v:0", "-show_entries", "stream=codec_name,color_transfer,sample_aspect_ratio:format=duration", "-of", "json", input)
-	data, err := mediaCommand(ctx, probe, args...)
+	data, err := captureCommand(ctx, "probe", probe, args...)
 	if err != nil {
-		return extractionError(ctx, err)
+		return err
 	}
 	var info struct {
 		Streams []struct {
@@ -138,12 +144,12 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 		"-accurate_seek", "-i", input, "-map", "0:v:0", "-an", "-sn", "-dn",
 		"-frames:v", "1", "-vf", filter, "-threads", "1", "-c:v", "png", "-f", "image2pipe", "pipe:1",
 	)
-	png, err := mediaCommand(ctx, ffmpeg, args...)
+	png, err := captureCommand(ctx, "decode", ffmpeg, args...)
 	if err != nil {
-		return extractionError(ctx, err)
+		return err
 	}
 	if len(png) == 0 {
-		return fmt.Errorf("%w: no frame at timestamp", asset.ErrExtract)
+		return fmt.Errorf("%w: stage=decode reason=no_frame_at_timestamp", asset.ErrExtract)
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -152,15 +158,62 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 	return os.WriteFile(filepath.Join(stage, "frame.png"), png, 0600)
 }
 
-func extractionError(ctx context.Context, err error) error {
-	if ctx.Err() != nil {
-		return ctx.Err()
+// captureCommand journalise seulement des étapes et catégories fermées, jamais stderr.
+func captureCommand(ctx context.Context, stage, binary string, args ...string) ([]byte, error) {
+	started := time.Now()
+	data, err := mediaCommand(ctx, binary, args...)
+	if err != nil {
+		safe := extractionError(ctx, stage, err)
+		log.Printf("capture command stage=%s elapsed_ms=%d: %v", stage, time.Since(started).Milliseconds(), safe)
+		return nil, safe
 	}
-	// Ne pas journaliser les URL signées ou les en-têtes éventuellement présents dans stderr.
+	log.Printf("capture command stage=%s elapsed_ms=%d output_bytes=%d", stage, time.Since(started).Milliseconds(), len(data))
+	return data, nil
+}
+
+// captureTransport n'autorise aucune chaîne externe arbitraire dans les journaux.
+func captureTransport(protocol string) string {
+	switch protocol {
+	case "https", "http", "m3u8", "m3u8_native", "http_dash_segments":
+		return protocol
+	default:
+		return "unknown"
+	}
+}
+
+func extractionError(ctx context.Context, stage string, err error) error {
+	if ctx.Err() != nil {
+		return fmt.Errorf("stage=%s: %w", stage, ctx.Err())
+	}
 	var path *os.PathError
 	var executable *exec.Error
 	if errors.As(err, &path) || errors.As(err, &executable) {
-		return fmt.Errorf("capture tool unavailable")
+		return fmt.Errorf("stage=%s reason=tool_unavailable", stage)
 	}
-	return fmt.Errorf("%w: media tool failed", asset.ErrExtract)
+	// Classifier le message privé, sans jamais le recopier même après une rédaction.
+	// Les valeurs produites sont constantes : URL, cookies et en-têtes restent privés.
+	reason := "tool_failed"
+	message := strings.ToLower(err.Error())
+	for _, category := range []struct{ pattern, code string }{
+		{"403 forbidden", "http_403"},
+		{"http error 403", "http_403"},
+		{"404 not found", "http_404"},
+		{"http error 429", "http_429"},
+		{"connection timed out", "network_timeout"},
+		{"connection reset", "connection_reset"},
+		{"server returned 5", "http_5xx"},
+		{"invalid data found", "invalid_media"},
+		{"partial file", "partial_media"},
+		{"resource temporarily unavailable", "resource_unavailable"},
+		{"no such filter", "filter_unavailable"},
+		{"decoder not found", "decoder_unavailable"},
+		{"requested format is not available", "format_unavailable"},
+		{"sign in", "authentication_required"},
+	} {
+		if strings.Contains(message, category.pattern) {
+			reason = category.code
+			break
+		}
+	}
+	return fmt.Errorf("%w: stage=%s reason=%s", asset.ErrExtract, stage, reason)
 }
