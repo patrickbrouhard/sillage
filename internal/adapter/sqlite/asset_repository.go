@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
 	"github.com/patrickbrouhard/sillage/internal/asset"
 )
 
@@ -30,7 +31,19 @@ const assetColumns = `
 func scanAsset(row interface{ Scan(...any) error }) (asset.Asset, error) {
 	var a asset.Asset
 	var created string
-	err := row.Scan(&a.ID, &a.VideoID, &a.SourceID, &a.TimestampMS, &a.Type, &a.Status, &a.Path, &a.Size, &a.ErrorCode, &a.RequestID, &created)
+	err := row.Scan(
+		&a.ID,
+		&a.VideoID,
+		&a.SourceID,
+		&a.TimestampMS,
+		&a.Type,
+		&a.Status,
+		&a.Path,
+		&a.Size,
+		&a.ErrorCode,
+		&a.RequestID,
+		&created,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return a, asset.ErrNotFound
 	}

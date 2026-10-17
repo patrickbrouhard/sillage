@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/media"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"log"
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/media"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // Service possède une capture globale indépendante du transport et du téléchargement.

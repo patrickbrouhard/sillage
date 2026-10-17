@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -157,8 +158,9 @@ func extractionError(ctx context.Context, err error) error {
 	}
 	// Ne pas journaliser les URL signées ou les en-têtes éventuellement présents dans stderr.
 	var path *os.PathError
-	if errors.As(err, &path) {
-		return fmt.Errorf("%w: tool unavailable", asset.ErrExtract)
+	var executable *exec.Error
+	if errors.As(err, &path) || errors.As(err, &executable) {
+		return fmt.Errorf("capture tool unavailable")
 	}
 	return fmt.Errorf("%w: media tool failed", asset.ErrExtract)
 }

@@ -4,9 +4,10 @@ package asset
 import (
 	"context"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"io"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // Asset possède une identité durable avant même la production des octets.

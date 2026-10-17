@@ -202,3 +202,71 @@ func TestShutdownAndInterruptedIntent(t *testing.T) {
 		t.Fatalf("%+v %v", pending, err)
 	}
 }
+
+// uncertainRepository simule une réponse SQL perdue avant ou après COMMIT.
+type uncertainRepository struct {
+	asset.Repository
+	committed bool
+	calls     int
+}
+
+func (r *uncertainRepository) Finish(ctx context.Context, id int64, status string, path *string, size int64, code string) error {
+	r.calls++
+	if r.calls == 1 {
+		if r.committed {
+			if err := r.Repository.Finish(ctx, id, status, path, size, code); err != nil {
+				return err
+			}
+		}
+		return errors.New("uncertain SQL commit")
+	}
+	return r.Repository.Finish(ctx, id, status, path, size, code)
+}
+
+type fixedVideo struct{ value video.Video }
+
+func (v fixedVideo) Get(context.Context, video.VideoID) (video.Video, error) { return v.value, nil }
+
+func TestPublishedPNGSurvivesUncertainSQLFinalization(t *testing.T) {
+	for _, committed := range []bool{false, true} {
+		name := "before_commit"
+		if committed {
+			name = "after_commit"
+		}
+		t.Run(name, func(t *testing.T) {
+			original, repo, v, storage := setup(t, &localMedia{}, nil)
+			original.Close()
+			uncertain := &uncertainRepository{Repository: repo, committed: committed}
+			service, err := asset.NewService(context.Background(), fixedVideo{v}, uncertain,
+				&localMedia{err: media.ErrNotFound},
+				extractor(func(_ context.Context, _ video.VideoSource, _ string, _ int64, stage string) error {
+					return writePNG(stage)
+				}),
+				storage, time.Minute)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer service.Close()
+			a, err := service.Start(context.Background(), v.ID, v.Sources[0].ID, 500, "request_uncertain")
+			if err != nil {
+				t.Fatal(err)
+			}
+			a = waitAsset(t, service, a.ID)
+			want := "failed"
+			if committed {
+				want = "available"
+			}
+			if a.Status != want || a.Path == nil {
+				t.Fatalf("unexpected final state: %+v", a)
+			}
+			content, err := storage.Open(a)
+			if err != nil {
+				t.Fatalf("published PNG lost: %v", err)
+			}
+			defer content.Close()
+			if _, err := png.Decode(content); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
