@@ -368,25 +368,61 @@ L'adapter actuel ne supporte que YouTube. Cette limitation est acceptable : ne p
 
 ## 7. Adapter `ffmpeg`
 
-`ffmpeg` est prévu pour les opérations média nécessitant un traitement local.
-
-Exemple futur avec un fichier local disponible (sans priorité systématique sur la capture distante) :
+`ffmpeg` extrait les captures 7.2 dans l'adapter technique `ytdlp.CaptureClient`.
+Le service applicatif `asset.Service` orchestre les ports de repository, stockage,
+extraction et emprunt du média ; il ne dépend ni des outils CLI ni de SQLite/HTTP.
 
 ```text
-timestamp courant
-      ↓
-MediaFile local
-      ↓
-ffmpeg
-      ↓
-screenshot
-      ↓
-Asset
+acceptation → Asset pending → réponse avec identité
+                    ↓
+         emprunt MediaFile de la source
+                    ↓
+         extraction locale ou flux YouTube
+                    ↓
+         validation PNG → publication → état terminal
 ```
 
-Il peut également être utilisé par `yt-dlp` lors du post-traitement.
+Une seule opération capture appartient au serveur, avec délai maximal de deux
+minutes, sans file d'attente. Elle est indépendante de la requête HTTP et du
+téléchargement. L'arrêt annule les sous-processus puis attend la finalisation
+avant de fermer SQLite. Un serveur unique par répertoire de données reste requis.
 
-L'appel `ffmpeg` doit rester dans un adapter/service technique et ne pas contaminer le domaine.
+L'emprunt du MediaFile et sa suppression partagent le verrou du service média :
+la suppression est refusée tant que l'extraction utilise le fichier. La capture
+libère l'emprunt avant la publication du PNG. Une anomalie de média local peut
+déclencher un repli ; une erreur SQLite ou de stockage n'en déclenche jamais.
+
+Le stockage valide le PNG complet, synchronise son fichier puis publie par lien
+sans écrasement dans la même racine. La confirmation SQL suit la publication.
+Les fichiers publiés survivent aux échecs SQL ; les fichiers abandonnés ne sont
+pas supprimés au démarrage. Seul le temporaire de l'opération vivante est nettoyé.
+Le démarrage marque les captures interrompues `failed`, sans régénération.
+Si SQLite reste inaccessible lors des deux tentatives de finalisation, la
+récupération de l'état attend le prochain démarrage réussi.
+
+Côté Web, une StateField CodeMirror suit un widget avec
+`ChangeDesc.mapPos(..., MapMode.TrackDel)`. Les effets visuels ne participent
+pas à l'historique. La transaction finale insère le texte et retire le widget.
+Le handle de l'ancienne vue ne peut pas insérer dans une session remplacée.
+Le suivi des Assets est mutualisé par identité entre le bouton et les images
+affichées ; il cesse au démontage, sans arrêter le traitement serveur.
+
+### 7.1 Contrat REST des captures
+
+- `POST /api/v1/videos/{video_id}/sources/{source_id}/captures` :
+  `{"timestamp_ms":762345,"request_id":"<UUID>"}`.
+  Réponse `202` pour pending, `200` si une répétition retrouve un état terminal.
+- `GET /api/v1/assets/requests/{request_id}` : récupération de l'identité après
+  une réponse perdue ; si absent, le client peut répéter le POST avec la même clé.
+- `GET /api/v1/assets/{asset_id}` : état public et provenance, sans chemin.
+- `GET /api/v1/assets/{asset_id}/content` : PNG disponible, sans génération.
+
+Les clés comportent 16 à 80 caractères ASCII alphanumériques, tiret ou underscore.
+Une clé réutilisée avec d'autres paramètres reçoit `409`, un serveur occupé
+`503` avec `Retry-After`. Les lectures ne relancent jamais une capture.
+Un contenu manquant/inaccessible renvoie un refus distinct, sans transformer
+un Asset `available` en `failed`. Ces routes servent le même service applicatif
+que les futures interfaces.
 
 ## 8. API HTTP
 

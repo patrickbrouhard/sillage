@@ -1196,12 +1196,40 @@ Les deux jalons, les validations et la confrontation finale documentation/code
 ont été traités pour la première version. Le correctif remplace ses restrictions
 par le classement natif res:1080, sans préférence MP4 ni liste fermée de conteneurs. Voir les contrats dans les documents 01 à 04.
 
+### 7.2 — Captures vidéo implémentées
+
+La base de travail a été vérifiée : master et origin/master à
+`2db04de`, fusion de la PR #11 contenant 7.1 et son correctif.
+L'implémentation 7.2 reste sur une branche dédiée, sans fusion automatique.
+
+Livré :
+- Asset persistant, provenance source–vidéo garantie, états pending/available/failed,
+  clé de commande idempotente et référence Markdown stable par identité ;
+- extraction locale de la même source puis repli distant sélectif, PNG sans
+  redimensionnement, seek décodé et meilleur flux vidéo sans plafond 1080p ;
+- acceptation visuelle CodeMirror sans Markdown temporaire, insertion finale
+  isolée dans Undo/Redo et autosauvegarde habituelle ;
+- maintien du marqueur pendant Undo/Redo ordinaires, abandon définitif lorsque
+  son ancrage est traversé ou sa session remplacée ;
+- lecture réactive des images, génération serveur après navigation, protection
+  habituelle de la note, erreurs de consultation distinctes de la génération ;
+- publication sûre, emprunt du média protégé contre la suppression, récupération
+  des intentions interrompues et conservation des PNG malgré un incident SQL.
+
+Validation : suite Go, vet et builds, détection de courses sur les services,
+adapters et HTTP ; 322 tests Playwright dont 11 parcours captures. Les tests
+FFmpeg sont déterministes et ne nécessitent pas YouTube. Un test distant
+facultatif a réussi sur une courte vidéo 320 × 240 ; les limites de fidélité et
+les vérifications visuelles encore nécessaires sont détaillées dans le document 04.
+
 ### Incréments ultérieurs
 
-Lecture locale et captures/screenshots sont distincts de 7.1. Pour les captures :
-choisir la méthode technique adaptée, produire un Asset avec timestamp canonique,
-puis insérer le Markdown. Aucun téléchargement complet conservé implicitement.
-Import local, plusieurs qualités, audio seul et préférences restent différés.
+Galerie par vidéo, réinsertion, import d'images externes, suppression explicite,
+captures multiples, interactions temporelles/agrandissement et indicateurs
+globaux d'activité restent différés. La génération peut déjà continuer après
+navigation ; sa gestion dans une galerie n'est pas implémentée.
+Lecture locale, import de médias, plusieurs qualités et audio seul restent
+également distincts. Aucun nettoyage automatique des assets sans référence.
 
 ## 10. Étape 8 — Recherche
 
@@ -1407,7 +1435,7 @@ Une même `Video` peut avoir plusieurs `VideoSource` dont les timelines ne sont 
 
 `Transcript` est désormais explicitement rattaché à `VideoSource`.
 
-Pour les autres objets temporels, notamment `Annotation` et certains `Asset`, il reste à déterminer si un rattachement à une source ou à une timeline de référence devient nécessaire lorsque ce scénario sera réellement supporté.
+Pour les screenshots, 7.2 rattache la timeline à `source_id`, avec cohérence source–vidéo. La question reste ouverte pour les annotations et de futurs types d’assets.
 
 ## 16. Questions ouvertes — stockage
 
@@ -1447,7 +1475,7 @@ Maintenance future, explicitement déclenchée : analyse des orphelins, temporai
 et suppressions interrompues ; sélection et confirmation avant effacement.
 Étudier aussi la récupération ou le rattachement de médias complets.
 Restent ouverts :
-- stratégie de capture distante/locale et précision selon les sources ;
+- validation de la fidélité des captures selon les sources et les cadences, au-delà du seek précis implémenté en 7.2 ;
 - lecture Web locale et compatibilité des profils/codecs selon les navigateurs ;
 - préférences avancées, plusieurs qualités et audio seul ;
 - quotas, reprise et rétention des éventuels caches de captures.
@@ -1638,3 +1666,7 @@ réussi (Go/Postman et navigateur), et
 [Docker distribution](https://github.com/patrickbrouhard/sillage/actions/runs/38943645358)
 réussi. Les étapes Postman ont effectivement exécuté 45 requêtes et 135 assertions,
 sans échec ; elles n'ont pas été ignorées.
+
+Validation de distribution : build Docker et smoke test réussis (outils, Compose,
+HTTP/SPA, persistance après recréation et arrêt propre). Les 45 requêtes et
+135 assertions Postman déterministes existantes passent également.

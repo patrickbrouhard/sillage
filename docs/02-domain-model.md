@@ -79,7 +79,8 @@ Ce schéma reste volontairement simple et inclut des concepts futurs.
 Les objets `Note` et `Tag` de l'étape 4 sont implémentés et persistés.
 L'étape 4 bis implémente `Publisher`, `Person`, les associations vidéo–personne
 et les tags des publishers et personnes. `MediaFile` est implémenté en 7.1.
-`Annotation`, `Asset`, `title_override` et les artefacts IA restent futurs.
+`Asset` est implémenté en 7.2 pour les screenshots ; `Annotation`,
+`title_override` et les artefacts IA restent futurs.
 
 Relations complémentaires implémentées :
 
@@ -762,46 +763,45 @@ Cette question est volontairement laissée ouverte.
 
 ## 7. `Asset`
 
-`Asset` représente un fichier complémentaire produit ou importé autour d'une vidéo.
+`Asset` représente une connaissance visuelle conservée autour d'une `Video`.
+La tranche 7.2 implémente uniquement le type `screenshot`.
 
-Exemple principal :
+| Attribut | Contrat implémenté |
+|---|---|
+| `id` | Identité persistante indépendante du nom physique |
+| `video_id` | Obligatoire |
+| `source_id` | Nullable en général, obligatoire pour un screenshot |
+| `timestamp_ms` | Nullable en général, entier non négatif obligatoire pour un screenshot |
+| `type` | `screenshot` |
+| `status` | `pending`, `available`, `failed` |
+| `path`, `size` | Nom physique interne nullable et taille ; requis pour `available` |
+| `error_code` | Motif technique d'échec, sans détails sensibles |
+| `request_id` | Clé unique de commande, réutilisée après réponse HTTP incertaine |
+| `created_at` | Instant de création |
 
-```text
-type = screenshot
-```
+`source_id` désigne la timeline de référence, pas l'origine physique des octets.
+Une clé étrangère composée garantit que source et asset appartiennent à la même
+vidéo. La migration 0009 exige source et timestamp pour le type screenshot ;
+elle n'introduit pas d'import d'autres types.
 
-Attributs conceptuels :
+Chaque nouvelle commande crée un nouvel Asset, même au même timestamp.
+La même clé de commande avec les mêmes paramètres retrouve cet Asset ; avec
+des paramètres différents, elle est refusée. Il s'agit d'idempotence de transport,
+pas de déduplication fonctionnelle.
 
-```text
-id
-video_id
-type
-path
-timestamp_ms?
-created_at
-```
+L'Asset est persisté `pending` avant l'extraction. La publication complète
+précède `available`. Un échec/interruption mène à `failed` ; le démarrage
+clôt les anciennes intentions `pending`, sans reprise automatique.
+Un Asset échoué peut conserver le chemin d'un PNG publié avant un incident SQL :
+l'état de génération n'autorise aucune suppression implicite.
 
-Tous les assets n'ont pas nécessairement un timestamp.
+Aucun rattachement de conservation à `MediaFile` ni à une occurrence Markdown :
+supprimer un média ou une référence ne supprime pas l'Asset. Le nom sûr contient
+l'identité et le timestamp en millisecondes, mais n'est jamais parsé pour retrouver
+la donnée temporelle. Les notes utilisent `/api/v1/assets/<id>/content`.
 
-### 7.1 Screenshots
-
-Pour un screenshot :
-
-```text
-timestamp_ms = 1123456
-```
-
-est la donnée temporelle canonique.
-
-Le nom du fichier peut aussi encoder ce timestamp :
-
-```text
-00h18m43s456.jpg
-```
-
-mais l'application ne doit pas avoir à parser le nom du fichier pour retrouver sa position temporelle.
-
-Comme pour les annotations, la relation entre un timestamp d'asset et plusieurs sources éventuellement désynchronisées pourra être précisée lorsque ce scénario deviendra concret.
+La galerie, l'import d'images sans source et la suppression explicite restent
+des évolutions futures, sans hiérarchie de provenance anticipée.
 
 ## 8. `MediaFile`
 

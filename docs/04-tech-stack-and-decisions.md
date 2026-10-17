@@ -598,7 +598,7 @@ MediaFile + timestamp
 Il peut aussi être utilisé par `yt-dlp`.
 
 La conservation complète de 7.1 est volontaire et durable. Une acquisition technique
-temporaire pour une future capture reste distincte et n’autorise pas une conservation
+temporaire pour une capture reste distincte et n’autorise pas une conservation
 complète automatique. L’extraction distante demeure une candidate à évaluer.
 
 ## 11. Docker
@@ -1145,3 +1145,62 @@ Une langue yt-dlp absente, mal formée ou indéterminée (und, mul, zxx, sans di
 de casse) devient NULL. Les sous-étiquettes déclarées ne sont pas inventées.
 Le téléchargement n'émet plus media_audio_ambiguous ni media_format_unavailable ;
 un échec de sélection/acquisition natif devient download_failed, sans analyse de stderr.
+
+## Captures vidéo — étape 7.2 implémentée
+
+- PNG uniquement, sans redimensionnement volontaire ni encodage avec perte
+  supplémentaire. La source reste une vidéo généralement déjà compressée.
+- Local prioritaire uniquement pour la même VideoSource, avec emprunt protégé
+  contre la suppression. Aucun fichier partiel n'est utilisé.
+- Distant : résolution yt-dlp fraîche à chaque capture, sélection vidéo `bv*`
+  avec classement `res`, sans plafond 1080p. Les en-têtes nécessaires sont
+  transmis à ffprobe/ffmpeg ; URL signées et en-têtes ne sont ni persistés ni
+  journalisés. Pas de cache vidéo conservé. Selon le protocole/serveur, le trafic
+  nécessaire au probe et au seek peut néanmoins être important.
+- Seek d'entrée `-ss` avec `-accurate_seek`, décodage réel, une frame PNG.
+  Aucun stream copy ni sélection approximative de la seule image clé précédente.
+  Les tests sur GOP long vérifient aussi les instants proches d'une transition :
+  la première frame à partir de la cible peut être la suivante, donc décaler le
+  résultat jusqu'à l'intervalle entre deux frames. Ce n'est pas une garantie
+  d'identité avec l'image effectivement affichée par l'iframe YouTube.
+- Les timestamps hors durée connue et les positions sans frame échouent
+  explicitement ; on ne remplace pas silencieusement la cible par la dernière
+  image, notamment en fin de lecture.
+- Rotation : autorotation native de ffmpeg. Pixels non carrés : refus explicite,
+  car leur correction exigerait un redimensionnement ou une interprétation du
+  rapport de pixels que le rendu PNG Web ne garantit pas.
+- SDR converti en RGB24. HDR identifié par PQ/HLG : conversion en BT.709 avec
+  zscale et tone mapping Hable. Ce choix de rendu n'est pas une conservation HDR
+  ni une garantie de reproduction du tone mapping YouTube. Des métadonnées
+  absentes/incorrectes ou un ffmpeg sans filtres requis peuvent faire échouer
+  l'extraction ; aucun PNG HDR incorrect n'est volontairement publié comme tel.
+- Limites de protection : sortie de sous-processus bornée à 64 Mio, validation
+  PNG à 100 millions de pixels, durée d'opération de deux minutes. Ces bornes
+  provoquent un échec explicite et ne redimensionnent jamais l'image.
+- Une capture globale par instance serveur, indépendante du téléchargement,
+  sans queue. Les intents et états sont persistants ; aucune infrastructure
+  générique de jobs, reprise automatique ou suppression d'orphelins.
+- Clé de commande UUID générée au clic : récupération par clé puis éventuel POST
+  avec la même clé après réponse incertaine. Aucune clé n'est déduite du timestamp.
+- Lecture Markdown : référence interne par ID, suivi toutes les deux secondes
+  tant que pending ou en erreur de consultation, partagé entre les occurrences
+  montées. L'état de génération reste indépendant de l'accessibilité du fichier.
+
+Les logs distinguent extraction/repli, publication et finalisation. Le détail
+stderr des outils n'est pas exposé afin d'éviter la fuite d'URL signées ; il n'y a
+pas d'interface de diagnostic. La galerie, les captures concurrentes, les réglages
+qualité, les interactions temporelles et les indicateurs globaux restent futurs.
+
+Validation : tests déterministes FFmpeg sur transitions à GOP long, résolution,
+PNG, HDR PQ et pixels non carrés ; tests applicatifs de repli sélectif,
+interruption, concurrence, conservation après commit SQL incertain ; parcours
+navigateur de l'éditeur et de sa session. Le test distant facultatif se lance avec
+`SILLAGE_CAPTURE_YOUTUBE_TEST=1 go test ./internal/adapter/ytdlp -run TestCaptureYouTubeIntegration -v`.
+Un essai réel a produit un PNG 320 × 240 à 1,5 s en environ 2,3 s.
+La CI ne dépend pas de cet essai réseau. La comparaison visuelle avec le lecteur
+sur des transitions rapides, la VFR, les longs médias, la rotation, le HLG et la
+4K/HDR réelle restent à vérifier manuellement.
+
+Validation de distribution : build Docker et smoke test réussis (outils, Compose,
+HTTP/SPA, persistance après recréation et arrêt propre). Les 45 requêtes et
+135 assertions Postman déterministes existantes passent également.

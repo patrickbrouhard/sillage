@@ -594,33 +594,68 @@ Action visée :
 
 L'application extrait l'image correspondant au timestamp courant.
 
-### 9.2 Vidéo locale
+### 9.2 Acquisition implémentée en 7.2
 
-L'extraction distante est une candidate pour les captures ponctuelles ; les essais
-rapportés ne constituent pas une garantie générale de précision. Un fichier local
-compatible pourra être utilisé lorsqu'il existe. La capture ne doit pas imposer
-la conservation automatique d'une vidéo complète. Screenshots et lecteur local
-restent des incréments distincts, ultérieurs à 7.1.
+Le bouton `+ Capture`, voisin de `+ Temps`, lit immédiatement le timestamp du
+lecteur, selon les mêmes règles temporelles. Il est réservé au mode Édition.
+Aucune commande ni bascule du lecteur n'est nécessaire.
 
-### 9.3 Nom de fichier
+Un média complet de la source actuellement lue est prioritaire. Une autre source
+de la même vidéo n'est jamais substituée. Sans média exploitable (notamment pendant
+son téléchargement), l'extraction utilise directement le flux YouTube. Un échec
+de lecture/décodage local permet un repli distant ; les erreurs de stockage,
+SQLite et d'arrêt ne le permettent pas. Aucun téléchargement complet permanent
+n'est déclenché implicitement.
 
-Le timestamp doit apparaître dans le nom du fichier afin que l'asset reste lisible hors de la base.
+Le résultat est un PNG à la résolution du fichier local ou du meilleur flux vidéo
+distant sélectionné, sans plafond 1080p ni redimensionnement volontaire. La capture
+vise la première image décodable à partir de la cible ; la cadence discrète et
+les différences de timeline/rendu YouTube empêchent de promettre une identité
+exacte avec l'image de l'iframe. Les limites techniques sont décrites dans le
+document 04.
 
-Exemple conceptuel :
+### 9.3 Acceptation et insertion
 
-```text
-<video-id>_00h18m43s456.jpg
-```
+Au clic, une Decoration CodeMirror affiche « Capture à 12:42 — préparation… »
+avec un indicateur d'activité. Elle ne modifie ni le Markdown ni l'autosauvegarde.
+Elle suit les modifications et les Undo/Redo ordinaires. Une suppression
+traversant son point d'ancrage ou le remplacement de la session invalide
+définitivement l'insertion ; une réponse tardive ne la ressuscite pas.
 
-Cependant, le timestamp enregistré dans la base est la donnée canonique.
-
-### 9.4 Insertion dans la note
-
-Après capture, l'application doit pouvoir insérer immédiatement une référence Markdown :
+Dès l'acceptation persistée, le marqueur devient une unique insertion Markdown :
 
 ```markdown
-![Capture à 18:43](assets/...)
+![Capture à 12:42](/api/v1/assets/123/content)
 ```
+
+L'insertion se fait au curseur ou après la sélection sans remplacer le texte.
+Elle constitue une étape Undo/Redo isolée, sans déplacer le focus à la réponse.
+Undo ne supprime pas l'Asset ; Redo ne relance pas son extraction.
+Le nom physique est technique et unique, par exemple
+`capture-123-762345ms-<identifiant-aléatoire>.png` ; le timestamp en base est canonique.
+
+### 9.4 Génération, navigation et erreurs
+
+Une seule capture occupe le serveur à la fois, indépendamment du téléchargement.
+Le bouton reste occupé jusqu'à son état terminal. Une autre page peut recevoir
+un refus explicite si le serveur est occupé ; il n'existe pas d'indicateur global.
+Le suivi local ne vaut jamais confirmation de sauvegarde de la note.
+
+La bascule en Lecture est bloquée uniquement pendant l'acceptation. Après
+insertion, la génération continue même si l'utilisateur quitte la page. Partir
+pendant l'acceptation abandonne l'insertion locale, sans annuler une demande déjà
+acceptée par le serveur. La protection habituelle des modifications non
+sauvegardées reste seule applicable.
+
+En Lecture, une référence interne affiche la préparation, le PNG ou l'échec ;
+son état est actualisé automatiquement. Une erreur de consultation est distinguée
+d'un échec de génération. Le Markdown reste intact en cas d'échec. Les images
+ne commandent pas le lecteur. L'Édition reste textuelle, sans Live Preview.
+
+Retirer une référence ne supprime ni l'Asset ni le PNG. Des assets sans référence
+peuvent donc rester conservés, notamment après un abandon d'insertion.
+La galerie, la réinsertion, l'import, la suppression explicite, plusieurs captures,
+l'agrandissement et la navigation temporelle depuis une image restent futurs.
 
 ## 10. Tags
 
