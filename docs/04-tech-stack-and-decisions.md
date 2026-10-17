@@ -1234,8 +1234,10 @@ un seul flux HTTPS direct de largeur et hauteur strictement identiques peut êtr
 essayé. Les dimensions doivent être connues ; le sélecteur yt-dlp les impose et
 sa réponse est vérifiée. Aucun essai à plus basse résolution ni téléchargement
 permanent. Une erreur de stockage, un outil absent ou une annulation ne déclenche
-pas ce repli. L'échec de l'alternative termine la capture, même sur HTTP 403.
-Le renouvellement préalable d'une URL refusée reste borné à un essai ; toutes
+pas ce repli. Un HTTP 403 sur l'alternative peut renouveler son URL si ce budget n'a pas
+encore été utilisé. Le sélecteur conserve alors strictement ses dimensions.
+Le renouvellement d'une URL refusée reste borné à un essai partagé entre le flux
+initial et l'alternative : trois résolutions/extractions au maximum ; toutes
 les tentatives partagent le délai global de deux minutes.
 
 Cette substitution peut changer codec/débit : elle ne doit pas être assimilée à

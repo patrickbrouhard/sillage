@@ -53,34 +53,38 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 	if local != "" {
 		return c.extractInput(ctx, local, nil, timestamp, stage)
 	}
-	for attempt := 0; attempt < 2; attempt++ {
-		remote, options, err := c.resolveCapture(ctx, source, "bv*")
+
+	selector := "bv*"
+	renewed := false
+	fallbackWidth, fallbackHeight := 0, 0
+	// Au maximum : sélection initiale, changement de transport, renouvellement unique.
+	// Le budget de renouvellement est partagé, quel que soit le transport refusé.
+	for attempt := 0; attempt < 3; attempt++ {
+		remote, options, err := c.resolveCapture(ctx, source, selector)
 		if err != nil {
 			return err
 		}
+		if fallbackWidth > 0 && (remote.Protocol != "https" ||
+			remote.Width != fallbackWidth || remote.Height != fallbackHeight) {
+			return &captureFailure{stage: "resolve", reason: "no_same_resolution_https"}
+		}
 		log.Printf("capture source=%d timestamp_ms=%d transport=%s width=%d height=%d", source.ID, timestamp, captureTransport(remote.Protocol), remote.Width, remote.Height)
 		err = c.extractInput(ctx, remote.URL, options, timestamp, stage)
-		if attempt == 0 && ctx.Err() == nil && captureReason(err, "http_403") {
-			// Une URL signée peut être refusée immédiatement : la renouveler une seule fois.
+		if !renewed && ctx.Err() == nil && captureReason(err, "http_403") {
+			renewed = true
+			// Conserver le sélecteur courant, notamment les dimensions du repli HTTPS.
 			log.Printf("capture source=%d: renewing rejected remote URL", source.ID)
 			continue
 		}
 		var failure *captureFailure
-		if ctx.Err() == nil && errors.As(err, &failure) &&
+		if fallbackWidth == 0 && ctx.Err() == nil && errors.As(err, &failure) &&
 			(failure.stage == "probe" || failure.stage == "decode") &&
 			(remote.Protocol == "m3u8" || remote.Protocol == "m3u8_native") &&
 			remote.Width > 0 && remote.Height > 0 {
-			// Un seul autre transport, sans baisse de résolution ni boucle de renouvellement.
 			log.Printf("capture source=%d: HLS failed (%s); trying same-resolution HTTPS", source.ID, failure.reason)
-			selector := fmt.Sprintf("bv*[protocol=https][width=%d][height=%d]", remote.Width, remote.Height)
-			alternative, alternativeOptions, resolveErr := c.resolveCapture(ctx, source, selector)
-			if resolveErr != nil {
-				return resolveErr
-			}
-			if alternative.Protocol != "https" || alternative.Width != remote.Width || alternative.Height != remote.Height {
-				return &captureFailure{stage: "resolve", reason: "no_same_resolution_https"}
-			}
-			return c.extractInput(ctx, alternative.URL, alternativeOptions, timestamp, stage)
+			fallbackWidth, fallbackHeight = remote.Width, remote.Height
+			selector = fmt.Sprintf("bv*[protocol=https][width=%d][height=%d]", fallbackWidth, fallbackHeight)
+			continue
 		}
 		return err
 	}

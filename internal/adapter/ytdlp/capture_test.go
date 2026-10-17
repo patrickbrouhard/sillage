@@ -127,6 +127,7 @@ func TestCaptureYouTubeIntegration(t *testing.T) {
 	}{
 		{"jNQXAC9IVRw", 1500},
 		{"uJMjlKksSks", 120000},
+		{"uJMjlKksSks", 73479},
 		{"CcsgednSRfE", 301000},
 	} {
 		t.Run(target.id, func(t *testing.T) {
@@ -296,9 +297,11 @@ func TestCaptureHLSFallbackBoundaries(t *testing.T) {
 		success    bool
 	}{
 		{"same_resolution", 1920, "https", false, 2, true},
+		{"alternative_probe_403_renewed", 1920, "https", false, 3, true},
 		{"smaller_refused", 1280, "https", false, 2, false},
 		{"hls_refused", 1920, "m3u8_native", false, 2, false},
-		{"alternative_failure_not_retried", 1920, "https", true, 2, false},
+		{"alternative_403_bounded", 1920, "https", true, 3, false},
+		{"renewal_budget_shared", 1920, "https", true, 3, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -311,11 +314,22 @@ func TestCaptureHLSFallbackBoundaries(t *testing.T) {
 			b, _ := json.Marshal(second)
 			script := "#!/bin/sh\nif [ -f '" + calls + "' ]; then\n"
 			// Vérifie le sélecteur exact transmis au véritable point d'entrée yt-dlp.
+			if tc.name == "renewal_budget_shared" {
+				script += "if [ ! -f '" + filepath.Join(root, "renewed") + "' ]; then touch '" + filepath.Join(root, "renewed") + "'; echo renewed >> '" + calls + "'; printf '%s' '" + string(a) + "'; exit 0; fi\n"
+			}
 			script += "case \"$*\" in *'bv*[protocol=https][width=1920][height=1080]'*) ;; *) exit 9 ;; esac\n"
 			script += "echo retry >> '" + calls + "'\nprintf '%s' '" + string(b) + "'\nelse\necho first > '" + calls + "'\nprintf '%s' '" + string(a) + "'\nfi\n"
 			resolver := writeExecutable(t, script)
 			probeJSON := `{"streams":[{"codec_name":"h264"}],"format":{"duration":"500"}}`
-			probe := writeExecutable(t, "#!/bin/sh\nprintf '%s' '"+probeJSON+"'\n")
+			probeScript := "#!/bin/sh\n"
+			if tc.name == "alternative_probe_403_renewed" {
+				probeScript += "case \"$*\" in *'/direct'*) if [ ! -f '" + filepath.Join(root, "refused") + "' ]; then touch '" + filepath.Join(root, "refused") + "'; echo '403 Forbidden' >&2; exit 1; fi ;; esac\n"
+			}
+			if tc.name == "renewal_budget_shared" {
+				probeScript += "case \"$*\" in *'/hls'*) if [ ! -f '" + filepath.Join(root, "refused") + "' ]; then touch '" + filepath.Join(root, "refused") + "'; echo '403 Forbidden' >&2; exit 1; fi ;; esac\n"
+			}
+			probeScript += "printf '%s' '" + probeJSON + "'\n"
+			probe := writeExecutable(t, probeScript)
 			decoderScript := "#!/bin/sh\ncase \"$*\" in *'/hls'*) exit 0 ;; esac\n"
 			if tc.decodeExit {
 				decoderScript += "echo '403 Forbidden PRIVATE' >&2\nexit 1\n"
