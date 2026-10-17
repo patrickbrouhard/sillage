@@ -318,7 +318,7 @@ func mediaCommand(ctx context.Context, binary string, args ...string) ([]byte, e
 	if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
-			return nil, fmt.Errorf("%w: %v: %s", media.ErrDownload, err, strings.TrimSpace(stderr.buffer.String()))
+			return nil, fmt.Errorf("%w: %w", media.ErrDownload, toolError(err, stderr.buffer.String()))
 		}
 		return nil, fmt.Errorf("media tool: %w", err)
 	}

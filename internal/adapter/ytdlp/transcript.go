@@ -154,7 +154,7 @@ func (c Client) transcriptCommand(ctx context.Context, args ...string) ([]byte, 
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			return nil, fmt.Errorf("%w: yt-dlp: %w: %s", transcript.ErrFetchFailed, err, stderr.buffer.String())
+			return nil, fmt.Errorf("%w: yt-dlp: %w", transcript.ErrFetchFailed, toolError(err, stderr.buffer.String()))
 		}
 		return nil, fmt.Errorf("execute yt-dlp: %w", err)
 	}

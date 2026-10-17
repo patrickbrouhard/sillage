@@ -235,10 +235,18 @@ func extractionError(ctx context.Context, stage string, err error) error {
 	if errors.As(err, &path) || errors.As(err, &executable) {
 		return fmt.Errorf("stage=%s reason=tool_unavailable", stage)
 	}
+	var failure *toolFailure
+	if errors.As(err, &failure) {
+		return &captureFailure{stage: stage, reason: failure.reason}
+	}
+	return &captureFailure{stage: stage, reason: toolReason(err.Error())}
+}
+
+func toolReason(message string) string {
 	// Classifier le message privé, sans jamais le recopier même après une rédaction.
 	// Les valeurs produites sont constantes : URL, cookies et en-têtes restent privés.
 	reason := "tool_failed"
-	message := strings.ToLower(err.Error())
+	message = strings.ToLower(message)
 	for _, category := range []struct{ pattern, code string }{
 		{"403 forbidden", "http_403"},
 		{"http error 403", "http_403"},
@@ -260,7 +268,7 @@ func extractionError(ctx context.Context, stage string, err error) error {
 			break
 		}
 	}
-	return &captureFailure{stage: stage, reason: reason}
+	return reason
 }
 
 // captureFailure transporte une catégorie fermée, sans conserver le diagnostic privé.

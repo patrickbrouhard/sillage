@@ -1681,3 +1681,10 @@ sans échec ; elles n'ont pas été ignorées.
 Validation de distribution : build Docker et smoke test réussis (outils, Compose,
 HTTP/SPA, persistance après recréation et arrêt propre). Les 45 requêtes et
 135 assertions Postman déterministes existantes passent également.
+
+## Journalisation structurée — préparation des diagnostics
+
+Le plan en cinq incréments est approuvé : socle sûr, HTTP corrélé, opérations
+asynchrones, couverture ciblée et distribution. Premier jalon : les erreurs
+d'exécution yt-dlp conservent catégorie fermée, code de sortie et classifications
+Go, sans recopier stderr. Les règles de repli des captures restent inchangées.

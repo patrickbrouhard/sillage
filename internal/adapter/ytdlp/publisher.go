@@ -80,7 +80,7 @@ func (c Client) ResolvePublisher(ctx context.Context, input string) (video.Publi
 		if !errors.As(err, &exit) {
 			return video.Publisher{}, fmt.Errorf("%w: %w", video.ErrMetadataProviderUnavailable, err)
 		}
-		return video.Publisher{}, fmt.Errorf("%w: %w: %s", video.ErrMetadataFetchFailed, err, stderr.buffer.String())
+		return video.Publisher{}, fmt.Errorf("%w: %w", video.ErrMetadataFetchFailed, toolError(err, stderr.buffer.String()))
 	}
 	if output.truncated {
 		return video.Publisher{}, fmt.Errorf("%w: publisher metadata exceeds 4 MiB", video.ErrMetadataFetchFailed)
