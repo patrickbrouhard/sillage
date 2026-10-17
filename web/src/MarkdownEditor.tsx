@@ -1,3 +1,4 @@
+import { captureMarker, setCaptureMarker, captureVisualTransaction } from './captureMarker'
 import { useEffect, useImperativeHandle, useRef } from 'react'
 import type { TemporalReference } from './temporalReference'
 import type { Ref } from 'react'
@@ -29,6 +30,12 @@ interface Props {
 export interface MarkdownEditorHandle {
   /** Insère après la sélection sans effacer son texte, puis rend le focus au curseur. */
   insert(text: string): void
+  /** Réserve visuellement la position après sélection sans modifier la note. */
+  beginCapture(id: string, label: string): void
+  /** Insère une seule fois si l'intention existe toujours dans cette session. */
+  finishCapture(id: string, markdown: string): boolean
+  /** Retire une intention refusée sans toucher au document. */
+  abandonCapture(id: string): void
   /** Insère un bloc uniquement à un emplacement choisi, sauf pour un document vide. */
   insertCitation(markdown: string): void
 }
@@ -68,6 +75,34 @@ export function MarkdownEditor({ initial, active, onChange, onSave, onNavigate, 
   }
   useImperativeHandle(ref, () => ({
     insert: text => insert(text),
+    beginCapture(id, label) {
+      const view = editor.current
+      if (!view || !active) throw new Error('Passez en Édition pour capturer une image.')
+      const position = view.state.selection.main.to
+      view.dispatch({
+        effects: setCaptureMarker.of({ id, position, label }),
+        selection: { anchor: position },
+        annotations: [captureVisualTransaction, isolateHistory.of('full')],
+      })
+      view.focus()
+    },
+    finishCapture(id, markdown) {
+      const view = editor.current
+      const marker = view?.state.field(captureMarker)
+      if (!view || !marker || marker.id !== id) return false
+      view.dispatch({
+        changes: { from: marker.position, insert: markdown },
+        effects: setCaptureMarker.of(null),
+        annotations: isolateHistory.of('full'),
+      })
+      return true
+    },
+    abandonCapture(id) {
+      const view = editor.current
+      if (view?.state.field(captureMarker)?.id === id) {
+        view.dispatch({ effects: setCaptureMarker.of(null), annotations: captureVisualTransaction })
+      }
+    },
     insertCitation: markdown => insert(markdown, true),
   }))
   useEffect(() => {
@@ -78,7 +113,7 @@ export function MarkdownEditor({ initial, active, onChange, onSave, onNavigate, 
         doc: initial,
         extensions: [
           // Le découpage natif accepte CRLF, CR et LF ; la sérialisation produit du LF.
-          history(), markdown(), syntaxHighlighting(highlightStyle),
+          history(), captureMarker, markdown(), syntaxHighlighting(highlightStyle),
           EditorView.lineWrapping, markdownDecorations,
           compactTemporalReferences(reference => callbacks.current.onNavigate(reference)),
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
