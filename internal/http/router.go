@@ -19,12 +19,20 @@ func NewRouter(
 	transcripts handlers.TranscriptService,
 	service handlers.VideoService,
 	postTimeout time.Duration,
+	captures ...handlers.AssetService,
 ) http.Handler {
 	r := chi.NewRouter()
 	h := handlers.NewVideoHandler(service, postTimeout)
 	t := handlers.NewTranscriptHandler(transcripts, postTimeout)
 	k := handlers.NewKnowledgeHandler(notes, tags)
 	p := handlers.NewPeopleHandler(publishers, persons, postTimeout)
+	if len(captures) > 0 && captures[0] != nil {
+		a := handlers.NewAssetHandler(captures[0])
+		r.Post("/api/v1/videos/{video_id}/sources/{source_id}/captures", a.Start)
+		r.Get("/api/v1/assets/requests/{request_id}", a.ByRequest)
+		r.Get("/api/v1/assets/{asset_id}", a.Get)
+		r.Get("/api/v1/assets/{asset_id}/content", a.Content)
+	}
 	r.Route("/api/v1/publishers", func(r chi.Router) {
 		r.Post("/", p.ResolvePublisher)
 		r.Get("/", p.ListPublishers)

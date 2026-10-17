@@ -23,6 +23,7 @@ type Service struct {
 	timeout    time.Duration
 	mu         sync.Mutex
 	active     video.VideoSourceID
+	leases     map[int64]int
 	failures   map[video.VideoSourceID]string
 	workers    sync.WaitGroup
 	closed     bool
@@ -262,7 +263,7 @@ func (s *Service) Delete(ctx context.Context, videoID video.VideoID, id int64) e
 	if f.VideoID != videoID {
 		return ErrNotFound
 	}
-	if f.OriginSourceID != nil && s.active == *f.OriginSourceID {
+	if s.leases[f.ID] > 0 || (f.OriginSourceID != nil && s.active == *f.OriginSourceID) {
 		return ErrBusy
 	}
 	if err := s.storage.StageDelete(f); err != nil {
@@ -281,4 +282,46 @@ func (s *Service) Delete(ctx context.Context, videoID video.VideoID, id int64) e
 		delete(s.failures, *f.OriginSourceID)
 	}
 	return s.storage.FinishDelete(f)
+}
+
+// Borrow réserve le fichier complet de cette source contre DELETE, sans bloquer les téléchargements.
+func (s *Service) Borrow(ctx context.Context, videoID video.VideoID, sourceID video.VideoSourceID) (string, func(), error) {
+	if _, err := s.source(ctx, videoID, sourceID); err != nil {
+		return "", nil, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.active == sourceID {
+		return "", nil, ErrNotFound
+	}
+	if s.storageErr != nil {
+		return "", nil, ErrUnavailable
+	}
+	f, err := s.repo.BySource(ctx, sourceID)
+	if err != nil {
+		return "", nil, err
+	}
+	storage, ok := s.storage.(interface{ ReadPath(File) (string, error) })
+	if !ok {
+		return "", nil, ErrUnavailable
+	}
+	path, err := storage.ReadPath(f)
+	if err != nil {
+		return "", nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	if s.leases == nil {
+		s.leases = make(map[int64]int)
+	}
+	s.leases[f.ID]++
+	var once sync.Once
+	return path, func() {
+		once.Do(func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.leases[f.ID]--
+			if s.leases[f.ID] == 0 {
+				delete(s.leases, f.ID)
+			}
+		})
+	}, nil
 }

@@ -387,3 +387,33 @@ func TestDownloadPersistsTechnicalMetadata(t *testing.T) {
 		t.Fatalf("%+v %v", file, err)
 	}
 }
+
+func TestCaptureLeaseProtectsOnlyItsMedia(t *testing.T) {
+	s, _, _, v, other := setup(t, &provider{}, time.Minute)
+	ctx := context.Background()
+	if _, err := s.Start(ctx, v.ID, v.Sources[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	state := waitState(t, s, v, "available")
+	path, release, err := s.Borrow(ctx, v.ID, v.Sources[0].ID)
+	if err != nil || path == "" {
+		t.Fatalf("%s %v", path, err)
+	}
+	defer release()
+	if err := s.Delete(ctx, v.ID, state.File.ID); !errors.Is(err, media.ErrBusy) {
+		t.Fatal(err)
+	}
+	if _, _, err := s.Borrow(ctx, other.ID, v.Sources[0].ID); !errors.Is(err, video.ErrVideoSourceNotFound) {
+		t.Fatal(err)
+	}
+	// Une capture n'empêche pas l'acquisition d'une autre source.
+	if _, err := s.Start(ctx, other.ID, other.Sources[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	waitState(t, s, other, "available")
+	release()
+	release()
+	if err := s.Delete(ctx, v.ID, state.File.ID); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
+	"github.com/patrickbrouhard/sillage/internal/asset"
 	api "github.com/patrickbrouhard/sillage/internal/http"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/note"
@@ -116,6 +117,11 @@ func run(ctx context.Context, cfg config) error {
 		return fmt.Errorf("initialize media: %w", err)
 	}
 	defer downloads.Close()
+	captures, err := asset.NewService(ctx, videos, sqlite.NewAssetRepository(db), downloads, ytdlp.CaptureClient{}, filesystem.NewAssets("data/assets"), 2*time.Minute)
+	if err != nil {
+		return fmt.Errorf("initialize captures: %w", err)
+	}
+	defer captures.Close()
 	var handler http.Handler = api.NewRouter(
 		downloads,
 		video.NewPublisherService(sqlite.NewPublisherRepository(db), provider),
@@ -125,6 +131,7 @@ func run(ctx context.Context, cfg config) error {
 		transcripts,
 		service,
 		cfg.postTimeout,
+		captures,
 	)
 	// Le build est facultatif pour garder le lancement API seul indépendant de Node.
 	if cfg.webDir != "" {
