@@ -596,9 +596,11 @@ L'application extrait l'image correspondant au timestamp courant.
 
 ### 9.2 Vidéo locale
 
-Une capture précise nécessite vraisemblablement de disposer localement du média, au moins temporairement.
-
-Le téléchargement temporaire est acceptable pour le besoin initial.
+L'extraction distante est une candidate pour les captures ponctuelles ; les essais
+rapportés ne constituent pas une garantie générale de précision. Un fichier local
+compatible pourra être utilisé lorsqu'il existe. La capture ne doit pas imposer
+la conservation automatique d'une vidéo complète. Screenshots et lecteur local
+restent des incréments distincts, ultérieurs à 7.1.
 
 ### 9.3 Nom de fichier
 
@@ -940,3 +942,43 @@ la sortie de l'éditeur ou la perte de focus de la fenêtre retire ce retour.
 Shift/Alt désactivent la main, comme ils excluent le geste de navigation.
 Les titres, en-têtes inadmissibles et liens non temporels gardent leur curseur.
 Aucun changement de sélection, de focus, de navigation ou de Markdown.
+
+
+## Téléchargement volontaire — 7.1 implémentée
+
+L'action Télécharger est visible près des commandes du lecteur, même masqué ou
+indisponible, et vise la même source de travail. Elle ne commande pas le lecteur,
+ne remonte pas la note et ne modifie ni transcription ni références temporelles.
+États : non téléchargé, en cours, disponible, échec. Une erreur de consultation
+est distincte de l'absence. Le suivi reprend à l'ouverture/rechargement ; quitter
+la page n'annule pas le transfert. Aucun réessai d'acquisition automatique.
+La suppression confirmée cible le fichier exact et préserve toutes les connaissances.
+La présence du fichier ne provoque aucune bascule vers une lecture locale.
+
+
+Le bandeau affiche le conteneur, la taille en Mio et la durée lorsqu'un fichier
+est disponible. Le dialogue natif de suppression cible l'identité affichée,
+avec Annuler comme action initialement focalisée. Un fichier enregistré disparu
+reste supprimable explicitement afin de résoudre sa référence cassée.
+
+Le suivi consulte le serveur toutes les deux secondes pendant une acquisition,
+à l'ouverture et au retour de visibilité/focus. Une erreur de consultation arrête
+le polling jusqu'à actualisation ou retour sur la page ; elle ne propose jamais
+Télécharger comme si le serveur avait confirmé l'absence. Une réponse POST perdue
+est suivie d'un GET, sans nouveau POST. La saturation du serveur reste visible.
+La navigation quitte uniquement le suivi navigateur, pas le travail serveur.
+Le bandeau est compact sur desktop ; la hauteur du lecteur est ajustée en conservant
+son minimum de 200 px pour préserver l'espace de transcription.
+
+Le correctif conserve cette UX. Un média conservé peut utiliser un conteneur
+non lisible par un futur lecteur Web. La maintenance des fichiers abandonnés
+sera une action explicite future, jamais un nettoyage silencieux au démarrage.
+
+
+### Métadonnées du fichier local — correctif livré
+
+La section Métadonnées et sources accueille un bloc distinct Fichier local
+pour la source de travail : conteneur, taille, dimensions encodées, FPS moyens,
+codecs, langue audio déclarée et durée. Les inconnues sont explicites.
+Le bloc partage le suivi existant, sans second polling ni confirmation avant
+téléchargement. Il ne représente pas une nouvelle VideoSource.

@@ -78,8 +78,8 @@ Schéma conceptuel cible (il inclut aussi des objets futurs) :
 Ce schéma reste volontairement simple et inclut des concepts futurs.
 Les objets `Note` et `Tag` de l'étape 4 sont implémentés et persistés.
 L'étape 4 bis implémente `Publisher`, `Person`, les associations vidéo–personne
-et les tags des publishers et personnes. `MediaFile`, `Annotation`, `Asset`,
-`title_override` et les artefacts IA restent futurs.
+et les tags des publishers et personnes. `MediaFile` est implémenté en 7.1.
+`Annotation`, `Asset`, `title_override` et les artefacts IA restent futurs.
 
 Relations complémentaires implémentées :
 
@@ -816,16 +816,37 @@ VideoSource = d'où vient cette vidéo ?
 MediaFile   = quels octets de cette vidéo sont disponibles localement ?
 ```
 
-Attributs conceptuels :
+Attributs persistés en 7.1 (`media.File` en Go) :
 
 ```text
 id
 video_id
+origin_source_id?
 path
 format
 size
+duration_ms
 added_at
+video_codec?
+audio_codec?
+width?
+height?
+fps?
+audio_language?
 ```
+
+La migration additive 0008 conserve ces six nouveaux attributs nullable, sans
+réanalyse des anciens fichiers. ffprobe fournit les noms de codecs, les dimensions
+encodées et la cadence moyenne exploitable (fps), sinon NULL. Les nouvelles
+acquisitions renseignent les codecs et dimensions nécessaires à leur validation.
+Les dimensions ne décrivent pas une éventuelle rotation ou un rapport de pixels.
+
+Pour YouTube, audio_language provient exclusivement du format audio effectivement
+sélectionné par yt-dlp : membre audio de requested_formats ou format combiné.
+Ce champ déclaratif peut être inconnu et ne décrit pas nécessairement l'original.
+Ni tag ffprobe ni original_audio_language ne le complètent. Les inférences internes
+de yt-dlp sont acceptées ; une différence avec la source ne bloque pas l'acquisition.
+L'édition manuelle, la réanalyse et les métadonnées des imports locaux restent futures.
 
 Le fichier local n'est pas une nouvelle `Video`.
 
@@ -834,7 +855,7 @@ Exemple :
 ```text
 Video #42
 ├── VideoSource: YouTube
-└── MediaFile: /data/media/42/video.webm
+└── MediaFile: media-<identifiant aléatoire>.webm (sous data/media)
 ```
 
 Une même vidéo peut théoriquement avoir plusieurs fichiers locaux :
@@ -844,7 +865,9 @@ Une même vidéo peut théoriquement avoir plusieurs fichiers locaux :
 - version basse résolution ;
 - fichier temporaire.
 
-La politique exacte de rétention reste à définir.
+Pour 7.1, la conservation est volontaire et durable jusqu'à suppression explicite.
+Un seul fichier par source est retenu pour cette tranche ; plusieurs représentations
+restent possibles conceptuellement, sans être implémentées.
 
 ### 8.2 Source locale et fichier local
 
@@ -866,17 +889,25 @@ Il n'est donc pas nécessaire de fusionner les deux entités ni d'introduire des
 
 ### 8.3 Provenance d'un `MediaFile`
 
-Il pourra devenir utile de savoir de quelle `VideoSource` provient un fichier téléchargé ou importé.
+Le lien facultatif général `origin_source_id -> VideoSource.id` est acté.
+Il est obligatoire pour tout téléchargement YouTube de 7.1. La source appartient
+à la même vidéo que le fichier ; la base doit renforcer cet invariant.
+Le modèle minimal persiste les champs ci-dessus. `format` désigne le conteneur réel et `size` les octets.
+Le chemin est interne et relatif, jamais une URL distante ou un titre YouTube.
 
-Une future relation facultative telle que :
-
-```text
-MediaFile.origin_source_id -> VideoSource.id
-```
-
-est envisageable.
-
-Elle n'est pas actée ni nécessaire au schéma actuel et sera décidée lorsque `MediaFile` sera réellement implémenté.
+La durée locale est mesurée ; l'équivalence temporelle avec la source est présumée,
+sans preuve d'identité parfaite. Une divergence significative empêche la publication.
+Aucun rafraîchissement implicite des métadonnées ou contrôle périodique YouTube.
+Supprimer le fichier ne supprime aucune vidéo, source, note, transcription ou Asset.
+La migration 0006 crée media_files : identité AUTOINCREMENT, chemin unique,
+taille et durée strictement positives, date UTC milliseconde. La migration 0007 ouvre le modèle : format non vide sans liste fermée, données et compteur
+AUTOINCREMENT préservés. Le conteneur ne dépend pas de la provenance.
+Une FK composée (origin_source_id, video_id) garantit la cohérence source–vidéo ;
+un index unique partiel sur origin_source_id impose une représentation par source
+dans cette tranche. La provenance facultative permet le modèle général mais aucune
+API d'import local ou de création sans source n'est exposée.
+L'état de téléchargement n'est pas un attribut persistant du MediaFile.
+Le schéma conceptuel en tête du document reste une vue simplifiée.
 
 ## 9. `Tag`
 

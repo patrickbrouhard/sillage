@@ -23,6 +23,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # Le sélecteur réel travaille sur des métadonnées synthétiques, sans accès à YouTube.
+      - name: Install pinned media tools
+        run: |
+          version=$(sed -n 's/^ARG YTDLP_VERSION=//p' deployments/docker/Dockerfile)
+          checksum=$(sed -n 's/^ARG YTDLP_SHA256=//p' deployments/docker/Dockerfile)
+          mkdir -p "$RUNNER_TEMP/media-tools"
+          curl -fSL --retry 3 "https://github.com/yt-dlp/yt-dlp/releases/download/$version/yt-dlp_linux" -o "$RUNNER_TEMP/media-tools/yt-dlp"
+          echo "$checksum  $RUNNER_TEMP/media-tools/yt-dlp" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/media-tools/yt-dlp"
+          echo "$RUNNER_TEMP/media-tools" >> "$GITHUB_PATH"
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Test and build
         run: |
           go test ./...

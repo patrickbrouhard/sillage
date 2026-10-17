@@ -17,6 +17,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
 	api "github.com/patrickbrouhard/sillage/internal/http"
+	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/note"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
@@ -26,13 +27,14 @@ import (
 const databasePath = "data/sillage.db"
 
 type config struct {
-	addr        string
-	postTimeout time.Duration
-	webDir      string
+	addr            string
+	postTimeout     time.Duration
+	downloadTimeout time.Duration
+	webDir          string
 }
 
 func loadConfig() (config, error) {
-	cfg := config{addr: "127.0.0.1:8080", postTimeout: 60 * time.Second}
+	cfg := config{addr: "127.0.0.1:8080", postTimeout: 60 * time.Second, downloadTimeout: 6 * time.Hour}
 	cfg.webDir = os.Getenv("SILLAGE_WEB_DIR")
 	if v, ok := os.LookupEnv("SILLAGE_HTTP_ADDR"); ok {
 		cfg.addr = v
@@ -43,6 +45,13 @@ func loadConfig() (config, error) {
 			return config{}, fmt.Errorf("SILLAGE_POST_TIMEOUT must be a positive duration")
 		}
 		cfg.postTimeout = duration
+	}
+	if value, ok := os.LookupEnv("SILLAGE_DOWNLOAD_TIMEOUT"); ok {
+		duration, err := time.ParseDuration(value)
+		if err != nil || duration <= 0 {
+			return config{}, fmt.Errorf("SILLAGE_DOWNLOAD_TIMEOUT must be a positive duration")
+		}
+		cfg.downloadTimeout = duration
 	}
 	if _, _, err := net.SplitHostPort(cfg.addr); err != nil {
 		return config{}, fmt.Errorf("invalid SILLAGE_HTTP_ADDR: %w", err)
@@ -99,7 +108,16 @@ func run(ctx context.Context, cfg config) error {
 		provider,
 		filesystem.NewTranscripts("data/transcripts", ytdlp.ParseJSON3),
 	)
+	downloads, err := media.NewService(
+		ctx, videos, sqlite.NewMediaRepository(db), filesystem.NewMedia("data/media"),
+		ytdlp.MediaClient{}, cfg.downloadTimeout,
+	)
+	if err != nil {
+		return fmt.Errorf("initialize media: %w", err)
+	}
+	defer downloads.Close()
 	var handler http.Handler = api.NewRouter(
+		downloads,
 		video.NewPublisherService(sqlite.NewPublisherRepository(db), provider),
 		video.NewPersonService(sqlite.NewPersonRepository(db)),
 		note.NewService(sqlite.NewNoteRepository(db)),

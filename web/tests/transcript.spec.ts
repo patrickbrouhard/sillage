@@ -253,3 +253,11 @@ test('réponse tardive d’une autre fiche ignorée pendant une acquisition', as
   await expect(page.getByText('Ancien résultat')).toHaveCount(0)
   expect(posts).toBe(1)
 })
+
+
+// Ces scénarios isolent le lecteur/transcript : la source simulée n'existe pas en SQLite.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/download', route => route.fulfill({
+    json: { status: 'not_downloaded', media_file: null, error: null },
+  }))
+})

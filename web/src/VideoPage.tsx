@@ -5,6 +5,9 @@ import type { Tag, Video, VideoSource } from './api'
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { VideoTranscript } from './VideoTranscript'
+import { VideoDownload } from './VideoDownload'
+import { useVideoDownload } from './useVideoDownload'
+import { LocalFileDetails } from './LocalFileDetails'
 import { YouTubePlayer } from './YouTubePlayer'
 import type { YouTubePlayerHandle } from './YouTubePlayer'
 import type { VideoNoteHandle } from './VideoNote'
@@ -61,6 +64,7 @@ function VideoDetail({ id }: { id: string }) {
   const [attempt, setAttempt] = useState(0)
   const location = useLocation()
   const source = state.status === 'ready' ? workSource(state.video.sources) : undefined
+  const download = useVideoDownload(Number(id), source?.id)
   const origin: unknown = location.state?.library
   // Seul le contexte interne de bibliothèque peut devenir la destination de retour.
   const backTo = typeof origin === 'string' && /^\/\?tag_id=[0-9]+$/.test(origin) ? origin : '/'
@@ -114,7 +118,9 @@ function VideoDetail({ id }: { id: string }) {
           <h1 className="video-title">{state.video.sources[0]?.title || 'Vidéo sans titre'}</h1>
           <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
           <div className={`video-workspace${source ? '' : ' without-source'}`}>
-            {source ? <YouTubePlayer key={`player-${source.id}`} source={source} ref={player} />
+            {source ? <YouTubePlayer key={`player-${source.id}`} source={source} ref={player}>
+              <VideoDownload key={source.id} download={download} />
+            </YouTubePlayer>
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
               <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote ref={note} videoID={state.video.id}
@@ -141,6 +147,7 @@ function VideoDetail({ id }: { id: string }) {
             <p className="muted">Ajoutée le <time dateTime={state.video.created_at}>
               {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
             </time></p>
+            {source && <LocalFileDetails download={download} />}
             {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
             {state.video.sources.map((videoSource, index) => (
               <SourceDetails

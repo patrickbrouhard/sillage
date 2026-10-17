@@ -222,3 +222,32 @@ Reuse VideoNote.onNavigate and all 6.5 identity/player/scroll guards. No navigat
 transactions, remount, autosave, tab stops or iframe focus. Report refusals in a
 stable accessible status near the editor. Invalid/nested headers and literal titles
 remain inert. No domain, persistence or REST changes.
+
+
+## Step 7.1 — Corrective policy (implemented)
+
+Preserve explicit conservation, provenance, source/video ownership and one file per
+source. Migration 0007 opens format without losing data or AUTOINCREMENT history.
+Use native yt-dlp sorting res:1080 without format-sort-force, custom MP4 preference
+or codec/container allowlists. Trust native bv*+ba/b audio selection, including combined formats and possible dubs.
+Do not change transcript selection. Validate finished audio+video with ffprobe.
+Preserve timeline, no reencoding. Duration tolerance remains max(1s,min(3s,0.1%)).
+Keep published or abandoned files regardless of missing SQL references. Startup
+may safely restore referenced .deleting files but never erase abandoned files.
+Live explicit deletion may remove bytes after SQL confirmation; live operations
+may clean their own temporary directory. Isolate media anomalies from knowledge.
+Expose downloading until finalization releases activity; available must allow deletion.
+One server per data directory, application-owned jobs, 6h default timeout, no queue.
+Local playback, screenshots, imports and interactive storage maintenance remain future.
+
+
+## Step 7.1 — Acquisition metadata (implemented)
+
+Use one yt-dlp invocation with native identity/finished filters before acquisition
+and minimal structured output. Keep existing temporal and auxiliary-stream checks;
+unknown remote duration is allowed, known references remain checked.
+Migration 0008 adds nullable video_codec, audio_codec, width, height, fps,
+audio_language. ffprobe measures technical properties; yt-dlp alone supplies
+selected audio language (never the aggregate language, probe tags or source original).
+No startup backfill. Share download state with the distinct local-file metadata
+section; no extra polling, player commands or editor remounts.

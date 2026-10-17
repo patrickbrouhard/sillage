@@ -11,6 +11,7 @@ import (
 
 // NewRouter expose vidéos, notes, tags et transcriptions sous le préfixe versionné.
 func NewRouter(
+	downloads handlers.MediaService,
 	publishers handlers.PublisherService,
 	persons handlers.PersonService,
 	notes handlers.NoteService,
@@ -45,6 +46,12 @@ func NewRouter(
 	})
 	r.Get("/api/v1/tags", k.ListTags)
 	r.Route("/api/v1/videos", func(r chi.Router) {
+		if downloads != nil {
+			m := handlers.NewMediaHandler(downloads)
+			r.Post("/{video_id}/sources/{source_id}/download", m.Start)
+			r.Get("/{video_id}/sources/{source_id}/download", m.Get)
+			r.Delete("/{video_id}/media-files/{media_file_id}", m.Delete)
+		}
 		r.Post("/", h.Add)
 		r.Get("/", h.List)
 		r.Get("/{id}", h.Get)

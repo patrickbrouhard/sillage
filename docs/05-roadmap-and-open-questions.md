@@ -1181,33 +1181,27 @@ Télécharger une vidéo depuis une source en ligne crée un `MediaFile`, pas un
 
 Une future source locale pourra coexister avec un `MediaFile`. L'identité exacte d'une source locale reste ouverte.
 
-### Travail
+### 7.1 — Télécharger et conserver une vidéo YouTube
 
-- télécharger une vidéo ou une représentation suffisante ;
-- stocker un `MediaFile` ;
-- stratégie temporaire ou permanente ;
-- appeler `ffmpeg` à un timestamp ;
-- créer un `Asset` screenshot ;
-- encoder le timestamp dans le nom du fichier ;
-- conserver le timestamp canonique en base ;
-- insérer le screenshot dans la note ;
-- décider si un `MediaFile` doit référencer facultativement la `VideoSource` dont il provient.
+7.1a et 7.1b livrés ; correctif de simplification/conservation implémenté.
+La CI du commit 2e4b6cc a révélé une incohérence available/activité résiduelle ;
+la transition est corrigée et les étapes Postman sont validées localement.
+La CI réexécute Go, Postman, le navigateur et le packaging sur les commits poussés.
+- 7.1a : service asynchrone, MediaFile avec provenance, validation, stockage,
+  suivi REST, suppression et récupération après interruption.
+- 7.1b : actions visibles dans le workspace, suivi et confirmation de suppression,
+  sans perturbation du lecteur, de la transcription ni de la session de note.
 
-### Critère de sortie
+Les deux jalons, les validations et la confrontation finale documentation/code
+ont été traités pour la première version. Le correctif remplace ses restrictions
+par le classement natif res:1080, sans préférence MP4 ni liste fermée de conteneurs. Voir les contrats dans les documents 01 à 04.
 
-Depuis la page vidéo :
+### Incréments ultérieurs
 
-```text
-Capture
-  ↓
-image
-  ↓
-Asset
-  ↓
-Markdown
-```
-
-fonctionne de bout en bout.
+Lecture locale et captures/screenshots sont distincts de 7.1. Pour les captures :
+choisir la méthode technique adaptée, produire un Asset avec timestamp canonique,
+puis insérer le Markdown. Aucun téléchargement complet conservé implicitement.
+Import local, plusieurs qualités, audio seul et préférences restent différés.
 
 ## 10. Étape 8 — Recherche
 
@@ -1393,7 +1387,7 @@ concernent le workflow temporel de l'étape 6 ou des extensions ultérieures :
 - quelle politique si une vidéo existe sur plusieurs plateformes ?
 - quelle identité et quelle stratégie de déduplication pour une source `local` ?
 - faut-il supporter une source `local` dès le MVP produit ou plus tard ?
-- faut-il relier un `MediaFile` à sa `VideoSource` d'origine ?
+- provenance MediaFile : actée en 7.1, facultative en général et obligatoire pour YouTube.
 
 ### 15.3 Métadonnées
 
@@ -1438,7 +1432,7 @@ Restent ouverts :
 - politique de sauvegarde ;
 - suppression cascade vs soft delete ;
 - évolution du runner de migrations vers Goose ou un autre outil ;
-- structure des répertoires media/assets ;
+- structure du répertoire assets ; media est fixé par 7.1 ;
 - stratégie de migration lorsque la base contiendra des données importantes.
 - politique de conservation locale des transcriptions ;
 - cache supprimable ou archive durable ;
@@ -1447,13 +1441,16 @@ Restent ouverts :
 
 ## 17. Questions ouvertes — média
 
-- format de téléchargement préféré ;
-- qualité par défaut ;
-- vidéo complète ou segment temporaire pour screenshot ;
-- conservation après travail ;
-- audio seul dans certains cas ;
-- stratégie de nettoyage ;
-- noms de fichiers.
+Le correctif 7.1 validé conserve la provenance obligatoire YouTube et les noms sûrs,
+délègue la qualité à yt-dlp (res:1080) et préserve les fichiers abandonnés.
+Maintenance future, explicitement déclenchée : analyse des orphelins, temporaires
+et suppressions interrompues ; sélection et confirmation avant effacement.
+Étudier aussi la récupération ou le rattachement de médias complets.
+Restent ouverts :
+- stratégie de capture distante/locale et précision selon les sources ;
+- lecture Web locale et compatibilité des profils/codecs selon les navigateurs ;
+- préférences avancées, plusieurs qualités et audio seul ;
+- quotas, reprise et rétention des éventuels caches de captures.
 
 ## 18. Questions ouvertes — frontend
 
@@ -1560,3 +1557,84 @@ Quand plusieurs directions sont possibles :
 4. seulement ensuite généraliser.
 
 Ne pas construire aujourd'hui une abstraction destinée à une fonctionnalité hypothétique de demain si le modèle actuel permet de l'ajouter plus tard proprement.
+
+
+### Validation de la première version de 7.1 (avant correctif)
+
+Tests Go, vet, builds et TypeScript réussis ; race detector sur serveur, service,
+adapters et REST. Tests déterministes de concurrence, provenance, erreurs, publication,
+suppression interrompue, fichier disparu, durée et arrêt des processus descendants.
+310 tests Playwright réussis, dont 5 nouveaux parcours média ; captures desktop/mobile
+inspectées. Les autres fixtures de lecteur/transcription simulent désormais aussi
+l'absence de média pour leurs vidéos fictives.
+
+Essais réels : génération MP4/WebM avec ffmpeg et validation ffprobe ; téléchargement
+de jNQXAC9IVRw en local et dans Docker (MP4 AV1/AAC, 19,064s, 533916 octets).
+Dans Docker, disponibilité après redémarrage, absence de doublon, suppression physique
+et préservation de la note vérifiées. Smoke Compose/outils/Deno/EJS réussi.
+BaW_jenozKc était indisponible : échec explicite, aucun résultat média revendiqué.
+Le runtime WSL utilisé pour cet essai signalait l'absence de runtime JS ; l'image
+Docker embarque Deno. Pas de validation réelle revendiquée pour formation longue,
+1080p vertical, doublage ambigu ou lecture Web locale. Ces cas de sélection sont
+couverts de manière déterministe, la lecture locale reste hors périmètre.
+Avertissement Vite préexistant sur le chunk CodeMirror > 500 kB conservé.
+
+### Validation du correctif de simplification/conservation 7.1
+
+Migration réelle v6 -> v7 avec/sans média restant, compteur AUTOINCREMENT historique
+préservé. Tests de fichiers orphelins après restauration d’ancienne base, frontières
+de suppression, conflits, chemins dangereux et démarrage malgré une racine média
+inutilisable. La finalisation est bloquée par une barrière de test : Get/Start restent
+downloading, puis DELETE réussit dès available, sans temporisation corrective.
+Les erreurs de commit SQL confirmées et non confirmées préservent les octets.
+
+Sélecteur yt-dlp réel hors réseau : préférence 1080, vertical, repli supérieur,
+exclusion des doublages combinés et absence de réextraction après original indisponible.
+Formats supplémentaires traversants : MKV dans le parcours REST/SQLite/navigateur ;
+ffprobe réel sur MP4/WebM/MKV/MOV. Tests audio et validation de durées conservés.
+Go, vet, builds, TypeScript et détecteur de courses réussis ; 310 tests navigateur
+passent, les 5 parcours média ont aussi été rejoués après normalisation des chemins.
+Collections Postman lintées sans erreur/avertissement ; 45 requêtes et 135 assertions
+exécutées et réussies. La CI installe désormais yt-dlp épinglé et ffmpeg pour ne pas
+ignorer les tests natifs lorsque les outils ne sont pas préinstallés.
+
+Essai réel jNQXAC9IVRw : WebM, 19,028s en WSL ; WebM AV1/Opus, environ 19,021s
+dans Docker. Cycle REST, redémarrage, idempotence, effacement explicite et note
+préservée vérifiés. Smoke Docker/Compose réussi. Les petites différences de durée
+restent dans la tolérance existante. Les formations longues, pistes multilingues
+réelles et vidéos verticales réelles restent à éprouver ; la sélection correspondante
+est couverte par les scénarios synthétiques. Aucun lecteur local n’est livré.
+
+
+### Acquisition simplifiée et métadonnées — correctif livré
+
+Correctif livré : acquisition native en un appel, abandon du filtrage
+audio strict, métadonnées techniques nullable et affichage du fichier de la source
+de travail. La sélection des transcriptions ne change pas. Réanalyse des anciens
+fichiers, édition de audio_language, recherche technique et imports restent futurs.
+
+Validation locale du correctif acquisition/métadonnées (2026-10-16) :
+- Go complet, vet/build, TypeScript et 311 tests Playwright réussis ;
+- race detector sur services média, stockage et SQLite ;
+- migrations v6/v7 vers v8, NULL historiques, relations et AUTOINCREMENT préservés ;
+- vrai yt-dlp hors YouTube : formats combinés/séparés, préférence 1080,
+  vertical/repli supérieur, original préféré à caractéristiques égales et doublage
+  admis sans original ; filtres d'identité/statut refusant les transferts média ;
+- ffprobe réel MP4/WebM/MKV/MOV, métadonnées mesurées, règles temporelles conservées ;
+- Postman déterministe : 45 requêtes, 135 assertions réussies ;
+- build Docker et smoke Compose réussis ;
+- cycle YouTube réel dans Docker sur jNQXAC9IVRw : WebM AV1/Opus, 320×240,
+  15 images/s, 19 021 ms, 474 494 octets, langue audio NULL. Redémarrage,
+  idempotence, suppression physique et note préservée vérifiés.
+
+Aucun nouvel essai réel multilingue n'est revendiqué : ce cas est couvert par le
+sélecteur natif sur des fixtures déterministes. L'essai multilingue rapporté par
+l'utilisateur reste une observation distincte. La sélection native n'est pas une
+garantie universelle d'audio original.
+
+CI vérifiée le 2026-10-17 sur le commit a9168f0 :
+[API tests](https://github.com/patrickbrouhard/sillage/actions/runs/38943645236)
+réussi (Go/Postman et navigateur), et
+[Docker distribution](https://github.com/patrickbrouhard/sillage/actions/runs/38943645358)
+réussi. Les étapes Postman ont effectivement exécuté 45 requêtes et 135 assertions,
+sans échec ; elles n'ont pas été ignorées.

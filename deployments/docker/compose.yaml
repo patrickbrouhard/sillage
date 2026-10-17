@@ -10,6 +10,7 @@ services:
       - "127.0.0.1:${SILLAGE_PORT:-8080}:8080"
     environment:
       SILLAGE_POST_TIMEOUT: "${SILLAGE_POST_TIMEOUT:-60s}"
+      SILLAGE_DOWNLOAD_TIMEOUT: "${SILLAGE_DOWNLOAD_TIMEOUT:-6h}"
     volumes:
       - type: bind
         source: "${SILLAGE_DATA_DIR:?Définir le chemin absolu du répertoire de données}"

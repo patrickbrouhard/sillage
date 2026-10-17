@@ -257,7 +257,6 @@ Principes :
 La migration `0003_notes_tags.sql` ajoute les notes, tags et associations
 sans perte des données existantes. L'étape 4 est implémentée. Ne pas anticiper :
 
-- `MediaFile` ;
 - `title_override` ;
 - `updated_at` sans sémantique définie ;
 - soft delete ;
@@ -598,7 +597,9 @@ MediaFile + timestamp
 
 Il peut aussi être utilisé par `yt-dlp`.
 
-Le téléchargement local peut être temporaire si cela simplifie le travail sur la vidéo.
+La conservation complète de 7.1 est volontaire et durable. Une acquisition technique
+temporaire pour une future capture reste distincte et n’autorise pas une conservation
+complète automatique. L’extraction distante demeure une candidate à évaluer.
 
 ## 11. Docker
 
@@ -864,7 +865,7 @@ La suppression explicite d'une note reste une évolution UX envisagée, hors de 
 - lecteur vidéo ;
 - système de jobs ;
 - politique de cache ;
-- politique de téléchargement/rétention ;
+- préférences avancées de téléchargement ; la conservation volontaire de 7.1 est actée ;
 - provider IA ;
 - moteur STT ;
 - authentification ;
@@ -872,7 +873,7 @@ La suppression explicite d'une note reste une évolution UX envisagée, hors de 
 - stratégie de backup SQLite ;
 - suppression cascade vs soft delete ;
 - identité et déduplication d'une source locale ;
-- éventuelle relation entre `MediaFile` et sa `VideoSource` d'origine ;
+- évolution vers plusieurs représentations d’une source, au-delà de l’unicité de 7.1 ;
 - logging structuré, niveaux et politique de journalisation.
 - politique de conservation/cache des transcriptions ;
 - stockage configurable des snapshots de transcription ;
@@ -1067,3 +1068,80 @@ l'éditeur et sa sélection. Cette décision remplace la restriction historique
 « Lecture seulement » pour les formes reconnues en Édition ; elle n'élargit pas
 la grammaire des liens ordinaires prise en charge par UX 1.2b.1.
 Le pictogramme ◷ reste inchangé. Aucun domaine, REST, stockage ou moteur générique.
+
+
+## Téléchargement 7.1 — correctif implémenté
+
+Vidéos YouTube terminées, vidéo et audio sans réencodage ni modification volontaire
+de timeline. Le correctif validé délègue le classement à yt-dlp avec -S "res:1080",
+sans --format-sort-force : préférence 1080 ou moins, repli supérieur possible.
+Aucune préférence MP4 propre à Sillage ni liste fermée de codecs/conteneurs.
+Le conteneur final peut notamment être MP4, WebM ou MKV ; sa conservation ne
+garantit pas sa lecture par un futur lecteur Web.
+Sillage accepte la sélection audio native, y compris un doublage ou l'audio
+d'un format combiné ; l'identification certaine de l'original n'est plus requise.
+La politique des transcriptions et original_audio_language reste inchangée.
+ffprobe contrôle le résultat complet avant publication.
+
+Une seule invocation réalise extraction, sélection et acquisition ; les configurations utilisateur sont ignorées.
+Aucune playlist, reprise automatique, coupe ou omission de fragment.
+Les réessais réseau/fragments restent bornés à 3, l'attente socket à 30s,
+et l'ensemble au délai du service. Aucun catalogue de codecs n'est introduit.
+
+Tolérance de durée : max(1 seconde, min(3 secondes, 0,1 % de la référence)).
+Comparer durée distante actuelle exploitable et durée stockée si connue, sans rafraîchissement.
+La validation n'est ni un checksum, ni une preuve d'identité, ni un décodage intégral.
+Les tests locaux génèrent MP4, WebM, MKV et MOV avec ffmpeg, puis les valident
+avec ffprobe. Les précédents essais MP4 restent des observations historiques ;
+la nouvelle sélection a produit un WebM AV1/Opus dans Docker.
+
+Le rapprochement ne supprime aucun fichier abandonné : médias complets sans référence,
+.pending et .deleting non référencés sont conservés et signalés. Une restauration
+d'ancienne base ne doit jamais transformer les fichiers récents en données jetables.
+Une opération vivante nettoie ses temporaires ; une suppression explicite peut
+effacer les octets après confirmation SQL. Aucun effacement compensatoire après
+publication. Une anomalie média isolée n'interdit pas l'accès à la connaissance.
+
+### Sélection native et contrôles du correctif
+
+Acquisition simplifiée implémentée : bv*+ba/b, res:1080,
+une seule piste audio et vidéo. Le filtrage audio et le JSON réinjecté sont supprimés.
+Les filtres natifs vérifient l'identité YouTube attendue et le statut terminé
+avant acquisition. Des sorties JSON minimales pre_process et after_move décrivent
+le statut, la durée distante éventuelle, la sélection audio et le chemin final.
+Aucun catalogue de formats, URL temporaire ou JSON brut n'est persisté.
+Une durée distante inconnue est admise ; une durée disponible et la durée stockée
+sur VideoSource restent comparées au fichier local. Les autres contrôles temporels
+(start_time, durées par flux) et le refus des flux auxiliaires restent inchangés.
+
+audio_language provient exclusivement de la représentation audio sélectionnée
+par yt-dlp (membre audio de requested_formats, ou format combiné), jamais de la
+langue globale agrégée, de ffprobe ou de VideoSource.original_audio_language.
+Les compléments internes de yt-dlp, y compris issus de captions, sont acceptés.
+Valeur absente ou inexploitable : NULL. Une différence avec l'original n'est pas
+une erreur. Les codecs, dimensions et FPS moyens proviennent de ffprobe.
+Aucune égalité technique systématique entre yt-dlp et ffprobe n'est exigée.
+
+ffprobe doit reconnaître le conteneur et exactement une piste vidéo et une audio,
+avec codecs identifiés, dimensions positives, taille réelle et durée cohérente.
+Il n’y a plus de plafond dimensionnel ni de liste de codecs admis. Des alias de
+démuxeurs sont normalisés ; le DocType EBML distingue MKV de WebM.
+Une extension de sortie inconnue dont le conteneur ne peut pas être confirmé
+échoue explicitement plutôt que d’enregistrer une métadonnée approximative.
+Le nom interne garde une extension technique sûre : 1 à 32 caractères ASCII,
+premier caractère alphanumérique minuscule, puis lettres minuscules, chiffres,
+tiret ou underscore. Cette sécurité de chemin ne définit pas le modèle métier.
+
+Le sélecteur natif peut privilégier ses critères hasvid/ie_pref avant res:1080.
+La préférence de résolution ne signifie ni limite de taille, ni essai systématique
+de toutes les autres qualités après un échec. La version yt-dlp reste épinglée
+dans Docker ; les tests CI installent cette même version et exercent le vrai
+sélecteur sur des métadonnées synthétiques, sans accès YouTube.
+
+La cadence moyenne est lue dans avg_frame_rate : rapport numérique fini et positif,
+sinon NULL. Les chaînes de codecs sont celles de ffprobe. Les six nouveaux attributs
+sont nullable en migration 0008 ; aucun examen des anciens octets au démarrage.
+Une langue yt-dlp absente, mal formée ou indéterminée (und, mul, zxx, sans distinction
+de casse) devient NULL. Les sous-étiquettes déclarées ne sont pas inventées.
+Le téléchargement n'émet plus media_audio_ambiguous ni media_format_unavailable ;
+un échec de sélection/acquisition natif devient download_failed, sans analyse de stderr.
