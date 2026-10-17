@@ -1228,7 +1228,23 @@ résolution de l'URL et un nouvel essai, dans le délai global existant. Les aut
 Un test déterministe sert une vidéo synthétique par HTTPS avec Range et vérifie
 les couleurs à 120 050 et 301 050 ms après des transitions entre images clés.
 Le test YouTube facultatif couvre désormais également les deux vidéos signalées ;
-le cas HLS reste un reproducer en échec tant que la politique de substitution
-par un flux HTTPS de même résolution n'a pas été validée. Cette substitution
-peut changer codec/débit : elle ne doit pas être assimilée à une identité parfaite
-entre représentations.
+le cas HLS reproduit la sortie vide puis vérifie le repli désormais validé.
+Après un échec de commande au probe/décodage HLS ou une sortie PNG vide,
+un seul flux HTTPS direct de largeur et hauteur strictement identiques peut être
+essayé. Les dimensions doivent être connues ; le sélecteur yt-dlp les impose et
+sa réponse est vérifiée. Aucun essai à plus basse résolution ni téléchargement
+permanent. Une erreur de stockage, un outil absent ou une annulation ne déclenche
+pas ce repli. L'échec de l'alternative termine la capture, même sur HTTP 403.
+Le renouvellement préalable d'une URL refusée reste borné à un essai ; toutes
+les tentatives partagent le délai global de deux minutes.
+
+Cette substitution peut changer codec/débit : elle ne doit pas être assimilée à
+une identité parfaite entre représentations. Le seek précis et le timestamp
+restent identiques. Le décodage HLS depuis le début n'est pas ajouté.
+
+Validation réelle après correctif : les trois cas passent, dont 1920 × 1080
+à 120 000 ms après repli (environ 6,2 s) et 3840 × 2160 à 301 000 ms (environ
+4,5 s). Les tests déterministes couvrent le sélecteur contraint, le refus d'une
+résolution différente, l'absence de boucle et la non-divulgation des diagnostics.
+Ces résultats ne garantissent pas la disponibilité future des URL YouTube ni
+l'identité visuelle avec l'iframe.

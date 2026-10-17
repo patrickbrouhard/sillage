@@ -284,3 +284,61 @@ func TestCaptureRenewsRejectedURLOnce(t *testing.T) {
 		})
 	}
 }
+
+// TestCaptureHLSFallbackBoundaries reproduit une sortie vide du seek HLS sans dépendre de YouTube.
+func TestCaptureHLSFallbackBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		width      int
+		protocol   string
+		decodeExit bool
+		wantCalls  int
+		success    bool
+	}{
+		{"same_resolution", 1920, "https", false, 2, true},
+		{"smaller_refused", 1280, "https", false, 2, false},
+		{"hls_refused", 1920, "m3u8_native", false, 2, false},
+		{"alternative_failure_not_retried", 1920, "https", true, 2, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			calls := filepath.Join(root, "calls")
+			first := map[string]any{"id": "abcdefghijk", "extractor_key": "Youtube", "live_status": "not_live",
+				"protocol": "m3u8_native", "width": 1920, "height": 1080, "url": "https://private.test/hls"}
+			second := map[string]any{"id": "abcdefghijk", "extractor_key": "Youtube", "live_status": "not_live",
+				"protocol": tc.protocol, "width": tc.width, "height": 1080, "url": "https://private.test/direct"}
+			a, _ := json.Marshal(first)
+			b, _ := json.Marshal(second)
+			script := "#!/bin/sh\nif [ -f '" + calls + "' ]; then\n"
+			// Vérifie le sélecteur exact transmis au véritable point d'entrée yt-dlp.
+			script += "case \"$*\" in *'bv*[protocol=https][width=1920][height=1080]'*) ;; *) exit 9 ;; esac\n"
+			script += "echo retry >> '" + calls + "'\nprintf '%s' '" + string(b) + "'\nelse\necho first > '" + calls + "'\nprintf '%s' '" + string(a) + "'\nfi\n"
+			resolver := writeExecutable(t, script)
+			probeJSON := `{"streams":[{"codec_name":"h264"}],"format":{"duration":"500"}}`
+			probe := writeExecutable(t, "#!/bin/sh\nprintf '%s' '"+probeJSON+"'\n")
+			decoderScript := "#!/bin/sh\ncase \"$*\" in *'/hls'*) exit 0 ;; esac\n"
+			if tc.decodeExit {
+				decoderScript += "echo '403 Forbidden PRIVATE' >&2\nexit 1\n"
+			} else {
+				decoderScript += "printf 'frame'\n"
+			}
+			decoder := writeExecutable(t, decoderScript)
+			err := (CaptureClient{Binary: resolver, ProbeBinary: probe, FFmpegBinary: decoder}).Extract(context.Background(), video.VideoSource{Provider: "youtube", ExternalID: "abcdefghijk"}, "", 120000, root)
+			if (err == nil) != tc.success {
+				t.Fatalf("unexpected result: %v", err)
+			}
+			data, readErr := os.ReadFile(calls)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if strings.Count(string(data), "\n") != tc.wantCalls {
+				t.Fatalf("unexpected attempts: %s", data)
+			}
+			if !tc.success {
+				if _, err := os.Stat(filepath.Join(root, "frame.png")); !os.IsNotExist(err) {
+					t.Fatal("failed capture wrote image")
+				}
+			}
+		})
+	}
+}

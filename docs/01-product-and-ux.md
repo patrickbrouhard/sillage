@@ -607,6 +607,10 @@ de lecture/décodage local permet un repli distant ; les erreurs de stockage,
 SQLite et d'arrêt ne le permettent pas. Aucun téléchargement complet permanent
 n'est déclenché implicitement.
 
+Un échec du flux HLS peut conduire à un unique essai HTTPS de même largeur et
+hauteur. Codec et débit peuvent différer ; aucune baisse de résolution n'est
+effectuée automatiquement.
+
 Le résultat est un PNG à la résolution du fichier local ou du meilleur flux vidéo
 distant sélectionné, sans plafond 1080p ni redimensionnement volontaire. La capture
 vise la première image décodable à partir de la cible ; la cadence discrète et

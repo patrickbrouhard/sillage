@@ -39,10 +39,10 @@ type captureInput struct {
 	Height     int               `json:"height"`
 }
 
-func captureRemoteArgs(id string) []string {
+func captureRemoteArgs(id, selector string) []string {
 	return []string{
 		"--ignore-config", "--no-playlist", "--no-cache-dir", "--skip-download",
-		"--socket-timeout", "15", "--retries", "1", "-f", "bv*", "-S", "res",
+		"--socket-timeout", "15", "--retries", "1", "-f", selector, "-S", "res",
 		"--print", "%(.{id,extractor_key,live_status,url,http_headers,protocol,width,height})j",
 		"--", "https://www.youtube.com/watch?v=" + id,
 	}
@@ -54,7 +54,7 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 		return c.extractInput(ctx, local, nil, timestamp, stage)
 	}
 	for attempt := 0; attempt < 2; attempt++ {
-		remote, options, err := c.resolveCapture(ctx, source)
+		remote, options, err := c.resolveCapture(ctx, source, "bv*")
 		if err != nil {
 			return err
 		}
@@ -65,12 +65,29 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 			log.Printf("capture source=%d: renewing rejected remote URL", source.ID)
 			continue
 		}
+		var failure *captureFailure
+		if ctx.Err() == nil && errors.As(err, &failure) &&
+			(failure.stage == "probe" || failure.stage == "decode") &&
+			(remote.Protocol == "m3u8" || remote.Protocol == "m3u8_native") &&
+			remote.Width > 0 && remote.Height > 0 {
+			// Un seul autre transport, sans baisse de résolution ni boucle de renouvellement.
+			log.Printf("capture source=%d: HLS failed (%s); trying same-resolution HTTPS", source.ID, failure.reason)
+			selector := fmt.Sprintf("bv*[protocol=https][width=%d][height=%d]", remote.Width, remote.Height)
+			alternative, alternativeOptions, resolveErr := c.resolveCapture(ctx, source, selector)
+			if resolveErr != nil {
+				return resolveErr
+			}
+			if alternative.Protocol != "https" || alternative.Width != remote.Width || alternative.Height != remote.Height {
+				return &captureFailure{stage: "resolve", reason: "no_same_resolution_https"}
+			}
+			return c.extractInput(ctx, alternative.URL, alternativeOptions, timestamp, stage)
+		}
 		return err
 	}
 	return asset.ErrExtract
 }
 
-func (c CaptureClient) resolveCapture(ctx context.Context, source video.VideoSource) (captureInput, []string, error) {
+func (c CaptureClient) resolveCapture(ctx context.Context, source video.VideoSource, selector string) (captureInput, []string, error) {
 	binary := c.Binary
 	if binary == "" {
 		binary = "yt-dlp"
@@ -78,7 +95,7 @@ func (c CaptureClient) resolveCapture(ctx context.Context, source video.VideoSou
 	if source.Provider != "youtube" || !regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`).MatchString(source.ExternalID) {
 		return captureInput{}, nil, asset.ErrExtract
 	}
-	data, err := captureCommand(ctx, "resolve", binary, captureRemoteArgs(source.ExternalID)...)
+	data, err := captureCommand(ctx, "resolve", binary, captureRemoteArgs(source.ExternalID, selector)...)
 	if err != nil {
 		return captureInput{}, nil, err
 	}
@@ -171,7 +188,7 @@ func (c CaptureClient) extractInput(ctx context.Context, input string, options [
 		return err
 	}
 	if len(png) == 0 {
-		return fmt.Errorf("%w: stage=decode reason=no_frame_at_timestamp", asset.ErrExtract)
+		return &captureFailure{stage: "decode", reason: "no_frame_at_timestamp"}
 	}
 	if err := ctx.Err(); err != nil {
 		return err
