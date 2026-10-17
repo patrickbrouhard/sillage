@@ -1217,10 +1217,21 @@ Livré :
   des intentions interrompues et conservation des PNG malgré un incident SQL.
 
 Validation : suite Go, vet et builds, détection de courses sur les services,
-adapters et HTTP ; 322 tests Playwright dont 11 parcours captures. Les tests
+adapters et HTTP ; 323 tests Playwright dont 12 parcours captures. Les tests
 FFmpeg sont déterministes et ne nécessitent pas YouTube. Un test distant
 facultatif a réussi sur une courte vidéo 320 × 240 ; les limites de fidélité et
 les vérifications visuelles encore nécessaires sont détaillées dans le document 04.
+
+Les essais manuels ont confirmé les captures locales et distantes après les
+correctifs HLS/HTTPS et 403. À dimensions identiques, HTTPS est sélectionné
+prioritairement ; le cas lent observé à 95 140 ms est passé d'environ 89 secondes
+à 4,3 secondes lors du contrôle réel. Le curseur resté au marqueur se place après
+la référence et son espace final, sans déplacer une position choisie ailleurs.
+La revue finale a couvert persistance/publication, emprunt du média, idempotence,
+réessais bornés et cycle de vie de la note ; aucun autre problème bloquant identifié.
+La suite Go, vet, les builds et les 323 tests navigateur passent au contrôle final.
+Les limites documentées (HLS seul à meilleure résolution, refus réseau persistants,
+fidélité exacte à l'iframe et cas colorimétriques particuliers) restent applicables.
 
 ### Incréments ultérieurs
 
