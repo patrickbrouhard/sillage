@@ -636,6 +636,8 @@ Dès l'acceptation persistée, le marqueur devient une unique insertion Markdown
 
 L'insertion se fait au curseur ou après la sélection sans remplacer le texte.
 Elle constitue une étape Undo/Redo isolée, sans déplacer le focus à la réponse.
+Si le curseur attend encore au marqueur, il est placé après la référence et son
+espace final. Une sélection ou un curseur déplacé pendant l'attente est préservé.
 Undo ne supprime pas l'Asset ; Redo ne relance pas son extraction.
 Le nom physique est technique et unique, par exemple
 `capture-123-762345ms-<identifiant-aléatoire>.png` ; le timestamp en base est canonique.

@@ -211,3 +211,14 @@ test('reprise du POST incertain conserve la même clé de demande', async ({ pag
   expect(c.keys).toHaveLength(2)
   expect(c.keys[0]).toBe(c.keys[1])
 })
+
+test('curseur après la référence et son espace lorsque la position attend au marqueur', async ({ page, request }) => {
+  const c = await setup(page, request, '')
+  await page.getByRole('button', { name: '+ Capture', exact: true }).click()
+  c.accept()
+  await expect(c.editor).toContainText('/api/v1/assets/900/content')
+  await page.keyboard.type('suite')
+  await page.keyboard.press('Control+s')
+  await expect.poll(async () => (await (await request.get(c.noteURL)).json()).content_md)
+    .toBe('![Capture à 0:12](/api/v1/assets/900/content) suite')
+})

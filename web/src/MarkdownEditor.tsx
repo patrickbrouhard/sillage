@@ -90,8 +90,13 @@ export function MarkdownEditor({ initial, active, onChange, onSave, onNavigate, 
       const view = editor.current
       const marker = view?.state.field(captureMarker)
       if (!view || !marker || marker.id !== id) return false
+      const selection = view.state.selection
+      const atMarker = selection.ranges.length === 1 && selection.main.empty &&
+        selection.main.head === marker.position
       view.dispatch({
         changes: { from: marker.position, insert: markdown },
+        // Accompagner l'insertion seulement si le curseur attend encore au marqueur.
+        selection: atMarker ? { anchor: marker.position + markdown.length } : undefined,
         effects: setCaptureMarker.of(null),
         annotations: isolateHistory.of('full'),
       })
