@@ -3,13 +3,17 @@ package ytdlp
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"image/png"
 	"log"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -116,23 +120,36 @@ func TestCaptureYouTubeIntegration(t *testing.T) {
 	if os.Getenv("SILLAGE_CAPTURE_YOUTUBE_TEST") != "1" {
 		t.Skip("explicit YouTube test disabled")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 70*time.Second)
-	defer cancel()
-	stage := t.TempDir()
-	source := video.VideoSource{Provider: "youtube", ExternalID: "jNQXAC9IVRw"}
-	if err := (CaptureClient{}).Extract(ctx, source, "", 1500, stage); err != nil {
-		t.Fatal(err)
+
+	for _, target := range []struct {
+		id string
+		ms int64
+	}{
+		{"jNQXAC9IVRw", 1500},
+		{"uJMjlKksSks", 120000},
+		{"CcsgednSRfE", 301000},
+	} {
+		t.Run(target.id, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			stage := t.TempDir()
+			source := video.VideoSource{Provider: "youtube", ExternalID: target.id}
+			if err := (CaptureClient{}).Extract(ctx, source, "", target.ms, stage); err != nil {
+				t.Fatal(err)
+			}
+			f, err := os.Open(filepath.Join(stage, "frame.png"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			cfg, err := png.DecodeConfig(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("remote PNG %dx%d at %d ms", cfg.Width, cfg.Height, target.ms)
+		})
 	}
-	f, err := os.Open(filepath.Join(stage, "frame.png"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	cfg, err := png.DecodeConfig(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("remote PNG %dx%d at 1500 ms", cfg.Width, cfg.Height)
+
 }
 
 // TestCaptureDiagnosticsNeverExposePrivateOutput vérifie les erreurs et les logs réels.
@@ -158,6 +175,111 @@ func TestCaptureDiagnosticsNeverExposePrivateOutput(t *testing.T) {
 				if strings.Contains(combined, secret) {
 					t.Fatalf("private output leaked")
 				}
+			}
+		})
+	}
+}
+
+// TestCaptureHTTPSLateSeek exerce Range, le probe et le décodage loin du début,
+// avec des changements de couleur après l'image clé précédente.
+func TestCaptureHTTPSLateSeek(t *testing.T) {
+	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skip(tool + " unavailable")
+		}
+	}
+	input := filepath.Join(t.TempDir(), "long.mp4")
+	args := []string{
+		"-v", "error", "-f", "lavfi", "-i", "color=red:s=64x48:r=10:d=119.8",
+		"-f", "lavfi", "-i", "color=lime:s=64x48:r=10:d=181",
+		"-f", "lavfi", "-i", "color=blue:s=64x48:r=10:d=3.2",
+		"-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]",
+		"-map", "[v]", "-c:v", "libx264", "-g", "3000", "-keyint_min", "3000",
+		"-sc_threshold", "0", "-movflags", "+faststart", input,
+	}
+	if out, err := exec.Command("ffmpeg", args...).CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	var ranges atomic.Int32
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Range") != "" {
+			ranges.Add(1)
+		}
+		http.ServeFile(w, r, input)
+	}))
+	defer server.Close()
+	metadata, _ := json.Marshal(map[string]any{
+		"id": "abcdefghijk", "extractor_key": "Youtube", "live_status": "not_live",
+		"protocol": "https", "width": 64, "height": 48, "url": server.URL + "/long.mp4",
+	})
+	resolver := writeExecutable(t, "#!/bin/sh\nprintf '%s' '"+string(metadata)+"'\n")
+	for _, target := range []struct {
+		ms      int64
+		channel int
+	}{{120050, 1}, {301050, 2}} {
+		stage := t.TempDir()
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		err := (CaptureClient{Binary: resolver}).Extract(ctx, video.VideoSource{Provider: "youtube", ExternalID: "abcdefghijk"}, "", target.ms, stage)
+		cancel()
+		if err != nil {
+			t.Fatal(err)
+		}
+		file, err := os.Open(filepath.Join(stage, "frame.png"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		img, err := png.Decode(file)
+		file.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, g, b, _ := img.At(32, 24).RGBA()
+		if []uint32{r, g, b}[target.channel] < 60000 {
+			t.Fatalf("old frame at %d: %d %d %d", target.ms, r, g, b)
+		}
+	}
+	if ranges.Load() == 0 {
+		t.Fatal("no HTTP range requests")
+	}
+}
+
+// TestCaptureRenewsRejectedURLOnce borne le renouvellement et ne réessaie pas les autres échecs.
+func TestCaptureRenewsRejectedURLOnce(t *testing.T) {
+	for _, tc := range []struct {
+		name, detail string
+		recover      bool
+		calls        int
+	}{
+		{"renewed", "HTTP error 403 Forbidden", true, 2},
+		{"still_rejected", "HTTP error 403 Forbidden", false, 2},
+		{"invalid_media", "Invalid data found", false, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			count := filepath.Join(root, "resolutions")
+			metadata := `{"id":"abcdefghijk","extractor_key":"Youtube","live_status":"not_live","protocol":"https","url":"https://private.test/signed"}`
+			resolver := writeExecutable(t, "#!/bin/sh\necho x >> '"+count+"'\nprintf '%s' '"+metadata+"'\n")
+			probeScript := "#!/bin/sh\n"
+			if tc.recover {
+				probeJSON := `{"streams":[{"codec_name":"h264"}],"format":{"duration":"500"}}`
+				probeScript += "if [ -f '" + filepath.Join(root, "rejected") + "' ]; then printf '%s' '" + probeJSON + "'; exit 0; fi\ntouch '" + filepath.Join(root, "rejected") + "'\n"
+			}
+			probeScript += "echo '" + tc.detail + " https://private.test/?token=PRIVATE' >&2\nexit 1\n"
+			probe := writeExecutable(t, probeScript)
+			decoder := writeExecutable(t, "#!/bin/sh\nprintf 'decoded-frame'\n")
+			err := (CaptureClient{Binary: resolver, ProbeBinary: probe, FFmpegBinary: decoder}).Extract(context.Background(), video.VideoSource{Provider: "youtube", ExternalID: "abcdefghijk"}, "", 301000, root)
+			if (err == nil) != tc.recover {
+				t.Fatalf("unexpected result: %v", err)
+			}
+			data, readErr := os.ReadFile(count)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if strings.Count(string(data), "x") != tc.calls {
+				t.Fatalf("unbounded or missing retry: %s", data)
+			}
+			if err != nil && strings.Contains(err.Error(), "PRIVATE") {
+				t.Fatal("secret leaked")
 			}
 		})
 	}

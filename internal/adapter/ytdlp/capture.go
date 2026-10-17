@@ -50,55 +50,77 @@ func captureRemoteArgs(id string) []string {
 
 // Extract garde les erreurs de stockage distinctes des erreurs de lecture, seules éligibles au repli.
 func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, local string, timestamp int64, stage string) error {
-	binary, probe, ffmpeg := c.Binary, c.ProbeBinary, c.FFmpegBinary
+	if local != "" {
+		return c.extractInput(ctx, local, nil, timestamp, stage)
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		remote, options, err := c.resolveCapture(ctx, source)
+		if err != nil {
+			return err
+		}
+		log.Printf("capture source=%d timestamp_ms=%d transport=%s width=%d height=%d", source.ID, timestamp, captureTransport(remote.Protocol), remote.Width, remote.Height)
+		err = c.extractInput(ctx, remote.URL, options, timestamp, stage)
+		if attempt == 0 && ctx.Err() == nil && captureReason(err, "http_403") {
+			// Une URL signée peut être refusée immédiatement : la renouveler une seule fois.
+			log.Printf("capture source=%d: renewing rejected remote URL", source.ID)
+			continue
+		}
+		return err
+	}
+	return asset.ErrExtract
+}
+
+func (c CaptureClient) resolveCapture(ctx context.Context, source video.VideoSource) (captureInput, []string, error) {
+	binary := c.Binary
 	if binary == "" {
 		binary = "yt-dlp"
 	}
+	if source.Provider != "youtube" || !regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`).MatchString(source.ExternalID) {
+		return captureInput{}, nil, asset.ErrExtract
+	}
+	data, err := captureCommand(ctx, "resolve", binary, captureRemoteArgs(source.ExternalID)...)
+	if err != nil {
+		return captureInput{}, nil, err
+	}
+	var remote captureInput
+	if err := json.Unmarshal(data, &remote); err != nil {
+		return captureInput{}, nil, fmt.Errorf("%w: stage=resolve reason=invalid_json", asset.ErrExtract)
+	}
+	parsed, err := url.Parse(remote.URL)
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil ||
+		remote.ID != source.ExternalID || remote.Extractor != "Youtube" ||
+		(remote.LiveStatus != "not_live" && remote.LiveStatus != "was_live") {
+		return captureInput{}, nil, asset.ErrExtract
+	}
+
+	options := []string{"-protocol_whitelist", "http,https,tcp,tls,crypto", "-rw_timeout", "15000000"}
+	keys := make([]string, 0, len(remote.Headers))
+	for key := range remote.Headers {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var headers strings.Builder
+	for _, key := range keys {
+		value := remote.Headers[key]
+		if !regexp.MustCompile(`^[A-Za-z0-9-]+$`).MatchString(key) || strings.ContainsAny(value, "\r\n") {
+			return captureInput{}, nil, asset.ErrExtract
+		}
+		fmt.Fprintf(&headers, "%s: %s\r\n", key, value)
+	}
+	if headers.Len() > 0 {
+		options = append(options, "-headers", headers.String())
+	}
+	return remote, options, nil
+}
+
+// extractInput garde la même politique de seek pour le fichier et le flux distant.
+func (c CaptureClient) extractInput(ctx context.Context, input string, options []string, timestamp int64, stage string) error {
+	probe, ffmpeg := c.ProbeBinary, c.FFmpegBinary
 	if probe == "" {
 		probe = "ffprobe"
 	}
 	if ffmpeg == "" {
 		ffmpeg = "ffmpeg"
-	}
-	input := local
-	options := []string{}
-	if input == "" {
-		if source.Provider != "youtube" || !regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`).MatchString(source.ExternalID) {
-			return asset.ErrExtract
-		}
-		data, err := captureCommand(ctx, "resolve", binary, captureRemoteArgs(source.ExternalID)...)
-		if err != nil {
-			return err
-		}
-		var remote captureInput
-		if err := json.Unmarshal(data, &remote); err != nil {
-			return fmt.Errorf("%w: stage=resolve reason=invalid_json", asset.ErrExtract)
-		}
-		parsed, err := url.Parse(remote.URL)
-		if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil ||
-			remote.ID != source.ExternalID || remote.Extractor != "Youtube" ||
-			(remote.LiveStatus != "not_live" && remote.LiveStatus != "was_live") {
-			return asset.ErrExtract
-		}
-		log.Printf("capture source=%d timestamp_ms=%d transport=%s width=%d height=%d", source.ID, timestamp, captureTransport(remote.Protocol), remote.Width, remote.Height)
-		input = remote.URL
-		options = []string{"-protocol_whitelist", "http,https,tcp,tls,crypto", "-rw_timeout", "15000000"}
-		keys := make([]string, 0, len(remote.Headers))
-		for key := range remote.Headers {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		var headers strings.Builder
-		for _, key := range keys {
-			value := remote.Headers[key]
-			if !regexp.MustCompile(`^[A-Za-z0-9-]+$`).MatchString(key) || strings.ContainsAny(value, "\r\n") {
-				return asset.ErrExtract
-			}
-			fmt.Fprintf(&headers, "%s: %s\r\n", key, value)
-		}
-		if headers.Len() > 0 {
-			options = append(options, "-headers", headers.String())
-		}
 	}
 	// Les propriétés d'affichage ne sont pas déduites des seules dimensions MediaFile.
 	args := append([]string{"-v", "error"}, options...)
@@ -215,5 +237,17 @@ func extractionError(ctx context.Context, stage string, err error) error {
 			break
 		}
 	}
-	return fmt.Errorf("%w: stage=%s reason=%s", asset.ErrExtract, stage, reason)
+	return &captureFailure{stage: stage, reason: reason}
+}
+
+// captureFailure transporte une catégorie fermée, sans conserver le diagnostic privé.
+type captureFailure struct{ stage, reason string }
+
+func (e *captureFailure) Error() string {
+	return fmt.Sprintf("%s: stage=%s reason=%s", asset.ErrExtract, e.stage, e.reason)
+}
+func (e *captureFailure) Unwrap() error { return asset.ErrExtract }
+func captureReason(err error, reason string) bool {
+	var failure *captureFailure
+	return errors.As(err, &failure) && failure.reason == reason
 }

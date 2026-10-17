@@ -1204,3 +1204,31 @@ sur des transitions rapides, la VFR, les longs médias, la rotation, le HLG et l
 Validation de distribution : build Docker et smoke test réussis (outils, Compose,
 HTTP/SPA, persistance après recréation et arrêt propre). Les 45 requêtes et
 135 assertions Postman déterministes existantes passent également.
+
+### Diagnostic distant après les premiers essais manuels
+
+Les essais sur `uJMjlKksSks` à 120 000 ms reproduisent un échec du seek d'entrée
+avec ffmpeg 6.1.1 et le format HLS 616 (VP9, 1920 × 1080) : ffprobe lit le flux,
+mais le démuxage après seek ne délivre aucun paquet et ffmpeg sort avec zéro
+octet, malgré un code de sortie nul. Les segments inspectés ont des timestamps
+cohérents. Un décodage depuis le début atteint la cible ; il n'est pas activé
+comme contournement, car son coût croît avec la position demandée.
+
+Sur `CcsgednSRfE` à 301 000 ms, l'échec a été reproduit au probe avec HTTP 403
+sur le flux HTTPS 401 (AV1, 3840 × 2160), avant le seek. Une autre résolution
+a réussi et produit un PNG 4K à cette même position. Cela ne permet pas
+d'attribuer avec certitude le premier log générique au même refus réseau.
+
+Les diagnostics distinguent maintenant résolution, probe et décodage, avec
+durée et catégorie d'erreur fermée. Aucun stderr brut, URL, cookie ou en-tête
+n'est journalisé. Un HTTP 403 au probe/décodage autorise une seule nouvelle
+résolution de l'URL et un nouvel essai, dans le délai global existant. Les autres
+échecs et les erreurs de stockage ne déclenchent pas ce renouvellement.
+
+Un test déterministe sert une vidéo synthétique par HTTPS avec Range et vérifie
+les couleurs à 120 050 et 301 050 ms après des transitions entre images clés.
+Le test YouTube facultatif couvre désormais également les deux vidéos signalées ;
+le cas HLS reste un reproducer en échec tant que la politique de substitution
+par un flux HTTPS de même résolution n'a pas été validée. Cette substitution
+peut changer codec/débit : elle ne doit pas être assimilée à une identité parfaite
+entre représentations.
