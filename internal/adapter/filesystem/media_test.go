@@ -1,9 +1,12 @@
 package filesystem
 
 import (
+	"bytes"
 	"context"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/patrickbrouhard/sillage/internal/media"
@@ -185,5 +188,36 @@ func TestAdditionalContainerAndUnsafeNames(t *testing.T) {
 		if err := storage.Check(media.File{Path: name, Size: 8}); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestRecoveryLoggingOmitsHostPaths(t *testing.T) {
+	var output bytes.Buffer
+	logger, _ := logging.New(&output, "DEBUG", "json")
+	ctx := logging.WithLogger(context.Background(), logger)
+	root := filepath.Join(t.TempDir(), "PRIVATE")
+	s := NewMedia(root)
+	if err := s.Recover(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	f := published(t, s)
+	f.ID = 12
+	if err := s.StageDelete(f); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Recover(ctx, []media.File{f}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "media.restored") {
+		t.Fatal(output.String())
+	}
+	if err := os.Remove(filepath.Join(root, f.Path)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Recover(ctx, []media.File{f}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "media.unavailable") || strings.Contains(output.String(), "PRIVATE") {
+		t.Fatal(output.String())
 	}
 }

@@ -143,6 +143,7 @@ func (h *VideoHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func respondError(w http.ResponseWriter, r *http.Request, err error) {
+	requestlog.Result(r, "", err)
 	// Une déconnexion n'appelle aucune réponse HTTP ni erreur technique supplémentaire.
 	if errors.Is(r.Context().Err(), context.Canceled) {
 		return

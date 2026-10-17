@@ -128,6 +128,7 @@ func (h *MediaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func respondMediaError(w http.ResponseWriter, r *http.Request, state media.State, err error) {
+	requestlog.Result(r, "", err)
 	if errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}

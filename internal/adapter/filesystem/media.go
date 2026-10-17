@@ -82,7 +82,7 @@ func (s *Media) Recover(ctx context.Context, files []media.File) error {
 	referenced := make(map[string]media.File)
 	for _, f := range files {
 		if _, err := s.path(f.Path); err != nil {
-			logging.From(ctx).WarnContext(ctx, "Media recovery anomaly", "event", "media.recovery_anomaly", "media_file_id", f.ID, logging.Error(err))
+			logging.From(ctx).WarnContext(ctx, "Invalid media reference", "event", "media.reference_invalid", "media_file_id", f.ID, logging.Error(err))
 			continue
 		}
 		referenced[f.Path] = f
@@ -92,13 +92,16 @@ func (s *Media) Recover(ctx context.Context, files []media.File) error {
 		if errors.Is(originalErr, os.ErrNotExist) && deletingErr == nil {
 			// La taille et la lisibilité doivent correspondre avant tout renommage.
 			if err := s.checkFile(path+".deleting", f.Size); err != nil {
-				logging.From(ctx).WarnContext(ctx, "Media recovery anomaly", "event", "media.recovery_anomaly", "media_file_id", f.ID, logging.Error(err))
+				logging.From(ctx).DebugContext(ctx, "Media restoration refused", "event", "media.restore_refused", "media_file_id", f.ID, logging.Error(err))
 			} else if err := s.Restore(f); err != nil {
-				logging.From(ctx).WarnContext(ctx, "Media recovery anomaly", "event", "media.recovery_anomaly", "media_file_id", f.ID, logging.Error(err))
+				logging.From(ctx).DebugContext(ctx, "Media restoration failed", "event", "media.restore_failed", "media_file_id", f.ID, logging.Error(err))
+			} else {
+				logging.From(ctx).InfoContext(ctx, "Media file restored", "event", "media.restored", "media_file_id", f.ID)
 			}
+
 		}
 		if err := s.Check(f); err != nil {
-			logging.From(ctx).WarnContext(ctx, "Media recovery anomaly", "event", "media.recovery_anomaly", "media_file_id", f.ID, logging.Error(err))
+			logging.From(ctx).WarnContext(ctx, "Media file unavailable", "event", "media.unavailable", "media_file_id", f.ID, logging.Error(err))
 		}
 	}
 	for _, entry := range entries {

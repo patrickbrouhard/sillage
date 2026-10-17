@@ -1513,8 +1513,8 @@ Cache-Control: no-store sur les lectures d'état et les démarrages réussis.
 Un échec après acceptation est consultable en GET 200, status=failed, avec :
 media_unfinished,
 media_duration_mismatch, media_invalid, download_failed, download_timeout,
-download_interrupted ou internal_error. Les diagnostics détaillés restent dans
-les logs serveur. Aucune analyse de stderr ne pilote les décisions métier.
+download_interrupted ou internal_error. Les catégories techniques sûres et codes de sortie restent dans
+les logs serveur, sans sortie brute des outils. Aucune analyse de stderr ne pilote les décisions métier.
 Une erreur de consultation n'est jamais assimilée à not_downloaded.
 
 Le navigateur consulte toutes les deux secondes pendant downloading et au retour
@@ -1612,3 +1612,12 @@ Le niveau est choisi au démarrage. GET/HEAD, polling et autosave réussis reste
 en DEBUG ; les anomalies restent visibles. X-Request-ID est généré côté serveur
 et permet de retrouver le bilan HTTP. Aucun corps ni stderr brut d'outil n'est
 journalisé ; les catégories techniques et codes de sortie restent disponibles.
+
+
+Les événements capture.started et download.started portent operation_id et,
+si l'appel vient de HTTP, origin_request_id. Une capture conserve l'identité
+capture:<asset_id> ; chaque nouveau téléchargement reçoit sa propre identité.
+La clé request_id de commande capture garde son rôle d'idempotence.
+Les événements completed, failed, interrupted ou finalization_uncertain
+décrivent le résultat serveur ; un POST 202 ne confirme pas la fin du traitement.
+Les fichiers publiés restent conservés lors d'une finalisation incertaine.

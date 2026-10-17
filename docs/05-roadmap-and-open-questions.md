@@ -1702,3 +1702,10 @@ résultats terminaux, replis et étapes techniques contextualisés. Les sorties
 historiques log.Printf des services et du rapprochement sont remplacées.
 Tests dédiés : poursuite après déconnexion, repli réussi, interruption à l'arrêt
 et identités distinctes pour deux acquisitions de la même source.
+
+
+Jalon couverture ciblée : imports/réutilisations de vidéos, publishers et
+transcriptions réussis ; étapes synchrones yt-dlp ; suppression média confirmée
+et rapprochement discriminant restauration, indisponibilité et conservation.
+Les erreurs synchrones enrichissent le bilan HTTP unique. Les tests vérifient
+l'absence de contenu de connaissance et de chemins hôte dans ces événements.

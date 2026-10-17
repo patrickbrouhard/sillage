@@ -6,9 +6,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"net/url"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -22,7 +24,17 @@ type Client struct {
 
 // Extract récupère les métadonnées d'une vidéo YouTube unique.
 // Le contexte permet d'annuler l'exécution ; aucun JSON brut n'est conservé.
-func (c Client) Extract(ctx context.Context, inputURL string) (video.VideoSource, error) {
+func (c Client) Extract(ctx context.Context, inputURL string) (result video.VideoSource, resultErr error) {
+	started := time.Now()
+	defer func() {
+		logger := logging.From(ctx).With("event", "metadata.finished", "tool", "yt-dlp", "elapsed_ms", time.Since(started).Milliseconds())
+		if resultErr != nil {
+			logger.DebugContext(ctx, "Acquisition failed", logging.Error(resultErr))
+		} else {
+			logger.DebugContext(ctx, "Acquisition completed")
+		}
+	}()
+
 	inputURL = strings.TrimSpace(inputURL)
 	u, err := url.Parse(inputURL)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil {

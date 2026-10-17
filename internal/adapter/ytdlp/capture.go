@@ -108,7 +108,7 @@ func (c CaptureClient) resolveCapture(ctx context.Context, source video.VideoSou
 	}
 	var remote captureInput
 	if err := json.Unmarshal(data, &remote); err != nil {
-		return captureInput{}, nil, fmt.Errorf("%w: stage=resolve reason=invalid_json", asset.ErrExtract)
+		return captureInput{}, nil, &captureFailure{stage: "resolve", reason: "invalid_json"}
 	}
 	parsed, err := url.Parse(remote.URL)
 	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil ||
@@ -206,6 +206,13 @@ func (c CaptureClient) extractInput(ctx context.Context, input string, options [
 
 // captureCommand journalise seulement des étapes et catégories fermées, jamais stderr.
 func captureCommand(ctx context.Context, stage, binary string, args ...string) ([]byte, error) {
+	tool := "ffmpeg"
+	if stage == "resolve" {
+		tool = "yt-dlp"
+	} else if stage == "probe" {
+		tool = "ffprobe"
+	}
+	ctx = logging.WithLogger(ctx, logging.From(ctx).With("tool", tool))
 	started := time.Now()
 	data, err := mediaCommand(ctx, binary, args...)
 	if err != nil {

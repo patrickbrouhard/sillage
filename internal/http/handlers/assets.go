@@ -120,6 +120,7 @@ func (h *AssetHandler) Content(w http.ResponseWriter, r *http.Request) {
 }
 
 func respondAssetError(w http.ResponseWriter, r *http.Request, err error) {
+	requestlog.Result(r, "", err)
 	if errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}

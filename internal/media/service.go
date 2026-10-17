@@ -118,7 +118,7 @@ func (s *Service) state(ctx context.Context, sourceID video.VideoSourceID) (Stat
 	f, err := s.repo.BySource(ctx, sourceID)
 	if err == nil {
 		if err := s.storage.Check(f); err != nil {
-			return State{File: &f}, fmt.Errorf("%w: %v", ErrUnavailable, err)
+			return State{File: &f}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 		}
 		return State{Status: "available", File: &f}, nil
 	}
@@ -302,14 +302,20 @@ func (s *Service) Delete(ctx context.Context, videoID video.VideoID, id int64) e
 		checkCtx, cancel := context.WithTimeout(logging.WithLogger(context.Background(), logging.From(ctx)), 2*time.Second)
 		defer cancel()
 		if _, readErr := s.repo.Get(checkCtx, id); readErr == nil {
-			_ = s.storage.Restore(f)
+			if restoreErr := s.storage.Restore(f); restoreErr != nil {
+				logging.From(ctx).WarnContext(ctx, "Media deletion restoration failed", "event", "media.restore_failed", "media_file_id", id, logging.Error(restoreErr))
+			}
 		}
 		return err
 	}
 	if f.OriginSourceID != nil {
 		delete(s.failures, *f.OriginSourceID)
 	}
-	return s.storage.FinishDelete(f)
+	if err := s.storage.FinishDelete(f); err != nil {
+		return err
+	}
+	logging.From(ctx).InfoContext(ctx, "Media file deleted", "event", "media.deleted", "video_id", videoID, "media_file_id", id)
+	return nil
 }
 
 // Borrow réserve le fichier complet de cette source contre DELETE, sans bloquer les téléchargements.
@@ -335,7 +341,7 @@ func (s *Service) Borrow(ctx context.Context, videoID video.VideoID, sourceID vi
 	}
 	path, err := storage.ReadPath(f)
 	if err != nil {
-		return "", nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
+		return "", nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	if s.leases == nil {
 		s.leases = make(map[int64]int)

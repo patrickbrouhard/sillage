@@ -133,8 +133,7 @@ func (s *Service) Open(ctx context.Context, id int64) (Asset, Content, error) {
 	}
 	content, err := s.storage.Open(a)
 	if err != nil {
-		logging.From(ctx).WarnContext(ctx, "Asset content unavailable", "event", "asset.content_unavailable", "asset_id", id, logging.Error(err))
-		return a, nil, ErrUnavailable
+		return a, nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	return a, content, nil
 }

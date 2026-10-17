@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"io"
 	"net/http"
 	"net/url"
@@ -457,6 +458,7 @@ func (h *PeopleHandler) RemovePersonTag(w http.ResponseWriter, r *http.Request) 
 
 // respondPeopleError traduit les erreurs stables et délègue les échecs d'acquisition.
 func respondPeopleError(w http.ResponseWriter, r *http.Request, err error) {
+	requestlog.Result(r, "", err)
 	if errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
