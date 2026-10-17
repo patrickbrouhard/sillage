@@ -1695,3 +1695,10 @@ identifiant serveur, catégories de routes et diagnostics de panic contrôlés.
 Les adaptations HTTP des incréments 1 et 2 sont regroupées pour éviter une
 migration intermédiaire. Les tests couvrent niveaux, confidentialité, HEAD,
 Range, streaming, hijack, annulation et panic. Migration asynchrone à suivre.
+
+
+Jalon asynchrone : corrélation serveur indépendante de HTTP, débuts idempotents,
+résultats terminaux, replis et étapes techniques contextualisés. Les sorties
+historiques log.Printf des services et du rapprochement sont remplacées.
+Tests dédiés : poursuite après déconnexion, repli réussi, interruption à l'arrêt
+et identités distinctes pour deux acquisitions de la même source.

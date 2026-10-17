@@ -50,7 +50,7 @@ func writePNG(stage string) error {
 	return png.Encode(f, img)
 }
 
-func setup(t *testing.T, local *localMedia, extract extractor) (*asset.Service, *sqlite.AssetRepository, video.Video, *filesystem.Assets) {
+func setup(t *testing.T, local *localMedia, extract extractor, contexts ...context.Context) (*asset.Service, *sqlite.AssetRepository, video.Video, *filesystem.Assets) {
 	t.Helper()
 	root := t.TempDir()
 	db, err := sqlite.Open(context.Background(), filepath.Join(root, "db"))
@@ -65,7 +65,11 @@ func setup(t *testing.T, local *localMedia, extract extractor) (*asset.Service, 
 	}
 	repo := sqlite.NewAssetRepository(db)
 	storage := filesystem.NewAssets(filepath.Join(root, "assets"))
-	service, err := asset.NewService(context.Background(), videos, repo, local, extract, storage, time.Minute)
+	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
+	service, err := asset.NewService(ctx, videos, repo, local, extract, storage, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -50,9 +50,12 @@ func (p *provider) Download(ctx context.Context, _ video.VideoSource, dir string
 		VideoCodec: &vc, AudioCodec: &ac, Width: &width, Height: &height, FPS: &fps, AudioLanguage: &language}, nil
 }
 
-func setup(t *testing.T, p *provider, timeout time.Duration) (*media.Service, *sqlite.MediaRepository, *filesystem.Media, video.Video, video.Video) {
+func setup(t *testing.T, p *provider, timeout time.Duration, contexts ...context.Context) (*media.Service, *sqlite.MediaRepository, *filesystem.Media, video.Video, video.Video) {
 	t.Helper()
 	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
 	dir := t.TempDir()
 	db, err := sqlite.Open(ctx, filepath.Join(dir, "test.db"))
 	if err != nil {

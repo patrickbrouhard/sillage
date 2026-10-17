@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"image/png"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -165,10 +165,8 @@ func TestCaptureDiagnosticsNeverExposePrivateOutput(t *testing.T) {
 		t.Run(tc.stage+"_"+tc.want, func(t *testing.T) {
 			script := writeExecutable(t, "#!/bin/sh\nprintf '%s\\n' '"+tc.detail+" https://secret.test/signed?token=PRIVATE Cookie: PRIVATE Authorization: PRIVATE' >&2\nexit 1\n")
 			var logs bytes.Buffer
-			previous := log.Writer()
-			log.SetOutput(&logs)
-			defer log.SetOutput(previous)
-			_, err := captureCommand(context.Background(), tc.stage, script)
+			logger, _ := logging.New(&logs, "DEBUG", "json")
+			_, err := captureCommand(logging.WithLogger(context.Background(), logger), tc.stage, script)
 			if !errors.Is(err, asset.ErrExtract) || !strings.Contains(err.Error(), "stage="+tc.stage) || !strings.Contains(err.Error(), "reason="+tc.want) {
 				t.Fatalf("unexpected error: %v", err)
 			}

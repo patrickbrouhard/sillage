@@ -78,7 +78,7 @@ func (c Client) ResolvePublisher(ctx context.Context, input string) (video.Publi
 		}
 		var exit *exec.ExitError
 		if !errors.As(err, &exit) {
-			return video.Publisher{}, fmt.Errorf("%w: %w", video.ErrMetadataProviderUnavailable, err)
+			return video.Publisher{}, fmt.Errorf("%w: %w", video.ErrMetadataProviderUnavailable, toolError(err, ""))
 		}
 		return video.Publisher{}, fmt.Errorf("%w: %w", video.ErrMetadataFetchFailed, toolError(err, stderr.buffer.String()))
 	}

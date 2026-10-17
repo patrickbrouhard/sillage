@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -130,7 +131,7 @@ func (c MediaClient) Download(ctx context.Context, source video.VideoSource, sta
 	if binary == "" {
 		binary = "yt-dlp"
 	}
-	output, err := mediaCommand(ctx, binary, mediaDownloadArgs(source.ExternalID, stage)...)
+	output, err := mediaTool(ctx, "download", "yt-dlp", binary, mediaDownloadArgs(source.ExternalID, stage)...)
 	if err != nil {
 		return media.Acquired{}, err
 	}
@@ -150,7 +151,7 @@ func (c MediaClient) Download(ctx context.Context, source video.VideoSource, sta
 	if probe == "" {
 		probe = "ffprobe"
 	}
-	data, err := mediaCommand(ctx, probe, "-v", "error", "-show_format", "-show_streams", "-of", "json", path)
+	data, err := mediaTool(ctx, "probe", "ffprobe", probe, "-v", "error", "-show_format", "-show_streams", "-of", "json", path)
 	if err != nil {
 		if ctx.Err() != nil {
 			return media.Acquired{}, ctx.Err()
@@ -295,7 +296,7 @@ func mediaCommand(ctx context.Context, binary string, args ...string) ([]byte, e
 		return nil, err
 	}
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("start media tool: %w", err)
+		return nil, fmt.Errorf("start media tool: %w", toolError(err, ""))
 	}
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
@@ -320,7 +321,7 @@ func mediaCommand(ctx context.Context, binary string, args ...string) ([]byte, e
 		if errors.As(err, &exit) {
 			return nil, fmt.Errorf("%w: %w", media.ErrDownload, toolError(err, stderr.buffer.String()))
 		}
-		return nil, fmt.Errorf("media tool: %w", err)
+		return nil, fmt.Errorf("media tool: %w", toolError(err, ""))
 	}
 	if stdout.truncated {
 		return nil, media.ErrInvalid
@@ -387,4 +388,17 @@ func ebmlInteger(data []byte, identifier bool) (uint64, int) {
 		value = value<<8 | uint64(b)
 	}
 	return value, n
+}
+
+// mediaTool journalise une étape avec des noms contrôlés, sans arguments de commande.
+func mediaTool(ctx context.Context, stage, tool, binary string, args ...string) ([]byte, error) {
+	started := time.Now()
+	data, err := mediaCommand(ctx, binary, args...)
+	logger := logging.From(ctx).With("event", "download.command_finished", "stage", stage, "tool", tool, "elapsed_ms", time.Since(started).Milliseconds())
+	if err != nil {
+		logger.DebugContext(ctx, "Media command failed", logging.Error(err))
+	} else {
+		logger.DebugContext(ctx, "Media command completed", "output_bytes", len(data))
+	}
+	return data, err
 }

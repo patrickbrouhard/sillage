@@ -156,7 +156,7 @@ func (c Client) transcriptCommand(ctx context.Context, args ...string) ([]byte, 
 		if errors.As(err, &exitError) {
 			return nil, fmt.Errorf("%w: yt-dlp: %w", transcript.ErrFetchFailed, toolError(err, stderr.buffer.String()))
 		}
-		return nil, fmt.Errorf("execute yt-dlp: %w", err)
+		return nil, fmt.Errorf("execute yt-dlp: %w", toolError(err, ""))
 	}
 	if stdout.truncated {
 		return nil, fmt.Errorf("%w: oversized discovery", transcript.ErrFetchFailed)

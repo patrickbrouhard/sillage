@@ -52,7 +52,7 @@ func (c Client) Extract(ctx context.Context, inputURL string) (video.VideoSource
 		}
 		var exitError *exec.ExitError
 		if !errors.As(err, &exitError) {
-			return video.VideoSource{}, fmt.Errorf("%w: execute yt-dlp: %w", video.ErrMetadataProviderUnavailable, err)
+			return video.VideoSource{}, fmt.Errorf("%w: execute yt-dlp: %w", video.ErrMetadataProviderUnavailable, toolError(err, ""))
 		}
 		return video.VideoSource{}, fmt.Errorf("%w: execute yt-dlp: %w", video.ErrMetadataFetchFailed, toolError(err, stderr.String()))
 	}

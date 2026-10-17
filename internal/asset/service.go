@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/patrickbrouhard/sillage/internal/logging"
+	"log/slog"
 	"regexp"
 	"sync"
 	"time"
@@ -95,7 +96,12 @@ func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID vid
 	}
 	s.active = a.ID
 	s.workers.Add(1)
-	go s.generate(a, *source)
+	logger := logging.From(s.ctx).With("component", "capture", "operation_id", fmt.Sprintf("capture:%d", a.ID), "asset_id", a.ID, "video_id", videoID, "source_id", sourceID, "timestamp_ms", timestamp)
+	if origin := logging.RequestID(ctx); origin != "" {
+		logger = logger.With("origin_request_id", origin)
+	}
+	logger.InfoContext(s.ctx, "Capture started", "event", "capture.started")
+	go s.generate(logging.WithLogger(s.ctx, logger), a, *source)
 	return a, nil
 }
 
@@ -127,23 +133,19 @@ func (s *Service) Open(ctx context.Context, id int64) (Asset, Content, error) {
 	}
 	content, err := s.storage.Open(a)
 	if err != nil {
-		log.Printf("asset content id=%d: %v", id, err)
+		logging.From(ctx).WarnContext(ctx, "Asset content unavailable", "event", "asset.content_unavailable", "asset_id", id, logging.Error(err))
 		return a, nil, ErrUnavailable
 	}
 	return a, content, nil
 }
 
-func (s *Service) generate(a Asset, source video.VideoSource) {
+func (s *Service) generate(parent context.Context, a Asset, source video.VideoSource) {
 	defer s.workers.Done()
-	ctx, cancel := context.WithTimeout(s.ctx, s.timeout)
+	started := time.Now()
+	ctx, cancel := context.WithTimeout(parent, s.timeout)
 	defer cancel()
+	logger := logging.From(ctx)
 	path, size, err := s.acquire(ctx, a, source)
-	// La confirmation et la libération d'activité sont visibles ensemble.
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	defer func() { s.active = 0 }()
-	finishCtx, stop := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stop()
 	status, code := "available", ""
 	if err != nil {
 		status, code = "failed", "capture_failed"
@@ -153,23 +155,54 @@ func (s *Service) generate(a Asset, source video.VideoSource) {
 		if errors.Is(err, context.DeadlineExceeded) {
 			code = "capture_timeout"
 		}
-		log.Printf("capture id=%d source=%d: %v", a.ID, source.ID, err)
 	}
+	s.mu.Lock()
+	confirmed := false
+	// Le bilan terminal suit la libération d'activité et la confirmation SQL.
+	defer func() {
+		s.active = 0
+		s.mu.Unlock()
+		level, event := slog.LevelInfo, "capture.completed"
+		if !confirmed {
+			level, event = slog.LevelError, "capture.finalization_uncertain"
+		} else if status != "available" {
+			level, event = slog.LevelError, "capture.failed"
+			if code == "capture_interrupted" {
+				level, event = slog.LevelInfo, "capture.interrupted"
+			}
+		}
+		attrs := []slog.Attr{slog.String("event", event), slog.String("status", status), slog.Bool("confirmed", confirmed), slog.Bool("file_published", path != ""), slog.Int64("elapsed_ms", time.Since(started).Milliseconds())}
+		if code != "" {
+			attrs = append(attrs, slog.String("error_code", code))
+		}
+		if err != nil {
+			attrs = append(attrs, logging.Error(err))
+		}
+		logger.LogAttrs(parent, level, "Capture finished", attrs...)
+	}()
+	// L'arrêt annule l'extraction, mais laisse un budget indépendant à SQLite.
+	finishCtx, stop := context.WithTimeout(logging.WithLogger(context.Background(), logger), 5*time.Second)
+	defer stop()
 	var stored *string
 	if path != "" {
 		stored = &path
 	}
 	if finishErr := s.repo.Finish(finishCtx, a.ID, status, stored, size, code); finishErr != nil {
-		// Un commit incertain ne justifie jamais l'effacement du PNG publié.
-		log.Printf("capture finalization id=%d: %v", a.ID, finishErr)
-		confirmed, readErr := s.repo.Get(finishCtx, a.ID)
-		if readErr == nil && confirmed.Status != "pending" {
+		logger.WarnContext(finishCtx, "Capture finalization requires verification", "event", "capture.finalization_check", logging.Error(finishErr))
+		saved, readErr := s.repo.Get(finishCtx, a.ID)
+		if readErr == nil && saved.Status != "pending" {
+			status, code = saved.Status, saved.ErrorCode
+			confirmed = true
 			return
 		}
+		// Un commit incertain n'autorise jamais l'effacement du PNG publié.
 		if retryErr := s.repo.Finish(finishCtx, a.ID, "failed", stored, size, "capture_storage_failed"); retryErr != nil {
-			log.Printf("capture recovery required id=%d: %v", a.ID, retryErr)
+			err = retryErr
+			return
 		}
+		status, code = "failed", "capture_storage_failed"
 	}
+	confirmed = true
 }
 
 func (s *Service) acquire(ctx context.Context, a Asset, source video.VideoSource) (string, int64, error) {
@@ -179,7 +212,7 @@ func (s *Service) acquire(ctx context.Context, a Asset, source video.VideoSource
 	}
 	defer func() {
 		if err := s.storage.Discard(stage); err != nil {
-			log.Printf("capture cleanup id=%d: %v", a.ID, err)
+			logging.From(ctx).WarnContext(ctx, "Capture cleanup incomplete", "event", "capture.cleanup_failed", logging.Error(err))
 		}
 	}()
 	local, release, err := s.local.Borrow(ctx, a.VideoID, source.ID)
@@ -193,11 +226,11 @@ func (s *Service) acquire(ctx context.Context, a Asset, source video.VideoSource
 			if !errors.Is(err, ErrExtract) || ctx.Err() != nil {
 				return "", 0, err
 			}
-			log.Printf("capture id=%d: local extraction failed; trying remote: %v", a.ID, err)
+			logging.From(ctx).WarnContext(ctx, "Capture falling back to remote", "event", "capture.fallback", "from", "local", "to", "remote", logging.Error(err))
 		}
 	} else {
 		if errors.Is(err, media.ErrUnavailable) {
-			log.Printf("capture id=%d: local unavailable; trying remote", a.ID)
+			logging.From(ctx).WarnContext(ctx, "Local media unavailable; using remote", "event", "capture.fallback", "from", "local", "to", "remote", "reason", "local_unavailable")
 		}
 		err = ErrExtract
 	}
@@ -206,5 +239,9 @@ func (s *Service) acquire(ctx context.Context, a Asset, source video.VideoSource
 			return "", 0, err
 		}
 	}
-	return s.storage.Publish(ctx, stage, a)
+	path, size, err := s.storage.Publish(ctx, stage, a)
+	if err == nil {
+		logging.From(ctx).DebugContext(ctx, "PNG published", "event", "capture.published", "size_bytes", size)
+	}
+	return path, size, err
 }

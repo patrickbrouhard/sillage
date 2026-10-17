@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -82,7 +82,7 @@ func (s *Media) Recover(ctx context.Context, files []media.File) error {
 	referenced := make(map[string]media.File)
 	for _, f := range files {
 		if _, err := s.path(f.Path); err != nil {
-			log.Printf("media recovery: invalid reference id=%d: %v", f.ID, err)
+			logging.From(ctx).WarnContext(ctx, "Media recovery anomaly", "event", "media.recovery_anomaly", "media_file_id", f.ID, logging.Error(err))
 			continue
 		}
 		referenced[f.Path] = f
@@ -92,13 +92,13 @@ func (s *Media) Recover(ctx context.Context, files []media.File) error {
 		if errors.Is(originalErr, os.ErrNotExist) && deletingErr == nil {
 			// La taille et la lisibilité doivent correspondre avant tout renommage.
 			if err := s.checkFile(path+".deleting", f.Size); err != nil {
-				log.Printf("media recovery: cannot restore id=%d: %v", f.ID, err)
+				logging.From(ctx).WarnContext(ctx, "Media recovery anomaly", "event", "media.recovery_anomaly", "media_file_id", f.ID, logging.Error(err))
 			} else if err := s.Restore(f); err != nil {
-				log.Printf("media recovery: restore id=%d: %v", f.ID, err)
+				logging.From(ctx).WarnContext(ctx, "Media recovery anomaly", "event", "media.recovery_anomaly", "media_file_id", f.ID, logging.Error(err))
 			}
 		}
 		if err := s.Check(f); err != nil {
-			log.Printf("media recovery: unavailable id=%d: %v", f.ID, err)
+			logging.From(ctx).WarnContext(ctx, "Media recovery anomaly", "event", "media.recovery_anomaly", "media_file_id", f.ID, logging.Error(err))
 		}
 	}
 	for _, entry := range entries {
@@ -111,7 +111,7 @@ func (s *Media) Recover(ctx context.Context, files []media.File) error {
 			(strings.HasSuffix(name, ".deleting") && mediaName.MatchString(strings.TrimSuffix(name, ".deleting"))) {
 			// Un nom abandonné, même .deleting, ne prouve jamais une intention actuelle d'effacement.
 			if _, err := os.Lstat(filepath.Join(s.root, name)); err == nil {
-				log.Printf("media recovery: preserved entry %q; explicit maintenance required", name)
+				logging.From(ctx).WarnContext(ctx, "Abandoned media entry preserved", "event", "media.entry_preserved", "managed_name", name)
 			}
 		}
 	}

@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/patrickbrouhard/sillage/internal/logging"
+	"log/slog"
 	"math"
 	"net/url"
 	"os"
@@ -70,12 +71,12 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 			remote.Width != fallbackWidth || remote.Height != fallbackHeight) {
 			return &captureFailure{stage: "resolve", reason: "no_same_resolution_https"}
 		}
-		log.Printf("capture source=%d timestamp_ms=%d transport=%s width=%d height=%d", source.ID, timestamp, captureTransport(remote.Protocol), remote.Width, remote.Height)
+		logging.From(ctx).DebugContext(ctx, "Capture input selected", "event", "capture.input_selected", "attempt", attempt+1, "transport", captureTransport(remote.Protocol), "width", remote.Width, "height", remote.Height)
 		err = c.extractInput(ctx, remote.URL, options, timestamp, stage)
 		if !renewed && ctx.Err() == nil && captureReason(err, "http_403") {
 			renewed = true
 			// Conserver le sélecteur courant, notamment les dimensions du repli HTTPS.
-			log.Printf("capture source=%d: renewing rejected remote URL", source.ID)
+			logging.From(ctx).WarnContext(ctx, "Renewing rejected remote URL", "event", "capture.url_renewed", "attempt", attempt+1, "reason", "http_403")
 			continue
 		}
 		var failure *captureFailure
@@ -83,7 +84,7 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 			(failure.stage == "probe" || failure.stage == "decode") &&
 			(remote.Protocol == "m3u8" || remote.Protocol == "m3u8_native") &&
 			remote.Width > 0 && remote.Height > 0 {
-			log.Printf("capture source=%d: HLS failed (%s); trying same-resolution HTTPS", source.ID, failure.reason)
+			logging.From(ctx).WarnContext(ctx, "Capture falling back to HTTPS", "event", "capture.fallback", "attempt", attempt+1, "reason", failure.reason, "width", remote.Width, "height", remote.Height)
 			fallbackWidth, fallbackHeight = remote.Width, remote.Height
 			selector = fmt.Sprintf("bv*[protocol=https][width=%d][height=%d]", fallbackWidth, fallbackHeight)
 			continue
@@ -171,11 +172,11 @@ func (c CaptureClient) extractInput(ctx context.Context, input string, options [
 	}
 	// Sans redimensionnement, des pixels non carrés donneraient une image déformée.
 	if stream.SAR != "" && stream.SAR != "N/A" && stream.SAR != "0:1" && stream.SAR != "1:1" {
-		return fmt.Errorf("%w: non-square pixels unsupported", asset.ErrExtract)
+		return &captureFailure{stage: "probe", reason: "non_square_pixels"}
 	}
 	duration, _ := strconv.ParseFloat(info.Format.Duration, 64)
 	if duration > 0 && !math.IsInf(duration, 0) && float64(timestamp)/1000 >= duration {
-		return fmt.Errorf("%w: timestamp beyond final frame", asset.ErrExtract)
+		return &captureFailure{stage: "probe", reason: "timestamp_beyond_final_frame"}
 	}
 	filter := "format=rgb24"
 	if stream.Transfer == "smpte2084" || stream.Transfer == "arib-std-b67" {
@@ -209,10 +210,10 @@ func captureCommand(ctx context.Context, stage, binary string, args ...string) (
 	data, err := mediaCommand(ctx, binary, args...)
 	if err != nil {
 		safe := extractionError(ctx, stage, err)
-		log.Printf("capture command stage=%s elapsed_ms=%d: %v", stage, time.Since(started).Milliseconds(), safe)
+		logging.From(ctx).DebugContext(ctx, "Capture command failed", "event", "capture.command_finished", "stage", stage, "elapsed_ms", time.Since(started).Milliseconds(), logging.Error(safe))
 		return nil, safe
 	}
-	log.Printf("capture command stage=%s elapsed_ms=%d output_bytes=%d", stage, time.Since(started).Milliseconds(), len(data))
+	logging.From(ctx).DebugContext(ctx, "Capture command completed", "event", "capture.command_finished", "stage", stage, "elapsed_ms", time.Since(started).Milliseconds(), "output_bytes", len(data))
 	return data, nil
 }
 
@@ -233,11 +234,11 @@ func extractionError(ctx context.Context, stage string, err error) error {
 	var path *os.PathError
 	var executable *exec.Error
 	if errors.As(err, &path) || errors.As(err, &executable) {
-		return fmt.Errorf("stage=%s reason=tool_unavailable", stage)
+		return toolError(err, "")
 	}
 	var failure *toolFailure
 	if errors.As(err, &failure) {
-		return &captureFailure{stage: stage, reason: failure.reason}
+		return &captureFailure{stage: stage, reason: failure.reason, exitCode: &failure.exitCode}
 	}
 	return &captureFailure{stage: stage, reason: toolReason(err.Error())}
 }
@@ -272,7 +273,10 @@ func toolReason(message string) string {
 }
 
 // captureFailure transporte une catégorie fermée, sans conserver le diagnostic privé.
-type captureFailure struct{ stage, reason string }
+type captureFailure struct {
+	stage, reason string
+	exitCode      *int
+}
 
 func (e *captureFailure) Error() string {
 	return fmt.Sprintf("%s: stage=%s reason=%s", asset.ErrExtract, e.stage, e.reason)
@@ -281,4 +285,13 @@ func (e *captureFailure) Unwrap() error { return asset.ErrExtract }
 func captureReason(err error, reason string) bool {
 	var failure *captureFailure
 	return errors.As(err, &failure) && failure.reason == reason
+}
+
+// LogValue ne conserve que les catégories fermées du diagnostic d'extraction.
+func (e *captureFailure) LogValue() slog.Value {
+	attrs := []slog.Attr{slog.String("stage", e.stage), slog.String("reason", e.reason)}
+	if e.exitCode != nil {
+		attrs = append(attrs, slog.Int("exit_code", *e.exitCode))
+	}
+	return slog.GroupValue(attrs...)
 }

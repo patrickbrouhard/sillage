@@ -1295,3 +1295,15 @@ arbitraire n'est journalisée. Les panics n'exposent pas leur valeur. Le writer
 Chi conserve les capacités de réponse ; HEAD, Range, flush progressif et hijack
 sont vérifiés. Une requête abandonnée sans réponse n'est pas comptée comme 200.
 Les crashes du runtime peuvent rester sur stderr hors de ce mécanisme.
+
+
+Les services capture et média conservent le logger de l'opération sur le contexte
+serveur, avec origin_request_id copié à l'acceptation. Le contexte HTTP n'est
+jamais le parent du worker. Les vérifications SQL indépendantes conservent ce
+logger. Une capture utilise capture:<asset_id> ; un téléchargement reçoit une
+identité aléatoire éphémère. La clé de commande capture reste inchangée.
+
+Le résultat terminal suit le nettoyage et la finalisation. Une vérification
+confirmant un commit incertain autorise un succès ; sinon les logs distinguent
+l'incertitude et la conservation du fichier. Aucun journal ne remplace l'état
+persistant. Après un crash, un début peut ne pas avoir de fin.
