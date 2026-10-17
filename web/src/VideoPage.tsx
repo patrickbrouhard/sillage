@@ -130,6 +130,10 @@ function VideoDetail({ id }: { id: string }) {
                   if (reference.sourceID !== source.id) return 'Cette référence concerne une autre source de cette vidéo. Aucune navigation effectuée.'
                   return navigate(reference.startMs)
                 }}
+                getCaptureTarget={() => {
+                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur YouTube disponible.')
+                  return { videoID: state.video.id, sourceID: source.id, timestampMs: player.current.getCurrentTimeMs() }
+                }}
                 getTimeReference={() => {
                   if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur YouTube disponible.')
                   return temporalReference(state.video.id, source.id, player.current.getCurrentTimeMs())

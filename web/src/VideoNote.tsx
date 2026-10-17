@@ -1,3 +1,7 @@
+import { assetMarkdown, createCapture } from './assetApi'
+import type { CaptureTarget } from './assetApi'
+import { useAsset } from './useAsset'
+import { formatDuration } from './videoPresentation'
 import { lazy, Suspense, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
 import type { Ref } from 'react'
 import { useBlocker } from 'react-router'
@@ -15,9 +19,10 @@ export interface VideoNoteHandle {
 }
 
 /** Présente une note locale et son état confirmé, avec modes partageant la même source. */
-export function VideoNote({ videoID, getTimeReference, onNavigate, ref }: {
+export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavigate, ref }: {
   videoID: number
   getTimeReference: () => string
+  getCaptureTarget: () => CaptureTarget
   onNavigate: (reference: TemporalReference) => string
   ref?: Ref<VideoNoteHandle>
 }) {
@@ -26,6 +31,13 @@ export function VideoNote({ videoID, getTimeReference, onNavigate, ref }: {
   const [insertionError, setInsertionError] = useState('')
   const [session] = useState(() => new NoteSession(videoID))
   const state = useSyncExternalStore(session.subscribe, session.snapshot)
+  const [accepting, setAccepting] = useState(false)
+  const [captureID, setCaptureID] = useState<number | null>(null)
+  const [captureError, setCaptureError] = useState('')
+  const captureRequest = useRef<AbortController | null>(null)
+  const captureState = useAsset(captureID)
+  const captureBusy = accepting || (captureID !== null && (!captureState.asset || captureState.asset.status === 'pending'))
+  useEffect(() => () => captureRequest.current?.abort(), [])
   const [reading, setReading] = useState(false)
   const [initial, setInitial] = useState<{ content: string; version: number } | null>(null)
   useImperativeHandle(ref, () => ({
@@ -98,6 +110,35 @@ export function VideoNote({ videoID, getTimeReference, onNavigate, ref }: {
     }
   }
 
+  /** L'intention appartient à l'éditeur courant ; le serveur poursuit seul après son départ. */
+  async function insertCapture() {
+    if (captureBusy || captureRequest.current || reading || !editor.current) return
+    const currentEditor = editor.current
+    const controller = new AbortController()
+    const requestID = crypto.randomUUID()
+    try {
+      const target = getCaptureTarget()
+      const label = formatDuration(target.timestampMs)
+      currentEditor.beginCapture(requestID, 'Capture à ' + label + ' — préparation…')
+      captureRequest.current = controller
+      setAccepting(true)
+      setCaptureError('')
+      setCaptureID(null)
+      const result = await createCapture(target, requestID, controller.signal)
+      if (controller.signal.aborted) return
+      // Le handle capturé vise l'ancienne vue si un conflit a remplacé la session.
+      const inserted = currentEditor.finishCapture(requestID, assetMarkdown(result, label))
+      setCaptureID(result.id)
+      if (!inserted) setCaptureError('Capture acceptée, mais insertion abandonnée : son emplacement n’existe plus dans cette session.')
+    } catch (error) {
+      currentEditor.abandonCapture(requestID)
+      if (!controller.signal.aborted) setCaptureError(error instanceof Error ? error.message : 'Capture non confirmée.')
+    } finally {
+      if (captureRequest.current === controller) captureRequest.current = null
+      if (!controller.signal.aborted) setAccepting(false)
+    }
+  }
+
   return <section className="video-note" aria-labelledby="note-title">
     <h2 id="note-title">Note</h2>
     {!state.loaded ? <>
@@ -106,11 +147,16 @@ export function VideoNote({ videoID, getTimeReference, onNavigate, ref }: {
     </> : <>
       <div className="note-toolbar" aria-label="Mode de la note">
         <button className="button" aria-pressed={!reading} onClick={() => setReading(false)}>Édition</button>
-        <button className="button" aria-pressed={reading} onClick={() => setReading(true)}>Lecture</button>
+        <button className="button" aria-pressed={reading} disabled={accepting} onClick={() => setReading(true)}>Lecture</button>
         <button className="button" disabled={reading || initial === null} onClick={insertTime}>+ Temps</button>
+        <button className="button" disabled={reading || initial === null || captureBusy}
+          aria-busy={captureBusy} onClick={() => void insertCapture()}>{captureBusy ? 'Capture en cours…' : '+ Capture'}</button>
         <button className="button" disabled={state.phase === 'conflict'}
           onClick={() => void session.save(true)}>{state.phase === 'error' ? 'Réessayer la sauvegarde' : 'Enregistrer la note'}</button>
       </div>
+      {captureError && <p role="alert">{captureError}</p>}
+      {captureState.error && <p role="status">{captureState.error}</p>}
+      {captureState.asset?.status === 'failed' && <p role="alert">La génération de la capture a échoué ou a été interrompue. Sa référence est conservée dans la note.</p>}
       {insertionError && <p role="alert">{insertionError}</p>}
       <div role="status" aria-label="Navigation temporelle" hidden={reading}>{navigationMessage}</div>
       <div hidden={reading}>

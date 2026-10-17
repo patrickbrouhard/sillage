@@ -292,3 +292,11 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
   .video-download > p[role="alert"] { flex-basis: 100%; }
   .youtube-frame:has(iframe) { height: clamp(200px, calc(28dvh - 48px), 292px); }
 }
+
+/* Le marqueur appartient à l'interface, jamais au texte copié ou sauvegardé. */
+.capture-marker { display: inline-block; font: 0.85em system-ui, sans-serif; padding: .15em .5em; margin-inline: .2em; border: 1px solid currentColor; border-radius: .35em; opacity: .8; user-select: none; }
+.capture-marker::before, .note-toolbar button[aria-busy="true"]::before { content: "◌"; display: inline-block; margin-right: .4em; animation: capture-spin 1.2s linear infinite; }
+.asset-placeholder { display: inline-block; padding: .5em; border: 1px dashed currentColor; border-radius: .35em; }
+.markdown-reading img { max-width: 100%; height: auto; }
+@keyframes capture-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .capture-marker::before, .note-toolbar button[aria-busy="true"]::before { animation: none; } }

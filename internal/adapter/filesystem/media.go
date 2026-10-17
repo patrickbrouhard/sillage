@@ -290,3 +290,15 @@ func (s *Media) FinishDelete(f media.File) error {
 	}
 	return syncDirectory(s.root)
 }
+
+// ReadPath expose un chemin vérifié uniquement au consommateur interne qui réserve le média.
+func (s *Media) ReadPath(f media.File) (string, error) {
+	if err := s.Check(f); err != nil {
+		return "", err
+	}
+	path, err := s.path(f.Path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(path)
+}

@@ -598,7 +598,7 @@ MediaFile + timestamp
 Il peut aussi être utilisé par `yt-dlp`.
 
 La conservation complète de 7.1 est volontaire et durable. Une acquisition technique
-temporaire pour une future capture reste distincte et n’autorise pas une conservation
+temporaire pour une capture reste distincte et n’autorise pas une conservation
 complète automatique. L’extraction distante demeure une candidate à évaluer.
 
 ## 11. Docker
@@ -1145,3 +1145,138 @@ Une langue yt-dlp absente, mal formée ou indéterminée (und, mul, zxx, sans di
 de casse) devient NULL. Les sous-étiquettes déclarées ne sont pas inventées.
 Le téléchargement n'émet plus media_audio_ambiguous ni media_format_unavailable ;
 un échec de sélection/acquisition natif devient download_failed, sans analyse de stderr.
+
+## Captures vidéo — étape 7.2 implémentée
+
+- PNG uniquement, sans redimensionnement volontaire ni encodage avec perte
+  supplémentaire. La source reste une vidéo généralement déjà compressée.
+- Local prioritaire uniquement pour la même VideoSource, avec emprunt protégé
+  contre la suppression. Aucun fichier partiel n'est utilisé.
+- Distant : résolution yt-dlp fraîche à chaque capture, sélection vidéo `bv*`
+  avec classement `res,width,height,proto` et `--format-sort-force`, sans plafond 1080p.
+  La résolution puis les dimensions passent avant le protocole : HTTPS gagne à
+  dimensions identiques, même si l'extracteur préfère HLS. Ce classement forcé
+  est réservé aux captures ; la politique de téléchargement 7.1 reste inchangée. Les en-têtes nécessaires sont
+  transmis à ffprobe/ffmpeg ; URL signées et en-têtes ne sont ni persistés ni
+  journalisés. Pas de cache vidéo conservé. Selon le protocole/serveur, le trafic
+  nécessaire au probe et au seek peut néanmoins être important.
+- Seek d'entrée `-ss` avec `-accurate_seek`, décodage réel, une frame PNG.
+  Aucun stream copy ni sélection approximative de la seule image clé précédente.
+  Les tests sur GOP long vérifient aussi les instants proches d'une transition :
+  la première frame à partir de la cible peut être la suivante, donc décaler le
+  résultat jusqu'à l'intervalle entre deux frames. Ce n'est pas une garantie
+  d'identité avec l'image effectivement affichée par l'iframe YouTube.
+- Les timestamps hors durée connue et les positions sans frame échouent
+  explicitement ; on ne remplace pas silencieusement la cible par la dernière
+  image, notamment en fin de lecture.
+- Rotation : autorotation native de ffmpeg. Pixels non carrés : refus explicite,
+  car leur correction exigerait un redimensionnement ou une interprétation du
+  rapport de pixels que le rendu PNG Web ne garantit pas.
+- SDR converti en RGB24. HDR identifié par PQ/HLG : conversion en BT.709 avec
+  zscale et tone mapping Hable. Ce choix de rendu n'est pas une conservation HDR
+  ni une garantie de reproduction du tone mapping YouTube. Des métadonnées
+  absentes/incorrectes ou un ffmpeg sans filtres requis peuvent faire échouer
+  l'extraction ; aucun PNG HDR incorrect n'est volontairement publié comme tel.
+- Limites de protection : sortie de sous-processus bornée à 64 Mio, validation
+  PNG à 100 millions de pixels, durée d'opération de deux minutes. Ces bornes
+  provoquent un échec explicite et ne redimensionnent jamais l'image.
+- Une capture globale par instance serveur, indépendante du téléchargement,
+  sans queue. Les intents et états sont persistants ; aucune infrastructure
+  générique de jobs, reprise automatique ou suppression d'orphelins.
+- Clé de commande UUID générée au clic : récupération par clé puis éventuel POST
+  avec la même clé après réponse incertaine. Aucune clé n'est déduite du timestamp.
+- Lecture Markdown : référence interne par ID, suivi toutes les deux secondes
+  tant que pending ou en erreur de consultation, partagé entre les occurrences
+  montées. L'état de génération reste indépendant de l'accessibilité du fichier.
+
+Les logs distinguent extraction/repli, publication et finalisation. Le détail
+stderr des outils n'est pas exposé afin d'éviter la fuite d'URL signées ; il n'y a
+pas d'interface de diagnostic. La galerie, les captures concurrentes, les réglages
+qualité, les interactions temporelles et les indicateurs globaux restent futurs.
+
+Validation : tests déterministes FFmpeg sur transitions à GOP long, résolution,
+PNG, HDR PQ et pixels non carrés ; tests applicatifs de repli sélectif,
+interruption, concurrence, conservation après commit SQL incertain ; parcours
+navigateur de l'éditeur et de sa session. Le test distant facultatif se lance avec
+`SILLAGE_CAPTURE_YOUTUBE_TEST=1 go test ./internal/adapter/ytdlp -run TestCaptureYouTubeIntegration -v`.
+Un essai réel a produit un PNG 320 × 240 à 1,5 s en environ 2,3 s.
+La CI ne dépend pas de cet essai réseau. La comparaison visuelle avec le lecteur
+sur des transitions rapides, la VFR, les longs médias, la rotation, le HLG et la
+4K/HDR réelle restent à vérifier manuellement.
+
+Validation de distribution : build Docker et smoke test réussis (outils, Compose,
+HTTP/SPA, persistance après recréation et arrêt propre). Les 45 requêtes et
+135 assertions Postman déterministes existantes passent également.
+
+### Diagnostic distant après les premiers essais manuels
+
+Les essais sur `uJMjlKksSks` à 120 000 ms reproduisent un échec du seek d'entrée
+avec ffmpeg 6.1.1 et le format HLS 616 (VP9, 1920 × 1080) : ffprobe lit le flux,
+mais le démuxage après seek ne délivre aucun paquet et ffmpeg sort avec zéro
+octet, malgré un code de sortie nul. Les segments inspectés ont des timestamps
+cohérents. Un décodage depuis le début atteint la cible ; il n'est pas activé
+comme contournement, car son coût croît avec la position demandée.
+
+Sur `CcsgednSRfE` à 301 000 ms, l'échec a été reproduit au probe avec HTTP 403
+sur le flux HTTPS 401 (AV1, 3840 × 2160), avant le seek. Une autre résolution
+a réussi et produit un PNG 4K à cette même position. Cela ne permet pas
+d'attribuer avec certitude le premier log générique au même refus réseau.
+
+Les diagnostics distinguent maintenant résolution, probe et décodage, avec
+durée et catégorie d'erreur fermée. Aucun stderr brut, URL, cookie ou en-tête
+n'est journalisé. Un HTTP 403 au probe/décodage autorise une seule nouvelle
+résolution de l'URL et un nouvel essai, dans le délai global existant. Les autres
+échecs et les erreurs de stockage ne déclenchent pas ce renouvellement.
+
+Un test déterministe sert une vidéo synthétique par HTTPS avec Range et vérifie
+les couleurs à 120 050 et 301 050 ms après des transitions entre images clés.
+Le test YouTube facultatif couvre désormais également les deux vidéos signalées ;
+le cas HLS reproduit la sortie vide puis vérifie le repli désormais validé.
+Après un échec de commande au probe/décodage HLS ou une sortie PNG vide,
+un seul flux HTTPS direct de largeur et hauteur strictement identiques peut être
+essayé. Les dimensions doivent être connues ; le sélecteur yt-dlp les impose et
+sa réponse est vérifiée. Aucun essai à plus basse résolution ni téléchargement
+permanent. Une erreur de stockage, un outil absent ou une annulation ne déclenche
+pas ce repli. Un HTTP 403 sur l'alternative peut renouveler son URL si ce budget n'a pas
+encore été utilisé. Le sélecteur conserve alors strictement ses dimensions.
+Le renouvellement d'une URL refusée reste borné à un essai partagé entre le flux
+initial et l'alternative : trois résolutions/extractions au maximum ; toutes
+les tentatives partagent le délai global de deux minutes.
+
+Cette substitution peut changer codec/débit : elle ne doit pas être assimilée à
+une identité parfaite entre représentations. Le seek précis et le timestamp
+restent identiques. Le décodage HLS depuis le début n'est pas ajouté.
+
+Validation réelle après correctif : les trois cas passent, dont 1920 × 1080
+à 120 000 ms après repli (environ 6,2 s) et 3840 × 2160 à 301 000 ms (environ
+4,5 s). Les tests déterministes couvrent le sélecteur contraint, le refus d'une
+résolution différente, l'absence de boucle et la non-divulgation des diagnostics.
+Ces résultats ne garantissent pas la disponibilité future des URL YouTube ni
+l'identité visuelle avec l'iframe.
+
+### Préférence HTTPS à dimensions identiques
+
+Les essais manuels ont montré 81,3 secondes de décodage HLS sans image sur une
+capture à 95 140 ms, puis environ 4,5 secondes pour résoudre et extraire son
+alternative HTTPS. La sélection privilégie désormais directement HTTPS lorsque
+les dimensions sont identiques. Un HLS de résolution supérieure reste éligible ;
+le correctif n'introduit ni plafond ni baisse de résolution.
+
+Le tri natif yt-dlp est forcé uniquement pour les captures afin que les
+préférences de l'extracteur ne contredisent pas cette règle. `res` classe la plus
+petite dimension ; largeur et hauteur départagent ensuite les formats avant
+le protocole. Le sélecteur vidéo `bv*` conserve l'exclusion de l'audio seul.
+Les différences possibles de codec, débit, cadence et HDR entre représentations
+restent le compromis accepté. Priorité locale, seek précis, repli contraint et
+budget partagé de renouvellement 403 sont conservés.
+
+Six tests déterministes utilisent le vrai sélecteur yt-dlp avec les arguments de
+production et des métadonnées synthétiques : égalité de dimensions avec préférence
+extracteur contraire, résolutions supérieures HTTPS/HLS, HLS seul, portrait et
+largeurs différentes. Ils ne nécessitent aucune connexion à YouTube.
+
+Validation réelle : la vidéo du test lent (`G2B0YWuJUgI`) produit désormais un PNG
+1920 × 1080 à 95 140 ms en environ 4,3 secondes, avec sélection HTTPS immédiate.
+Les autres essais passent également : 320 × 240 à 1,5 s, 1080p à 73,479 s et
+120 s, 4K à 301 s. Ces mesures ponctuelles ne constituent pas un engagement de
+latence ; un HLS seul à la meilleure résolution et les refus 403 restent possibles.

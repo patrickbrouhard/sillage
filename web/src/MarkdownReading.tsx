@@ -1,3 +1,5 @@
+import { AssetImage } from './AssetImage'
+import { assetIDFromURL } from './assetApi'
 import { useId, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
@@ -47,6 +49,10 @@ export function MarkdownReading({ content, onNavigate }: {
           {formatDuration(reference.startMs)}
         </TimeButton>}>{children}</QuoteCallout>
       return <blockquote>{children}</blockquote>
+    },
+    img: ({ src, alt }) => {
+      const id = assetIDFromURL(src)
+      return id === null ? <img src={src} alt={alt} /> : <AssetImage key={id} id={id} alt={alt} />
     },
     a: ({ href, children }) => {
       if (!href) return <span>{children}</span>
