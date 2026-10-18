@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { IconButton } from './IconButton'
 import { downloadMessage } from './mediaApi'
 import type { MediaFile } from './mediaApi'
 import type { useVideoDownload } from './useVideoDownload'
@@ -12,26 +13,25 @@ export function VideoDownload({ download }: { download: ReturnType<typeof useVid
   const removeButton = useRef<HTMLButtonElement>(null)
   const status = state?.status
   return <div className="video-download" aria-label="Téléchargement local">
-    <p role="status" aria-live="polite">
+    <p className="download-summary" role="status" aria-live="polite">
       {busy ? 'Opération en cours…' : error && !state ? 'État du fichier local indisponible.' :
         status === 'downloading' ? 'Téléchargement en cours sur le serveur…' :
-        status === 'available' ? `Fichier local disponible · ${file!.format.toUpperCase()} · ${(file!.size / 1048576).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mio · ${formatDuration(file!.duration_ms)}` :
+        status === 'available' ? `${file!.format.toUpperCase()} · ${(file!.size / 1048576).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mio · ${formatDuration(file!.duration_ms)}` :
         status === 'failed' ? 'Échec du téléchargement.' :
-        status === 'not_downloaded' ? 'Aucun fichier local conservé.' : 'Consultation du fichier local…'}
+        status === 'not_downloaded' ? '' : 'Consultation du fichier local…'}
     </p>
-    {state?.error && <p className="error" role="alert">{downloadMessage(state.error.code)}</p>}
-    {error && <p className="error" role="alert">{error}</p>}
     <div className="download-actions">
       {(status === 'not_downloaded' || status === 'failed') &&
-        <button className="button" disabled={busy} onClick={() => { void mutate() }}>
-          {status === 'failed' ? 'Réessayer le téléchargement' : 'Télécharger'}
-        </button>}
-      {file && <button ref={removeButton} className="button" disabled={busy} onClick={() => {
+        <IconButton icon="download" disabled={busy} onClick={() => { void mutate() }}
+          label={status === 'failed' ? 'Réessayer le téléchargement' : 'Télécharger le fichier local'} />}
+      {file && <IconButton icon="trash" label="Supprimer le fichier local" ref={removeButton} disabled={busy} onClick={() => {
         deletion.current = file
         dialog.current?.showModal()
-      }}>Supprimer le fichier local</button>}
-      {error && <button className="button" disabled={busy} onClick={() => { void load() }}>Actualiser l’état</button>}
+      }} />}
+      {error && <IconButton icon="refresh" label="Actualiser l’état" disabled={busy} onClick={() => { void load() }} />}
     </div>
+    {state?.error && <p className="error" role="alert">{downloadMessage(state.error.code)}</p>}
+    {error && <p className="error" role="alert">{error}</p>}
     <dialog ref={dialog} className="tag-dialog" aria-labelledby="delete-media-title"
       onClose={() => removeButton.current?.focus()}>
       <h2 id="delete-media-title">Supprimer le fichier local ?</h2>

@@ -208,15 +208,14 @@ export function YouTubePlayer({ source, ref, children }: { source: VideoSource; 
     }, 1_000)
   }
 
-  return <section className="video-player" aria-labelledby="player-title">
+  return <section className="video-player" aria-label="Lecteur">
     <div className="player-toolbar">
-      <h2 id="player-title" className="sr-only">Lecteur</h2>
-      <span className="work-source">YouTube</span>
+      <h2 id="player-title" className="work-source">YouTube</h2>
+      {children}
       <IconButton icon={hidden ? 'eye' : 'eye-off'} onClick={toggle} disabled={hiding}
         aria-expanded={!hidden} aria-busy={hiding}
         label={hidden ? 'Afficher la vidéo' : hiding ? 'Mise en pause…' : 'Masquer la vidéo'} />
     </div>
-    {children}
     <div hidden={hidden}>
       {!ready && !message && <p role="status">Chargement du lecteur YouTube…</p>}
       {message && <div role="alert"><p>{message}</p><button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}

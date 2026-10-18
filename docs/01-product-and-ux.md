@@ -1060,3 +1060,15 @@ Une action d'effacement conserve le focus dans le champ. Changer de vidéo ou
 de source réinitialise la recherche et replie la barre. Aucune préférence n'est
 persistée et aucune commande n'est envoyée au lecteur par la recherche.
 Les règles de sélection, citation, Undo et autosauvegarde restent inchangées.
+
+
+### Decluttering — partie 2 : barre YouTube unique
+
+Le titre visible « YouTube » reprend la présentation de Note et Transcription.
+La barre regroupe ensuite le format, la taille et la durée du fichier disponible,
+puis une corbeille ; sans fichier, seule l'icône de téléchargement est proposée.
+L'œil reste à droite, même lorsque la vidéo est masquée. La seconde ligne et son
+séparateur disparaissent. Les informations reviennent à la ligne si nécessaire.
+Les opérations et erreurs restent explicites, sans assimiler un état inconnu à
+une absence. La confirmation de suppression et le suivi partagé sont conservés.
+Il n'y a ni volet intermédiaire, ni sélecteur, ni lecture locale dans cette partie.

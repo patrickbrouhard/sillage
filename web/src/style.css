@@ -181,8 +181,8 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .transcript-block { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: .75rem; margin: 1rem 0; }
 .transcript-block p { margin: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
 .transcript-time { user-select: none; -webkit-user-select: none; font: inherit; font-variant-numeric: tabular-nums; color: var(--label); font-size: .85rem; padding: .2rem; border: 0; background: transparent; align-self: start; text-align: left; text-decoration: underline; cursor: pointer; }
-.player-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
-.player-toolbar .work-source { margin-right: auto; }
+.player-toolbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: .5rem; }
+.player-toolbar .work-source { align-self: start; padding-block: 9px; font-size: 1.1rem; font-weight: 700; }
 .youtube-frame:has(iframe) { width: 100%; aspect-ratio: 16 / 9; min-height: 200px; }
 .youtube-frame iframe { display: block; border: 0; width: 100%; height: 100%; min-height: 200px; }
 
@@ -285,14 +285,14 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 
 
 /* Le contrôle de conservation reste visible quand seul le lecteur est masqué. */
-.video-download { padding: 8px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
-.video-download p { margin: 4px 0 8px; font-size: 0.875rem; }
+.video-download { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; overflow-wrap: anywhere; }
+.video-download > p { margin: 0; font-size: 0.875rem; line-height: 1.5; }
+.download-summary { padding-block: 9px; color: var(--muted); }
+.download-summary:empty { display: none; }
+.video-download > [role="alert"] { flex-basis: 100%; }
 .download-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 @media (min-width: 1100px) {
-  .video-download { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-  .video-download > p { margin: 0; flex: 1 1 160px; }
-  .video-download > p[role="alert"] { flex-basis: 100%; }
   .youtube-frame:has(iframe) { height: clamp(200px, calc(28dvh - 48px), 292px); }
 }
 

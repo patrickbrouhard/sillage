@@ -11,8 +11,8 @@ test('téléchargement réel simulé, rechargement et suppression préservent la
   const downloadURL = `/api/v1/videos/${video.id}/sources/${video.sources[0].id}/download`
   await request.put(noteURL, { data: { content_md: 'Connaissance durable', expected_revision: 0 } })
   await page.goto(`/videos/${video.id}`)
-  await page.getByRole('button', { name: 'Télécharger', exact: true }).click()
-  await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
+  await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
+  await expect(page.locator('.download-summary')).toContainText('MKV ·')
   const downloaded = (await (await request.get(downloadURL)).json()).media_file
   expect(downloaded).toMatchObject({ format: 'mkv', video_codec: 'h264', audio_codec: 'aac',
     width: 640, height: 360, audio_language: 'fr-FR' })
@@ -24,7 +24,7 @@ test('téléchargement réel simulé, rechargement et suppression préservent la
   await expect(metadata).toContainText('29,97 images/s')
   const first = downloaded.id
   await page.reload()
-  await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
+  await expect(page.locator('.download-summary')).toContainText('MKV ·')
   expect((await (await request.post(downloadURL)).json()).media_file.id).toBe(first)
   await page.getByRole('button', { name: 'Supprimer le fichier local', exact: true }).click()
   await expect(page.getByRole('dialog')).toContainText('les notes, les transcriptions et les captures restent conservées')
@@ -32,7 +32,7 @@ test('téléchargement réel simulé, rechargement et suppression préservent la
   expect((await (await request.get(downloadURL)).json()).status).toBe('available')
   await page.getByRole('button', { name: 'Supprimer le fichier local', exact: true }).click()
   await page.getByRole('button', { name: 'Confirmer la suppression' }).click()
-  await expect(page.getByRole('button', { name: 'Télécharger', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Télécharger le fichier local', exact: true })).toBeVisible()
   expect((await (await request.get(noteURL)).json()).content_md).toBe('Connaissance durable')
 })
 
@@ -52,10 +52,10 @@ test('suivi sans remontage, note en cours, position et lecteur masqué préserv�
   const iframeNode = await page.locator('iframe').elementHandle()
   await page.evaluate(() => { const p = window.youtubeTest.players[0]; p.position = 42; p.emitState(2) })
   await editor.fill('Une note en cours')
-  await page.getByRole('button', { name: 'Télécharger', exact: true }).click()
+  await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
   await expect(page.getByText('Téléchargement en cours sur le serveur…')).toBeVisible()
   status = available
-  await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
+  await expect(page.locator('.download-summary')).toContainText('MKV ·')
   expect(posts).toBe(1)
   expect(await editorNode!.evaluate(node => node === document.querySelector('.cm-content'))).toBe(true)
   expect(await iframeNode!.evaluate(node => node === document.querySelector('iframe'))).toBe(true)
@@ -87,7 +87,7 @@ test('réponse POST perdue relue sans nouvelle acquisition ; état retrouvé apr
     return route.fulfill({ json: status })
   })
   await page.goto(`/videos/${video.id}`)
-  await page.getByRole('button', { name: 'Télécharger', exact: true }).click()
+  await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
   await expect(page.getByText('Téléchargement en cours sur le serveur…')).toBeVisible()
   await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await page.goto(`/videos/${video.id}`)
@@ -107,7 +107,7 @@ test('erreur de consultation distincte, fichier manquant supprimable et échec d
   await page.route('**/media-files/*', route => { deletes++; mode = 'failed'; return route.fulfill({ status: 204 }) })
   await page.goto(`/videos/${video.id}`)
   await expect(page.getByText('État du fichier local indisponible.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Télécharger', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Télécharger le fichier local', exact: true })).toHaveCount(0)
   mode = 'missing'
   await page.getByRole('button', { name: 'Actualiser l’état' }).click()
   await expect(page.getByText(/Le fichier enregistré est absent/)).toBeVisible()
@@ -126,7 +126,7 @@ test('serveur occupé et suppression refusée restent visibles sans réessai aut
     return route.fulfill({ json: status })
   })
   await page.goto(`/videos/${video.id}`)
-  await page.getByRole('button', { name: 'Télécharger', exact: true }).click()
+  await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
   await expect(page.getByText(/Un autre téléchargement occupe le serveur/)).toBeVisible()
   expect(posts).toBe(1)
   status = available
@@ -149,7 +149,7 @@ test('métadonnées locales partagent la consultation et présentent les inconnu
     } : file } })
   })
   await page.goto('/videos/' + video.id)
-  await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
+  await expect(page.locator('.download-summary')).toContainText('MKV ·')
   const before = gets
   await page.getByText('Métadonnées et sources', { exact: true }).click()
   const metadata = page.getByRole('region', { name: 'Fichier local', exact: true })
@@ -160,7 +160,7 @@ test('métadonnées locales partagent la consultation et présentent les inconnu
   expect(gets).toBe(before)
   legacy = true
   await page.reload()
-  await expect(page.getByText(/Fichier local disponible/)).toBeVisible()
+  await expect(page.locator('.download-summary')).toContainText('MKV ·')
   await page.getByText('Métadonnées et sources', { exact: true }).click()
   await expect(metadata).toContainText('Inconnues')
   await expect(metadata).not.toContainText('1080')

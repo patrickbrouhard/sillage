@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import type { ButtonHTMLAttributes, Ref } from 'react'
 
-type IconName = 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear'
+type IconName = 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear' | 'trash'
 
 /** Dessine les quelques commandes des panneaux sans dépendance ni texte exposé aux lecteurs d'écran. */
 function Icon({ name }: { name: IconName }) {
@@ -15,6 +15,7 @@ function Icon({ name }: { name: IconName }) {
     previous: 'm14 6-6 6 6 6',
     next: 'm10 6 6 6-6 6',
     clear: 'm6 6 12 12 M6 18 18 6',
+    trash: 'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',
   }
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
