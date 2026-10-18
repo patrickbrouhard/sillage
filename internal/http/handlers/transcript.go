@@ -82,8 +82,7 @@ func transcriptIDs(w http.ResponseWriter, r *http.Request) (video.VideoID, video
 
 // respondTranscriptError garde les diagnostics techniques dans les logs.
 func respondTranscriptError(w http.ResponseWriter, r *http.Request, err error) {
-	requestlog.Result(r, "", err)
-	if errors.Is(r.Context().Err(), context.Canceled) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
 	switch {
@@ -94,6 +93,7 @@ func respondTranscriptError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, video.ErrVideoSourceNotFound):
 		writeError(w, r, 404, "video_source_not_found", "video source not found")
 	case errors.Is(err, context.DeadlineExceeded):
+		requestlog.Result(r, "", err)
 		writeError(w, r, 504, "transcript_fetch_timeout", "transcript fetch timed out")
 	case errors.Is(err, transcript.ErrNotFound):
 		writeError(w, r, 404, "transcript_not_found", "transcript not found")

@@ -1738,3 +1738,8 @@ Incrément 2 : récupération locale des panics autour du writer Chi. Tests rée
 de panic avant réponse, après en-têtes, écriture et flush (y compris sans corps),
 avec bilan unique. Les erreurs serveur restent ERROR après annulation HTTP ;
 HEAD, Range, streaming ordinaire, hijack et abandon explicite restent couverts.
+
+Incrément 3 : diagnostics métier/techniques distingués à la frontière HTTP ;
+absences normales DEBUG, sans diagnostic trompeur. Matrice de tests des réponses,
+niveaux, annulations et causes disque. Un test transporte une vraie erreur de
+processus ffprobe simulé jusqu'au bilan terminal du service, au niveau INFO.

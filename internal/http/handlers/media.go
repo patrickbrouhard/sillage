@@ -128,8 +128,7 @@ func (h *MediaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func respondMediaError(w http.ResponseWriter, r *http.Request, state media.State, err error) {
-	requestlog.Result(r, "", err)
-	if errors.Is(r.Context().Err(), context.Canceled) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
 	switch {
@@ -147,6 +146,13 @@ func respondMediaError(w http.ResponseWriter, r *http.Request, state media.State
 		w.Header().Set("Retry-After", "3")
 		writeError(w, r, 503, "download_busy", "another download is active")
 	case errors.Is(err, media.ErrUnavailable):
+		if err != media.ErrUnavailable {
+			requestlog.Result(r, "", err)
+		}
+		requestlog.Response(r, 409, "local_media_unavailable")
+		if errors.Is(r.Context().Err(), context.Canceled) {
+			return
+		}
 		writeJSON(w, r, 409, struct {
 			Error     downloadError  `json:"error"`
 			MediaFile *mediaResponse `json:"media_file"`

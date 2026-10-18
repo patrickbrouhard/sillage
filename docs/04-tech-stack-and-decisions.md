@@ -1316,3 +1316,12 @@ arrêt propre. Aucun volume de logs ou service supplémentaire n'est ajouté.
 Les diagnostics de validation des captures (pixels non carrés, timestamp hors
 durée) ne rendent pas une tentative éligible au repli HLS→HTTPS. L'éligibilité
 reste explicite et indépendante du format structuré de l'erreur.
+
+Les GET de note absente et de transcription locale absente restent des 404 avec
+leur code public, journalisés DEBUG sans diagnostic technique. Les autres refus
+métier gardent leur sévérité et leur code, sans faux internal_error. Une cause
+technique (notamment disque ou outil) reste assainie et exploitable.
+Le bilan distingue le statut effectivement envoyé de la gravité du résultat
+prévu : une déconnexion avant écriture ne masque pas un échec serveur.
+Les erreurs ffprobe conservent outil, étape, catégorie sûre et code de sortie
+jusqu'au bilan terminal, avec la classification publique media_invalid inchangée.

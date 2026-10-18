@@ -145,9 +145,7 @@ func (h *VideoHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func respondError(w http.ResponseWriter, r *http.Request, err error) {
-	requestlog.Result(r, "", err)
-	// Une déconnexion n'appelle aucune réponse HTTP ni erreur technique supplémentaire.
-	if errors.Is(r.Context().Err(), context.Canceled) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
 	switch {
@@ -156,6 +154,7 @@ func respondError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, video.ErrVideoNotFound):
 		writeError(w, r, 404, "video_not_found", "video not found")
 	case errors.Is(err, context.DeadlineExceeded):
+		requestlog.Result(r, "", err)
 		writeError(w, r, 504, "metadata_fetch_timeout", "metadata fetch timed out")
 	case errors.Is(err, video.ErrMetadataFetchFailed):
 		requestlog.Result(r, "", err)
@@ -176,7 +175,11 @@ type errorBody struct {
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, status int, code, message string) {
-	requestlog.Result(r, code, nil)
+	requestlog.Response(r, status, code)
+	// Qualifier d'abord l'échec : une déconnexion ne doit pas masquer sa gravité.
+	if errors.Is(r.Context().Err(), context.Canceled) {
+		return
+	}
 	writeJSON(w, r, status, errorResponse{Error: errorBody{Code: code, Message: message}})
 }
 

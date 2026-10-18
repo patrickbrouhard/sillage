@@ -9,9 +9,10 @@ import (
 
 // toolFailure conserve la cause et les seuls diagnostics autorisés des outils.
 type toolFailure struct {
-	cause    error
-	reason   string
-	exitCode int
+	cause       error
+	reason      string
+	exitCode    int
+	stage, tool string
 }
 
 // Error rend uniquement la catégorie et le code de sortie.
@@ -24,7 +25,11 @@ func (e *toolFailure) Unwrap() error { return e.cause }
 
 // LogValue exclut stderr, les arguments et les chemins contenus dans la cause.
 func (e *toolFailure) LogValue() slog.Value {
-	return slog.GroupValue(slog.String("reason", e.reason), slog.Int("exit_code", e.exitCode))
+	attrs := []slog.Attr{slog.String("reason", e.reason), slog.Int("exit_code", e.exitCode)}
+	if e.stage != "" {
+		attrs = append(attrs, slog.String("stage", e.stage), slog.String("tool", e.tool))
+	}
+	return slog.GroupValue(attrs...)
 }
 
 // toolError élimine le texte externe après classification dans cet adapter.

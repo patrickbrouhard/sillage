@@ -156,7 +156,7 @@ func (c MediaClient) Download(ctx context.Context, source video.VideoSource, sta
 		if ctx.Err() != nil {
 			return media.Acquired{}, ctx.Err()
 		}
-		return media.Acquired{}, fmt.Errorf("%w: probe: %v", media.ErrInvalid, err)
+		return media.Acquired{}, fmt.Errorf("%w: probe: %w", media.ErrInvalid, err)
 	}
 	acquired, err := validateProbe(data, path, container, info.Duration, source.DurationMS)
 	acquired.AudioLanguage = language
@@ -396,6 +396,10 @@ func mediaTool(ctx context.Context, stage, tool, binary string, args ...string) 
 	data, err := mediaCommand(ctx, binary, args...)
 	logger := logging.From(ctx).With("event", "download.command_finished", "stage", stage, "tool", tool, "elapsed_ms", time.Since(started).Milliseconds())
 	if err != nil {
+		var failure *toolFailure
+		if errors.As(err, &failure) {
+			failure.stage, failure.tool = stage, tool
+		}
 		logger.DebugContext(ctx, "Media command failed", logging.Error(err))
 	} else {
 		logger.DebugContext(ctx, "Media command completed", "output_bytes", len(data))

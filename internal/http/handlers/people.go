@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
@@ -458,8 +457,7 @@ func (h *PeopleHandler) RemovePersonTag(w http.ResponseWriter, r *http.Request) 
 
 // respondPeopleError traduit les erreurs stables et délègue les échecs d'acquisition.
 func respondPeopleError(w http.ResponseWriter, r *http.Request, err error) {
-	requestlog.Result(r, "", err)
-	if errors.Is(r.Context().Err(), context.Canceled) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
 	switch {

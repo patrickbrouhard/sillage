@@ -122,8 +122,7 @@ func (h *AssetHandler) Content(w http.ResponseWriter, r *http.Request) {
 }
 
 func respondAssetError(w http.ResponseWriter, r *http.Request, err error) {
-	requestlog.Result(r, "", err)
-	if errors.Is(r.Context().Err(), context.Canceled) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
 	switch {
@@ -135,6 +134,10 @@ func respondAssetError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, asset.ErrRequestConflict):
 		writeError(w, r, 409, "capture_request_conflict", "request parameters differ")
 	case errors.Is(err, asset.ErrUnavailable):
+		// Le statut métier seul n'est pas un diagnostic ; conserver la cause disque éventuelle.
+		if err != asset.ErrUnavailable {
+			requestlog.Result(r, "", err)
+		}
 		writeError(w, r, 409, "asset_content_unavailable", "asset content unavailable")
 	case errors.Is(err, video.ErrInvalidInput):
 		writeError(w, r, 400, "bad_request", "invalid capture request")

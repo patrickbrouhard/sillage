@@ -22,14 +22,15 @@ func (Formatter) NewLogEntry(r *http.Request) middleware.LogEntry {
 
 // Entry appartient exclusivement à la goroutine du handler.
 type Entry struct {
-	request    *http.Request
-	route      string
-	code       string
-	failure    slog.Attr
-	complete   bool
-	panicked   bool
-	frames     []string
-	attributes []slog.Attr
+	request        *http.Request
+	route          string
+	code           string
+	responseStatus int
+	failure        slog.Attr
+	complete       bool
+	panicked       bool
+	frames         []string
+	attributes     []slog.Attr
 }
 
 // Get retrouve l'entrée installée par RequestLogger, ou nil en test unitaire isolé.
@@ -53,6 +54,17 @@ func Result(r *http.Request, code string, err error) {
 		}
 		if err != nil {
 			e.failure = logging.Error(err)
+		}
+	}
+}
+
+// Response conserve le résultat prévu même si une déconnexion interdit son écriture.
+// Le bilan continue d'indiquer le statut effectivement envoyé, éventuellement zéro.
+func Response(r *http.Request, status int, code string) {
+	if e := Get(r); e != nil {
+		e.responseStatus = status
+		if code != "" {
+			e.code = code
 		}
 	}
 }
@@ -92,11 +104,17 @@ func (e *Entry) Write(status, bytes int, _ http.Header, elapsed time.Duration, _
 	if e.code == "response_write_failed" {
 		level = slog.LevelWarn
 	}
-	if status >= 400 {
+	resultStatus := max(status, e.responseStatus)
+	if resultStatus >= 400 {
 		level = slog.LevelWarn
 	}
-	if status >= 500 && e.code != "capture_busy" && e.code != "download_busy" {
+	if resultStatus >= 500 && e.code != "capture_busy" && e.code != "download_busy" {
 		level = slog.LevelError
+	}
+	// Ces deux lectures consultent une connaissance facultative, sans acquisition.
+	if method == "GET" && resultStatus == http.StatusNotFound &&
+		(e.code == "note_not_found" || e.code == "transcript_not_found") && e.failure.Key == "" {
+		level = slog.LevelDebug
 	}
 	if e.request.Context().Err() != nil || (!e.complete && !e.panicked) {
 		outcome = "aborted"

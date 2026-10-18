@@ -239,8 +239,7 @@ func validUnicodeEscapes(body []byte) bool {
 
 // respondKnowledgeError ne traduit jamais une erreur locale en échec d'acquisition distante.
 func respondKnowledgeError(w http.ResponseWriter, r *http.Request, err error) {
-	requestlog.Result(r, "", err)
-	if errors.Is(r.Context().Err(), context.Canceled) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
 	switch {
