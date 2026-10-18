@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -197,5 +198,86 @@ func TestHTTPLoggingCanceledRequest(t *testing.T) {
 	rows := logRows(t, &out)
 	if len(rows) != 1 || rows[0]["outcome"] != "aborted" || rows[0]["status"] != float64(0) {
 		t.Fatal(rows)
+	}
+}
+
+// TestHTTPPanicInterruptsStartedResponses vérifie la fin du flux vue par un vrai client.
+func TestHTTPPanicInterruptsStartedResponses(t *testing.T) {
+	for _, mode := range []string{"before", "header", "write", "flush", "write_flush"} {
+		t.Run(mode, func(t *testing.T) {
+			var output bytes.Buffer
+			logger, _ := logging.New(&output, "DEBUG", "json")
+			done := make(chan struct{})
+			handler := WithLogging(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch mode {
+				case "header":
+					w.WriteHeader(http.StatusAccepted)
+				case "write", "write_flush":
+					io.WriteString(w, "partial")
+				}
+				if mode == "flush" || mode == "write_flush" {
+					if err := http.NewResponseController(w).Flush(); err != nil {
+						t.Error(err)
+					}
+				}
+				panic("PRIVATE panic")
+			}))
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer close(done)
+				handler.ServeHTTP(w, r)
+			}))
+			defer server.Close()
+			client := &http.Client{Timeout: 2 * time.Second}
+			response, err := client.Get(server.URL)
+			if mode == "before" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer response.Body.Close()
+				if response.StatusCode != 500 {
+					t.Fatal(response.StatusCode)
+				}
+			} else if mode == "flush" || mode == "write_flush" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer response.Body.Close()
+				_, readErr := io.ReadAll(response.Body)
+				if response.StatusCode != 200 || !errors.Is(readErr, io.ErrUnexpectedEOF) {
+					t.Fatalf("partial response ended normally: %d, %v", response.StatusCode, readErr)
+				}
+			} else if err == nil {
+				response.Body.Close()
+				t.Fatal("unflushed response should be aborted")
+			}
+			<-done
+			rows := logRows(t, &output)
+			if len(rows) != 1 || rows[0]["level"] != "ERROR" || rows[0]["outcome"] != "panic" ||
+				strings.Contains(output.String(), "PRIVATE") {
+				t.Fatal(output.String())
+			}
+			if (mode == "flush" || mode == "write_flush") && rows[0]["status"] != float64(200) {
+				t.Fatal(rows)
+			}
+		})
+	}
+}
+
+// TestHTTPFailureSurvivesCancellation garde l'échec technique visible après déconnexion.
+func TestHTTPFailureSurvivesCancellation(t *testing.T) {
+	var output bytes.Buffer
+	logger, _ := logging.New(&output, "INFO", "json")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	h := WithLogging(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestlog.Result(r, "internal_error", errors.New("PRIVATE SQL"))
+		w.WriteHeader(500)
+		cancel()
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil).WithContext(ctx))
+	rows := logRows(t, &output)
+	if len(rows) != 1 || rows[0]["level"] != "ERROR" || rows[0]["outcome"] != "aborted" ||
+		strings.Contains(output.String(), "PRIVATE") {
+		t.Fatal(output.String())
 	}
 }

@@ -100,11 +100,18 @@ func (e *Entry) Write(status, bytes int, _ http.Header, elapsed time.Duration, _
 	}
 	if e.request.Context().Err() != nil || (!e.complete && !e.panicked) {
 		outcome = "aborted"
-		level = slog.LevelDebug
+		// Une déconnexion ne doit pas effacer une erreur serveur déjà constatée.
+		if level != slog.LevelError {
+			level = slog.LevelDebug
+		}
 	} else if status == 0 {
 		status = http.StatusOK
 	}
 	if e.panicked {
+		// Le recoverer n'a pu écrire 500 : Chi avait déjà flushé un 200 implicite.
+		if status == 0 {
+			status = http.StatusOK
+		}
 		level = slog.LevelError
 		outcome = "panic"
 	}

@@ -1733,3 +1733,8 @@ sans installation système. Aucun nouveau test réseau YouTube réel n'a été l
 Incrément 1 : frontières de repli HLS restaurées ; diagnostics sûrs conservés.
 Les tests de validation sans nouvelle résolution complètent les scénarios de
 repli, renouvellement 403 et capture locale.
+
+Incrément 2 : récupération locale des panics autour du writer Chi. Tests réels
+de panic avant réponse, après en-têtes, écriture et flush (y compris sans corps),
+avec bilan unique. Les erreurs serveur restent ERROR après annulation HTTP ;
+HEAD, Range, streaming ordinaire, hijack et abandon explicite restent couverts.

@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"strings"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -19,13 +20,39 @@ func WithLogging(logger *slog.Logger, next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 		requestlog.Complete(r)
 	})
-	logged := middleware.RequestLogger(requestlog.Formatter{})(middleware.Recoverer(completed))
+	logged := middleware.RequestLogger(requestlog.Formatter{})(recoverResponse(completed))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := rand.Text()
 		ctx := logging.WithRequest(r.Context(), id)
 		ctx = logging.WithLogger(ctx, logger.With("http_request_id", id))
 		w.Header().Set("X-Request-ID", id)
 		logged.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// recoverResponse laisse net/http interrompre un flux dont le statut est irréversible.
+// RequestLogger doit rester extérieur pour émettre un unique bilan même après l'abandon.
+func recoverResponse(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if value := recover(); value != nil {
+				if value == http.ErrAbortHandler {
+					panic(value)
+				}
+				middleware.GetLogEntry(r).Panic(value, debug.Stack())
+				writer := w.(middleware.WrapResponseWriter)
+				if writer.Status() != 0 {
+					panic(http.ErrAbortHandler)
+				}
+				writer.WriteHeader(http.StatusInternalServerError)
+				// Chi peut laisser Status à zéro après Flush sans Write préalable.
+				// Son WriteHeader ignore alors le 500 : le flux doit être interrompu.
+				if writer.Status() != http.StatusInternalServerError {
+					panic(http.ErrAbortHandler)
+				}
+			}
+		}()
+		next.ServeHTTP(w, r)
 	})
 }
 

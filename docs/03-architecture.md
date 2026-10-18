@@ -1288,12 +1288,16 @@ Le logger slog est construit au point de composition et porté par le contexte.
 internal/logging ne connaît ni HTTP ni les adapters. Les objets métier restent
 indépendants de la journalisation. Les services ne lisent pas le contexte Chi.
 
-Le middleware extérieur couvre l'API et la SPA avec RequestLogger et Recoverer
-de Chi. Les handlers enrichissent une seule entrée HTTP avec un code public et
+Le middleware extérieur couvre l'API et la SPA avec RequestLogger de Chi et une récupération
+locale des panics. Les handlers enrichissent une seule entrée HTTP avec un code public et
 un diagnostic sûr. Le modèle de route est récupéré après résolution ; aucune URL
 arbitraire n'est journalisée. Les panics n'exposent pas leur valeur. Le writer
 Chi conserve les capacités de réponse ; HEAD, Range, flush progressif et hijack
 sont vérifiés. Une requête abandonnée sans réponse n'est pas comptée comme 200.
+Avant engagement de la réponse, un panic produit 500. Après écriture ou flush,
+il provoque ErrAbortHandler pour interrompre le flux sans le terminer normalement.
+Le bilan conserve ERROR et les seules positions du code, jamais la valeur du panic.
+Une annulation HTTP ne rétrograde pas une erreur serveur déjà constatée.
 Les crashes du runtime peuvent rester sur stderr hors de ce mécanisme.
 
 
