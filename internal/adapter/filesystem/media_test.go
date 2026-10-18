@@ -221,3 +221,45 @@ func TestRecoveryLoggingOmitsHostPaths(t *testing.T) {
 		t.Fatal(output.String())
 	}
 }
+
+func TestOpenRejectsUnsafeOrChangedMedia(t *testing.T) {
+	for _, kind := range []string{"valid", "symlink", "directory", "size", "missing", "deleting", "traversal", "root-symlink"} {
+		t.Run(kind, func(t *testing.T) {
+			s := NewMedia(filepath.Join(t.TempDir(), "media"))
+			if err := s.Recover(context.Background(), nil); err != nil {
+				t.Fatal(err)
+			}
+			f := published(t, s)
+			path := filepath.Join(s.root, f.Path)
+			switch kind {
+			case "symlink":
+				os.Rename(path, path+".saved")
+				os.Symlink(path+".saved", path)
+			case "directory":
+				os.Remove(path)
+				os.Mkdir(path, 0700)
+			case "size":
+				f.Size++
+			case "missing":
+				os.Remove(path)
+			case "deleting":
+				os.WriteFile(path+".deleting", []byte("complete"), 0600)
+			case "traversal":
+				f.Path = "../" + f.Path
+			case "root-symlink":
+				os.Rename(s.root, s.root+".saved")
+				os.Symlink(s.root+".saved", s.root)
+			}
+			content, err := s.Open(f)
+			if kind == "valid" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				content.Close()
+			} else if err == nil {
+				content.Close()
+				t.Fatal("unsafe media opened")
+			}
+		})
+	}
+}

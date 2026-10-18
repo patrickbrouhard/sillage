@@ -4,6 +4,7 @@ package media
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/video"
@@ -126,4 +127,11 @@ func Code(err error) string {
 	default:
 		return "internal_error"
 	}
+}
+
+// Content est un contenu seekable dont la fermeture libère aussi sa réservation.
+type Content interface {
+	io.Reader
+	io.Seeker
+	io.Closer
 }

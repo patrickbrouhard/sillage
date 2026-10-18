@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 
 	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
@@ -304,4 +305,41 @@ func (s *Media) ReadPath(f media.File) (string, error) {
 		return "", err
 	}
 	return filepath.Abs(path)
+}
+
+// Open vérifie le descripteur réellement ouvert dans une racine bornée.
+// O_NOFOLLOW refuse les liens ; O_NONBLOCK évite de bloquer sur un FIFO substitué.
+func (s *Media) Open(f media.File) (media.Content, error) {
+	if _, err := s.path(f.Path); err != nil {
+		return nil, err
+	}
+	before, err := os.Lstat(s.root)
+	if err != nil {
+		return nil, err
+	}
+	root, err := os.OpenRoot(s.root)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	actual, err := root.Stat(".")
+	if err != nil {
+		return nil, err
+	}
+	if !os.SameFile(before, actual) {
+		return nil, fmt.Errorf("media root changed")
+	}
+	if _, err := root.Lstat(f.Path + ".deleting"); !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("ambiguous interrupted deletion")
+	}
+	file, err := root.OpenFile(f.Path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() != f.Size || info.Size() <= 0 {
+		file.Close()
+		return nil, fmt.Errorf("invalid opened media")
+	}
+	return file, nil
 }

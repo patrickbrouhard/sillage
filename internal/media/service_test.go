@@ -432,3 +432,35 @@ func TestCaptureLeaseProtectsOnlyItsMedia(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestOpenExactMediaReservesEveryReader(t *testing.T) {
+	s, _, _, v, other := setup(t, &provider{}, time.Minute)
+	ctx := context.Background()
+	s.Start(ctx, v.ID, v.Sources[0].ID)
+	state := waitState(t, s, v, "available")
+	if _, _, err := s.Open(ctx, other.ID, state.File.ID); !errors.Is(err, media.ErrNotFound) {
+		t.Fatal(err)
+	}
+	_, first, err := s.Open(ctx, v.ID, state.File.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	_, second, err := s.Open(ctx, v.ID, state.File.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	first.Close()
+	first.Close()
+	if err := s.Delete(ctx, v.ID, state.File.ID); !errors.Is(err, media.ErrBusy) {
+		t.Fatal(err)
+	}
+	second.Close()
+	if err := s.Delete(ctx, v.ID, state.File.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.Open(ctx, v.ID, state.File.ID); !errors.Is(err, media.ErrNotFound) {
+		t.Fatal(err)
+	}
+}
