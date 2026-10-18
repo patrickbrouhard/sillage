@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"net/url"
 	"os/exec"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 

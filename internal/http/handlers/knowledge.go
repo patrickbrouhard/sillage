@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"io"
 	"mime"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/note"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )

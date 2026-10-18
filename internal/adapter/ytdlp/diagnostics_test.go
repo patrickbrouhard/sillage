@@ -3,9 +3,10 @@ package ytdlp
 import (
 	"context"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"strings"
 	"testing"
+
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 func TestExternalDiagnosticsArePrivate(t *testing.T) {

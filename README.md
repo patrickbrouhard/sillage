@@ -1621,3 +1621,47 @@ La clé request_id de commande capture garde son rôle d'idempotence.
 Les événements completed, failed, interrupted ou finalization_uncertain
 décrivent le résultat serveur ; un POST 202 ne confirme pas la fin du traitement.
 Les fichiers publiés restent conservés lors d'une finalisation incertaine.
+
+
+#### Exploitation Docker des journaux
+
+L'image choisit JSON par défaut ; Compose expose les variables suivantes :
+
+| Variable | Défaut Compose | Usage |
+|---|---|---|
+| SILLAGE_LOG_LEVEL | INFO | DEBUG, INFO, WARN ou ERROR |
+| SILLAGE_LOG_FORMAT | json | json ou text |
+| SILLAGE_CONTAINER_NAME | sillage | Nom unique sur ce daemon Docker |
+
+Une deuxième installation doit choisir un autre nom et un autre répertoire de
+données. Les tests utilisent leur propre nom ; le nom du projet Compose seul
+ne suffit plus à isoler le nom du conteneur.
+
+Après un changement de configuration, recréer le conteneur :
+
+```sh
+docker compose -f deployments/docker/compose.yaml up -d --force-recreate
+docker logs --tail 100 -f sillage
+docker logs --since 1h sillage
+```
+
+Pour une session de diagnostic, définir SILLAGE_LOG_LEVEL=DEBUG dans
+l'environnement Compose ou son fichier de variables, puis recréer ; rétablir INFO
+de la même manière. Le niveau DEBUG ne permet jamais l'affichage des sorties
+brutes. Avec jq installé sur l'hôte, une opération se filtre par exemple ainsi :
+
+```sh
+docker logs sillage | jq 'select(.operation_id == "capture:123")'
+```
+
+Le pilote Docker local conserve au maximum cinq fichiers de 20 Mio et compresse
+les fichiers tournés. Cette limite est volumétrique, pas une durée de conservation
+ni une garantie de taille exacte sur disque. Les journaux appartiennent au
+conteneur ; sa suppression peut supprimer cet historique. Ils ne sont pas dans
+le bind mount /app/data ni dans la sauvegarde SQLite. Consulter les messages par
+docker logs ou docker compose logs, sans manipuler les fichiers internes du daemon.
+
+Les erreurs de configuration utilisent un diagnostic JSON de secours.
+Les panics récupérés dans HTTP omettent leur valeur arbitraire ; seuls des
+emplacements de code sont conservés. Un crash du runtime peut encore produire
+une sortie fatale sur stderr. Les logs ne constituent pas un journal d'audit.

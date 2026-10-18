@@ -51,7 +51,7 @@ peut être différée. Les mentions « implémenté » décrivent le code dispon
 | Jobs persistants | pas dans le modèle initial | Acté pour le MVP |
 | PostgreSQL/MySQL | non nécessaires par défaut | Acté tant qu'aucun besoin ne l'impose |
 | WAL SQLite | non décidé | Ouvert |
-| Logging structuré / niveaux | log/slog, INFO, stdout ; texte/JSON ; rotation Docker local | Acté, implémentation en cours |
+| Logging structuré / niveaux | log/slog, INFO, stdout ; texte/JSON ; rotation Docker local | Acté et implémenté |
 | Dates calendaires | `TEXT` UTC RFC 3339 à millisecondes fixes | Acté |
 | Note principale | zéro ou une par vidéo, `video_id` clé primaire, Markdown brut en SQLite `TEXT` | Acté et implémenté pour l'étape 4 |
 | Identité des tags | NFC + comparaison Unicode insensible à la casse, accents significatifs | Acté pour l'étape 4, mécanisme technique libre |
@@ -1306,3 +1306,9 @@ Pas de stockage des journaux ou des identifiants d'exécution en SQLite.
 Docker : nom configurable, sillage par défaut ; les tests surchargent ce nom.
 Pilote local avec cinq fichiers de 20 Mio, compression par défaut. Le changement
 exige une recréation ; la rétention n'est pas un historique durable des connaissances.
+
+
+Validation de la distribution : la configuration effective local/20m/5 est
+inspectée ; un conteneur isolé teste la rotation avec un seuil réduit. Le smoke
+test vérifie JSON, surcharge text/DEBUG, identité serveur, commandes métier et
+arrêt propre. Aucun volume de logs ou service supplémentaire n'est ajouté.

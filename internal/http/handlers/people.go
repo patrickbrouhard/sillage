@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 

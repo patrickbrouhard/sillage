@@ -3,10 +3,10 @@ package transcript
 import (
 	"context"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"strings"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 

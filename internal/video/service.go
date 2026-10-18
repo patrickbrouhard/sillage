@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"strings"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 // MetadataProvider extrait une source normalisée sans exposer son format externe.

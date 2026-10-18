@@ -1709,3 +1709,21 @@ transcriptions réussis ; étapes synchrones yt-dlp ; suppression média confirm
 et rapprochement discriminant restauration, indisponibilité et conservation.
 Les erreurs synchrones enrichissent le bilan HTTP unique. Les tests vérifient
 l'absence de contenu de connaissance et de chemins hôte dans ces événements.
+
+
+Jalon distribution et consolidation : format JSON dans l'image, variables
+Compose et nom configurable (sillage par défaut), pilote local/20m/5. Le smoke
+test isole son nom, contrôle les journaux structurés et les surcharges, puis
+exerce une rotation avec un seuil réduit. La CI ajoute les tests de concurrence
+sur les composants instrumentés.
+
+Les tests couvrent aussi les commits SQL incertains, le bilan HTTP→service→adapter,
+les erreurs d'encodage/écriture et les identités internes validées dans le bilan.
+Aucun contrat métier, schéma persistant ou budget de réessai n'a été modifié.
+
+Validation finale : suite Go complète, go vet, builds et tests avec détecteur de
+concurrence réussis ; 45 requêtes et 135 assertions Postman déterministes ;
+323 tests Web réussis. Le build Docker et le smoke test valident les formats,
+les surcharges, la consultation par nom et la rotation effective du pilote local.
+Chromium a nécessité libnspr4/libnss3 extraites dans un répertoire temporaire,
+sans installation système. Aucun nouveau test réseau YouTube réel n'a été lancé.

@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"log/slog"
 	"regexp"
 	"sync"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -96,7 +96,14 @@ func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID vid
 	}
 	s.active = a.ID
 	s.workers.Add(1)
-	logger := logging.From(s.ctx).With("component", "capture", "operation_id", fmt.Sprintf("capture:%d", a.ID), "asset_id", a.ID, "video_id", videoID, "source_id", sourceID, "timestamp_ms", timestamp)
+	logger := logging.From(s.ctx).With(
+		"component", "capture",
+		"operation_id", fmt.Sprintf("capture:%d", a.ID),
+		"asset_id", a.ID,
+		"video_id", videoID,
+		"source_id", sourceID,
+		"timestamp_ms", timestamp,
+	)
 	if origin := logging.RequestID(ctx); origin != "" {
 		logger = logger.With("origin_request_id", origin)
 	}

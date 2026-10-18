@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	api "github.com/patrickbrouhard/sillage/internal/http"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
@@ -263,5 +265,39 @@ func TestConcurrentHTTPAdds(t *testing.T) {
 	a, b := <-results, <-results
 	if a.Code+b.Code != 401 || a.Body.String() != b.Body.String() {
 		t.Fatalf("%d %s / %d %s", a.Code, a.Body.String(), b.Code, b.Body.String())
+	}
+}
+
+func TestStructuredRouterSummary(t *testing.T) {
+	var output bytes.Buffer
+	logger, _ := logging.New(&output, "DEBUG", "json")
+	router := api.NewRouter(nil, nil, nil, nil, nil, nil, serviceStub{get: func(context.Context, video.VideoID) (video.Video, error) {
+		return video.Video{}, errors.New("PRIVATE diagnostic")
+	}}, time.Minute)
+	handler := api.WithLogging(logger, router)
+	response := request(handler, "GET", "/api/v1/videos/42?token=PRIVATE", "", "")
+	if response.Code != 500 {
+		t.Fatal(response.Code)
+	}
+	var row map[string]any
+	if err := json.Unmarshal(output.Bytes(), &row); err != nil {
+		t.Fatal(err)
+	}
+	if row["route"] != "/api/v1/videos/{id}" || row["video_id"] != float64(42) || row["error_code"] != "internal_error" {
+		t.Fatal(row)
+	}
+	if strings.Contains(output.String(), "PRIVATE") {
+		t.Fatal(output.String())
+	}
+	output.Reset()
+	response = request(handler, "GET", "/PRIVATE", "", "")
+	if response.Code != 404 {
+		t.Fatal(response.Code)
+	}
+	if err := json.Unmarshal(output.Bytes(), &row); err != nil {
+		t.Fatal(err)
+	}
+	if row["route"] != "unmatched" {
+		t.Fatal(row)
 	}
 }

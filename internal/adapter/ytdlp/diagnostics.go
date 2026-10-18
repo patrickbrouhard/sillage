@@ -14,9 +14,12 @@ type toolFailure struct {
 	exitCode int
 }
 
+// Error rend uniquement la catégorie et le code de sortie.
 func (e *toolFailure) Error() string {
 	return fmt.Sprintf("external tool: reason=%s exit_code=%d", e.reason, e.exitCode)
 }
+
+// Unwrap conserve errors.Is/As sans recopier le diagnostic privé.
 func (e *toolFailure) Unwrap() error { return e.cause }
 
 // LogValue exclut stderr, les arguments et les chemins contenus dans la cause.
@@ -24,6 +27,7 @@ func (e *toolFailure) LogValue() slog.Value {
 	return slog.GroupValue(slog.String("reason", e.reason), slog.Int("exit_code", e.exitCode))
 }
 
+// toolError élimine le texte externe après classification dans cet adapter.
 func toolError(err error, stderr string) error {
 	code := -1
 	reason := "tool_unavailable"

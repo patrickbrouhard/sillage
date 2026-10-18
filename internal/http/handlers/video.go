@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
@@ -87,6 +88,7 @@ func (h *VideoHandler) Add(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, err)
 		return
 	}
+	requestlog.Fields(r, slog.Int64("video_id", int64(result.Video.ID)))
 	status := http.StatusOK
 	if result.Created {
 		status = http.StatusCreated

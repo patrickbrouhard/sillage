@@ -3,8 +3,9 @@ package video
 import (
 	"context"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"strings"
+
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 // PublisherID identifie un compte de publication dans Sillage.

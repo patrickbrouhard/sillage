@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"log/slog"
 	"math"
 	"net/url"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/asset"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
@@ -250,6 +250,7 @@ func extractionError(ctx context.Context, stage string, err error) error {
 	return &captureFailure{stage: stage, reason: toolReason(err.Error())}
 }
 
+// toolReason réutilise les catégories fermées des captures, sans piloter les autres acquisitions.
 func toolReason(message string) string {
 	// Classifier le message privé, sans jamais le recopier même après une rédaction.
 	// Les valeurs produites sont constantes : URL, cookies et en-têtes restent privés.
@@ -285,9 +286,12 @@ type captureFailure struct {
 	exitCode      *int
 }
 
+// Error conserve les motifs stables d’extraction sans détail externe.
 func (e *captureFailure) Error() string {
 	return fmt.Sprintf("%s: stage=%s reason=%s", asset.ErrExtract, e.stage, e.reason)
 }
+
+// Unwrap maintient les seuls replis autorisés par ErrExtract.
 func (e *captureFailure) Unwrap() error { return asset.ErrExtract }
 func captureReason(err error, reason string) bool {
 	var failure *captureFailure

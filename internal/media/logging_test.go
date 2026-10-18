@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 func TestDownloadLoggingIdentifiesEachExecution(t *testing.T) {

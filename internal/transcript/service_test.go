@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,6 +15,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )

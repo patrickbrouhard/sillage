@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/asset"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 

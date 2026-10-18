@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"image"
@@ -15,6 +16,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/asset"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -27,7 +29,8 @@ func (absentMedia) Borrow(context.Context, video.VideoID, video.VideoSourceID) (
 
 type imageExtractor struct{}
 
-func (imageExtractor) Extract(_ context.Context, _ video.VideoSource, _ string, _ int64, stage string) error {
+func (imageExtractor) Extract(ctx context.Context, _ video.VideoSource, _ string, _ int64, stage string) error {
+	logging.From(ctx).DebugContext(ctx, "Image extracted", "event", "test.extraction")
 	f, err := os.Create(filepath.Join(stage, "frame.png"))
 	if err != nil {
 		return err
@@ -37,7 +40,9 @@ func (imageExtractor) Extract(_ context.Context, _ video.VideoSource, _ string, 
 }
 
 func TestAssetRESTPersistenceAndPNGContent(t *testing.T) {
-	ctx := context.Background()
+	var output bytes.Buffer
+	logger, _ := logging.New(&output, "DEBUG", "json")
+	ctx := logging.WithLogger(context.Background(), logger)
 	root := t.TempDir()
 	db, err := sqlite.Open(ctx, filepath.Join(root, "db"))
 	if err != nil {
@@ -54,7 +59,7 @@ func TestAssetRESTPersistenceAndPNGContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer service.Close()
-	router := NewRouter(nil, nil, nil, nil, nil, nil, nil, 0, service)
+	router := WithLogging(logger, NewRouter(nil, nil, nil, nil, nil, nil, nil, 0, service))
 	request := func(method, path, body string) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, httptest.NewRequest(method, path, strings.NewReader(body)))
@@ -69,6 +74,7 @@ func TestAssetRESTPersistenceAndPNGContent(t *testing.T) {
 	if w.Code != 202 {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
+	origin := w.Header().Get("X-Request-ID")
 	location := w.Header().Get("Location")
 	deadline := time.Now().Add(3 * time.Second)
 	for {
@@ -101,5 +107,19 @@ func TestAssetRESTPersistenceAndPNGContent(t *testing.T) {
 	db.QueryRow("SELECT count(*) FROM assets").Scan(&count)
 	if count != 1 {
 		t.Fatal(count)
+	}
+	service.Close()
+	counts := map[string]int{}
+	for _, row := range logRows(t, &output) {
+		event := row["event"].(string)
+		counts[event]++
+		if event == "capture.started" || event == "capture.completed" || event == "test.extraction" {
+			if row["origin_request_id"] != origin || row["operation_id"] != "capture:1" {
+				t.Fatal(row)
+			}
+		}
+	}
+	if counts["capture.started"] != 1 || counts["capture.completed"] != 1 || counts["test.extraction"] != 1 {
+		t.Fatal(counts)
 	}
 }

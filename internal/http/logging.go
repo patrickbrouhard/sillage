@@ -2,13 +2,14 @@ package http
 
 import (
 	"crypto/rand"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"log"
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 // WithLogging couvre API et SPA, sans lire ni retenir les corps des échanges.

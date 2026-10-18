@@ -3,7 +3,6 @@ package ytdlp
 import (
 	"context"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 func TestClientExtract(t *testing.T) {

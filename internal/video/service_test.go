@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 func TestAddVideoCreatesThenReturnsExistingWithoutRefresh(t *testing.T) {

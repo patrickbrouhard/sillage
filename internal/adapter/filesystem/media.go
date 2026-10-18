@@ -5,12 +5,12 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 )
 

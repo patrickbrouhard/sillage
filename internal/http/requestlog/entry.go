@@ -2,13 +2,14 @@
 package requestlog
 
 import (
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 // Formatter fournit à Chi une entrée structurée par requête.
@@ -21,13 +22,14 @@ func (Formatter) NewLogEntry(r *http.Request) middleware.LogEntry {
 
 // Entry appartient exclusivement à la goroutine du handler.
 type Entry struct {
-	request  *http.Request
-	route    string
-	code     string
-	failure  slog.Attr
-	complete bool
-	panicked bool
-	frames   []string
+	request    *http.Request
+	route      string
+	code       string
+	failure    slog.Attr
+	complete   bool
+	panicked   bool
+	frames     []string
+	attributes []slog.Attr
 }
 
 // Get retrouve l'entrée installée par RequestLogger, ou nil en test unitaire isolé.
@@ -112,6 +114,7 @@ func (e *Entry) Write(status, bytes int, _ http.Header, elapsed time.Duration, _
 		slog.Int("status", status), slog.Int("response_bytes", bytes),
 		slog.Int64("elapsed_ms", elapsed.Milliseconds()), slog.String("outcome", outcome),
 	}
+	attrs = append(attrs, e.attributes...)
 	if e.code != "" {
 		attrs = append(attrs, slog.String("error_code", e.code))
 	}
@@ -122,4 +125,11 @@ func (e *Entry) Write(status, bytes int, _ http.Header, elapsed time.Duration, _
 		attrs = append(attrs, slog.Any("frames", e.frames))
 	}
 	logging.From(e.request.Context()).LogAttrs(e.request.Context(), level, "HTTP request completed", attrs...)
+}
+
+// Fields ajoute uniquement des attributs contrôlés par les handlers ou le routeur.
+func Fields(r *http.Request, attrs ...slog.Attr) {
+	if e := Get(r); e != nil {
+		e.attributes = append(e.attributes, attrs...)
+	}
 }

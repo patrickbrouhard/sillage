@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"io"
 	"net/url"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )

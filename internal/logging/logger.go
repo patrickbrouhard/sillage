@@ -88,5 +88,10 @@ func Error(err error) slog.Attr {
 	case errors.Is(err, syscall.EIO):
 		reason = "io_error"
 	}
-	return slog.Group("error", slog.String("reason", reason))
+	attrs := []slog.Attr{slog.String("reason", reason)}
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		attrs = append(attrs, slog.Int("errno", int(errno)))
+	}
+	return slog.Attr{Key: "error", Value: slog.GroupValue(attrs...)}
 }

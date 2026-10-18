@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"io"
 	"log/slog"
 	"net"
@@ -15,6 +13,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 func logRows(t *testing.T, b *bytes.Buffer) []map[string]any {

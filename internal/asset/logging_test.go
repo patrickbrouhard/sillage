@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/patrickbrouhard/sillage/internal/asset"
 	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/video"
-	"strings"
-	"testing"
 )
 
 func TestCaptureLoggingSurvivesRequestAndFallback(t *testing.T) {
@@ -78,6 +81,50 @@ func TestCaptureShutdownLogging(t *testing.T) {
 	}
 	service.Close()
 	if strings.Count(output.String(), `"event":"capture.interrupted"`) != 1 || strings.Contains(output.String(), `"level":"ERROR"`) {
+		t.Fatal(output.String())
+	}
+}
+
+// unavailableFinalization simule une indisponibilité SQL après publication du PNG.
+type unavailableFinalization struct {
+	asset.Repository
+	attempts chan struct{}
+}
+
+func (r unavailableFinalization) Finish(context.Context, int64, string, *string, int64, string) error {
+	r.attempts <- struct{}{}
+	return errors.New("PRIVATE SQL")
+}
+func (r unavailableFinalization) Get(context.Context, int64) (asset.Asset, error) {
+	return asset.Asset{}, errors.New("PRIVATE SQL")
+}
+
+func TestCaptureUnconfirmedFinalizationIsNeverSuccess(t *testing.T) {
+	original, repo, v, storage := setup(t, &localMedia{}, nil)
+	original.Close()
+	var output bytes.Buffer
+	logger, _ := logging.New(&output, "DEBUG", "json")
+	ctx := logging.WithLogger(context.Background(), logger)
+	attempts := make(chan struct{}, 2)
+	service, err := asset.NewService(ctx, fixedVideo{v}, unavailableFinalization{repo, attempts}, &localMedia{err: media.ErrNotFound}, extractor(func(_ context.Context, _ video.VideoSource, _ string, _ int64, stage string) error {
+		return writePNG(stage)
+	}), storage, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
+	if _, err := service.Start(context.Background(), v.ID, v.Sources[0].ID, 0, "command_uncertain"); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		select {
+		case <-attempts:
+		case <-time.After(time.Second):
+			t.Fatal("finalization not attempted")
+		}
+	}
+	service.Close()
+	if strings.Count(output.String(), "capture.finalization_uncertain") != 1 || strings.Contains(output.String(), "capture.completed") || strings.Contains(output.String(), "PRIVATE") {
 		t.Fatal(output.String())
 	}
 }

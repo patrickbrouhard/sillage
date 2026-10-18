@@ -5,12 +5,12 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/logging"
 	"log/slog"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
@@ -147,7 +147,13 @@ func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID vid
 		return state, err
 	}
 	if state.Status == "available" || state.Status == "downloading" {
-		logging.From(ctx).DebugContext(ctx, "Download already present", "event", "download.reused", "source_id", sourceID, "operation_id", s.operationID)
+		logger := logging.From(ctx).With("source_id", sourceID)
+		if state.Status == "downloading" {
+			logger = logger.With("operation_id", s.operationID)
+		} else if state.File != nil {
+			logger = logger.With("media_file_id", state.File.ID)
+		}
+		logger.DebugContext(ctx, "Download already present", "event", "download.reused")
 		return state, nil
 	}
 	if s.closed || s.ctx.Err() != nil {
@@ -163,7 +169,12 @@ func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID vid
 	delete(s.failures, sourceID)
 	s.workers.Add(1)
 	s.operationID = rand.Text()
-	logger := logging.From(s.ctx).With("component", "download", "operation_id", s.operationID, "video_id", videoID, "source_id", sourceID)
+	logger := logging.From(s.ctx).With(
+		"component", "download",
+		"operation_id", s.operationID,
+		"video_id", videoID,
+		"source_id", sourceID,
+	)
 	if origin := logging.RequestID(ctx); origin != "" {
 		logger = logger.With("origin_request_id", origin)
 	}
@@ -195,8 +206,7 @@ func (s *Service) download(parent context.Context, source video.VideoSource) {
 		var uncertain *finalizationError
 		if errors.As(err, &uncertain) {
 			event = "download.finalization_uncertain"
-		}
-		if errors.Is(err, context.Canceled) {
+		} else if errors.Is(err, context.Canceled) {
 			level, event = slog.LevelInfo, "download.interrupted"
 		}
 		logging.From(ctx).LogAttrs(ctx, level, "Download finished", slog.String("event", event), slog.String("error_code", Code(err)), slog.Int64("elapsed_ms", time.Since(started).Milliseconds()), logging.Error(err))
@@ -363,8 +373,13 @@ func (s *Service) Borrow(ctx context.Context, videoID video.VideoID, sourceID vi
 // finalizationError signale des octets publiés sans confirmation, sans changer Code.
 type finalizationError struct{ cause error }
 
+// Error conserve un libellé constant même si la cause contient un chemin.
 func (e *finalizationError) Error() string { return "published media finalization uncertain" }
+
+// Unwrap préserve les classifications applicatives existantes.
 func (e *finalizationError) Unwrap() error { return e.cause }
+
+// LogValue distingue la publication de sa confirmation sans exposer la cause brute.
 func (e *finalizationError) LogValue() slog.Value {
 	return slog.GroupValue(slog.String("stage", "finalize"), slog.Bool("file_published", true), logging.Error(e.cause))
 }

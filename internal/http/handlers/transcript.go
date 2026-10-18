@@ -3,13 +3,13 @@ package handlers
 import (
 	"context"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )

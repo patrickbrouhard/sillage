@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/patrickbrouhard/sillage/internal/asset"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -67,6 +68,7 @@ func (h *AssetHandler) Start(w http.ResponseWriter, r *http.Request) {
 		respondAssetError(w, r, err)
 		return
 	}
+	requestlog.Fields(r, slog.Int64("asset_id", a.ID), slog.String("operation_id", fmt.Sprintf("capture:%d", a.ID)))
 	w.Header().Set("Location", fmt.Sprintf("/api/v1/assets/%d", a.ID))
 	status := http.StatusOK
 	if a.Status == "pending" {

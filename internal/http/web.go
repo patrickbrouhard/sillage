@@ -3,12 +3,13 @@ package http
 import (
 	"bytes"
 	"fmt"
-	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"io/fs"
 	"net/http"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 )
 
 // NewWebHandler compose l'API et le build SPA sans exposer les données du serveur.
