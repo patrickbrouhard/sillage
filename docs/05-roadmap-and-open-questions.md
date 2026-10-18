@@ -1747,3 +1747,16 @@ processus ffprobe simulé jusqu'au bilan terminal du service, au niveau INFO.
 Incrément 4 : corrélation du GET de récupération par clé de commande. Le test REST
 ignore corps et Location de l'acceptation, retrouve la capture par sa clé puis
 vérifie son résultat, l'unique démarrage et l'absence de clé brute dans les logs.
+
+Incrément 5 : favicon ICO statique (16/32/48 pixels), déclaré dans index.html et
+servi à /favicon.ico ; aucun filtrage spécial des 404. L'iframe YouTube conserve
+fullscreen dans allow sans allowFullscreen redondant. Les tests Web couvrent
+la distribution et le décodage de l'icône, HEAD, les fichiers absents, les
+permissions et l'API native de plein écran avec le double du lecteur.
+La validation manuelle du lecteur YouTube réel sous Brave reste à effectuer.
+
+Validation des cinq corrections : suite Go complète, go vet, builds et tests de
+concurrence réussis ; 45 requêtes / 135 assertions Postman ; 325 tests Web.
+Build et smoke Docker réussis, avec favicon GET/HEAD, formats JSON/texte,
+persistance, arrêt propre et rotation effective. Aucune dépendance, migration
+ou modification de contrat REST ajoutée. Pas de nouveau test réseau YouTube réel.

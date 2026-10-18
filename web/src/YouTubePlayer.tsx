@@ -124,7 +124,6 @@ export function YouTubePlayer({ source, ref, children }: { source: VideoSource; 
       iframe.src = `https://www.youtube.com/embed/${source.external_id}?${params}`
       iframe.title = `Lecteur YouTube : ${source.title}`
       iframe.allow = 'encrypted-media; fullscreen; picture-in-picture'
-      iframe.allowFullscreen = true
       iframe.referrerPolicy = 'strict-origin-when-cross-origin'
       host.current.append(iframe)
       readyTimer = window.setTimeout(() => fail('Le lecteur YouTube ne répond pas. Vous pouvez réessayer ou ouvrir la vidéo sur YouTube.'), 15_000)

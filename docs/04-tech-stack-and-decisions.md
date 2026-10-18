@@ -1325,3 +1325,8 @@ Le bilan distingue le statut effectivement envoyé de la gravité du résultat
 prévu : une déconnexion avant écriture ne masque pas un échec serveur.
 Les erreurs ffprobe conservent outil, étape, catégorie sûre et code de sortie
 jusqu'au bilan terminal, avec la classification publique media_invalid inchangée.
+
+Le build Web fournit un favicon ICO statique déclaré dans index.html. Les fichiers
+absents gardent leur 404 habituel. L'autorisation fullscreen du lecteur est portée
+uniquement par iframe.allow, avec encrypted-media et picture-in-picture ; aucune
+autorisation supplémentaire ni commande de lecture n'est ajoutée.

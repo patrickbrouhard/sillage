@@ -157,6 +157,10 @@ def main():
                        and m["Type"] == "bind" and m["RW"] for m in inspection["Mounts"])
             html = request(port, "/").decode()
             assert '<div id="root">' in html
+            assert 'href="/favicon.ico"' in html
+            assert request(port, "/favicon.ico").startswith(bytes([0, 0, 1, 0]))
+            assert request(port, "/favicon.ico", method="HEAD") == b""
+            request(port, "/missing-icon.ico", expected=404)
             asset = re.search(r'src="(/assets/[^"]+\.js)"', html).group(1)
             assert len(request(port, asset)) > 1000
             assert request(port, "/videos/123") == html.encode()

@@ -288,3 +288,25 @@ test.beforeEach(async ({ page }) => {
     json: { status: 'not_downloaded', media_file: null, error: null },
   }))
 })
+
+
+test('le plein écran est déclaré une seule fois et reste utilisable', async ({ page }) => {
+  await page.goto('/videos/42')
+  const iframe = page.locator('.youtube-frame iframe')
+  await expect(iframe).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  await expect(iframe).toHaveAttribute('allow', 'encrypted-media; fullscreen; picture-in-picture')
+  expect(await iframe.getAttribute('allowfullscreen')).toBeNull()
+  // Le double about:blank permet un vrai geste utilisateur et l'API native, sans réseau YouTube.
+  const frame = page.frameLocator('.youtube-frame iframe')
+  await iframe.evaluate((element: HTMLIFrameElement) => {
+    const document = element.contentDocument!
+    const button = document.createElement('button')
+    button.textContent = 'Plein écran test'
+    button.onclick = () => { void document.documentElement.requestFullscreen() }
+    document.body.append(button)
+  })
+  await frame.getByRole('button', { name: 'Plein écran test' }).click()
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.tagName)).toBe('IFRAME')
+  await page.evaluate(() => document.exitFullscreen())
+})
