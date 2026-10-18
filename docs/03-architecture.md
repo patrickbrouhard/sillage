@@ -1191,7 +1191,7 @@ Routes retenues :
 
 POST sans corps : 202 et Location pour une acquisition active, 200 si déjà disponible.
 GET local : non téléchargé/en cours/disponible/échec ; aucune exposition des chemins.
-La suppression vise une identité précise. Aucun endpoint des octets vidéo.
+La suppression vise une identité précise. La tranche de lecture locale ajoute désormais GET/HEAD sur le contenu de cette identité (voir ci-dessous).
 
 Acquisition dans une zone maîtrisée de data/media, sur le filesystem final :
 validation, synchronisation, renommage puis transaction SQLite courte.
@@ -1315,3 +1315,51 @@ persistant. Après un crash, un début peut ne pas avoir de fin.
 La récupération d'une capture par sa clé de commande enrichit son bilan HTTP
 avec asset_id et operation_id de la capture retrouvée. La clé brute reste exclue ;
 la nouvelle requête HTTP ne remplace pas origin_request_id de l'opération.
+
+## Lecture locale — transport et composition du workspace
+
+GET et HEAD /api/v1/videos/{video_id}/media-files/{media_file_id}/content
+servent une identité exacte. Le service vérifie les IDs, la vidéo propriétaire,
+la finalisation et l'ouverture. Le port Storage.Open retourne Reader/Seeker/Closer.
+Le filesystem borne l'ouverture par os.OpenRoot, vérifie la racine ouverte,
+refuse les liens symboliques finaux avec O_NOFOLLOW et les fichiers non réguliers.
+O_NONBLOCK évite le blocage sur un FIFO substitué ; Stat contrôle le descripteur
+réel et sa taille. Les fichiers .deleting ambigus restent indisponibles.
+Aucun chemin ne vient de la requête ni ne sort dans les DTO.
+
+L'ouverture et la prise de réservation sont sérialisées avec DELETE. La lecture
+s'effectue sans verrou global. Close ferme le descripteur puis libère une seule
+fois la réservation ; le handler le diffère, y compris après déconnexion ou panic.
+Plusieurs lectures sont possibles, ainsi que les captures et les téléchargements
+d'autres sources. DELETE refuse un fichier réservé. Une réservation protège une
+requête, pas une séance complète : après sa fin, une suppression peut réussir et
+une requête Range ultérieure recevoir 404. La connaissance reste accessible.
+
+Le handler utilise http.ServeContent : corps complet, HEAD, plages et réponses
+206/416, requêtes conditionnelles natives. Le MIME est déduit de l'extension du
+conteneur validé, avec application/octet-stream si inconnu, sans liste de formats
+autorisés. X-Content-Type-Options: nosniff et Cache-Control: no-store sont posés.
+Sur les erreurs de plage, Go peut retirer les en-têtes de cache selon son
+comportement standard. Aucun encodage HTTP transformant les octets n'est ajouté.
+Les erreurs avant transfert conservent les codes 400 bad_request, 404
+video_not_found/media_file_not_found, 409 local_media_unavailable et 500 internal_error.
+Les réservations de lecture/capture utilisent le refus 503 download_busy existant
+à la suppression, avec un message désormais adapté à l'utilisation d'un média.
+
+VideoPlayer compose les deux composants concrets, avec seulement getCurrentTimeMs,
+navigate et stop comme commandes partagées. Une seule instance est montée.
+YouTube demeure le choix initial, sans configuration temporaire. Le choix n'est
+pas recalculé lors des actualisations du téléchargement. Local utilise directement
+l'URL HTTP dans video, sans téléchargement préalable du fichier dans un Blob.
+
+La bascule transmet une position initiale facultative, consommée une fois à
+onReady/loadedmetadata. L'ancienne instance est arrêtée avant la transition ;
+les effets nettoient leurs écouteurs et ignorent les événements obsolètes.
+Les timestamps ordinaires ne rejoignent jamais ce mécanisme d'initialisation.
+Le défilement conditionnel est partagé, sans focus forcé ni scroll des panneaux.
+VideoNote, sa session et VideoTranscript restent hors de cette alternance.
+
+Les tests navigateur ajoutent un WebM VP8/Opus généré par ffmpeg dans le workspace
+temporaire du lanceur. L'acquisition distante est simulée, mais publication,
+SQLite, GET/Range, ffprobe et décodage HTML5 sont réels. Les fixtures MKV factices
+restent utilisées pour les seuls parcours de gestion des téléchargements.

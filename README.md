@@ -1707,3 +1707,34 @@ une sortie fatale sur stderr. Les logs ne constituent pas un journal d'audit.
   et révélées, navigation temporelle, Undo/Redo et stabilité lors des bascules.
 - Une ouverture, bascule de mode ou redimensionnement sans édition ne doit pas
   déclencher d'enregistrement. Le panneau et les commandes gardent leur largeur.
+
+## Lecture locale dans le workspace
+
+Le choix **YouTube / Local** permet de regarder le fichier conservé de la source
+de travail. Local regroupe téléchargement, informations et suppression, même sans
+fichier. Les timestamps, notes, transcription et captures utilisent le lecteur actif.
+Les bascules préparent autant que possible la position en pause ; masquer met en pause.
+Une erreur locale propose un réessai et laisse le retour vers YouTube manuel.
+
+**YouTube reste sélectionné initialement pendant la validation.** La priorité
+initiale Local est décidée mais attend les essais et l'accord explicite de
+l'utilisateur. Aucun changement automatique à la fin d'un téléchargement.
+
+### Contenu média
+
+- GET /api/v1/videos/{video_id}/media-files/{media_file_id}/content
+- HEAD sur la même URL, sans corps.
+- GET complet : 200 ; plages satisfaites : 206 avec Content-Range ; hors limites : 416.
+- IDs invalides : 400 ; vidéo/média absent ou mauvaise appartenance : 404 ;
+  fichier connu mais indisponible : 409 local_media_unavailable.
+- URL fondée sur l'identité exacte, jamais sur un chemin du disque.
+- Cache-Control: no-store pour le contenu, MIME du conteneur, nosniff.
+- Un DELETE peut recevoir 503 download_busy tant qu'une lecture HTTP ou capture
+  réserve le média. Arrêter/décharger le lecteur puis réessayer explicitement.
+- Un fichier conservé n'est pas nécessairement décodable par le navigateur.
+  Aucune conversion ni modification de la politique yt-dlp.
+
+La suppression conserve notes, transcriptions et captures. Elle laisse le panneau
+Local vide ; un rafraîchissement revient actuellement au défaut YouTube.
+
+Voir [la recette de validation locale](docs/06-local-playback-validation.md).

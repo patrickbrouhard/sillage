@@ -1330,3 +1330,22 @@ Le build Web fournit un favicon ICO statique déclaré dans index.html. Les fich
 absents gardent leur 404 habituel. L'autorisation fullscreen du lecteur est portée
 uniquement par iframe.allow, avec encrypted-media et picture-in-picture ; aucune
 autorisation supplémentaire ni commande de lecture n'est ajoutée.
+
+## Lecture locale — décisions de cette tranche
+
+- HTML5 video et contrôles natifs, sans dépendance de lecteur, transcodage ou MSE.
+- Même source de travail et même format de références temporelles ; aucune migration.
+- GET/HEAD/Range par net/http.ServeContent, réservation par requête et ouverture
+  contrôlée côté filesystem. Aucune exposition du répertoire data/media.
+- Une seule instance lecteur active ; transfert approximatif en pause. YouTube
+  utilise cueVideoById pour éviter le démarrage implicite de seekTo depuis cued.
+- L'affectation de currentTime conserve lecture/pause pour les navigations locales.
+  Une position courante locale exige des données disponibles et aucun seek en cours.
+- Pas de canPlayType comme filtre définitif : les noms ffprobe ne constituent pas
+  une description complète des profils et les capacités varient selon le navigateur.
+  L'échec réel est affiché sans affirmer systématiquement un codec incompatible.
+- Aucun changement de sélection yt-dlp ni de repli des captures.
+- YouTube initialement pendant les essais. Priorité initiale Local décidée mais
+  non activée avant validation explicite ; pas de préférence persistée ou de flag.
+- La réservation n'interdit pas une suppression entre deux requêtes HTTP.
+  Les octets déjà en tampon d'un autre navigateur ne sont pas révocables.

@@ -1200,3 +1200,16 @@ Ne pas ajouter prématurément au modèle :
 - suppression des personnes et publishers et rafraîchissement de leurs métadonnées.
 
 Ces concepts pourront être introduits lorsqu'un besoin réel apparaîtra.
+
+### Lecture du MediaFile dans le workspace
+
+La lecture locale ne crée aucune entité et ne requiert aucune migration.
+Elle choisit uniquement le fichier de la source de travail commune au lecteur,
+à la transcription et aux références temporelles. La ressource HTTP vise le
+couple vidéo / identité exacte du MediaFile ; un nouveau téléchargement ne
+remplace pas les octets servis par une ancienne URL.
+
+La disponibilité persistée/disque et le décodage par le navigateur sont distincts.
+Une erreur du lecteur n'altère ni la référence du média ni les connaissances.
+La réservation de lecture est éphémère et limitée au transfert HTTP, sans objet
+de session persistant. La suppression n'efface toujours ni source ni Asset.

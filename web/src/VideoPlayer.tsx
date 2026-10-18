@@ -50,7 +50,7 @@ export function VideoPlayer({ videoID, source, download, ref }: {
   const status = <>
     {feedback}
     {download.state?.status === 'not_downloaded' && <p className="muted">Aucun fichier local. Téléchargez cette source pour la regarder ici.</p>}
-    {file?.id === unloaded && <button className="button" onClick={() => setUnloaded(undefined)}>Recharger le lecteur local</button>}
+    {file && file.id === unloaded && <button className="button" onClick={() => setUnloaded(undefined)}>Recharger le lecteur local</button>}
   </>
   return <LocalPlayer ref={player} heading={heading} status={status} url={url} initialStartMs={selection.startMs}>
     <VideoDownload download={download} beforeDelete={file => {

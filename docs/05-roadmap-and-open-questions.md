@@ -1851,3 +1851,50 @@ Validation : builds frontend/backend, suite Go, go vet et TypeScript réussis ;
 des deux modes et leurs styles calculés, le monospace et l'absence de sauvegarde
 ou remontage. Captures Édition/Lecture vérifiées en mode sombre à 1920 et 375 px.
 Validation manuelle utilisateur à venir, notamment pour le rendu Segoe UI sous Windows.
+
+## Lecture locale — implémentation en attente de validation utilisateur
+
+Cette tranche réalise la diffusion sécurisée GET/HEAD/Range et la partie 3 du
+decluttering précédemment différée. Le choix YouTube/Local, le lecteur HTML5,
+les transferts de position en pause, les interactions temporelles existantes,
+les erreurs locales sans repli et la suppression après déchargement sont implémentés.
+Aucune migration, import, conversion, préférence persistée ou nouvelle source.
+
+La priorité initiale au local est décidée, mais volontairement non activée :
+YouTube reste initial à chaque ouverture. Après validation explicite des essais,
+un dernier incrément choisira Local si le fichier de la source de travail est
+disponible, sinon YouTube. Il devra attendre la consultation initiale sans
+affichage transitoire du lecteur distant et sans bloquer les notes.
+La fin d'un téléchargement ne changera toujours pas le lecteur sélectionné.
+
+La mention historique d'une partie 3 à faire après la lecture locale est donc
+supersédée par son intégration dans cette même tranche. Les anciens comptes
+rendus de validation restent historiques. La recette Brave Windows est décrite
+dans 06-local-playback-validation.md ; elle n'est pas déclarée effectuée.
+
+### Validation automatisée de la lecture locale — 19 octobre 2026
+
+- Suite Go complète, go vet, builds et go test -race ./... réussis.
+- Tests natifs de l'adapter exécutés avec yt-dlp installé, ffmpeg et ffprobe :
+  réussis. Les deux tests d'intégration réseau YouTube restent explicitement ignorés.
+- TypeScript/build Vite réussis ; avertissement préexistant du chunk CodeMirror
+  supérieur à 500 kB conservé.
+- 337 tests Playwright Chromium réussis, dont sept parcours du lecteur local.
+  Vrai WebM VP8/Opus : décodage d'image, lecture, pause, seek, requêtes Range,
+  bascule et transfert, erreurs, suppression, réouverture, note et autosauvegarde,
+  temps/transcription/capture, événements obsolètes, responsive.
+- Tests HTTP avec vrai filesystem et SQLite : appartenance, HEAD, Range,
+  réservation active et libération après déconnexion client. Tests de sécurité
+  des noms, racine/lien symbolique, taille, fichier absent et suppression ambiguë.
+- Postman déterministe : 45 requêtes, 135 assertions, aucun échec.
+- Build Docker et smoke Compose réussis : outils, HTTP/SPA, persistance,
+  journalisation, rotation et arrêt propre.
+- Captures desktop et mobile inspectées ; barre ajustée pour éviter les messages
+  étroits à 320 px. Les données de validation sont temporaires.
+- Chromium WSL utilise les bibliothèques NSS/NSPR déjà extraites dans /tmp,
+  sans modification de la configuration système.
+
+La préparation parallèle des tests respecte maintenant la capacité d'une acquisition
+globale ; ces attentes appartiennent aux fixtures, aucun réessai de POST automatique
+n'a été introduit dans le produit. Aucun nouvel essai Brave ou réseau YouTube réel
+n'est revendiqué. La validation utilisateur reste attendue avant Local initial.

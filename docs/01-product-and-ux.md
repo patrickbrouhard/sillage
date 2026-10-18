@@ -373,7 +373,7 @@ L'ouverture et la réapparition du lecteur ne déclenchent aucune lecture automa
 Masquer le lecteur YouTube interrompt la lecture et laisse un bandeau « Lecteur »
 avec une action de réaffichage. La position est conservée lors d'un masquage
 ordinaire dans la même fiche, sans garantie après erreur, recharge ou navigation.
-Ce comportement est propre à YouTube ; un futur lecteur local pourra garder l'audio.
+Le lecteur Local suit désormais la même règle de pause au masquage. La lecture audio en arrière-plan reste différée.
 Chargement, échec d'initialisation, vidéo inaccessible et intégration interdite
 restent propres au panneau. Le lien externe reste accessible lorsqu'il est valide.
 Les dimensions et la visibilité respectent les exigences du lecteur YouTube.
@@ -1101,3 +1101,53 @@ présentations spécifiques. La cohérence typographique ne rend pas les deux mo
 identiques : le Markdown source et le rendu produisent des hauteurs différentes.
 La bascule conserve la session, l'historique, les sélections et l'autosauvegarde ;
 un changement d'affichage seul n'enregistre pas la note.
+
+## Lecture locale — première implémentation et decluttering partie 3
+
+Une seule zone propose le choix YouTube / Local. YouTube reste sélectionné à
+chaque ouverture, y compris si un fichier existe : cette phase attend les essais
+et la validation explicite de l'utilisateur. Le comportement cible est déjà
+décidé : Local initialement si le média de la source de travail est disponible,
+sinon YouTube. Son activation sera une modification ultérieure, sans préférence
+persistée ; elle devra attendre la consultation initiale sans afficher brièvement
+YouTube avant Local. La note et la transcription ne devront pas attendre ce choix.
+
+Local est sélectionnable sans fichier. Il regroupe téléchargement, état de
+conservation, métadonnées compactes et suppression ; YouTube conserve uniquement
+ses commandes de lecture et visibilité. Les états vide, acquisition, erreur de
+consultation et fichier disponible restent distincts. Sur écran étroit, les
+commandes de conservation peuvent occuper une seconde ligne, sans volet ajouté.
+Les métadonnées détaillées partagent toujours la consultation existante.
+
+La fin d'une acquisition ne change jamais le mode choisi. Si Local est déjà choisi,
+le fichier peut apparaître dans ce panneau, sans lecture automatique. Aucun
+transfert de position n'est gardé en attente d'un téléchargement futur.
+
+Une bascule relève la position confirmée si possible, arrête et décharge
+l'ancienne instance puis prépare la nouvelle sans autoplay. Le transfert peut
+attendre une fois l'initialisation, et est invalidé au départ de l'instance.
+Une position indisponible n'empêche pas la bascule et donne un message explicite.
+YouTube peut afficher une vignette avec départ préparé plutôt qu'une image à
+l'instant demandé. La correspondance reste approximative. La position initiale
+locale est bornée par la durée décodée ; une navigation ordinaire hors durée est
+refusée. Les timestamps sur un lecteur non prêt restent refusés sans mise en attente.
+
+Masquer Local met en pause et conserve normalement sa position ; réafficher ne
+relance rien. La note, sa sélection, Undo/Redo, l'autosauvegarde et la transcription
+restent montées au changement de mode. Les références vidéo/source existantes
+commandent uniquement le lecteur actif de cette même source. + Temps et + Capture
+lisent sa position, y compris masqué en pause, sans commande de lecture. Le local
+refuse une position pendant le chargement, le seek ou après une erreur.
+Les captures gardent leur extraction serveur et leur repli distant sélectif.
+
+Une erreur de lecture reste en Local, avec un message prudent, un réessai et le
+choix manuel YouTube. Elle ne transforme pas le téléchargement en échec et ne
+provoque ni conversion ni effacement. Le navigateur et ffmpeg peuvent avoir des
+capacités de décodage différentes.
+
+Après confirmation de suppression, le lecteur est arrêté et déchargé avant DELETE.
+Une réservation concurrente peut encore provoquer un refus temporaire ; aucun
+réessai automatique de suppression. En cas de refus, recharger le lecteur est
+une action explicite. Après succès, Local reste sélectionné avec l'état sans fichier.
+Les connaissances et captures restent intactes. Un rafraîchissement recommence
+le choix initial : YouTube dans cette phase, puis la politique cible après validation.

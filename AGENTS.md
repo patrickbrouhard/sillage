@@ -238,7 +238,7 @@ Live explicit deletion may remove bytes after SQL confirmation; live operations
 may clean their own temporary directory. Isolate media anomalies from knowledge.
 Expose downloading until finalization releases activity; available must allow deletion.
 One server per data directory, application-owned jobs, 6h default timeout, no queue.
-Local playback, screenshots, imports and interactive storage maintenance remain future.
+Screenshots and local playback are implemented in later increments below; imports and interactive storage maintenance remain future.
 
 
 ## Step 7.1 — Acquisition metadata (implemented)
@@ -262,3 +262,20 @@ boundaries. HTTP handlers enrich one request summary; asynchronous services own
 their terminal event. Keep the server cancellation context and copy only safe
 correlation attributes when accepting work. No logger interface, persistent log
 table or job framework. Successful reads, polling and note autosaves are DEBUG.
+
+## Local playback — implementation awaiting manual validation
+
+Use one logical player area with YouTube / Local. Keep YouTube as the initial
+selection until the user explicitly validates the trials. Local-first is decided,
+but must not be enabled yet or implemented through a persistent preference/flag.
+Future initial selection must await media availability without a YouTube flash.
+Download completion never changes the selected mode.
+
+Local uses native video controls and the exact media content REST identity.
+Keep the current work source for playback, transcripts, time links and captures.
+Switches stop the previous instance and may apply one initial position when ready,
+without autoplay; ordinary timestamp navigation remains immediate only.
+Pause on hide, keep notes/transcript mounted, and preserve the server capture fallback.
+Playback errors remain Local without conversion, deletion or automatic fallback.
+Confirmed deletion unloads the local element first and leaves Local empty on success.
+Reservations protect HTTP requests, not entire viewing sessions.
