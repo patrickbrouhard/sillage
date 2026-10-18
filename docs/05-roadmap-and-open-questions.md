@@ -1776,3 +1776,55 @@ de navigation, notamment le filtre de la bibliothèque d'origine. Le logo
 Sillage conserve sa destination habituelle : la bibliothèque sans filtre.
 Le contexte de retour transmis par les cartes, devenu inutile, est retiré.
 Aucun changement des panneaux, des lecteurs ou de la palette dans cet incrément.
+
+
+## Decluttering — découpage en trois parties
+
+### Partie 1 — navigation et en-têtes compacts
+
+Branche `feat/ui-decluttering`. Trois commits : suppression du lien de retour,
+commandes du lecteur à icônes, puis en-tête compact de transcription avec
+recherche dépliante et citation à icône. Aucun changement de diffusion ou de
+lecture locale. La note et les contrats temporels restent préservés.
+
+Validation de la partie 1 : builds frontend/backend, suite Go, go vet et
+vérification TypeScript réussis ; 327 tests Web réussis. Les captures desktop
+sombre et mobile 320 px ont été vérifiées. Les scénarios couvrent notamment
+le repli de recherche sans perte du résultat actif, les infobulles au clavier,
+la citation et la stabilité de la note. Validation manuelle utilisateur à venir.
+
+### Partie 2 — proposition sans lecture locale (non implémentée)
+
+Après retour sur la partie 1, regrouper les commandes existantes du fichier
+local dans un volet repliable « Fichier local », accessible près du lecteur.
+Ce volet serait une interface de conservation, pas un mode de lecture : pas
+de sélecteur YouTube/Local tant que la lecture locale n'existe pas.
+
+Premier commit proposé : volet et état synthétique (absent, acquisition en
+cours, disponible, échec ou état inconnu), réutilisant le suivi existant.
+Télécharger/Réessayer et les erreurs restent disponibles dans ce volet ; une
+acquisition continue après fermeture sans second polling ni nouveau POST.
+Deuxième commit proposé : corbeille dans le volet, confirmation existante et
+ciblage du fichier conservés ; détails techniques dans les métadonnées, sans
+répétition permanente au-dessus du lecteur. Le rattachement de cette corbeille
+au seul mode Local attend la partie 3.
+Dernier commit : tests combinés, revue desktop/mobile et bilan documentaire.
+Cette partie est une proposition à valider, pas une décision déjà implémentée.
+Après validation des parties 1 et 2, la branche pourra être fusionnée.
+
+### Partie 3 — intégration après la future tranche de lecture locale
+
+La diffusion GET/HEAD/Range et le lecteur natif seront réalisés sur une branche
+dédiée, avec contrôles d'appartenance et disponibilité, compatibilité navigateur
+et politique explicite en cas de format non lisible, sans conversion implicite.
+Après cette tranche, revenir au decluttering pour intégrer YouTube/Local,
+réserver téléchargement et suppression à Local, traiter les états vide/en
+cours/erreur et réutiliser le suivi existant. La suppression revient à l'état
+sans fichier, sans toucher aux connaissances ni provoquer de lecture automatique.
+
+Le lecteur actif devra recevoir les références temporelles et fournir le temps
+courant, avec les gardes d'identité, de disponibilité et de défilement existantes.
+Une bascule arrête le lecteur précédent sans autoplay ni commande différée ; la
+note conserve son identité, sa sélection, son historique et son autosauvegarde.
+Les détails de bascule et de compatibilité seront confirmés avec l'implémentation
+réelle de la lecture locale, sans préconstruire ce mécanisme sur la branche UI.

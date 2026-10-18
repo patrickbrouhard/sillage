@@ -23,6 +23,7 @@ test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions 
   await expect(editor).toHaveCSS('color', 'rgb(224, 232, 245)')
   await page.screenshot({ path: info.outputPath('workspace-dark.png'), fullPage: true })
   await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
+  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await page.getByRole('searchbox').fill('Bonjour')
   await page.setViewportSize({ width: 375, height: 812 })
   await page.getByRole('button', { name: /Aller à .* dans le lecteur/ }).first().click()

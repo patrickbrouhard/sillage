@@ -1665,3 +1665,20 @@ Les erreurs de configuration utilisent un diagnostic JSON de secours.
 Les panics récupérés dans HTTP omettent leur valeur arbitraire ; seuls des
 emplacements de code sont conservés. Un crash du runtime peut encore produire
 une sortie fatale sur stderr. Les logs ne constituent pas un journal d'audit.
+
+
+### Validation manuelle du decluttering — partie 1
+
+- Sur une fiche, le logo rejoint la bibliothèque sans filtre et précédent retrouve
+  le contexte de navigation ; aucun lien de retour dédié n'occupe une ligne.
+- Masquer/réafficher la vidéo avec l'œil ; vérifier la pause et la conservation
+  de la note. Le titre visible « Lecteur » et le lien YouTube redondant sont retirés.
+- Vérifier l'en-tête compact de transcription, la récupération/actualisation,
+  l'aide au survol et au focus, et les erreurs toujours visibles.
+- Ouvrir la recherche, parcourir les occurrences, la replier puis la rouvrir :
+  requête et résultat actif sont conservés. Échap revient à la loupe ; effacer
+  retire les surlignages. Un changement de vidéo réinitialise la recherche.
+- Sélectionner un extrait puis activer les guillemets à la souris ou au clavier :
+  citation, Undo/Redo et autosauvegarde gardent leurs garanties habituelles.
+- Vérifier ces parcours en mode nuit et sur écran étroit. Les commandes actuelles
+  de fichier local restent disponibles ; aucune lecture locale n'est ajoutée.

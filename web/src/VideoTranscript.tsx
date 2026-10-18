@@ -3,6 +3,7 @@ import { fetchTranscript, getTranscript, TranscriptError } from './transcriptApi
 import type { TranscriptExcerpt } from './transcriptSelection'
 import type { Transcript } from './transcriptApi'
 import { TranscriptText } from './TranscriptText'
+import { IconButton } from './IconButton'
 
 /** Garde le dernier contenu consultable indépendamment des opérations et de leurs erreurs. */
 export function VideoTranscript({ videoID, sourceID, onNavigate, onCite }: {
@@ -76,25 +77,31 @@ export function VideoTranscript({ videoID, sourceID, onNavigate, onCite }: {
     }
   }
 
-  return <section className="video-transcript" aria-labelledby="transcript-title">
-    <h2 id="transcript-title">Transcription</h2>
+  const heading = <h2 id="transcript-title">Transcription{content &&
+    <span className="transcript-provenance"> · {content.language.toUpperCase()} · automatique</span>}
+  </h2>
+  const acquisition = <IconButton icon={content ? 'refresh' : 'download'}
+    label={content ? 'Actualiser la transcription' : 'Récupérer la transcription'}
+    tooltip={content
+      ? `Actualiser la transcription — Acquisition du ${new Date(content.last_fetched_at).toLocaleString('fr-FR')}`
+      : 'Récupérer la transcription'}
+    disabled={busy !== null} aria-busy={busy === 'fetch'} onClick={() => void acquire()} />
+  const feedback = <>
     {navigationMessage && <p role="status">{navigationMessage}</p>}
-    <div className="transcript-toolbar">
-      <button className="button" disabled={busy !== null} onClick={() => void acquire()}>
-        {content ? 'Actualiser' : 'Récupérer'}
-      </button>
-      {failed && <button className="button" disabled={busy !== null} onClick={() => void read()}>Relire la transcription locale</button>}
-    </div>
+    {failed && <button className="button" disabled={busy !== null} onClick={() => void read()}>Relire la transcription locale</button>}
     {busy && <p role="status">{busy === 'read' ? 'Chargement de la transcription locale…'
       : content ? 'Actualisation en cours…' : 'Récupération en cours…'}</p>}
     {message && <p role={failed ? 'alert' : 'status'}>{message}</p>}
-    {content === null && !busy && !message && <p>Aucune transcription enregistrée localement.</p>}
-    {content && <>
-      <p className="muted">Transcription automatique · {content.language} · Acquisition du{' '}
-        <time dateTime={content.last_fetched_at}>{new Date(content.last_fetched_at).toLocaleString('fr-FR')}</time>
-      </p>
-      <TranscriptText key={`${videoID}:${sourceID}`} items={content.items} onCite={onCite}
-        onNavigate={startMs => setNavigationMessage(onNavigate(startMs))} />
+    {content === null && !busy && !message &&
+      <p>Aucune transcription enregistrée localement. Utilisez le bouton de récupération pour la télécharger.</p>}
+  </>
+
+  return <section className="video-transcript" aria-labelledby="transcript-title">
+    {content ? <TranscriptText key={`${videoID}:${sourceID}`} items={content.items} onCite={onCite}
+      heading={heading} acquisition={acquisition} feedback={feedback}
+      onNavigate={startMs => setNavigationMessage(onNavigate(startMs))} /> : <>
+      <div className="transcript-heading">{heading}{acquisition}</div>
+      {feedback}
     </>}
   </section>
 }

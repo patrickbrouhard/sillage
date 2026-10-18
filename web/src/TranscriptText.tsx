@@ -1,4 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { IconButton } from './IconButton'
 import type { TranscriptItem } from './transcriptApi'
 import { groupTranscript } from './transcriptPresentation'
 import { findTranscriptMatches, highlightTranscript } from './transcriptSearch'
@@ -7,12 +9,29 @@ import type { TranscriptExcerpt } from './transcriptSelection'
 import { formatDuration } from './videoPresentation'
 
 /** Recherche dans le contenu chargé ; seule l'action sur un timestamp appelle le lecteur. */
-export function TranscriptText({ items, onNavigate, onCite }: {
+export function TranscriptText({ items, onNavigate, onCite, heading, acquisition, feedback }: {
+  heading: ReactNode
+  acquisition: ReactNode
+  feedback: ReactNode
   items: TranscriptItem[]
   onNavigate: (startMs: number) => void
   onCite: (excerpt: TranscriptExcerpt) => void
 }) {
   const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchID = useId()
+  const searchInput = useRef<HTMLInputElement>(null)
+  const searchButton = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (searchOpen) searchInput.current?.focus()
+  }, [searchOpen])
+
+  /** Replier ne modifie ni la requête ni le résultat actif ; le focus revient à la commande. */
+  function closeSearch() {
+    setSearchOpen(false)
+    searchButton.current?.focus()
+  }
   const blocks = useMemo(() => groupTranscript(items, 10), [items])
   const text = useMemo(() => items.map(item => item.text).join(''), [items])
   const matches = useMemo(() => findTranscriptMatches(text, query), [text, items, query])
@@ -109,9 +128,29 @@ export function TranscriptText({ items, onNavigate, onCite }: {
   }
 
   return <>
-    <div className="transcript-search">
+    <div className="transcript-heading">
+      {heading}
+      <div className="transcript-actions">
+        <IconButton icon="search" label="Rechercher dans la transcription" ref={searchButton}
+          tooltip={query ? 'Rechercher dans la transcription — recherche active' : 'Rechercher dans la transcription'}
+          className={query ? 'search-active' : ''} aria-expanded={searchOpen} aria-controls={searchID}
+          onClick={() => searchOpen ? closeSearch() : setSearchOpen(true)} />
+        {acquisition}
+        <IconButton icon="quote" label="Citer dans la note" ref={citeButton} disabled={!validExcerpt}
+          tooltip={validExcerpt ? 'Citer la sélection dans la note' : 'Sélectionnez un extrait de la transcription pour le citer'}
+          onClick={cite} />
+      </div>
+    </div>
+    {feedback}
+    <div className="transcript-search" id={searchID} hidden={!searchOpen}
+      onKeyDown={event => {
+        if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
+          event.preventDefault()
+          closeSearch()
+        }
+      }}>
       <label><span className="sr-only">Rechercher dans la transcription</span>
-        <input type="search" placeholder="Rechercher dans la transcription" value={query}
+        <input ref={searchInput} type="search" placeholder="Rechercher dans la transcription" value={query}
           onChange={event => setQuery(event.target.value)}
           onKeyDown={event => {
             // Entrée de validation IME ne doit pas déclencher une navigation.
@@ -121,13 +160,15 @@ export function TranscriptText({ items, onNavigate, onCite }: {
             }
           }} />
       </label>
-      <span role="status" aria-label="Occurrences">{matches.length ? active + 1 : 0} / {matches.length}</span>
-      <button className="button" disabled={!matches.length} onClick={() => navigate(-1)}
-        aria-label="Occurrence précédente">Précédent</button>
-      <button className="button" disabled={!matches.length} onClick={() => navigate(1)}
-        aria-label="Occurrence suivante">Suivant</button>
-      <button type="button" className="button" ref={citeButton} disabled={!validExcerpt}
-        onClick={cite}>Citer dans la note</button>
+      <span role="status" aria-label="Occurrences">{query
+        ? matches.length ? `${active + 1} / ${matches.length}` : 'Aucun résultat'
+        : ''}</span>
+      <IconButton icon="previous" disabled={!matches.length} onClick={() => navigate(-1)} label="Occurrence précédente" />
+      <IconButton icon="next" disabled={!matches.length} onClick={() => navigate(1)} label="Occurrence suivante" />
+      <IconButton icon="clear" disabled={!query} label="Effacer la recherche" onClick={() => {
+        setQuery('')
+        searchInput.current?.focus()
+      }} />
     </div>
     {citationMessage && <p role="status">{citationMessage}</p>}
     <div className="transcript-content" ref={container} tabIndex={0} aria-label="Texte de la transcription">

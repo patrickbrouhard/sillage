@@ -156,7 +156,7 @@ et métadonnées restent accessibles.
 L'en-tête de la fiche est compact : bandeau Sillage réduit sans slogan, titre
 puis tags et action de classement sur une même ligne lorsque la largeur le permet.
 La date d'ajout est consultable dans « Métadonnées et sources ». La provenance
-YouTube figure près du titre du lecteur ; la source de travail et son identifiant
+YouTube figure discrètement dans la barre du lecteur ; la source de travail et son identifiant
 externe sont détaillés dans les métadonnées, sans répéter le titre au-dessus du
 workspace. La bibliothèque et la page d'ajout conservent leur bandeau habituel.
 
@@ -471,7 +471,8 @@ La recherche est littérale hors équivalence des blancs : pas d'expressions ré
 ni de suppression des accents. Un espace saisi correspond aussi aux sauts de ligne,
 tabulations et suites de blancs du texte source, sans modifier ce dernier. Les occurrences sont non chevauchantes, de gauche
 à droite. Une saisie vide n'affiche aucun résultat. Le compteur indique le résultat
-actif et le total (0 / 0 sans correspondance) ; les deux commandes sont alors désactivées.
+actif et le total ; il reste vide sans requête et indique « Aucun résultat » sans
+correspondance. Les deux commandes sont désactivées sans résultat.
 Entrée dans le champ passe au résultat suivant avec retour circulaire, sans déplacer
 le focus ni commander le lecteur ; la validation IME est ignorée.
 Les blancs sources restent exacts, même si CSS les réduit visuellement dans les
@@ -1036,3 +1037,26 @@ retiré. L'œil barré masque la vidéo après mise en pause, l'œil la réaffic
 La commande reste présente lorsque la vidéo est masquée. Les boutons à icône
 ont un nom accessible, un focus visible et une infobulle au survol et au clavier.
 Les commandes de conservation du fichier local restent inchangées à ce stade.
+
+
+### Decluttering — partie 1 : transcription
+
+L'en-tête regroupe « Transcription · LANGUE · automatique » et trois commandes
+à icône : recherche, acquisition/actualisation et citation. La citation est la
+dernière action avant le contenu lorsque la recherche est repliée, afin de
+conserver le transfert clavier direct de la sélection vers son bouton.
+La date d'acquisition figure dans l'infobulle d'actualisation, accessible au
+survol et au focus ; Échap ferme les infobulles. Sans transcription, seul le
+titre est affiché et le panneau indique comment lancer la récupération.
+Les erreurs et opérations en cours restent explicites ; une erreur de lecture
+n'est jamais présentée comme une absence de transcription.
+
+La recherche est repliée par défaut. L'ouverture focalise le champ ; un second
+clic sur la loupe ou Échap dans la barre replie celle-ci et rend le focus à la
+loupe. La requête, les surlignages et le résultat actif sont conservés au repli,
+avec un indicateur sur la loupe tant que la requête n'est pas vide. Le compteur
+reste vide sans requête et affiche « Aucun résultat » si la recherche échoue.
+Une action d'effacement conserve le focus dans le champ. Changer de vidéo ou
+de source réinitialise la recherche et replie la barre. Aucune préférence n'est
+persistée et aucune commande n'est envoyée au lecteur par la recherche.
+Les règles de sélection, citation, Undo et autosauvegarde restent inchangées.

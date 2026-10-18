@@ -166,7 +166,12 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .note-navigation { max-width: min(32rem, 90vw); border-radius: .75rem; border: 1px solid var(--border); padding: 1.5rem; }
 .note-navigation::backdrop { background: #0007; }
 
-.transcript-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.transcript-heading { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem .5rem; margin-bottom: .5rem; }
+.transcript-heading h2 { flex: 1; min-width: 9rem; margin-bottom: 0; }
+.transcript-provenance { font-size: .8rem; font-weight: 400; color: var(--muted); }
+.transcript-actions { display: flex; align-items: center; flex-shrink: 0; gap: 2px; }
+.transcript-search[hidden] { display: none; }
+.search-active::after { content: ''; position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--label); }
 .transcript-search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .transcript-search label { flex: 1 1 12rem; min-width: 0; }
 .transcript-search input { width: 100%; min-width: 0; padding: .6rem; border: 1px solid var(--border); border-radius: 6px; font: inherit; }

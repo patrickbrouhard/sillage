@@ -95,6 +95,7 @@ for (const backwards of [false, true]) {
   test('copie native entre blocs avec recherche, sélection inversée : ' + backwards, async ({ page, request }) => {
     await openWorkspace(page, request)
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
     await page.getByRole('searchbox').fill('jour')
     await selectText(page, undefined, undefined, backwards)
     await page.keyboard.press('Control+c')
@@ -197,13 +198,14 @@ test('sélection obsolète après recherche et actualisation ; copie externe non
   await openWorkspace(page, request)
   const button = page.getByRole('button', { name: 'Citer dans la note' })
   await selectText(page)
+  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await page.getByRole('searchbox').fill('ami')
   await expect(button).toBeDisabled()
   await selectText(page)
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
+  await page.getByRole('button', { name: 'Actualiser la transcription', exact: true }).click()
   await expect(button).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Actualiser', exact: true })).toBeEnabled()
-  const intercepted = await page.getByRole('heading', { name: 'Transcription', exact: true }).evaluate(element => {
+  await expect(page.getByRole('button', { name: 'Actualiser la transcription', exact: true })).toBeEnabled()
+  const intercepted = await page.getByRole('heading', { name: /^Transcription/ }).evaluate(element => {
     const range = document.createRange()
     range.selectNodeContents(element)
     window.getSelection()!.removeAllRanges()
@@ -381,6 +383,7 @@ test('copie du champ de recherche et de la note non interceptée', async ({ page
   await page.keyboard.press('Control+a')
   await page.keyboard.press('Control+c')
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Copie de note')
+  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   const search = page.getByRole('searchbox')
   await search.fill('copie du champ')
   await search.press('Control+a')
