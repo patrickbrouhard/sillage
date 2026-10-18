@@ -1835,3 +1835,19 @@ Une bascule arrête le lecteur précédent sans autoplay ni commande différée 
 note conserve son identité, sa sélection, son historique et son autosauvegarde.
 Les détails de bascule et de compatibilité seront confirmés avec l'implémentation
 réelle de la lecture locale, sans préconstruire ce mécanisme sur la branche UI.
+
+
+### Complément UI — typographie commune des notes
+
+Sur `feat/ui-decluttering`, le texte courant des notes passe à la police système,
+16 px et 1,5, avec 700 px de largeur utile maximale dans les deux modes.
+Les paddings sont comptés séparément ; les colonnes de texte restent alignées
+sur écran étroit et le panneau conserve sa largeur. Le code reste monospace,
+via les décorations syntaxiques existantes en Édition et les éléments code/pre
+en Lecture. Aucune dépendance, modification du stockage ou lecture locale.
+
+Validation : builds frontend/backend, suite Go, go vet et TypeScript réussis ;
+330 tests Web réussis. Le test typographique mesure les 700 px utiles, l'alignement
+des deux modes et leurs styles calculés, le monospace et l'absence de sauvegarde
+ou remontage. Captures Édition/Lecture vérifiées en mode sombre à 1920 et 375 px.
+Validation manuelle utilisateur à venir, notamment pour le rendu Segoe UI sous Windows.

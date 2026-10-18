@@ -1077,3 +1077,27 @@ Les infobulles se ferment au clic et à la sortie du pointeur, y compris après
 un changement de visibilité ou de recherche. Le focus laissé par un clic ne
 les maintient pas ouvertes. Un focus clavier les affiche ; Échap les ferme.
 Un nouveau survol ou une nouvelle interaction clavier peut les réafficher.
+
+
+### Typographie des notes — Édition et Lecture
+
+Le texte courant partage la police système de l'application, une taille de
+16 px CSS et un interligne relatif de 1,5 (24 px). La largeur utile est plafonnée
+à 700 px CSS, hors padding et bordure, et diminue naturellement sur écran étroit.
+La colonne de contenu est centrée dans le panneau ; le workspace, les commandes
+et les autres panneaux conservent leurs dimensions et leur typographie.
+Les retraits internes des listes et citations réduisent leur largeur disponible.
+
+Code inline, blocs clôturés et blocs indentés conservent une même pile monospace
+dans les deux modes. L'éditeur utilise l'arbre syntaxique existant pour ces
+marques, y compris autour de la coloration imbriquée d'un langage. Le Markdown,
+les espaces et les tabulations ne sont pas modifiés. Le retour visuel à la ligne
+en Édition et le défilement horizontal des blocs de code en Lecture restent
+inchangés. Les alignements manuels en espaces hors code ne forment plus une
+grille monospace ; les tableaux rendus restent des tableaux en Lecture.
+
+Titres, emphases, callouts, images et références temporelles gardent leurs
+présentations spécifiques. La cohérence typographique ne rend pas les deux modes
+identiques : le Markdown source et le rendu produisent des hauteurs différentes.
+La bascule conserve la session, l'historique, les sélections et l'autosauvegarde ;
+un changement d'affichage seul n'enregistre pas la note.

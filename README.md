@@ -1695,3 +1695,15 @@ une sortie fatale sur stderr. Les logs ne constituent pas un journal d'audit.
   focus souris. Tester également le focus clavier, Échap et un nouveau survol.
 - Vérifier la barre sur écran étroit, sans débordement ni bouton écrasé.
   La partie 3 et la lecture locale restent différées.
+
+
+### Validation manuelle de la typographie des notes
+
+- Comparer Édition et Lecture : police système 16 px, interligne 24 px pour la
+  prose, colonne utile plafonnée à 700 px hors padding, réduite sur écran étroit.
+- Vérifier code inline, blocs clôturés (avec et sans langage), code indenté,
+  listes imbriquées, citations, tableaux et captures. Le code reste monospace.
+- Vérifier caret, sélections et retours visuels à la ligne, références compactes
+  et révélées, navigation temporelle, Undo/Redo et stabilité lors des bascules.
+- Une ouverture, bascule de mode ou redimensionnement sans édition ne doit pas
+  déclencher d'enregistrement. Le panneau et les commandes gardent leur largeur.
