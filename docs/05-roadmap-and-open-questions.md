@@ -1681,3 +1681,82 @@ sans échec ; elles n'ont pas été ignorées.
 Validation de distribution : build Docker et smoke test réussis (outils, Compose,
 HTTP/SPA, persistance après recréation et arrêt propre). Les 45 requêtes et
 135 assertions Postman déterministes existantes passent également.
+
+## Journalisation structurée — préparation des diagnostics
+
+Le plan en cinq incréments est approuvé : socle sûr, HTTP corrélé, opérations
+asynchrones, couverture ciblée et distribution. Premier jalon : les erreurs
+d'exécution yt-dlp conservent catégorie fermée, code de sortie et classifications
+Go, sans recopier stderr. Les règles de repli des captures restent inchangées.
+
+
+Jalon socle/HTTP : configuration slog, logger contextualisé, bilan unique Chi,
+identifiant serveur, catégories de routes et diagnostics de panic contrôlés.
+Les adaptations HTTP des incréments 1 et 2 sont regroupées pour éviter une
+migration intermédiaire. Les tests couvrent niveaux, confidentialité, HEAD,
+Range, streaming, hijack, annulation et panic. Migration asynchrone à suivre.
+
+
+Jalon asynchrone : corrélation serveur indépendante de HTTP, débuts idempotents,
+résultats terminaux, replis et étapes techniques contextualisés. Les sorties
+historiques log.Printf des services et du rapprochement sont remplacées.
+Tests dédiés : poursuite après déconnexion, repli réussi, interruption à l'arrêt
+et identités distinctes pour deux acquisitions de la même source.
+
+
+Jalon couverture ciblée : imports/réutilisations de vidéos, publishers et
+transcriptions réussis ; étapes synchrones yt-dlp ; suppression média confirmée
+et rapprochement discriminant restauration, indisponibilité et conservation.
+Les erreurs synchrones enrichissent le bilan HTTP unique. Les tests vérifient
+l'absence de contenu de connaissance et de chemins hôte dans ces événements.
+
+
+Jalon distribution et consolidation : format JSON dans l'image, variables
+Compose et nom configurable (sillage par défaut), pilote local/20m/5. Le smoke
+test isole son nom, contrôle les journaux structurés et les surcharges, puis
+exerce une rotation avec un seuil réduit. La CI ajoute les tests de concurrence
+sur les composants instrumentés.
+
+Les tests couvrent aussi les commits SQL incertains, le bilan HTTP→service→adapter,
+les erreurs d'encodage/écriture et les identités internes validées dans le bilan.
+Aucun contrat métier, schéma persistant ou budget de réessai n'a été modifié.
+
+Validation finale : suite Go complète, go vet, builds et tests avec détecteur de
+concurrence réussis ; 45 requêtes et 135 assertions Postman déterministes ;
+323 tests Web réussis. Le build Docker et le smoke test valident les formats,
+les surcharges, la consultation par nom et la rotation effective du pilote local.
+Chromium a nécessité libnspr4/libnss3 extraites dans un répertoire temporaire,
+sans installation système. Aucun nouveau test réseau YouTube réel n'a été lancé.
+
+## Revue du logging — corrections
+
+Incrément 1 : frontières de repli HLS restaurées ; diagnostics sûrs conservés.
+Les tests de validation sans nouvelle résolution complètent les scénarios de
+repli, renouvellement 403 et capture locale.
+
+Incrément 2 : récupération locale des panics autour du writer Chi. Tests réels
+de panic avant réponse, après en-têtes, écriture et flush (y compris sans corps),
+avec bilan unique. Les erreurs serveur restent ERROR après annulation HTTP ;
+HEAD, Range, streaming ordinaire, hijack et abandon explicite restent couverts.
+
+Incrément 3 : diagnostics métier/techniques distingués à la frontière HTTP ;
+absences normales DEBUG, sans diagnostic trompeur. Matrice de tests des réponses,
+niveaux, annulations et causes disque. Un test transporte une vraie erreur de
+processus ffprobe simulé jusqu'au bilan terminal du service, au niveau INFO.
+
+Incrément 4 : corrélation du GET de récupération par clé de commande. Le test REST
+ignore corps et Location de l'acceptation, retrouve la capture par sa clé puis
+vérifie son résultat, l'unique démarrage et l'absence de clé brute dans les logs.
+
+Incrément 5 : favicon ICO statique (16/32/48 pixels), déclaré dans index.html et
+servi à /favicon.ico ; aucun filtrage spécial des 404. L'iframe YouTube conserve
+fullscreen dans allow sans allowFullscreen redondant. Les tests Web couvrent
+la distribution et le décodage de l'icône, HEAD, les fichiers absents, les
+permissions et l'API native de plein écran avec le double du lecteur.
+La validation manuelle du lecteur YouTube réel sous Brave reste à effectuer.
+
+Validation des cinq corrections : suite Go complète, go vet, builds et tests de
+concurrence réussis ; 45 requêtes / 135 assertions Postman ; 325 tests Web.
+Build et smoke Docker réussis, avec favicon GET/HEAD, formats JSON/texte,
+persistance, arrêt propre et rotation effective. Aucune dépendance, migration
+ou modification de contrat REST ajoutée. Pas de nouveau test réseau YouTube réel.

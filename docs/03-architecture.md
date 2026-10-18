@@ -1280,3 +1280,38 @@ Le groupe de processus, le délai et le nettoyage temporaire existants sont cons
 useVideoDownload possède la consultation unique ; VideoDownload et LocalFileDetails
 la partagent. Les propriétés ajoutées sont aussi présentes dans les erreurs
 local_media_unavailable, afin de décrire un fichier enregistré devenu indisponible.
+
+
+## Journalisation HTTP
+
+Le logger slog est construit au point de composition et porté par le contexte.
+internal/logging ne connaît ni HTTP ni les adapters. Les objets métier restent
+indépendants de la journalisation. Les services ne lisent pas le contexte Chi.
+
+Le middleware extérieur couvre l'API et la SPA avec RequestLogger de Chi et une récupération
+locale des panics. Les handlers enrichissent une seule entrée HTTP avec un code public et
+un diagnostic sûr. Le modèle de route est récupéré après résolution ; aucune URL
+arbitraire n'est journalisée. Les panics n'exposent pas leur valeur. Le writer
+Chi conserve les capacités de réponse ; HEAD, Range, flush progressif et hijack
+sont vérifiés. Une requête abandonnée sans réponse n'est pas comptée comme 200.
+Avant engagement de la réponse, un panic produit 500. Après écriture ou flush,
+il provoque ErrAbortHandler pour interrompre le flux sans le terminer normalement.
+Le bilan conserve ERROR et les seules positions du code, jamais la valeur du panic.
+Une annulation HTTP ne rétrograde pas une erreur serveur déjà constatée.
+Les crashes du runtime peuvent rester sur stderr hors de ce mécanisme.
+
+
+Les services capture et média conservent le logger de l'opération sur le contexte
+serveur, avec origin_request_id copié à l'acceptation. Le contexte HTTP n'est
+jamais le parent du worker. Les vérifications SQL indépendantes conservent ce
+logger. Une capture utilise capture:<asset_id> ; un téléchargement reçoit une
+identité aléatoire éphémère. La clé de commande capture reste inchangée.
+
+Le résultat terminal suit le nettoyage et la finalisation. Une vérification
+confirmant un commit incertain autorise un succès ; sinon les logs distinguent
+l'incertitude et la conservation du fichier. Aucun journal ne remplace l'état
+persistant. Après un crash, un début peut ne pas avoir de fin.
+
+La récupération d'une capture par sa clé de commande enrichit son bilan HTTP
+avec asset_id et operation_id de la capture retrouvée. La clé brute reste exclue ;
+la nouvelle requête HTTP ne remplace pas origin_request_id de l'opération.

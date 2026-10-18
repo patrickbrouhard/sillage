@@ -2,32 +2,35 @@ package media
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // Service possède l'opération globale ; la mémoire n'est jamais la vérité de disponibilité.
 type Service struct {
-	videos     VideoReader
-	repo       Repository
-	storage    Storage
-	provider   Provider
-	ctx        context.Context
-	cancel     context.CancelFunc
-	timeout    time.Duration
-	mu         sync.Mutex
-	active     video.VideoSourceID
-	leases     map[int64]int
-	failures   map[video.VideoSourceID]string
-	workers    sync.WaitGroup
-	closed     bool
-	storageErr error
+	videos      VideoReader
+	repo        Repository
+	storage     Storage
+	provider    Provider
+	ctx         context.Context
+	cancel      context.CancelFunc
+	timeout     time.Duration
+	mu          sync.Mutex
+	active      video.VideoSourceID
+	operationID string
+	leases      map[int64]int
+	failures    map[video.VideoSourceID]string
+	workers     sync.WaitGroup
+	closed      bool
+	storageErr  error
 }
 
 // NewService rapproche le stockage avant d'accepter des acquisitions.
@@ -48,7 +51,7 @@ func NewService(
 	}
 	storageErr := storage.Recover(ctx, files)
 	if storageErr != nil {
-		log.Printf("media storage unavailable: %v", storageErr)
+		logging.From(ctx).ErrorContext(ctx, "Media storage disabled", "event", "media.storage_disabled", logging.Error(storageErr))
 	}
 	owned, cancel := context.WithCancel(ctx)
 	return &Service{
@@ -115,7 +118,7 @@ func (s *Service) state(ctx context.Context, sourceID video.VideoSourceID) (Stat
 	f, err := s.repo.BySource(ctx, sourceID)
 	if err == nil {
 		if err := s.storage.Check(f); err != nil {
-			return State{File: &f}, fmt.Errorf("%w: %v", ErrUnavailable, err)
+			return State{File: &f}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 		}
 		return State{Status: "available", File: &f}, nil
 	}
@@ -144,6 +147,13 @@ func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID vid
 		return state, err
 	}
 	if state.Status == "available" || state.Status == "downloading" {
+		logger := logging.From(ctx).With("source_id", sourceID)
+		if state.Status == "downloading" {
+			logger = logger.With("operation_id", s.operationID)
+		} else if state.File != nil {
+			logger = logger.With("media_file_id", state.File.ID)
+		}
+		logger.DebugContext(ctx, "Download already present", "event", "download.reused")
 		return state, nil
 	}
 	if s.closed || s.ctx.Err() != nil {
@@ -158,18 +168,31 @@ func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID vid
 	s.active = sourceID
 	delete(s.failures, sourceID)
 	s.workers.Add(1)
-	go s.download(source)
+	s.operationID = rand.Text()
+	logger := logging.From(s.ctx).With(
+		"component", "download",
+		"operation_id", s.operationID,
+		"video_id", videoID,
+		"source_id", sourceID,
+	)
+	if origin := logging.RequestID(ctx); origin != "" {
+		logger = logger.With("origin_request_id", origin)
+	}
+	logger.InfoContext(s.ctx, "Download started", "event", "download.started")
+	go s.download(logging.WithLogger(s.ctx, logger), source)
 	return State{Status: "downloading"}, nil
 }
 
-func (s *Service) download(source video.VideoSource) {
+func (s *Service) download(parent context.Context, source video.VideoSource) {
+	started := time.Now()
 	defer s.workers.Done()
-	ctx, cancel := context.WithTimeout(s.ctx, s.timeout)
+	ctx, cancel := context.WithTimeout(parent, s.timeout)
 	defer cancel()
 	err := s.acquire(ctx, source)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.active = 0
+	s.operationID = ""
 	if err != nil {
 		// Mémoire bornée sans historique : les erreurs anciennes peuvent être oubliées.
 		if len(s.failures) >= 64 {
@@ -179,7 +202,16 @@ func (s *Service) download(source video.VideoSource) {
 			}
 		}
 		s.failures[source.ID] = Code(err)
-		log.Printf("media download source=%d: %v", source.ID, err)
+		level, event := slog.LevelError, "download.failed"
+		var uncertain *finalizationError
+		if errors.As(err, &uncertain) {
+			event = "download.finalization_uncertain"
+		} else if errors.Is(err, context.Canceled) {
+			level, event = slog.LevelInfo, "download.interrupted"
+		}
+		logging.From(ctx).LogAttrs(ctx, level, "Download finished", slog.String("event", event), slog.String("error_code", Code(err)), slog.Int64("elapsed_ms", time.Since(started).Milliseconds()), logging.Error(err))
+	} else {
+		logging.From(ctx).InfoContext(ctx, "Download completed", "event", "download.completed", "elapsed_ms", time.Since(started).Milliseconds())
 	}
 }
 
@@ -190,7 +222,7 @@ func (s *Service) acquire(ctx context.Context, source video.VideoSource) error {
 	}
 	defer func() {
 		if err := s.storage.Discard(stage); err != nil {
-			log.Printf("media staging cleanup: %v", err)
+			logging.From(ctx).WarnContext(ctx, "Download cleanup incomplete", "event", "download.cleanup_failed", logging.Error(err))
 		}
 	}()
 	acquired, err := s.provider.Download(ctx, source, stage)
@@ -209,7 +241,8 @@ func (s *Service) acquire(ctx context.Context, source video.VideoSource) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.repo.Save(ctx, File{
+	logging.From(ctx).DebugContext(ctx, "Media file published", "event", "download.published", "size_bytes", acquired.Size)
+	savedFile, err := s.repo.Save(ctx, File{
 		VideoID:        source.VideoID,
 		OriginSourceID: &source.ID,
 		Path:           path,
@@ -224,10 +257,14 @@ func (s *Service) acquire(ctx context.Context, source video.VideoSource) error {
 		AudioLanguage:  acquired.AudioLanguage,
 		AddedAt:        time.Now().UTC().Truncate(time.Millisecond),
 	})
+	if err == nil {
+		logging.From(ctx).DebugContext(ctx, "Media reference confirmed", "event", "download.finalized", "media_file_id", savedFile.ID)
+	}
 	if err != nil {
+		logging.From(ctx).WarnContext(ctx, "Media finalization requires verification", "event", "download.finalization_check", logging.Error(err))
 		// Une confirmation du fichier exact transforme le commit incertain en succès.
 		// Sinon les octets publiés restent récupérables ; l'absence SQL n'autorise aucun effacement.
-		checkCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		checkCtx, cancel := context.WithTimeout(logging.WithLogger(context.Background(), logging.From(ctx)), 2*time.Second)
 		defer cancel()
 		saved, readErr := s.repo.BySource(checkCtx, source.ID)
 		if readErr == nil && saved.Path == path && saved.VideoID == source.VideoID &&
@@ -235,6 +272,7 @@ func (s *Service) acquire(ctx context.Context, source video.VideoSource) error {
 			saved.DurationMS == acquired.DurationMS {
 			return nil
 		}
+		return &finalizationError{err}
 	}
 
 	return err
@@ -271,17 +309,23 @@ func (s *Service) Delete(ctx context.Context, videoID video.VideoID, id int64) e
 	}
 	if err := s.repo.Delete(ctx, id); err != nil {
 		// Une référence encore présente autorise une restauration ; sinon préserver les octets.
-		checkCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		checkCtx, cancel := context.WithTimeout(logging.WithLogger(context.Background(), logging.From(ctx)), 2*time.Second)
 		defer cancel()
 		if _, readErr := s.repo.Get(checkCtx, id); readErr == nil {
-			_ = s.storage.Restore(f)
+			if restoreErr := s.storage.Restore(f); restoreErr != nil {
+				logging.From(ctx).WarnContext(ctx, "Media deletion restoration failed", "event", "media.restore_failed", "media_file_id", id, logging.Error(restoreErr))
+			}
 		}
 		return err
 	}
 	if f.OriginSourceID != nil {
 		delete(s.failures, *f.OriginSourceID)
 	}
-	return s.storage.FinishDelete(f)
+	if err := s.storage.FinishDelete(f); err != nil {
+		return err
+	}
+	logging.From(ctx).InfoContext(ctx, "Media file deleted", "event", "media.deleted", "video_id", videoID, "media_file_id", id)
+	return nil
 }
 
 // Borrow réserve le fichier complet de cette source contre DELETE, sans bloquer les téléchargements.
@@ -307,7 +351,7 @@ func (s *Service) Borrow(ctx context.Context, videoID video.VideoID, sourceID vi
 	}
 	path, err := storage.ReadPath(f)
 	if err != nil {
-		return "", nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
+		return "", nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	if s.leases == nil {
 		s.leases = make(map[int64]int)
@@ -324,4 +368,18 @@ func (s *Service) Borrow(ctx context.Context, videoID video.VideoID, sourceID vi
 			}
 		})
 	}, nil
+}
+
+// finalizationError signale des octets publiés sans confirmation, sans changer Code.
+type finalizationError struct{ cause error }
+
+// Error conserve un libellé constant même si la cause contient un chemin.
+func (e *finalizationError) Error() string { return "published media finalization uncertain" }
+
+// Unwrap préserve les classifications applicatives existantes.
+func (e *finalizationError) Unwrap() error { return e.cause }
+
+// LogValue distingue la publication de sa confirmation sans exposer la cause brute.
+func (e *finalizationError) LogValue() slog.Value {
+	return slog.GroupValue(slog.String("stage", "finalize"), slog.Bool("file_published", true), logging.Error(e.cause))
 }

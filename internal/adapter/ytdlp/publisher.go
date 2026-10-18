@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
@@ -30,7 +31,17 @@ func (m metadata) publisher() *video.Publisher {
 }
 
 // ResolvePublisher identifie une chaîne sans télécharger ses vidéos ni parcourir tout son catalogue.
-func (c Client) ResolvePublisher(ctx context.Context, input string) (video.Publisher, error) {
+func (c Client) ResolvePublisher(ctx context.Context, input string) (result video.Publisher, resultErr error) {
+	started := time.Now()
+	defer func() {
+		logger := logging.From(ctx).With("event", "publisher.fetch_finished", "tool", "yt-dlp", "elapsed_ms", time.Since(started).Milliseconds())
+		if resultErr != nil {
+			logger.DebugContext(ctx, "Acquisition failed", logging.Error(resultErr))
+		} else {
+			logger.DebugContext(ctx, "Acquisition completed")
+		}
+	}()
+
 	u, err := url.Parse(strings.TrimSpace(input))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || (u.Port() != "" && u.Port() != "443" && u.Port() != "80") {
 		return video.Publisher{}, video.ErrInvalidInput
@@ -78,9 +89,9 @@ func (c Client) ResolvePublisher(ctx context.Context, input string) (video.Publi
 		}
 		var exit *exec.ExitError
 		if !errors.As(err, &exit) {
-			return video.Publisher{}, fmt.Errorf("%w: %w", video.ErrMetadataProviderUnavailable, err)
+			return video.Publisher{}, fmt.Errorf("%w: %w", video.ErrMetadataProviderUnavailable, toolError(err, ""))
 		}
-		return video.Publisher{}, fmt.Errorf("%w: %w: %s", video.ErrMetadataFetchFailed, err, stderr.buffer.String())
+		return video.Publisher{}, fmt.Errorf("%w: %w", video.ErrMetadataFetchFailed, toolError(err, stderr.buffer.String()))
 	}
 	if output.truncated {
 		return video.Publisher{}, fmt.Errorf("%w: publisher metadata exceeds 4 MiB", video.ErrMetadataFetchFailed)

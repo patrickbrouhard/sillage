@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"mime"
 	"net/http"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/note"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -87,7 +87,7 @@ func (h *KnowledgeHandler) GetNote(w http.ResponseWriter, r *http.Request) {
 		respondKnowledgeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toNoteResponse(result))
+	writeJSON(w, r, http.StatusOK, toNoteResponse(result))
 }
 
 // PutNote exige une chaîne explicite, y compris pour créer une note vide.
@@ -104,7 +104,7 @@ func (h *KnowledgeHandler) PutNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.ContentMD == nil || input.ExpectedRevision == nil || *input.ExpectedRevision < 0 {
-		writeError(w, 400, "bad_request", "content_md and a non-negative expected_revision are required")
+		writeError(w, r, 400, "bad_request", "content_md and a non-negative expected_revision are required")
 		return
 	}
 	result, err := h.notes.Save(r.Context(), video.VideoID(id), *input.ContentMD, *input.ExpectedRevision)
@@ -117,7 +117,7 @@ func (h *KnowledgeHandler) PutNote(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusCreated
 		w.Header().Set("Location", "/api/v1/videos/"+strconv.FormatInt(id, 10)+"/note")
 	}
-	writeJSON(w, status, toNoteResponse(result.Note))
+	writeJSON(w, r, status, toNoteResponse(result.Note))
 }
 
 // ListTags inclut les tags qui ne sont plus associés à aucune vidéo.
@@ -127,7 +127,7 @@ func (h *KnowledgeHandler) ListTags(w http.ResponseWriter, r *http.Request) {
 		respondKnowledgeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, tagsResponse{Tags: toTagResponses(result)})
+	writeJSON(w, r, http.StatusOK, tagsResponse{Tags: toTagResponses(result)})
 }
 
 // AddTags traduit une liste de noms sans décider de leur normalisation métier.
@@ -147,7 +147,7 @@ func (h *KnowledgeHandler) AddTags(w http.ResponseWriter, r *http.Request) {
 		respondKnowledgeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, tagsResponse{Tags: toTagResponses(result)})
+	writeJSON(w, r, http.StatusOK, tagsResponse{Tags: toTagResponses(result)})
 }
 
 // RemoveTag retire uniquement l'association, sans corps de réponse.
@@ -170,7 +170,7 @@ func (h *KnowledgeHandler) RemoveTag(w http.ResponseWriter, r *http.Request) {
 func knowledgeID(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, name), 10, 64)
 	if err != nil || id <= 0 {
-		writeError(w, 400, "bad_request", "invalid id")
+		writeError(w, r, 400, "bad_request", "invalid id")
 		return 0, false
 	}
 	return id, true
@@ -180,27 +180,27 @@ func knowledgeID(w http.ResponseWriter, r *http.Request, name string) (int64, bo
 func readKnowledgeJSON(w http.ResponseWriter, r *http.Request, limit int64, input any) bool {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
-		writeError(w, 415, "unsupported_media_type", "content type must be application/json")
+		writeError(w, r, 415, "unsupported_media_type", "content type must be application/json")
 		return false
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
 	if err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			writeError(w, 413, "payload_too_large", "request body too large")
+			writeError(w, r, 413, "payload_too_large", "request body too large")
 		} else {
-			writeError(w, 400, "bad_request", "invalid request body")
+			writeError(w, r, 400, "bad_request", "invalid request body")
 		}
 		return false
 	}
 	if !json.Valid(body) || !utf8.Valid(body) || !validUnicodeEscapes(body) {
-		writeError(w, 400, "bad_request", "invalid JSON or Unicode")
+		writeError(w, r, 400, "bad_request", "invalid JSON or Unicode")
 		return false
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(input); err != nil {
-		writeError(w, 400, "bad_request", "invalid request body")
+		writeError(w, r, 400, "bad_request", "invalid request body")
 		return false
 	}
 	return true
@@ -239,20 +239,20 @@ func validUnicodeEscapes(body []byte) bool {
 
 // respondKnowledgeError ne traduit jamais une erreur locale en échec d'acquisition distante.
 func respondKnowledgeError(w http.ResponseWriter, r *http.Request, err error) {
-	if errors.Is(r.Context().Err(), context.Canceled) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
 	switch {
 	case errors.Is(err, video.ErrInvalidInput):
-		writeError(w, 400, "bad_request", "invalid request")
+		writeError(w, r, 400, "bad_request", "invalid request")
 	case errors.Is(err, video.ErrVideoNotFound):
-		writeError(w, 404, "video_not_found", "video not found")
+		writeError(w, r, 404, "video_not_found", "video not found")
 	case errors.Is(err, note.ErrConflict):
-		writeError(w, 409, "note_conflict", "note has changed since it was read")
+		writeError(w, r, 409, "note_conflict", "note has changed since it was read")
 	case errors.Is(err, note.ErrNotFound):
-		writeError(w, 404, "note_not_found", "note not found")
+		writeError(w, r, 404, "note_not_found", "note not found")
 	default:
-		log.Printf("knowledge request failed: %v", err)
-		writeError(w, 500, "internal_error", "internal error")
+		requestlog.Result(r, "", err)
+		writeError(w, r, 500, "internal_error", "internal error")
 	}
 }

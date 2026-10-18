@@ -2,11 +2,15 @@
 package http
 
 import (
+	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/patrickbrouhard/sillage/internal/http/handlers"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 )
 
 // NewRouter expose vidéos, notes, tags et transcriptions sous le préfixe versionné.
@@ -22,6 +26,28 @@ func NewRouter(
 	captures ...handlers.AssetService,
 ) http.Handler {
 	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				pattern := chi.RouteContext(r.Context()).RoutePattern()
+				requestlog.Route(r, pattern)
+				for _, name := range []string{"video_id", "source_id", "asset_id", "media_file_id", "tag_id", "person_id"} {
+					if id, err := strconv.ParseInt(chi.URLParam(r, name), 10, 64); err == nil && id > 0 {
+						requestlog.Fields(r, slog.Int64(name, id))
+					}
+				}
+				if id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64); err == nil && id > 0 {
+					for prefix, name := range map[string]string{"/api/v1/videos/": "video_id", "/api/v1/publishers/": "publisher_id", "/api/v1/persons/": "person_id"} {
+						if strings.HasPrefix(pattern, prefix) {
+							requestlog.Fields(r, slog.Int64(name, id))
+							break
+						}
+					}
+				}
+			}()
+			next.ServeHTTP(w, r)
+		})
+	})
 	h := handlers.NewVideoHandler(service, postTimeout)
 	t := handlers.NewTranscriptHandler(transcripts, postTimeout)
 	k := handlers.NewKnowledgeHandler(notes, tags)

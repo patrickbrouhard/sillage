@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
@@ -95,6 +96,7 @@ func (s *Service) Fetch(ctx context.Context, videoID video.VideoID, sourceID vid
 	if err != nil {
 		return Result{}, fmt.Errorf("save transcript: %w", err)
 	}
+	logging.From(ctx).InfoContext(ctx, "Transcript acquired", "event", "transcript.acquired", "video_id", videoID, "source_id", sourceID)
 	return Result{Transcript: saved, Content: acquired.Content}, nil
 }
 

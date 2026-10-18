@@ -51,7 +51,7 @@ peut être différée. Les mentions « implémenté » décrivent le code dispon
 | Jobs persistants | pas dans le modèle initial | Acté pour le MVP |
 | PostgreSQL/MySQL | non nécessaires par défaut | Acté tant qu'aucun besoin ne l'impose |
 | WAL SQLite | non décidé | Ouvert |
-| Logging structuré / niveaux | à définir plus tard | Ouvert |
+| Logging structuré / niveaux | log/slog, INFO, stdout ; texte/JSON ; rotation Docker local | Acté et implémenté |
 | Dates calendaires | `TEXT` UTC RFC 3339 à millisecondes fixes | Acté |
 | Note principale | zéro ou une par vidéo, `video_id` clé primaire, Markdown brut en SQLite `TEXT` | Acté et implémenté pour l'étape 4 |
 | Identité des tags | NFC + comparaison Unicode insensible à la casse, accents significatifs | Acté pour l'étape 4, mécanisme technique libre |
@@ -874,7 +874,7 @@ La suppression explicite d'une note reste une évolution UX envisagée, hors de 
 - suppression cascade vs soft delete ;
 - identité et déduplication d'une source locale ;
 - évolution vers plusieurs représentations d’une source, au-delà de l’unicité de 7.1 ;
-- logging structuré, niveaux et politique de journalisation.
+- extensions futures de journalisation uniquement selon un besoin concret.
 - politique de conservation/cache des transcriptions ;
 - stockage configurable des snapshots de transcription ;
 - éventuelle sélection manuelle de pistes, au-delà de la sélection automatique originale actuelle ;
@@ -1280,3 +1280,53 @@ Validation réelle : la vidéo du test lent (`G2B0YWuJUgI`) produit désormais u
 Les autres essais passent également : 320 × 240 à 1,5 s, 1080p à 73,479 s et
 120 s, 4K à 301 s. Ces mesures ponctuelles ne constituent pas un engagement de
 latence ; un HLS seul à la meilleure résolution et les refus 403 restent possibles.
+
+
+## Journalisation structurée — décisions approuvées
+
+Utiliser directement log/slog, sans interface de logger ni infrastructure
+supplémentaire. DEBUG, INFO, WARN, ERROR ; INFO par défaut. Le format text est
+le défaut hors conteneur, json celui de Docker. La sortie applicative est stdout.
+SILLAGE_LOG_LEVEL et SILLAGE_LOG_FORMAT sont validés au démarrage ; une erreur
+de configuration produit un diagnostic JSON de secours sans reprendre sa valeur.
+
+Les succès répétitifs (GET/HEAD, polling et sauvegarde de note) sont DEBUG.
+Les commandes et cycles applicatifs sont INFO ; replis et anomalies récupérables
+WARN ; échecs définitifs ERROR. Les refus busy ne sont pas des erreurs serveur.
+Le bilan HTTP porte un identifiant généré par le serveur, retourné dans
+X-Request-ID ; l'en-tête entrant n'est pas repris. Ne pas journaliser les corps,
+queries, chemins arbitraires, en-têtes, sorties brutes ou messages d'erreur non
+contrôlés, même en DEBUG. Les diagnostics des outils conservent leurs catégories
+fermées et codes de sortie. Cette classification ne change aucun réessai métier.
+
+Trois identités : requête HTTP, opération, clé de commande capture existante.
+origin_request_id désigne la requête d'acceptation, pas une quatrième identité.
+Pas de stockage des journaux ou des identifiants d'exécution en SQLite.
+
+Docker : nom configurable, sillage par défaut ; les tests surchargent ce nom.
+Pilote local avec cinq fichiers de 20 Mio, compression par défaut. Le changement
+exige une recréation ; la rétention n'est pas un historique durable des connaissances.
+
+
+Validation de la distribution : la configuration effective local/20m/5 est
+inspectée ; un conteneur isolé teste la rotation avec un seuil réduit. Le smoke
+test vérifie JSON, surcharge text/DEBUG, identité serveur, commandes métier et
+arrêt propre. Aucun volume de logs ou service supplémentaire n'est ajouté.
+
+Les diagnostics de validation des captures (pixels non carrés, timestamp hors
+durée) ne rendent pas une tentative éligible au repli HLS→HTTPS. L'éligibilité
+reste explicite et indépendante du format structuré de l'erreur.
+
+Les GET de note absente et de transcription locale absente restent des 404 avec
+leur code public, journalisés DEBUG sans diagnostic technique. Les autres refus
+métier gardent leur sévérité et leur code, sans faux internal_error. Une cause
+technique (notamment disque ou outil) reste assainie et exploitable.
+Le bilan distingue le statut effectivement envoyé de la gravité du résultat
+prévu : une déconnexion avant écriture ne masque pas un échec serveur.
+Les erreurs ffprobe conservent outil, étape, catégorie sûre et code de sortie
+jusqu'au bilan terminal, avec la classification publique media_invalid inchangée.
+
+Le build Web fournit un favicon ICO statique déclaré dans index.html. Les fichiers
+absents gardent leur 404 habituel. L'autorisation fullscreen du lecteur est portée
+uniquement par iframe.allow, avec encrypted-media et picture-in-picture ; aucune
+autorisation supplémentaire ni commande de lecture n'est ajoutée.

@@ -29,7 +29,7 @@ def request(port, path, data=None, expected=200, method=None):
     req = urllib.request.Request(
         f"http://127.0.0.1:{port}{path}",
         data=None if data is None else json.dumps(data).encode(),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-Request-ID": "PRIVATE_CLIENT_ID"},
         method=method,
     )
     try:
@@ -38,6 +38,7 @@ def request(port, path, data=None, expected=200, method=None):
         response = error
     with response:
         body = response.read()
+        assert response.headers.get("X-Request-ID") not in (None, "", "PRIVATE_CLIENT_ID")
         assert response.status == expected, (path, response.status, body)
         return body
 
@@ -92,6 +93,9 @@ def main():
             SILLAGE_UID=str(os.getuid()),
             SILLAGE_GID=str(os.getgid()),
             SILLAGE_PORT=str(port),
+            SILLAGE_CONTAINER_NAME=f"sillage-test-{os.getpid()}",
+            SILLAGE_LOG_LEVEL="INFO",
+            SILLAGE_LOG_FORMAT="json",
         )
         # Ce double n'existe que dans le conteneur du test ; l'image reste intacte.
         overlay = root / "test.json"
@@ -128,12 +132,24 @@ def main():
             compose("stop")
             state = json.loads(command("docker", "inspect", cid))[0]["State"]
             assert state["ExitCode"] == 0 and not state["OOMKilled"], state
+            logs = command("docker", "logs", env["SILLAGE_CONTAINER_NAME"])
+            records = [json.loads(line) for line in logs.splitlines()]
+            events = [record.get("event") for record in records]
+            assert "server.ready" in events and "server.stopped" in events, events
+            assert "PRIVATE_CLIENT_ID" not in logs
+            assert not any(row["level"] == "DEBUG" for row in records)
+            assert all("time" in row and "level" in row for row in records)
 
         try:
             compose("up", "-d", "--no-build")
             ready()
             cid = compose("ps", "-q", "sillage").strip()
             inspection = json.loads(command("docker", "inspect", cid))[0]
+            assert inspection["Name"] == "/" + env["SILLAGE_CONTAINER_NAME"]
+            log_config = inspection["HostConfig"]["LogConfig"]
+            assert log_config["Type"] == "local", log_config
+            assert log_config["Config"]["max-size"] == "20m", log_config
+            assert log_config["Config"]["max-file"] == "5", log_config
             bindings = inspection["NetworkSettings"]["Ports"]["8080/tcp"]
             assert bindings == [{"HostIp": "127.0.0.1", "HostPort": str(port)}], bindings
             assert inspection["Config"]["User"] == f"{os.getuid()}:{os.getgid()}"
@@ -141,6 +157,10 @@ def main():
                        and m["Type"] == "bind" and m["RW"] for m in inspection["Mounts"])
             html = request(port, "/").decode()
             assert '<div id="root">' in html
+            assert 'href="/favicon.ico"' in html
+            assert request(port, "/favicon.ico").startswith(bytes([0, 0, 1, 0]))
+            assert request(port, "/favicon.ico", method="HEAD") == b""
+            request(port, "/missing-icon.ico", expected=404)
             asset = re.search(r'src="(/assets/[^"]+\.js)"', html).group(1)
             assert len(request(port, asset)) > 1000
             assert request(port, "/videos/123") == html.encode()
@@ -168,6 +188,8 @@ def main():
             (snapshots / "persistence-check.txt").write_text("snapshot", encoding="utf-8")
             assert (data / "sillage.db").stat().st_uid == os.getuid()
             stop_cleanly()
+            records = [json.loads(line) for line in command("docker", "logs", env["SILLAGE_CONTAINER_NAME"]).splitlines()]
+            assert any(row.get("event") == "video.added" for row in records), records
             compose("down")
             compose("up", "-d", "--no-build")
             ready()
@@ -180,7 +202,17 @@ def main():
             request(port, note_path, {"content_md": "obsolète", "expected_revision": 0},
                     expected=409, method="PUT")
             stop_cleanly()
-            print("Compose, HTTP/SPA, bind mount, recréation et arrêt propre : OK", flush=True)
+            # Vérifier les surcharges sans changer l'image ni les données.
+            env["SILLAGE_LOG_FORMAT"] = "text"
+            env["SILLAGE_LOG_LEVEL"] = "DEBUG"
+            compose("up", "-d", "--no-build", "--force-recreate")
+            ready()
+            request(port, "/api/v1/videos")
+            compose("stop")
+            logs = command("docker", "logs", env["SILLAGE_CONTAINER_NAME"])
+            assert "level=DEBUG" in logs and "event=http.completed" in logs, logs
+            assert "PRIVATE_CLIENT_ID" not in logs
+            print("Compose, HTTP/SPA, persistance, JSON/texte et arrêt propre : OK", flush=True)
         except BaseException:
             print(compose("logs", "--no-color"))
             raise
@@ -188,5 +220,27 @@ def main():
             compose("down", "--remove-orphans")
 
 
+def check_rotation():
+    """Exerce local avec un petit seuil dans un conteneur appartenant au test."""
+    name = f"sillage-rotation-test-{os.getpid()}"
+    try:
+        command(
+            "docker", "run", "--name", name, "--network", "none",
+            "--log-driver", "local", "--log-opt", "max-size=1k",
+            "--log-opt", "max-file=2", "--log-opt", "compress=false",
+            "--entrypoint", "/bin/sh", "sillage:local", "-ec",
+            'echo rotation_start; i=0; while [ "$i" -lt 2000 ]; do '
+            'echo "rotation_payload_abcdefghijklmnopqrstuvwxyz_0123456789_$i"; '
+            'i=$((i+1)); done; echo rotation_end',
+        )
+        logs = command("docker", "logs", name)
+        assert "rotation_end" in logs and "rotation_start" not in logs, logs
+        assert len(logs) < 10000, len(logs)
+        print("Rotation Docker local avec seuil réduit : OK", flush=True)
+    finally:
+        command("docker", "rm", "-f", name)
+
+
 if __name__ == "__main__":
     main()
+    check_rotation()

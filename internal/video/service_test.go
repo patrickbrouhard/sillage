@@ -1,14 +1,26 @@
 package video
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 func TestAddVideoCreatesThenReturnsExistingWithoutRefresh(t *testing.T) {
+	var output bytes.Buffer
+	logger, _ := logging.New(&output, "INFO", "json")
+	ctx := logging.WithLogger(context.Background(), logger)
+	defer func() {
+		if !strings.Contains(output.String(), "video.added") || !strings.Contains(output.String(), "video.reused") || strings.Contains(output.String(), "Original") || strings.Contains(output.String(), "https:") {
+			t.Fatal(output.String())
+		}
+	}()
 	source := VideoSource{
 		Provider: "youtube", ExternalID: "same", CanonicalURL: "https://www.youtube.com/watch?v=same",
 		Title: "Original", Description: "Description", ThumbnailURL: "https://example.com/original",
@@ -48,11 +60,11 @@ func TestAddVideoCreatesThenReturnsExistingWithoutRefresh(t *testing.T) {
 		return changed, nil
 	})
 	service := NewService(repo, provider)
-	first, err := service.AddVideo(context.Background(), "https://youtu.be/same")
+	first, err := service.AddVideo(ctx, "https://youtu.be/same")
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := service.AddVideo(context.Background(), "https://www.youtube.com/watch?v=same")
+	second, err := service.AddVideo(ctx, "https://www.youtube.com/watch?v=same")
 	if err != nil {
 		t.Fatal(err)
 	}

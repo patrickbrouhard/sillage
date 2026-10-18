@@ -1,6 +1,7 @@
 package asset_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"image"
@@ -8,6 +9,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,6 +18,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/asset"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -50,7 +53,7 @@ func writePNG(stage string) error {
 	return png.Encode(f, img)
 }
 
-func setup(t *testing.T, local *localMedia, extract extractor) (*asset.Service, *sqlite.AssetRepository, video.Video, *filesystem.Assets) {
+func setup(t *testing.T, local *localMedia, extract extractor, contexts ...context.Context) (*asset.Service, *sqlite.AssetRepository, video.Video, *filesystem.Assets) {
 	t.Helper()
 	root := t.TempDir()
 	db, err := sqlite.Open(context.Background(), filepath.Join(root, "db"))
@@ -65,7 +68,11 @@ func setup(t *testing.T, local *localMedia, extract extractor) (*asset.Service, 
 	}
 	repo := sqlite.NewAssetRepository(db)
 	storage := filesystem.NewAssets(filepath.Join(root, "assets"))
-	service, err := asset.NewService(context.Background(), videos, repo, local, extract, storage, time.Minute)
+	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
+	service, err := asset.NewService(ctx, videos, repo, local, extract, storage, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,10 +241,13 @@ func TestPublishedPNGSurvivesUncertainSQLFinalization(t *testing.T) {
 			name = "after_commit"
 		}
 		t.Run(name, func(t *testing.T) {
+			var output bytes.Buffer
+			logger, _ := logging.New(&output, "DEBUG", "json")
+			ctx := logging.WithLogger(context.Background(), logger)
 			original, repo, v, storage := setup(t, &localMedia{}, nil)
 			original.Close()
 			uncertain := &uncertainRepository{Repository: repo, committed: committed}
-			service, err := asset.NewService(context.Background(), fixedVideo{v}, uncertain,
+			service, err := asset.NewService(ctx, fixedVideo{v}, uncertain,
 				&localMedia{err: media.ErrNotFound},
 				extractor(func(_ context.Context, _ video.VideoSource, _ string, _ int64, stage string) error {
 					return writePNG(stage)
@@ -252,6 +262,14 @@ func TestPublishedPNGSurvivesUncertainSQLFinalization(t *testing.T) {
 				t.Fatal(err)
 			}
 			a = waitAsset(t, service, a.ID)
+			service.Close()
+			terminal := "capture.failed"
+			if committed {
+				terminal = "capture.completed"
+			}
+			if strings.Count(output.String(), terminal) != 1 || (committed && strings.Contains(output.String(), "capture.failed")) {
+				t.Fatal(output.String())
+			}
 			want := "failed"
 			if committed {
 				want = "available"

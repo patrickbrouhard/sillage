@@ -43,7 +43,7 @@ COPY --from=backend /out/sillage /usr/local/bin/sillage
 COPY --from=frontend /build/web/dist/ /app/web/
 COPY --from=tools /downloads/yt-dlp /downloads/deno /usr/local/bin/
 # Les caches sont temporaires ; seul /app/data doit être conservé.
-ENV SILLAGE_HTTP_ADDR=0.0.0.0:8080 SILLAGE_WEB_DIR=/app/web \
+ENV SILLAGE_LOG_FORMAT=json SILLAGE_HTTP_ADDR=0.0.0.0:8080 SILLAGE_WEB_DIR=/app/web \
     HOME=/tmp XDG_CACHE_HOME=/tmp/.cache DENO_DIR=/tmp/deno
 USER 1000:1000
 EXPOSE 8080

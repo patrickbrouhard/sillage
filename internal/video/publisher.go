@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"strings"
+
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 // PublisherID identifie un compte de publication dans Sillage.
@@ -80,7 +82,11 @@ func (s *PublisherService) Resolve(ctx context.Context, url string) (PublisherRe
 	}
 	// Les identités internes et relations utilisateur ne proviennent jamais du provider.
 	p.ID, p.PersonID, p.Tags = 0, nil, nil
-	return s.repository.CreateOrFind(ctx, p)
+	result, err := s.repository.CreateOrFind(ctx, p)
+	if err == nil {
+		logging.From(ctx).InfoContext(ctx, "Publisher resolved", "event", "publisher.resolved", "publisher_id", result.Publisher.ID, "created", result.Created)
+	}
+	return result, err
 }
 
 // Get relit localement un publisher identifié.

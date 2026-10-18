@@ -3,7 +3,6 @@ package ytdlp
 import (
 	"context"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 func TestClientExtract(t *testing.T) {
@@ -52,7 +53,7 @@ func TestClientErrors(t *testing.T) {
 		binary := writeExecutable(t, "echo 'video unavailable' >&2\nexit 7\n")
 		_, err := (Client{Binary: binary}).Extract(context.Background(), "https://youtu.be/abc")
 		var exitError *exec.ExitError
-		if !errors.Is(err, video.ErrMetadataFetchFailed) || !errors.As(err, &exitError) || exitError.ExitCode() != 7 || !strings.Contains(err.Error(), "video unavailable") {
+		if !errors.Is(err, video.ErrMetadataFetchFailed) || !errors.As(err, &exitError) || exitError.ExitCode() != 7 || !strings.Contains(err.Error(), "exit_code=7") || strings.Contains(err.Error(), "video unavailable") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})

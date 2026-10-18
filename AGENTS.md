@@ -251,3 +251,14 @@ audio_language. ffprobe measures technical properties; yt-dlp alone supplies
 selected audio language (never the aggregate language, probe tags or source original).
 No startup backfill. Share download state with the distinct local-file metadata
 section; no extra polling, player commands or editor remounts.
+
+
+## Structured logging
+
+Use log/slog directly through the contextual logger in internal/logging.
+Never log arbitrary error text, bodies, query strings, headers, external tool
+arguments or raw output, even at DEBUG. Keep safe tool diagnostics at adapter
+boundaries. HTTP handlers enrich one request summary; asynchronous services own
+their terminal event. Keep the server cancellation context and copy only safe
+correlation attributes when accepting work. No logger interface, persistent log
+table or job framework. Successful reads, polling and note autosaves are DEBUG.

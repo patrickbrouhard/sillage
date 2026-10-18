@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -80,7 +80,7 @@ func (h *MediaHandler) Start(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1))
 	if err != nil || len(body) > 0 {
-		writeError(w, 400, "bad_request", "request body must be empty")
+		writeError(w, r, 400, "bad_request", "request body must be empty")
 		return
 	}
 	state, err := h.service.Start(r.Context(), videoID, sourceID)
@@ -94,7 +94,7 @@ func (h *MediaHandler) Start(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Location", r.URL.Path)
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, status, downloadDTO(state))
+	writeJSON(w, r, status, downloadDTO(state))
 }
 
 // Get lit uniquement l'état local ; un fichier disparu n'est jamais assimilé à une absence.
@@ -109,7 +109,7 @@ func (h *MediaHandler) Get(w http.ResponseWriter, r *http.Request) {
 		respondMediaError(w, r, state, err)
 		return
 	}
-	writeJSON(w, 200, downloadDTO(state))
+	writeJSON(w, r, 200, downloadDTO(state))
 }
 
 // Delete cible un fichier précis et ne supprime aucune connaissance associée.
@@ -117,7 +117,7 @@ func (h *MediaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	videoID, e1 := strconv.ParseInt(chi.URLParam(r, "video_id"), 10, 64)
 	fileID, e2 := strconv.ParseInt(chi.URLParam(r, "media_file_id"), 10, 64)
 	if e1 != nil || e2 != nil || videoID <= 0 || fileID <= 0 {
-		writeError(w, 400, "bad_request", "invalid media id")
+		writeError(w, r, 400, "bad_request", "invalid media id")
 		return
 	}
 	if err := h.service.Delete(r.Context(), video.VideoID(videoID), fileID); err != nil {
@@ -128,30 +128,37 @@ func (h *MediaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func respondMediaError(w http.ResponseWriter, r *http.Request, state media.State, err error) {
-	if errors.Is(r.Context().Err(), context.Canceled) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
 	switch {
 	case errors.Is(err, video.ErrInvalidInput):
-		writeError(w, 400, "bad_request", "invalid request")
+		writeError(w, r, 400, "bad_request", "invalid request")
 	case errors.Is(err, video.ErrVideoNotFound):
-		writeError(w, 404, "video_not_found", "video not found")
+		writeError(w, r, 404, "video_not_found", "video not found")
 	case errors.Is(err, video.ErrVideoSourceNotFound):
-		writeError(w, 404, "video_source_not_found", "video source not found")
+		writeError(w, r, 404, "video_source_not_found", "video source not found")
 	case errors.Is(err, media.ErrNotFound):
-		writeError(w, 404, "media_file_not_found", "media file not found")
+		writeError(w, r, 404, "media_file_not_found", "media file not found")
 	case errors.Is(err, media.ErrUnsupported):
-		writeError(w, 409, "media_source_unsupported", "source is not supported")
+		writeError(w, r, 409, "media_source_unsupported", "source is not supported")
 	case errors.Is(err, media.ErrBusy):
 		w.Header().Set("Retry-After", "3")
-		writeError(w, 503, "download_busy", "another download is active")
+		writeError(w, r, 503, "download_busy", "another download is active")
 	case errors.Is(err, media.ErrUnavailable):
-		writeJSON(w, 409, struct {
+		if err != media.ErrUnavailable {
+			requestlog.Result(r, "", err)
+		}
+		requestlog.Response(r, 409, "local_media_unavailable")
+		if errors.Is(r.Context().Err(), context.Canceled) {
+			return
+		}
+		writeJSON(w, r, 409, struct {
 			Error     downloadError  `json:"error"`
 			MediaFile *mediaResponse `json:"media_file"`
 		}{downloadError{"local_media_unavailable", "local file is unavailable"}, mediaDTO(state.File)})
 	default:
-		log.Printf("media request failed: %v", err)
-		writeError(w, 500, "internal_error", "internal error")
+		requestlog.Result(r, "", err)
+		writeError(w, r, 500, "internal_error", "internal error")
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/logging"
 )
 
 // MetadataProvider extrait une source normalisée sans exposer son format externe.
@@ -39,6 +41,7 @@ func (s *Service) AddVideo(ctx context.Context, url string) (AddVideoResult, err
 	}
 	existing, err := s.repository.FindBySource(ctx, source.Provider, source.ExternalID)
 	if err == nil {
+		logging.From(ctx).InfoContext(ctx, "Video reused", "event", "video.reused", "video_id", existing.ID)
 		return AddVideoResult{Video: existing}, nil
 	}
 	if !errors.Is(err, ErrVideoNotFound) {
@@ -54,11 +57,13 @@ func (s *Service) AddVideo(ctx context.Context, url string) (AddVideoResult, err
 		if err != nil {
 			return AddVideoResult{}, fmt.Errorf("find concurrently created video: %w", err)
 		}
+		logging.From(ctx).InfoContext(ctx, "Video reused", "event", "video.reused", "video_id", existing.ID)
 		return AddVideoResult{Video: existing}, nil
 	}
 	if err != nil {
 		return AddVideoResult{}, fmt.Errorf("create video: %w", err)
 	}
+	logging.From(ctx).InfoContext(ctx, "Video added", "event", "video.added", "video_id", created.ID)
 	return AddVideoResult{Video: created, Created: true}, nil
 }
 

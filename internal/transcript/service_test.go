@@ -1,18 +1,21 @@
 package transcript_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -34,7 +37,14 @@ func acquisition(t *testing.T, text string) transcript.Acquisition {
 }
 
 func TestAcquisitionLifecycle(t *testing.T) {
-	ctx := context.Background()
+	var output bytes.Buffer
+	logger, _ := logging.New(&output, "INFO", "json")
+	ctx := logging.WithLogger(context.Background(), logger)
+	defer func() {
+		if strings.Count(output.String(), "transcript.acquired") != 2 || strings.Contains(output.String(), "first") || strings.Contains(output.String(), "second") {
+			t.Fatal(output.String())
+		}
+	}()
 	root := t.TempDir()
 	path := filepath.Join(root, "sillage.db")
 	db, err := sqlite.Open(ctx, path)

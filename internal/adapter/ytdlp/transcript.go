@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -22,7 +23,17 @@ import (
 const maxTranscriptBytes = 16 << 20
 
 // Fetch sélectionne une piste automatique marquée -orig, télécharge son JSON3 et valide le contenu.
-func (c Client) Fetch(ctx context.Context, source video.VideoSource) (transcript.Acquisition, error) {
+func (c Client) Fetch(ctx context.Context, source video.VideoSource) (result transcript.Acquisition, resultErr error) {
+	started := time.Now()
+	defer func() {
+		logger := logging.From(ctx).With("event", "transcript.fetch_finished", "tool", "yt-dlp", "elapsed_ms", time.Since(started).Milliseconds())
+		if resultErr != nil {
+			logger.DebugContext(ctx, "Acquisition failed", logging.Error(resultErr))
+		} else {
+			logger.DebugContext(ctx, "Acquisition completed")
+		}
+	}()
+
 	if source.Provider != "youtube" || source.ExternalID == "" {
 		return transcript.Acquisition{}, transcript.ErrNotAvailable
 	}
@@ -154,9 +165,9 @@ func (c Client) transcriptCommand(ctx context.Context, args ...string) ([]byte, 
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			return nil, fmt.Errorf("%w: yt-dlp: %w: %s", transcript.ErrFetchFailed, err, stderr.buffer.String())
+			return nil, fmt.Errorf("%w: yt-dlp: %w", transcript.ErrFetchFailed, toolError(err, stderr.buffer.String()))
 		}
-		return nil, fmt.Errorf("execute yt-dlp: %w", err)
+		return nil, fmt.Errorf("execute yt-dlp: %w", toolError(err, ""))
 	}
 	if stdout.truncated {
 		return nil, fmt.Errorf("%w: oversized discovery", transcript.ErrFetchFailed)

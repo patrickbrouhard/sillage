@@ -1,10 +1,12 @@
 package media_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
+	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -50,9 +53,12 @@ func (p *provider) Download(ctx context.Context, _ video.VideoSource, dir string
 		VideoCodec: &vc, AudioCodec: &ac, Width: &width, Height: &height, FPS: &fps, AudioLanguage: &language}, nil
 }
 
-func setup(t *testing.T, p *provider, timeout time.Duration) (*media.Service, *sqlite.MediaRepository, *filesystem.Media, video.Video, video.Video) {
+func setup(t *testing.T, p *provider, timeout time.Duration, contexts ...context.Context) (*media.Service, *sqlite.MediaRepository, *filesystem.Media, video.Video, video.Video) {
 	t.Helper()
 	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
 	dir := t.TempDir()
 	db, err := sqlite.Open(ctx, filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -196,7 +202,9 @@ func TestPublicationFailureAndUncertainCommit(t *testing.T) {
 	for _, committed := range []bool{false, true} {
 		t.Run(map[bool]string{false: "rollback", true: "committed"}[committed], func(t *testing.T) {
 			dir := t.TempDir()
-			ctx := context.Background()
+			var output bytes.Buffer
+			logger, _ := logging.New(&output, "DEBUG", "json")
+			ctx := logging.WithLogger(context.Background(), logger)
 			db, err := sqlite.Open(ctx, filepath.Join(dir, "test.db"))
 			if err != nil {
 				t.Fatal(err)
@@ -224,6 +232,13 @@ func TestPublicationFailureAndUncertainCommit(t *testing.T) {
 			}
 			state := waitState(t, s, v, want)
 			s.Close()
+			terminal := "download.finalization_uncertain"
+			if committed {
+				terminal = "download.completed"
+			}
+			if strings.Count(output.String(), terminal) != 1 || (committed && strings.Contains(output.String(), "download.failed")) {
+				t.Fatal(output.String())
+			}
 			entries, err := os.ReadDir(filepath.Join(dir, "media"))
 			if err != nil {
 				t.Fatal(err)

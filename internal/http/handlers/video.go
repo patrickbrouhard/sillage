@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
+	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
@@ -49,7 +50,7 @@ type addVideoRequest struct {
 func (h *VideoHandler) Add(w http.ResponseWriter, r *http.Request) {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
-		writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "content type must be application/json")
+		writeError(w, r, http.StatusUnsupportedMediaType, "unsupported_media_type", "content type must be application/json")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 16*1024)
@@ -70,14 +71,14 @@ func (h *VideoHandler) Add(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds 16 KiB")
+			writeError(w, r, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds 16 KiB")
 		} else {
-			writeError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+			writeError(w, r, http.StatusBadRequest, "bad_request", "invalid request body")
 		}
 		return
 	}
 	if input == nil || strings.TrimSpace(input.URL) == "" {
-		writeError(w, http.StatusBadRequest, "bad_request", "url is required")
+		writeError(w, r, http.StatusBadRequest, "bad_request", "url is required")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), h.postTimeout)
@@ -87,19 +88,20 @@ func (h *VideoHandler) Add(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, err)
 		return
 	}
+	requestlog.Fields(r, slog.Int64("video_id", int64(result.Video.ID)))
 	status := http.StatusOK
 	if result.Created {
 		status = http.StatusCreated
 		w.Header().Set("Location", "/api/v1/videos/"+strconv.FormatInt(int64(result.Video.ID), 10))
 	}
-	writeJSON(w, status, toVideoResponse(result.Video))
+	writeJSON(w, r, status, toVideoResponse(result.Video))
 }
 
 // Get retourne une vidéo identifiée par un entier strictement positif.
 func (h *VideoHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid video id")
+		writeError(w, r, http.StatusBadRequest, "bad_request", "invalid video id")
 		return
 	}
 	v, err := h.service.GetVideo(r.Context(), video.VideoID(id))
@@ -107,14 +109,14 @@ func (h *VideoHandler) Get(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toVideoResponse(v))
+	writeJSON(w, r, http.StatusOK, toVideoResponse(v))
 }
 
 // List retourne toutes les vidéos dans l'enveloppe de bibliothèque.
 func (h *VideoHandler) List(w http.ResponseWriter, r *http.Request) {
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		writeError(w, 400, "bad_request", "invalid query")
+		writeError(w, r, 400, "bad_request", "invalid query")
 		return
 	}
 	var videos []video.Video
@@ -124,7 +126,7 @@ func (h *VideoHandler) List(w http.ResponseWriter, r *http.Request) {
 			id, err = strconv.ParseInt(values[0], 10, 64)
 		}
 		if len(values) != 1 || err != nil || id <= 0 {
-			writeError(w, 400, "bad_request", "invalid tag_id")
+			writeError(w, r, 400, "bad_request", "invalid tag_id")
 			return
 		}
 		videos, err = h.service.ListVideosByTag(r.Context(), video.TagID(id))
@@ -139,27 +141,27 @@ func (h *VideoHandler) List(w http.ResponseWriter, r *http.Request) {
 	for _, v := range videos {
 		response.Videos = append(response.Videos, toVideoResponse(v))
 	}
-	writeJSON(w, http.StatusOK, response)
+	writeJSON(w, r, http.StatusOK, response)
 }
 
 func respondError(w http.ResponseWriter, r *http.Request, err error) {
-	// Une déconnexion n'appelle aucune réponse HTTP ni erreur technique supplémentaire.
-	if errors.Is(r.Context().Err(), context.Canceled) {
+	if errors.Is(err, context.Canceled) && errors.Is(r.Context().Err(), context.Canceled) {
 		return
 	}
 	switch {
 	case errors.Is(err, video.ErrInvalidInput):
-		writeError(w, 400, "bad_request", "invalid video URL")
+		writeError(w, r, 400, "bad_request", "invalid video URL")
 	case errors.Is(err, video.ErrVideoNotFound):
-		writeError(w, 404, "video_not_found", "video not found")
+		writeError(w, r, 404, "video_not_found", "video not found")
 	case errors.Is(err, context.DeadlineExceeded):
-		writeError(w, 504, "metadata_fetch_timeout", "metadata fetch timed out")
+		requestlog.Result(r, "", err)
+		writeError(w, r, 504, "metadata_fetch_timeout", "metadata fetch timed out")
 	case errors.Is(err, video.ErrMetadataFetchFailed):
-		log.Printf("metadata fetch failed: %v", err)
-		writeError(w, 502, "metadata_fetch_failed", "metadata fetch failed")
+		requestlog.Result(r, "", err)
+		writeError(w, r, 502, "metadata_fetch_failed", "metadata fetch failed")
 	default:
-		log.Printf("request failed: %v", err)
-		writeError(w, 500, "internal_error", "internal error")
+		requestlog.Result(r, "", err)
+		writeError(w, r, 500, "internal_error", "internal error")
 	}
 }
 
@@ -172,21 +174,26 @@ type errorBody struct {
 	Message string `json:"message"`
 }
 
-func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, errorResponse{Error: errorBody{Code: code, Message: message}})
+func writeError(w http.ResponseWriter, r *http.Request, status int, code, message string) {
+	requestlog.Response(r, status, code)
+	// Qualifier d'abord l'échec : une déconnexion ne doit pas masquer sa gravité.
+	if errors.Is(r.Context().Err(), context.Canceled) {
+		return
+	}
+	writeJSON(w, r, status, errorResponse{Error: errorBody{Code: code, Message: message}})
 }
 
 // writeJSON encode avant les en-têtes pour éviter une réponse de succès partiellement encodée.
-func writeJSON(w http.ResponseWriter, status int, value any) {
+func writeJSON(w http.ResponseWriter, r *http.Request, status int, value any) {
 	data, err := json.Marshal(value)
 	if err != nil {
-		log.Printf("encode response: %v", err)
+		requestlog.Result(r, "response_encode_failed", err)
 		status = http.StatusInternalServerError
 		data = []byte(`{"error":{"code":"internal_error","message":"internal error"}}`)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if _, err := w.Write(append(data, '\n')); err != nil {
-		log.Printf("write response: %v", err)
+		requestlog.Result(r, "response_write_failed", err)
 	}
 }
