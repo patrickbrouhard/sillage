@@ -169,11 +169,22 @@ func TestMediaCommandStopsDescendants(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("command did not stop")
 	}
-	// Un zombie réadopté attend seulement le reap de l'init WSL ; il ne travaille plus.
-	stat, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
-	if err == nil && !strings.Contains(string(stat), ") Z ") {
-		_ = syscall.Kill(pid, syscall.SIGKILL)
-		t.Fatalf("child still alive: %s", stat)
+	// SIGKILL est asynchrone : attendre aussi l'arrêt du descendant, pas seulement du parent.
+	// Un zombie réadopté attend seulement sa collecte par init ; il ne travaille plus.
+	deadline = time.Now().Add(2 * time.Second)
+	for {
+		stat, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+		if errors.Is(err, os.ErrNotExist) || (err == nil && strings.Contains(string(stat), ") Z ")) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !time.Now().Before(deadline) {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+			t.Fatalf("child still alive: %s", stat)
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 

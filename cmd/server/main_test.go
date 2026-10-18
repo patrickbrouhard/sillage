@@ -225,13 +225,22 @@ func TestServerStopsActiveMediaBeforeClosingDatabase(t *testing.T) {
 	case <-time.After(12 * time.Second):
 		t.Fatal("shutdown did not finish")
 	}
-	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", child))
-	if err == nil && !strings.Contains(string(stat), ") Z ") {
-		_ = syscall.Kill(child, syscall.SIGKILL)
-		t.Fatalf("child survived: %s", stat)
-	}
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		t.Fatal(err)
+	// SIGKILL est asynchrone : attendre aussi l'arrêt du descendant, pas seulement du parent.
+	// Un zombie ne travaille plus et peut attendre sa collecte par le processus init.
+	deadline = time.Now().Add(2 * time.Second)
+	for {
+		stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", child))
+		if errors.Is(err, os.ErrNotExist) || (err == nil && strings.Contains(string(stat), ") Z ")) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !time.Now().Before(deadline) {
+			_ = syscall.Kill(child, syscall.SIGKILL)
+			t.Fatalf("child survived: %s", stat)
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 	entries, err := os.ReadDir("data/media")
 	if err != nil || len(entries) != 0 {
