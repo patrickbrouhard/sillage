@@ -1727,3 +1727,9 @@ concurrence réussis ; 45 requêtes et 135 assertions Postman déterministes ;
 les surcharges, la consultation par nom et la rotation effective du pilote local.
 Chromium a nécessité libnspr4/libnss3 extraites dans un répertoire temporaire,
 sans installation système. Aucun nouveau test réseau YouTube réel n'a été lancé.
+
+## Revue du logging — corrections
+
+Incrément 1 : frontières de repli HLS restaurées ; diagnostics sûrs conservés.
+Les tests de validation sans nouvelle résolution complètent les scénarios de
+repli, renouvellement 403 et capture locale.

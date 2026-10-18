@@ -80,7 +80,7 @@ func (c CaptureClient) Extract(ctx context.Context, source video.VideoSource, lo
 			continue
 		}
 		var failure *captureFailure
-		if fallbackWidth == 0 && ctx.Err() == nil && errors.As(err, &failure) &&
+		if fallbackWidth == 0 && ctx.Err() == nil && errors.As(err, &failure) && failure.transportFailure &&
 			(failure.stage == "probe" || failure.stage == "decode") &&
 			(remote.Protocol == "m3u8" || remote.Protocol == "m3u8_native") &&
 			remote.Width > 0 && remote.Height > 0 {
@@ -195,7 +195,7 @@ func (c CaptureClient) extractInput(ctx context.Context, input string, options [
 		return err
 	}
 	if len(png) == 0 {
-		return &captureFailure{stage: "decode", reason: "no_frame_at_timestamp"}
+		return &captureFailure{stage: "decode", reason: "no_frame_at_timestamp", transportFailure: true}
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -245,9 +245,9 @@ func extractionError(ctx context.Context, stage string, err error) error {
 	}
 	var failure *toolFailure
 	if errors.As(err, &failure) {
-		return &captureFailure{stage: stage, reason: failure.reason, exitCode: &failure.exitCode}
+		return &captureFailure{stage: stage, reason: failure.reason, exitCode: &failure.exitCode, transportFailure: true}
 	}
-	return &captureFailure{stage: stage, reason: toolReason(err.Error())}
+	return &captureFailure{stage: stage, reason: toolReason(err.Error()), transportFailure: true}
 }
 
 // toolReason réutilise les catégories fermées des captures, sans piloter les autres acquisitions.
@@ -284,6 +284,9 @@ func toolReason(message string) string {
 type captureFailure struct {
 	stage, reason string
 	exitCode      *int
+	// Seuls les échecs de commande et l'absence de frame autorisaient le repli HLS.
+	// Un diagnostic de validation ne doit pas modifier cette politique.
+	transportFailure bool
 }
 
 // Error conserve les motifs stables d’extraction sans détail externe.

@@ -1312,3 +1312,7 @@ Validation de la distribution : la configuration effective local/20m/5 est
 inspectée ; un conteneur isolé teste la rotation avec un seuil réduit. Le smoke
 test vérifie JSON, surcharge text/DEBUG, identité serveur, commandes métier et
 arrêt propre. Aucun volume de logs ou service supplémentaire n'est ajouté.
+
+Les diagnostics de validation des captures (pixels non carrés, timestamp hors
+durée) ne rendent pas une tentative éligible au repli HLS→HTTPS. L'éligibilité
+reste explicite et indépendante du format structuré de l'erreur.

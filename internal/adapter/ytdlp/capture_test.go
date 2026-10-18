@@ -426,3 +426,37 @@ func TestCaptureNativeTransportSelection(t *testing.T) {
 		})
 	}
 }
+
+// TestCaptureValidationDoesNotRetryHLS sépare les diagnostics des décisions de repli.
+func TestCaptureValidationDoesNotRetryHLS(t *testing.T) {
+	for _, tc := range []struct {
+		name, probe, reason string
+	}{
+		{"pixels", `{"streams":[{"codec_name":"h264","sample_aspect_ratio":"2:1"}],"format":{"duration":"500"}}`, "non_square_pixels"},
+		{"timestamp", `{"streams":[{"codec_name":"h264"}],"format":{"duration":"1"}}`, "timestamp_beyond_final_frame"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			calls := filepath.Join(root, "calls")
+			resolver := writeExecutable(t, "#!/bin/sh\necho call >> '"+calls+"'\nprintf '%s' '"+`{"id":"abcdefghijk","extractor_key":"Youtube","live_status":"not_live","protocol":"m3u8_native","width":1920,"height":1080,"url":"https://private.test/hls"}`+"'\n")
+			probe := writeExecutable(t, "#!/bin/sh\nprintf '%s' '"+tc.probe+"'\n")
+			var output bytes.Buffer
+			logger, _ := logging.New(&output, "DEBUG", "json")
+			ctx := logging.WithLogger(context.Background(), logger)
+			err := (CaptureClient{Binary: resolver, ProbeBinary: probe}).Extract(
+				ctx, video.VideoSource{Provider: "youtube", ExternalID: "abcdefghijk"}, "", 2000, root,
+			)
+			if !errors.Is(err, asset.ErrExtract) || !captureReason(err, tc.reason) {
+				t.Fatalf("unexpected validation: %v", err)
+			}
+			data, readErr := os.ReadFile(calls)
+			if readErr != nil || strings.Count(string(data), "\n") != 1 {
+				t.Fatalf("unexpected resolution attempts: %q, %v", data, readErr)
+			}
+			logger.Error("failed", logging.Error(err))
+			if !strings.Contains(output.String(), tc.reason) || strings.Contains(output.String(), "private.test") {
+				t.Fatal(output.String())
+			}
+		})
+	}
+}
