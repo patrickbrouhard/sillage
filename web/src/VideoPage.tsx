@@ -5,11 +5,10 @@ import type { Tag, Video, VideoSource } from './api'
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { VideoTranscript } from './VideoTranscript'
-import { VideoDownload } from './VideoDownload'
 import { useVideoDownload } from './useVideoDownload'
 import { LocalFileDetails } from './LocalFileDetails'
-import { YouTubePlayer } from './YouTubePlayer'
-import type { YouTubePlayerHandle } from './YouTubePlayer'
+import { VideoPlayer } from './VideoPlayer'
+import type { PlayerHandle } from './player'
 import type { VideoNoteHandle } from './VideoNote'
 import { transcriptCitation } from './transcriptSelection'
 import { temporalReference } from './temporalReference'
@@ -59,7 +58,7 @@ function SourceDetails({ source, index, working }: { source: VideoSource; index:
 /** Relit une fiche par son identité Sillage, sans dépendre de la navigation précédente. */
 function VideoDetail({ id }: { id: string }) {
   const note = useRef<VideoNoteHandle>(null)
-  const player = useRef<YouTubePlayerHandle>(null)
+  const player = useRef<PlayerHandle>(null)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const source = state.status === 'ready' ? workSource(state.video.sources) : undefined
@@ -113,9 +112,7 @@ function VideoDetail({ id }: { id: string }) {
           <h1 className="video-title">{state.video.sources[0]?.title || 'Vidéo sans titre'}</h1>
           <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
           <div className={`video-workspace${source ? '' : ' without-source'}`}>
-            {source ? <YouTubePlayer key={`player-${source.id}`} source={source} ref={player}>
-              <VideoDownload key={source.id} download={download} />
-            </YouTubePlayer>
+            {source ? <VideoPlayer key={`player-${source.id}`} videoID={state.video.id} source={source} download={download} ref={player} />
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
               <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote ref={note} videoID={state.video.id}
@@ -126,11 +123,11 @@ function VideoDetail({ id }: { id: string }) {
                   return navigate(reference.startMs)
                 }}
                 getCaptureTarget={() => {
-                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur YouTube disponible.')
+                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
                   return { videoID: state.video.id, sourceID: source.id, timestampMs: player.current.getCurrentTimeMs() }
                 }}
                 getTimeReference={() => {
-                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur YouTube disponible.')
+                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
                   return temporalReference(state.video.id, source.id, player.current.getCurrentTimeMs())
                 }} /></Suspense>
             </div>

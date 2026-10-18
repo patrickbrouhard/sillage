@@ -2,6 +2,8 @@
 """Simule métadonnées et captions, sans accès réseau, pour les parcours Web réels."""
 
 import json
+import os
+import shutil
 from pathlib import Path
 import sys
 from urllib.parse import parse_qs, urlparse
@@ -29,6 +31,14 @@ def main():
         if args[args.index("--format") + 1] != "bv*+ba/b" or "--match-filters" not in args:
             raise ValueError("Unexpected media selection")
         output = Path(args[args.index("--output") + 1])
+        if external_id.startswith("trlp"):
+            path = (output.parent / "media.webm").resolve()
+            info = {"id": external_id, "extractor_key": "Youtube", "live_status": "not_live", "duration": 125}
+            print("source:" + json.dumps(info))
+            shutil.copyfile(os.environ["SILLAGE_TEST_MEDIA"], path)
+            info.update(filepath=str(path), acodec="opus", language="fr")
+            print("result:" + json.dumps({"file": info, "tracks": []}))
+            return
         path = (output.parent / "media.mkv").resolve()
         info = {"id": external_id, "extractor_key": "Youtube", "live_status": "not_live", "duration": 125}
         print("source:" + json.dumps(info))

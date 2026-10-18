@@ -4,17 +4,13 @@ import type { VideoSource } from './api'
 import { IconButton } from './IconButton'
 import { loadYouTubeAPI } from './youtubeApi'
 import type { YouTubePlayer as Player } from './youtubeApi'
-
-/** Commande immédiate du lecteur de la source de travail, sans file d'attente. */
-export interface YouTubePlayerHandle {
-  /** Lit les millisecondes courantes ou signale une position indisponible, sans commande différée. */
-  getCurrentTimeMs(): number
-  /** Retourne une explication si la commande ne peut pas être transmise. */
-  navigate(startMs: number): string
-}
+import { revealPlayer } from './player'
+import type { PlayerHandle } from './player'
 
 /** Présente un lecteur YouTube isolé ; une pause confirmée précède son masquage. */
-export function YouTubePlayer({ source, ref, children }: { source: VideoSource; ref: Ref<YouTubePlayerHandle>; children?: ReactNode }) {
+export function YouTubePlayer({ source, ref, children, heading, initialStartMs }: { source: VideoSource; ref: Ref<PlayerHandle>; children?: ReactNode; heading: ReactNode; initialStartMs?: number }) {
+  const initialPosition = useRef(initialStartMs)
+  const stopPlayer = useRef<(() => void) | null>(null)
   const host = useRef<HTMLDivElement>(null)
   const player = useRef<Player | null>(null)
   const failPlayer = useRef<((description: string) => void) | null>(null)
@@ -32,17 +28,11 @@ export function YouTubePlayer({ source, ref, children }: { source: VideoSource; 
     if (!navigation || !host.current) return
     // La commande et le réaffichage sont déjà commités. Seule la page défile,
     // jamais les panneaux internes ; aucun travail n'attend onReady.
-    const bounds = host.current.getBoundingClientRect()
-    const viewport = window.visualViewport
-    const top = viewport?.offsetTop ?? 0
-    const height = viewport?.height ?? window.innerHeight
-    const delta = bounds.height > height || bounds.top < top
-      ? bounds.top - top
-      : bounds.bottom > top + height ? bounds.bottom - top - height : 0
-    if (delta) window.scrollBy({ top: delta, behavior: 'instant' })
+    revealPlayer(host.current)
   }, [navigation])
 
   useImperativeHandle(ref, () => ({
+    stop() { stopPlayer.current?.() },
     getCurrentTimeMs() {
       const current = player.current
       if (!current || !ready || hiding) {
@@ -108,6 +98,14 @@ export function YouTubePlayer({ source, ref, children }: { source: VideoSource; 
       setReady(false); setMessage(description)
     }
     failPlayer.current = fail
+    stopPlayer.current = () => {
+      failed = true
+      window.clearTimeout(readyTimer)
+      window.clearTimeout(concealTimer.current)
+      instance?.destroy()
+      instance = null; player.current = null
+      setReady(false)
+    }
 
     void loadYouTubeAPI().then(api => {
       if (disposed || conceal.current || !host.current) return
@@ -132,6 +130,13 @@ export function YouTubePlayer({ source, ref, children }: { source: VideoSource; 
           window.clearTimeout(readyTimer)
           player.current = event.target
           setReady(true)
+          // Seule la bascule prépare un départ à l'initialisation ; les timestamps ne sont jamais différés.
+          const startMs = initialPosition.current
+          initialPosition.current = undefined
+          if (startMs !== undefined) {
+            try { event.target.cueVideoById({ videoId: source.external_id!, startSeconds: startMs / 1000 }) }
+            catch { fail('Impossible de préparer la position YouTube. Réessayez le lecteur.') }
+          }
           if (conceal.current) event.target.pauseVideo()
         },
         onStateChange: event => {
@@ -164,6 +169,7 @@ export function YouTubePlayer({ source, ref, children }: { source: VideoSource; 
     return () => {
       disposed = true
       failPlayer.current = null
+      stopPlayer.current = null
       window.clearTimeout(readyTimer)
       window.clearTimeout(concealTimer.current)
       instance?.destroy()
@@ -210,7 +216,7 @@ export function YouTubePlayer({ source, ref, children }: { source: VideoSource; 
 
   return <section className="video-player" aria-label="Lecteur">
     <div className="player-toolbar">
-      <h2 id="player-title" className="work-source">YouTube</h2>
+      {heading}
       {children}
       <IconButton icon={hidden ? 'eye' : 'eye-off'} onClick={toggle} disabled={hiding}
         aria-expanded={!hidden} aria-busy={hiding}

@@ -6,7 +6,7 @@ import type { useVideoDownload } from './useVideoDownload'
 import { formatDuration } from './videoPresentation'
 
 /** Présente les commandes sans posséder une deuxième consultation de l'état. */
-export function VideoDownload({ download }: { download: ReturnType<typeof useVideoDownload> }) {
+export function VideoDownload({ download, beforeDelete }: { download: ReturnType<typeof useVideoDownload>; beforeDelete?: (file: MediaFile) => void }) {
   const { state, error, busy, file, load, mutate } = download
   const dialog = useRef<HTMLDialogElement>(null)
   const deletion = useRef<MediaFile | null>(null)
@@ -41,7 +41,7 @@ export function VideoDownload({ download }: { download: ReturnType<typeof useVid
         <button className="button" onClick={() => {
           const target = deletion.current
           dialog.current?.close()
-          if (target) void mutate(target)
+          if (target) { beforeDelete?.(target); void mutate(target) }
         }}>Confirmer la suppression</button>
       </div>
     </dialog>

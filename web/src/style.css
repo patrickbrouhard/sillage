@@ -334,3 +334,12 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .icon-control:not(.tooltip-dismissed):hover > .icon-tooltip { visibility: visible; opacity: 1; transition-delay: .5s; }
 .icon-control:not(.tooltip-dismissed):has(button:focus-visible) > .icon-tooltip { visibility: visible; opacity: 1; }
 .icon-control.tooltip-dismissed > .icon-tooltip { visibility: hidden; opacity: 0; transition: none; }
+
+/* Les deux représentations occupent la même place, sans modifier la grille de la note. */
+.local-video { display: block; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; background: #000; }
+.player-switch-status:empty { display: none; }
+.player-switch-status { font-size: .85rem; color: var(--muted); }
+.player-toolbar .work-source select { max-width: 100%; font: inherit; }
+@media (min-width: 900px) {
+  .local-video { height: clamp(200px, calc(28dvh - 48px), 292px); aspect-ratio: auto; }
+}
