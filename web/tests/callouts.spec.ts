@@ -241,7 +241,7 @@ for (const width of [375, 1440]) {
       await reading.screenshot({ path: info.outputPath('callouts.png') })
       await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
       await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
-      await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+      await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
       const button = reading.getByRole('button').first()
       await button.click()
       await expect(button).toBeFocused()

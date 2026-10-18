@@ -69,7 +69,7 @@ test('suivi sans remontage, note en cours, position et lecteur masqué préserv�
   await expect(editor).toHaveText('')
   await page.keyboard.press('Control+Shift+Z')
   await expect(editor).toHaveText('Une note en cours')
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   await expect(page.getByRole('button', { name: 'Supprimer le fichier local' })).toBeVisible()
   for (const width of [1440, 375]) {
     await page.setViewportSize({ width, height: 900 })

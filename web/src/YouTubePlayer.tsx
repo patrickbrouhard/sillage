@@ -1,7 +1,7 @@
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode, Ref } from 'react'
 import type { VideoSource } from './api'
-import { httpURL } from './videoPresentation'
+import { IconButton } from './IconButton'
 import { loadYouTubeAPI } from './youtubeApi'
 import type { YouTubePlayer as Player } from './youtubeApi'
 
@@ -41,7 +41,6 @@ export function YouTubePlayer({ source, ref, children }: { source: VideoSource; 
       : bounds.bottom > top + height ? bounds.bottom - top - height : 0
     if (delta) window.scrollBy({ top: delta, behavior: 'instant' })
   }, [navigation])
-  const url = httpURL(source.canonical_url)
 
   useImperativeHandle(ref, () => ({
     getCurrentTimeMs() {
@@ -211,11 +210,11 @@ export function YouTubePlayer({ source, ref, children }: { source: VideoSource; 
 
   return <section className="video-player" aria-labelledby="player-title">
     <div className="player-toolbar">
-      <h2 id="player-title">Lecteur <span className="work-source" title="Source de travail du lecteur et de la transcription">· YouTube</span></h2>
-      <button className="button" onClick={toggle} disabled={hiding} aria-expanded={!hidden}>
-        {hidden ? 'Afficher le lecteur' : hiding ? 'Mise en pause…' : 'Masquer le lecteur'}
-      </button>
-      {url && <a href={url} target="_blank" rel="noopener noreferrer">Ouvrir sur YouTube ↗</a>}
+      <h2 id="player-title" className="sr-only">Lecteur</h2>
+      <span className="work-source">YouTube</span>
+      <IconButton icon={hidden ? 'eye' : 'eye-off'} onClick={toggle} disabled={hiding}
+        aria-expanded={!hidden} aria-busy={hiding}
+        label={hidden ? 'Afficher la vidéo' : hiding ? 'Mise en pause…' : 'Masquer la vidéo'} />
     </div>
     {children}
     <div hidden={hidden}>

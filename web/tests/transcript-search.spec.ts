@@ -111,8 +111,8 @@ test('recherche vide, aucun résultat, effacement et actualisation recalculent l
 
 test('le lecteur masqué reste masqué pendant la recherche sur écran étroit', async ({ page }) => {
   await prepare(page)
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
-  await expect(page.getByRole('button', { name: 'Afficher le lecteur' })).toBeVisible()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
+  await expect(page.getByRole('button', { name: 'Afficher la vidéo' })).toBeVisible()
   await page.setViewportSize({ width: 375, height: 812 })
   await page.getByRole('searchbox').fill('bonjour le monde')
   await page.getByRole('button', { name: 'Occurrence précédente' }).click()

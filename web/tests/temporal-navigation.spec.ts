@@ -130,7 +130,7 @@ test('masqué conservé : réaffiche sans reprendre et garde le focus', async ({
   await workspace(page)
   await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
   await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   const button = page.getByLabel('Lecture de la note').getByRole('button')
   await button.click()
   await expect(button).toBeFocused()
@@ -233,9 +233,9 @@ for (const failure of ['hiding', 'masked-unavailable', 'exception', 'unknown']) 
         window.youtubeTest.confirmPause = false
         window.youtubeTest.players.at(-1)!.emitState(1)
       })
-      await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+      await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
     } else if (failure === 'masked-unavailable') {
-      await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+      await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
       await page.evaluate(() => {
         const player = window.youtubeTest.players.at(-1)!
         player.options.events.onError({ data: 100 })
@@ -259,7 +259,7 @@ for (const failure of ['hiding', 'masked-unavailable', 'exception', 'unknown']) 
     expect(await page.evaluate(() => document.documentElement.dataset.scrolls)).toBe('0')
     expect(await page.evaluate(() => window.youtubeTest.players.every(p => p.navigationCalls.length === 0))).toBe(true)
     if (failure === 'masked-unavailable') {
-      await expect(page.getByRole('button', { name: 'Masquer le lecteur' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Masquer la vidéo' })).toBeVisible()
       await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
       expect(await page.evaluate(() => window.youtubeTest.players.every(p => p.navigationCalls.length === 0))).toBe(true)
     }

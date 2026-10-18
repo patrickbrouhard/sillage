@@ -270,7 +270,7 @@ for (const keepLocal of [false, true]) {
 test('sélection réelle à la souris à travers plusieurs blocs puis copie native', async ({ page, request }) => {
   await openWorkspace(page, request)
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   await page.getByLabel('Texte de la transcription', { exact: true }).scrollIntoViewIfNeeded()
   const points = await page.locator('[data-transcript-text]').evaluateAll(paragraphs => {
     function point(element: Element, atEnd: boolean) {
@@ -298,7 +298,7 @@ test('sélection réelle à la souris à travers plusieurs blocs puis copie nati
 
 test('écran étroit et lecteur masqué : bouton stable utilisable, aucune reprise', async ({ page, request }, info) => {
   const { editor } = await openWorkspace(page, request)
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   await page.setViewportSize({ width: 375, height: 812 })
   await selectText(page)
   await page.getByRole('button', { name: 'Citer dans la note' }).click()

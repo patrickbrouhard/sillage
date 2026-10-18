@@ -1026,3 +1026,13 @@ pour la source de travail : conteneur, taille, dimensions encodées, FPS moyens,
 codecs, langue audio déclarée et durée. Les inconnues sont explicites.
 Le bloc partage le suivi existant, sans second polling ni confirmation avant
 téléchargement. Il ne représente pas une nouvelle VideoSource.
+
+
+### Decluttering — partie 1 : commandes du lecteur
+
+Le panneau conserve son nom accessible « Lecteur » sans titre visible. Une
+indication YouTube discrète remplace le titre ; le lien externe redondant est
+retiré. L'œil barré masque la vidéo après mise en pause, l'œil la réaffiche.
+La commande reste présente lorsque la vidéo est masquée. Les boutons à icône
+ont un nom accessible, un focus visible et une infobulle au survol et au clavier.
+Les commandes de conservation du fichier local restent inchangées à ce stade.
