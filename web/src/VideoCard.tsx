@@ -1,11 +1,10 @@
-import { Link, useLocation } from 'react-router'
+import { Link } from 'react-router'
 import type { Video } from './api'
 import { VideoThumbnail } from './VideoThumbnail'
 import { providerLabel } from './videoPresentation'
 
 /** Présente la première source sans lui attribuer un statut métier principal. */
 export function VideoCard({ video }: { video: Video }) {
-  const location = useLocation()
   const source = video.sources[0]
   const title = source?.title || 'Vidéo sans titre'
   const publisher = source?.publisher
@@ -17,7 +16,6 @@ export function VideoCard({ video }: { video: Video }) {
       <Link
         className="card-link"
         to={`/videos/${video.id}`}
-        state={{ library: location.pathname + location.search }}
         aria-label={`Consulter : ${title}`}
       >
         <VideoThumbnail source={source} />

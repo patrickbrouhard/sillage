@@ -112,7 +112,7 @@ test('changer de fiche invalide le clic refusé et les événements de l’ancie
   await page.addInitScript(() => { window.youtubeTest = { players: [], autoReady: false, confirmPause: true } })
   await page.goto('/videos/42')
   await page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' }).click()
-  await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
+  await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await expect(page).toHaveURL('/')
   await page.evaluate(() => {
     const old = window.youtubeTest.players.at(-1)!
@@ -169,7 +169,7 @@ test('pause avant masquage, position et instance conservées sans reprise', asyn
   expect(await page.evaluate(() => window.youtubeTest.players.map(player => ({
     state: player.state, position: player.position, destroyed: player.destroyed,
   })))).toEqual([{ state: 2, position: 42.75, destroyed: false }])
-  await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
+  await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await expect(page).toHaveURL('/')
   await expect.poll(() => page.evaluate(() => window.youtubeTest.players.every(player => player.destroyed))).toBe(true)
 })

@@ -246,7 +246,7 @@ test('réponse tardive d’une autre fiche ignorée pendant une acquisition', as
   await page.goto('/videos/42')
   await page.getByRole('button', { name: 'Récupérer', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Récupérer', exact: true })).toBeDisabled()
-  await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
+  await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await page.goto('/videos/43')
   await expect(page.getByText('Contenu enregistré')).toBeVisible()
   release()

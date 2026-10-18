@@ -1766,3 +1766,13 @@ avec accès réseau YouTube réel n'a été lancé.
 
 La tranche de journalisation structurée et ses cinq incréments correctifs sont
 clôturés et prêts à être fusionnés dans `master`.
+
+
+## Allègement UI — navigation de la fiche vidéo
+
+Le lien « Revenir à la bibliothèque » est supprimé de la fiche vidéo pour
+libérer sa ligne. Le bouton précédent du navigateur conserve le contexte
+de navigation, notamment le filtre de la bibliothèque d'origine. Le logo
+Sillage conserve sa destination habituelle : la bibliothèque sans filtre.
+Le contexte de retour transmis par les cartes, devenu inutile, est retiré.
+Aucun changement des panneaux, des lecteurs ou de la palette dans cet incrément.

@@ -788,9 +788,10 @@ Il ne doit pas être exposé à des primitives internes inutiles comme `execute_
 ## Jalon 3 de 5.1 — décisions UX validées
 
 Les tags de la fiche sont visibles et ouvrent la bibliothèque filtrée
-(`/?tag_id=7`). Ceux des cartes restent non interactifs. Le retour depuis
-une fiche conserve le filtre de la bibliothèque d'origine ; un accès direct
-peut revenir à la bibliothèque complète.
+(`/?tag_id=7`). Ceux des cartes restent non interactifs. Le bouton précédent
+du navigateur retrouve la bibliothèque et son filtre lorsqu'on en vient ; le logo
+Sillage ouvre la bibliothèque sans filtre. La fiche ne présente plus de lien
+« Revenir à la bibliothèque » dédié.
 
 Un bouton « Gérer les tags » (ou « Ajouter des tags ») ouvre une modale.
 Un champ unique propose les tags existants à la saisie et une action explicite

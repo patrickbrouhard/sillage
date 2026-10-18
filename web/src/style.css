@@ -185,7 +185,6 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 /* Un seul arbre React : la grille change les positions, jamais les sessions. */
 .work-source { color: var(--muted); font-size: .85rem; font-weight: 400; }
 main:has(.video-workspace) { padding-top: 16px; }
-main:has(.video-workspace) .back-link { margin-bottom: 12px; }
 .video-workspace { display: grid; gap: 1rem; }
 .video-workspace > * { min-width: 0; }
 .workspace-note, .video-player, .video-transcript {

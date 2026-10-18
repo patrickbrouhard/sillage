@@ -89,7 +89,7 @@ test('réponse POST perdue relue sans nouvelle acquisition ; état retrouvé apr
   await page.goto(`/videos/${video.id}`)
   await page.getByRole('button', { name: 'Télécharger', exact: true }).click()
   await expect(page.getByText('Téléchargement en cours sur le serveur…')).toBeVisible()
-  await page.getByRole('link', { name: /Revenir à la bibliothèque/ }).click()
+  await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await page.goto(`/videos/${video.id}`)
   await expect(page.getByText('Téléchargement en cours sur le serveur…')).toBeVisible()
   expect(posts).toBe(1)

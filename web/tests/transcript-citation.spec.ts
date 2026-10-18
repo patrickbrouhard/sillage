@@ -324,7 +324,7 @@ test('une nouvelle vidéo abandonne la sélection et la position de la précéde
   } }))
   await editor.click()
   await selectText(page)
-  await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
+  await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await page.getByRole('link', { name: 'Consulter : ' + other.sources[0].title }).click()
   await expect(editor).toHaveText('Autre note')
   await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()

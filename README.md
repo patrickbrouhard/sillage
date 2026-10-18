@@ -832,8 +832,8 @@ simulées dans le navigateur, séparément de ce parcours d'intégration.
    avec les flèches puis Entrée. Fermer la modale : le tag reste visible.
 3. Cliquer sur le tag : la bibliothèque filtrée doit montrer les deux vidéos.
    Recharger, essayer précédent/suivant et changer le filtre avec le sélecteur.
-4. Ouvrir une carte puis revenir à la bibliothèque : le filtre est conservé.
-   Une fiche ouverte directement peut revenir à la bibliothèque complète.
+4. Ouvrir une carte puis utiliser précédent dans le navigateur : le filtre est
+   conservé. Cliquer sur le logo Sillage revient à la bibliothèque sans filtre.
 5. Retirer le tag de la première vidéo dans la modale : la seconde doit rester
    associée et visible sous ce filtre. Retirer le filtre retrouve toute la liste.
 6. Après retrait de la dernière association, le tag reste disponible dans le

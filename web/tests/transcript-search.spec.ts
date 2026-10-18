@@ -135,7 +135,7 @@ test('changer de vidéo et de source par navigation interne réinitialise la rec
     status: 404, json: { error: { code: 'note_not_found' } },
   }))
   await page.getByRole('searchbox').fill('bonjour')
-  await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
+  await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await page.getByRole('link', { name: 'Consulter : Autre vidéo' }).click()
   await expect(page.getByRole('searchbox')).toHaveValue('')
   await expect(page.locator('mark')).toHaveCount(0)
