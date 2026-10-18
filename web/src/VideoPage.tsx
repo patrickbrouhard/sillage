@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
 import { VideoTags } from './VideoTags'
@@ -62,12 +62,8 @@ function VideoDetail({ id }: { id: string }) {
   const player = useRef<YouTubePlayerHandle>(null)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
-  const location = useLocation()
   const source = state.status === 'ready' ? workSource(state.video.sources) : undefined
   const download = useVideoDownload(Number(id), source?.id)
-  const origin: unknown = location.state?.library
-  // Seul le contexte interne de bibliothèque peut devenir la destination de retour.
-  const backTo = typeof origin === 'string' && /^\/\?tag_id=[0-9]+$/.test(origin) ? origin : '/'
   /** Point d'entrée commun : le lecteur décide de la disponibilité et du défilement. */
   function navigate(startMs: number): string {
     return player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.'
@@ -101,7 +97,6 @@ function VideoDetail({ id }: { id: string }) {
   return (
     <>
       <title>{`${state.status === 'ready' ? state.video.sources[0]?.title || 'Vidéo' : 'Fiche vidéo'} · Sillage`}</title>
-      <Link className="back-link" to={backTo}>← Revenir à la bibliothèque</Link>
       {state.status === 'loading' && <div className="state-panel" role="status">Chargement de la vidéo…</div>}
       {state.status === 'error' && (
         <div className="state-panel error" role="alert">

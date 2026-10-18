@@ -164,7 +164,7 @@ test('sélection préservée lors du clic modifié et Undo inchangé', async ({ 
 
 test('lecteur masqué réaffiché sans perte du focus', async ({ page }) => {
   const { editor, compact, writes } = await open(page, link)
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   await editor.focus()
   await page.keyboard.press('Control+End')
   await compact.click({ modifiers: ['Control'] })

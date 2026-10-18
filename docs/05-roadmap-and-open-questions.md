@@ -1766,3 +1766,88 @@ avec accès réseau YouTube réel n'a été lancé.
 
 La tranche de journalisation structurée et ses cinq incréments correctifs sont
 clôturés et prêts à être fusionnés dans `master`.
+
+
+## Allègement UI — navigation de la fiche vidéo
+
+Le lien « Revenir à la bibliothèque » est supprimé de la fiche vidéo pour
+libérer sa ligne. Le bouton précédent du navigateur conserve le contexte
+de navigation, notamment le filtre de la bibliothèque d'origine. Le logo
+Sillage conserve sa destination habituelle : la bibliothèque sans filtre.
+Le contexte de retour transmis par les cartes, devenu inutile, est retiré.
+Aucun changement des panneaux, des lecteurs ou de la palette dans cet incrément.
+
+
+## Decluttering — découpage en trois parties
+
+### Partie 1 — navigation et en-têtes compacts
+
+Branche `feat/ui-decluttering`. Trois commits : suppression du lien de retour,
+commandes du lecteur à icônes, puis en-tête compact de transcription avec
+recherche dépliante et citation à icône. Aucun changement de diffusion ou de
+lecture locale. La note et les contrats temporels restent préservés.
+
+Validation de la partie 1 : builds frontend/backend, suite Go, go vet et
+vérification TypeScript réussis ; 327 tests Web réussis. Les captures desktop
+sombre et mobile 320 px ont été vérifiées. Les scénarios couvrent notamment
+le repli de recherche sans perte du résultat actif, les infobulles au clavier,
+la citation et la stabilité de la note. Validation manuelle utilisateur à venir.
+
+### Partie 2 — barre YouTube unique (implémentée)
+
+La proposition de volet repliable a été remplacée par une barre unique : titre
+YouTube, informations techniques du fichier disponible, téléchargement ou
+corbeille, et œil à droite. Aucun texte d'absence permanent, aucune séparation
+ni seconde ligne dédiée ; retours à la ligne possibles sur écran étroit.
+Les opérations, erreurs, réessais, confirmation de suppression et consultation
+partagée restent disponibles sans ajout de lecture locale.
+
+Deux commits : regroupement de la barre, puis consolidation des états,
+infobulles, responsive et documentation. Les infobulles distinguent le focus
+clavier du focus laissé par un clic souris ; clic, sortie du pointeur et Échap
+ferment l'aide. Un nouveau survol ou focus clavier permet de la retrouver.
+Les tests exercent plusieurs cycles de masquage/réaffichage et d'ouverture/
+fermeture de recherche, ainsi que le retour du focus après annulation de suppression.
+
+Validation de la partie 2 : builds frontend/backend, suite Go, go vet et
+vérification TypeScript réussis ; 329 tests Web réussis. Captures de la barre
+vérifiées à 1440 et 320 px. Les tests couvrent les états média, l'annulation de
+suppression et la disparition des infobulles après les cycles œil/loupe.
+La validation manuelle utilisateur reste à effectuer.
+
+La partie 3 reste différée. Après validation utilisateur des parties 1 et 2,
+la branche pourra être fusionnée ; aucune fusion ni implémentation de lecteur
+local n'est réalisée automatiquement.
+
+### Partie 3 — intégration après la future tranche de lecture locale
+
+La diffusion GET/HEAD/Range et le lecteur natif seront réalisés sur une branche
+dédiée, avec contrôles d'appartenance et disponibilité, compatibilité navigateur
+et politique explicite en cas de format non lisible, sans conversion implicite.
+Après cette tranche, revenir au decluttering pour intégrer YouTube/Local,
+réserver téléchargement et suppression à Local, traiter les états vide/en
+cours/erreur et réutiliser le suivi existant. La suppression revient à l'état
+sans fichier, sans toucher aux connaissances ni provoquer de lecture automatique.
+
+Le lecteur actif devra recevoir les références temporelles et fournir le temps
+courant, avec les gardes d'identité, de disponibilité et de défilement existantes.
+Une bascule arrête le lecteur précédent sans autoplay ni commande différée ; la
+note conserve son identité, sa sélection, son historique et son autosauvegarde.
+Les détails de bascule et de compatibilité seront confirmés avec l'implémentation
+réelle de la lecture locale, sans préconstruire ce mécanisme sur la branche UI.
+
+
+### Complément UI — typographie commune des notes
+
+Sur `feat/ui-decluttering`, le texte courant des notes passe à la police système,
+16 px et 1,5, avec 700 px de largeur utile maximale dans les deux modes.
+Les paddings sont comptés séparément ; les colonnes de texte restent alignées
+sur écran étroit et le panneau conserve sa largeur. Le code reste monospace,
+via les décorations syntaxiques existantes en Édition et les éléments code/pre
+en Lecture. Aucune dépendance, modification du stockage ou lecture locale.
+
+Validation : builds frontend/backend, suite Go, go vet et TypeScript réussis ;
+330 tests Web réussis. Le test typographique mesure les 700 px utiles, l'alignement
+des deux modes et leurs styles calculés, le monospace et l'absence de sauvegarde
+ou remontage. Captures Édition/Lecture vérifiées en mode sombre à 1920 et 375 px.
+Validation manuelle utilisateur à venir, notamment pour le rendu Segoe UI sous Windows.

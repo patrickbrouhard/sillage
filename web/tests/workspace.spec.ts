@@ -22,7 +22,8 @@ test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions 
   await expect(page.locator('.markdown-editor')).toHaveCSS('background-color', 'rgb(16, 28, 48)')
   await expect(editor).toHaveCSS('color', 'rgb(224, 232, 245)')
   await page.screenshot({ path: info.outputPath('workspace-dark.png'), fullPage: true })
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
+  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await page.getByRole('searchbox').fill('Bonjour')
   await page.setViewportSize({ width: 375, height: 812 })
   await page.getByRole('button', { name: /Aller à .* dans le lecteur/ }).first().click()
@@ -65,12 +66,12 @@ test('défilements indépendants, espace libéré et ordre mobile sans remontage
   await text.evaluate(element => { element.scrollTop = 150 })
   expect(await note.evaluate(element => element.scrollTop)).toBe(0)
   await page.screenshot({ path: info.outputPath('workspace-desktop.png') })
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   const after = await text.boundingBox()
   expect(after!.height).toBeGreaterThan(before!.height + 150)
   for (const width of [375, 320]) {
     await page.setViewportSize({ width, height: 812 })
-    await page.getByRole('button', { name: 'Afficher le lecteur' }).click()
+    await page.getByRole('button', { name: 'Afficher la vidéo' }).click()
     const player = await page.locator('.video-player').boundingBox()
     const editor = await note.boundingBox()
     const transcript = await page.locator('.video-transcript').boundingBox()
@@ -80,7 +81,7 @@ test('défilements indépendants, espace libéré et ordre mobile sans remontage
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.screenshot({ path: info.outputPath(`workspace-${width}.png`) })
-    await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+    await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   }
 })
 

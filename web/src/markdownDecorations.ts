@@ -4,8 +4,8 @@ import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 import type { Range } from '@codemirror/state'
 import { parseCalloutHeader } from './calloutHeader'
 
-/** Décore les seules lignes visibles, en conservant l'ascendance syntaxique hors écran. */
-function quoteDecorations(view: EditorView): DecorationSet {
+/** Décore les citations et le code visibles en conservant leur contexte syntaxique. */
+function noteDecorations(view: EditorView): DecorationSet {
   const ranges: Range<Decoration>[] = []
   const lines = new Map<number, boolean>()
   const headers = new Set<number>()
@@ -15,6 +15,14 @@ function quoteDecorations(view: EditorView): DecorationSet {
       from: visible.from,
       to: visible.to,
       enter(cursor) {
+        // Marquer le nœud entier conserve le monospace malgré la coloration d'un langage
+        // imbriqué, et couvre aussi les clôtures, espaces et indentations du code.
+        if (['InlineCode', 'FencedCode', 'CodeBlock'].includes(cursor.name)) {
+          if (cursor.to > cursor.from) {
+            ranges.push(Decoration.mark({ class: 'cm-markdown-code' }).range(cursor.from, cursor.to))
+          }
+          return false
+        }
         if (cursor.name !== 'Blockquote') return
         const quote = cursor.node
         let nested = false
@@ -69,14 +77,14 @@ export const markdownDecorations = ViewPlugin.fromClass(class {
   decorations: DecorationSet
 
   constructor(view: EditorView) {
-    this.decorations = quoteDecorations(view)
+    this.decorations = noteDecorations(view)
   }
 
   update(update: ViewUpdate) {
     // L'analyse incrémentale peut progresser sans saisie ; le viewport change aussi au retour en Édition.
     if (update.docChanged || update.viewportChanged ||
         syntaxTree(update.startState) !== syntaxTree(update.state)) {
-      this.decorations = quoteDecorations(update.view)
+      this.decorations = noteDecorations(update.view)
     }
   }
 }, { decorations: plugin => plugin.decorations })

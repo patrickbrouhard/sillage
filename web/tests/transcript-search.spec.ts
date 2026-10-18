@@ -26,7 +26,8 @@ async function prepare(page: Page) {
   } }))
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/videos/42')
-  await expect(page.getByRole('searchbox')).toBeVisible()
+  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
+  await expect(page.getByRole('searchbox')).toBeFocused()
   await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
   await page.locator('.video-workspace').evaluate(element => element.scrollIntoView({ block: 'start' }))
   await expect.poll(() => page.evaluate(() => window.youtubeTest?.players.length)).toBe(1)
@@ -94,11 +95,11 @@ test('surligne à travers les blocs, boucle et défile sans réseau ni commande 
 test('recherche vide, aucun résultat, effacement et actualisation recalculent la sélection', async ({ page }) => {
   await prepare(page)
   const search = page.getByRole('searchbox')
-  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('0 / 0')
+  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('')
   await expect(page.getByRole('button', { name: 'Occurrence suivante' })).toBeDisabled()
   await search.fill('bonjour')
   await page.getByRole('button', { name: 'Occurrence suivante' }).click()
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
+  await page.getByRole('button', { name: 'Actualiser la transcription', exact: true }).click()
   await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 2')
   await search.fill('absent')
   await expect(page.locator('mark')).toHaveCount(0)
@@ -111,8 +112,8 @@ test('recherche vide, aucun résultat, effacement et actualisation recalculent l
 
 test('le lecteur masqué reste masqué pendant la recherche sur écran étroit', async ({ page }) => {
   await prepare(page)
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
-  await expect(page.getByRole('button', { name: 'Afficher le lecteur' })).toBeVisible()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
+  await expect(page.getByRole('button', { name: 'Afficher la vidéo' })).toBeVisible()
   await page.setViewportSize({ width: 375, height: 812 })
   await page.getByRole('searchbox').fill('bonjour le monde')
   await page.getByRole('button', { name: 'Occurrence précédente' }).click()
@@ -135,13 +136,17 @@ test('changer de vidéo et de source par navigation interne réinitialise la rec
     status: 404, json: { error: { code: 'note_not_found' } },
   }))
   await page.getByRole('searchbox').fill('bonjour')
-  await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
+  await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await page.getByRole('link', { name: 'Consulter : Autre vidéo' }).click()
+  await expect(page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })).toHaveAttribute('aria-expanded', 'false')
+  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await expect(page.getByRole('searchbox')).toHaveValue('')
   await expect(page.locator('mark')).toHaveCount(0)
   await page.getByRole('searchbox').fill('monde')
   await page.goBack()
   await page.goBack()
+  await expect(page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })).toHaveAttribute('aria-expanded', 'false')
+  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await expect(page.getByRole('searchbox')).toHaveValue('')
   await expect(page.locator('mark')).toHaveCount(0)
 })
@@ -168,7 +173,7 @@ test('un échec d’actualisation conserve la recherche et sa sélection', async
   await page.route('**/transcript', route => route.fulfill({
     status: 502, json: { error: { code: 'transcript_fetch_failed' } },
   }))
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
+  await page.getByRole('button', { name: 'Actualiser la transcription', exact: true }).click()
   await expect(page.getByRole('alert')).toBeVisible()
   await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('2 / 2')
   await expect(page.locator('mark[aria-current=true]')).toHaveText(['BONJOUR'])
@@ -195,8 +200,8 @@ test('une actualisation remplace les occurrences disparues sans perdre la requê
     language: 'fr', provenance: 'youtube_auto', last_fetched_at: '2026-10-13T11:00:00Z',
     items: [{ start_ms: 0, text: 'Nouveau contenu' }],
   } }))
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
-  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('0 / 0')
+  await page.getByRole('button', { name: 'Actualiser la transcription', exact: true }).click()
+  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('Aucun résultat')
   await expect(page.getByRole('searchbox')).toHaveValue('bonjour')
   await expect(page.locator('mark')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Occurrence suivante' })).toBeDisabled()
@@ -212,7 +217,7 @@ test('Entrée parcourt cinq occurrences en boucle sans quitter le champ ni comma
     language: 'en', provenance: 'youtube_auto', last_fetched_at: '2026-10-13T11:00:00Z',
     items: [{ start_ms: 0, text: 'stuff stuff stuff stuff stuff' }],
   } }))
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
+  await page.getByRole('button', { name: 'Actualiser la transcription', exact: true }).click()
   await expect(page.locator('.transcript-block')).toHaveCount(1)
   const search = page.getByRole('searchbox')
   await search.fill('stuff')
@@ -224,7 +229,7 @@ test('Entrée parcourt cinq occurrences en boucle sans quitter le champ ni comma
   }
   await search.fill('absent')
   await search.press('Enter')
-  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('0 / 0')
+  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('Aucun résultat')
   expect(await page.evaluate(() => window.youtubeTest.players[0].navigationCalls)).toEqual([])
 })
 
@@ -240,7 +245,7 @@ test('retrouve thought about séparé par un saut source entre deux blocs', asyn
     language: 'en', provenance: 'youtube_auto', last_fetched_at: '2026-10-13T11:00:00Z',
     items: fragments,
   } }))
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
+  await page.getByRole('button', { name: 'Actualiser la transcription', exact: true }).click()
   await expect(page.locator('.transcript-block')).toHaveCount(2)
   await page.getByRole('searchbox').fill('thought about')
   await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 1')
@@ -262,4 +267,91 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/download', route => route.fulfill({
     json: { status: 'not_downloaded', media_file: null, error: null },
   }))
+})
+
+
+test('replier conserve la recherche et le résultat actif sans commander le lecteur', async ({ page }) => {
+  await prepare(page)
+  const search = page.getByRole('searchbox')
+  const toggle = page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })
+  await search.fill('bonjour')
+  await page.getByRole('button', { name: 'Occurrence suivante' }).click()
+  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('2 / 2')
+  await search.press('Escape')
+  await expect(search).toBeHidden()
+  await expect(toggle).toBeFocused()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(toggle).toHaveClass(/search-active/)
+  await expect(page.locator('mark')).not.toHaveCount(0)
+  await toggle.click()
+  await expect(search).toBeFocused()
+  await expect(search).toHaveValue('bonjour')
+  await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('2 / 2')
+  await page.getByRole('button', { name: 'Effacer la recherche' }).click()
+  await expect(search).toBeFocused()
+  await expect(search).toHaveValue('')
+  await expect(page.locator('mark')).toHaveCount(0)
+  await expect(toggle).not.toHaveClass(/search-active/)
+  expect(await page.evaluate(() => window.youtubeTest.players[0].navigationCalls)).toEqual([])
+})
+
+
+test('actions compactes : aide au clavier et recherche utilisable sur écran étroit', async ({ page }, info) => {
+  await prepare(page)
+  await page.getByRole('searchbox').press('Escape')
+  const refresh = page.getByRole('button', { name: 'Actualiser la transcription', exact: true })
+  await refresh.focus()
+  const tooltip = page.getByRole('tooltip').filter({ hasText: 'Acquisition du' })
+  await expect(tooltip).toBeVisible()
+  await expect(tooltip).toContainText('13/10/2026')
+  await refresh.press('Escape')
+  await expect(tooltip).toBeHidden()
+  for (const width of [1440, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    const toggle = page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })
+    await toggle.click()
+    await page.getByRole('searchbox').fill('bonjour')
+    await expect(page.getByRole('button', { name: 'Occurrence suivante' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: info.outputPath(`transcript-search-${width}.png`) })
+    await page.getByRole('searchbox').press('Escape')
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  }
+})
+
+
+test('les infobulles œil et loupe ne persistent pas après clic et sortie du pointeur', async ({ page }) => {
+  await prepare(page)
+  const search = page.getByRole('searchbox')
+  await search.press('Escape')
+  const toggle = page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })
+  for (let cycle = 0; cycle < 2; cycle++) {
+    for (const name of ['Masquer la vidéo', 'Afficher la vidéo']) {
+      const eye = page.getByRole('button', { name, exact: true })
+      await eye.hover()
+      await expect(page.getByRole('tooltip').filter({ hasText: name })).toBeVisible()
+      await eye.click()
+      await page.mouse.move(0, 0)
+      await expect(page.locator('.icon-tooltip:visible')).toHaveCount(0)
+    }
+    await toggle.hover()
+    await expect(page.getByRole('tooltip').filter({ hasText: 'Rechercher dans la transcription' })).toBeVisible()
+    await toggle.click()
+    await expect(search).toBeFocused()
+    await page.mouse.move(0, 0)
+    await expect(page.locator('.icon-tooltip:visible')).toHaveCount(0)
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await page.mouse.move(0, 0)
+    await expect(page.locator('.icon-tooltip:visible')).toHaveCount(0)
+    // Le bouton reste focalisé après fermeture, mais ce focus souris n'affiche pas l'aide.
+    await expect(toggle).toBeFocused()
+  }
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Shift+Tab')
+  await expect(toggle).toBeFocused()
+  const help = page.getByRole('tooltip').filter({ hasText: 'Rechercher dans la transcription' })
+  await expect(help).toBeVisible()
+  await toggle.press('Escape')
+  await expect(help).toBeHidden()
 })

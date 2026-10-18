@@ -832,8 +832,8 @@ simulées dans le navigateur, séparément de ce parcours d'intégration.
    avec les flèches puis Entrée. Fermer la modale : le tag reste visible.
 3. Cliquer sur le tag : la bibliothèque filtrée doit montrer les deux vidéos.
    Recharger, essayer précédent/suivant et changer le filtre avec le sélecteur.
-4. Ouvrir une carte puis revenir à la bibliothèque : le filtre est conservé.
-   Une fiche ouverte directement peut revenir à la bibliothèque complète.
+4. Ouvrir une carte puis utiliser précédent dans le navigateur : le filtre est
+   conservé. Cliquer sur le logo Sillage revient à la bibliothèque sans filtre.
 5. Retirer le tag de la première vidéo dans la modale : la seconde doit rester
    associée et visible sous ce filtre. Retirer le filtre retrouve toute la liste.
 6. Après retrait de la dernière association, le tag reste disponible dans le
@@ -1665,3 +1665,45 @@ Les erreurs de configuration utilisent un diagnostic JSON de secours.
 Les panics récupérés dans HTTP omettent leur valeur arbitraire ; seuls des
 emplacements de code sont conservés. Un crash du runtime peut encore produire
 une sortie fatale sur stderr. Les logs ne constituent pas un journal d'audit.
+
+
+### Validation manuelle du decluttering — partie 1
+
+- Sur une fiche, le logo rejoint la bibliothèque sans filtre et précédent retrouve
+  le contexte de navigation ; aucun lien de retour dédié n'occupe une ligne.
+- Masquer/réafficher la vidéo avec l'œil ; vérifier la pause et la conservation
+  de la note. Le titre visible « Lecteur » et le lien YouTube redondant sont retirés.
+- Vérifier l'en-tête compact de transcription, la récupération/actualisation,
+  l'aide au survol et au focus, et les erreurs toujours visibles.
+- Ouvrir la recherche, parcourir les occurrences, la replier puis la rouvrir :
+  requête et résultat actif sont conservés. Échap revient à la loupe ; effacer
+  retire les surlignages. Un changement de vidéo réinitialise la recherche.
+- Sélectionner un extrait puis activer les guillemets à la souris ou au clavier :
+  citation, Undo/Redo et autosauvegarde gardent leurs garanties habituelles.
+- Vérifier ces parcours en mode nuit et sur écran étroit. Les commandes actuelles
+  de fichier local restent disponibles ; aucune lecture locale n'est ajoutée.
+
+
+### Validation manuelle du decluttering — partie 2
+
+- Vérifier la barre unique : YouTube, résumé format/taille/durée si disponible,
+  icône téléchargement ou corbeille, puis œil à droite. Aucun séparateur.
+- Vérifier les états chargement, téléchargement, erreur et fichier disponible,
+  ainsi que la confirmation de suppression et son annulation.
+- Survoler puis cliquer l'œil et la loupe, sortir le pointeur, et répéter les
+  ouvertures/fermetures : aucune infobulle ne doit rester affichée à cause du
+  focus souris. Tester également le focus clavier, Échap et un nouveau survol.
+- Vérifier la barre sur écran étroit, sans débordement ni bouton écrasé.
+  La partie 3 et la lecture locale restent différées.
+
+
+### Validation manuelle de la typographie des notes
+
+- Comparer Édition et Lecture : police système 16 px, interligne 24 px pour la
+  prose, colonne utile plafonnée à 700 px hors padding, réduite sur écran étroit.
+- Vérifier code inline, blocs clôturés (avec et sans langage), code indenté,
+  listes imbriquées, citations, tableaux et captures. Le code reste monospace.
+- Vérifier caret, sélections et retours visuels à la ligne, références compactes
+  et révélées, navigation temporelle, Undo/Redo et stabilité lors des bascules.
+- Une ouverture, bascule de mode ou redimensionnement sans édition ne doit pas
+  déclencher d'enregistrement. Le panneau et les commandes gardent leur largeur.

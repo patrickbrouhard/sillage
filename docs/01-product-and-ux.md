@@ -156,7 +156,7 @@ et métadonnées restent accessibles.
 L'en-tête de la fiche est compact : bandeau Sillage réduit sans slogan, titre
 puis tags et action de classement sur une même ligne lorsque la largeur le permet.
 La date d'ajout est consultable dans « Métadonnées et sources ». La provenance
-YouTube figure près du titre du lecteur ; la source de travail et son identifiant
+YouTube figure discrètement dans la barre du lecteur ; la source de travail et son identifiant
 externe sont détaillés dans les métadonnées, sans répéter le titre au-dessus du
 workspace. La bibliothèque et la page d'ajout conservent leur bandeau habituel.
 
@@ -471,7 +471,8 @@ La recherche est littérale hors équivalence des blancs : pas d'expressions ré
 ni de suppression des accents. Un espace saisi correspond aussi aux sauts de ligne,
 tabulations et suites de blancs du texte source, sans modifier ce dernier. Les occurrences sont non chevauchantes, de gauche
 à droite. Une saisie vide n'affiche aucun résultat. Le compteur indique le résultat
-actif et le total (0 / 0 sans correspondance) ; les deux commandes sont alors désactivées.
+actif et le total ; il reste vide sans requête et indique « Aucun résultat » sans
+correspondance. Les deux commandes sont désactivées sans résultat.
 Entrée dans le champ passe au résultat suivant avec retour circulaire, sans déplacer
 le focus ni commander le lecteur ; la validation IME est ignorée.
 Les blancs sources restent exacts, même si CSS les réduit visuellement dans les
@@ -788,9 +789,10 @@ Il ne doit pas être exposé à des primitives internes inutiles comme `execute_
 ## Jalon 3 de 5.1 — décisions UX validées
 
 Les tags de la fiche sont visibles et ouvrent la bibliothèque filtrée
-(`/?tag_id=7`). Ceux des cartes restent non interactifs. Le retour depuis
-une fiche conserve le filtre de la bibliothèque d'origine ; un accès direct
-peut revenir à la bibliothèque complète.
+(`/?tag_id=7`). Ceux des cartes restent non interactifs. Le bouton précédent
+du navigateur retrouve la bibliothèque et son filtre lorsqu'on en vient ; le logo
+Sillage ouvre la bibliothèque sans filtre. La fiche ne présente plus de lien
+« Revenir à la bibliothèque » dédié.
 
 Un bouton « Gérer les tags » (ou « Ajouter des tags ») ouvre une modale.
 Un champ unique propose les tags existants à la saisie et une action explicite
@@ -1025,3 +1027,77 @@ pour la source de travail : conteneur, taille, dimensions encodées, FPS moyens,
 codecs, langue audio déclarée et durée. Les inconnues sont explicites.
 Le bloc partage le suivi existant, sans second polling ni confirmation avant
 téléchargement. Il ne représente pas une nouvelle VideoSource.
+
+
+### Decluttering — partie 1 : commandes du lecteur
+
+Le panneau conserve son nom accessible « Lecteur » sans titre visible. Une
+indication YouTube discrète remplace le titre ; le lien externe redondant est
+retiré. L'œil barré masque la vidéo après mise en pause, l'œil la réaffiche.
+La commande reste présente lorsque la vidéo est masquée. Les boutons à icône
+ont un nom accessible, un focus visible et une infobulle au survol et au clavier.
+Les commandes de conservation du fichier local restent inchangées à ce stade.
+
+
+### Decluttering — partie 1 : transcription
+
+L'en-tête regroupe « Transcription · LANGUE · automatique » et trois commandes
+à icône : recherche, acquisition/actualisation et citation. La citation est la
+dernière action avant le contenu lorsque la recherche est repliée, afin de
+conserver le transfert clavier direct de la sélection vers son bouton.
+La date d'acquisition figure dans l'infobulle d'actualisation, accessible au
+survol et au focus ; Échap ferme les infobulles. Sans transcription, seul le
+titre est affiché et le panneau indique comment lancer la récupération.
+Les erreurs et opérations en cours restent explicites ; une erreur de lecture
+n'est jamais présentée comme une absence de transcription.
+
+La recherche est repliée par défaut. L'ouverture focalise le champ ; un second
+clic sur la loupe ou Échap dans la barre replie celle-ci et rend le focus à la
+loupe. La requête, les surlignages et le résultat actif sont conservés au repli,
+avec un indicateur sur la loupe tant que la requête n'est pas vide. Le compteur
+reste vide sans requête et affiche « Aucun résultat » si la recherche échoue.
+Une action d'effacement conserve le focus dans le champ. Changer de vidéo ou
+de source réinitialise la recherche et replie la barre. Aucune préférence n'est
+persistée et aucune commande n'est envoyée au lecteur par la recherche.
+Les règles de sélection, citation, Undo et autosauvegarde restent inchangées.
+
+
+### Decluttering — partie 2 : barre YouTube unique
+
+Le titre visible « YouTube » reprend la présentation de Note et Transcription.
+La barre regroupe ensuite le format, la taille et la durée du fichier disponible,
+puis une corbeille ; sans fichier, seule l'icône de téléchargement est proposée.
+L'œil reste à droite, même lorsque la vidéo est masquée. La seconde ligne et son
+séparateur disparaissent. Les informations reviennent à la ligne si nécessaire.
+Les opérations et erreurs restent explicites, sans assimiler un état inconnu à
+une absence. La confirmation de suppression et le suivi partagé sont conservés.
+Il n'y a ni volet intermédiaire, ni sélecteur, ni lecture locale dans cette partie.
+
+Les infobulles se ferment au clic et à la sortie du pointeur, y compris après
+un changement de visibilité ou de recherche. Le focus laissé par un clic ne
+les maintient pas ouvertes. Un focus clavier les affiche ; Échap les ferme.
+Un nouveau survol ou une nouvelle interaction clavier peut les réafficher.
+
+
+### Typographie des notes — Édition et Lecture
+
+Le texte courant partage la police système de l'application, une taille de
+16 px CSS et un interligne relatif de 1,5 (24 px). La largeur utile est plafonnée
+à 700 px CSS, hors padding et bordure, et diminue naturellement sur écran étroit.
+La colonne de contenu est centrée dans le panneau ; le workspace, les commandes
+et les autres panneaux conservent leurs dimensions et leur typographie.
+Les retraits internes des listes et citations réduisent leur largeur disponible.
+
+Code inline, blocs clôturés et blocs indentés conservent une même pile monospace
+dans les deux modes. L'éditeur utilise l'arbre syntaxique existant pour ces
+marques, y compris autour de la coloration imbriquée d'un langage. Le Markdown,
+les espaces et les tabulations ne sont pas modifiés. Le retour visuel à la ligne
+en Édition et le défilement horizontal des blocs de code en Lecture restent
+inchangés. Les alignements manuels en espaces hors code ne forment plus une
+grille monospace ; les tableaux rendus restent des tableaux en Lecture.
+
+Titres, emphases, callouts, images et références temporelles gardent leurs
+présentations spécifiques. La cohérence typographique ne rend pas les deux modes
+identiques : le Markdown source et le rendu produisent des hauteurs différentes.
+La bascule conserve la session, l'historique, les sélections et l'autosauvegarde ;
+un changement d'affichage seul n'enregistre pas la note.

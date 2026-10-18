@@ -148,14 +148,36 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
   .tag-dialog { padding: 18px; }
 }
 
-.video-note { margin: 2rem 0; }
+.video-note {
+  --note-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --note-code-font: ui-monospace, "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  --note-text-width: 700px;
+  --note-padding: 1rem;
+  margin: 2rem 0;
+}
+.markdown-editor, .markdown-reading { font-family: var(--note-font); font-size: 16px; line-height: 1.5; }
+.markdown-editor .cm-scroller { font-family: inherit; line-height: inherit; }
+/* La limite porte sur le texte utile ; les paddings restent en supplément. */
+.markdown-editor .cm-content {
+  width: 100%; max-width: calc(var(--note-text-width) + 2 * var(--note-padding));
+  flex-grow: 0; min-width: 0; margin-inline: auto;
+}
+.markdown-editor .cm-line { padding-inline: 0; }
+.markdown-editor .cm-markdown-code, .markdown-reading pre, .markdown-reading code {
+  font-family: var(--note-code-font); font-size: 1em;
+}
 .markdown-editor { border: 1px solid var(--border); border-radius: .5rem; margin: 1rem 0; background: var(--input); color: var(--text); }
-.markdown-editor .cm-content { min-height: 16rem; padding: 1rem; }
+.markdown-editor .cm-content { min-height: 16rem; padding: var(--note-padding); }
 .markdown-editor .cm-focused { outline: 2px solid var(--focus); }
 
 .note-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; }
 .note-toolbar [aria-pressed=true] { outline: 2px solid var(--focus); }
-.markdown-reading { min-height: 16rem; overflow-wrap: anywhere; padding: 1rem; }
+/* La bordure transparente aligne le texte avec le cadre de l'éditeur sur écran étroit. */
+.markdown-reading {
+  width: 100%; max-width: calc(var(--note-text-width) + 2 * var(--note-padding) + 2px);
+  margin: 1rem auto; border: 1px solid transparent;
+  min-height: 16rem; overflow-wrap: anywhere; padding: var(--note-padding);
+}
 .markdown-reading img { max-width: 100%; }
 .markdown-reading pre { overflow-x: auto; }
 .markdown-reading table { border-collapse: collapse; display: block; overflow-x: auto; }
@@ -166,7 +188,12 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .note-navigation { max-width: min(32rem, 90vw); border-radius: .75rem; border: 1px solid var(--border); padding: 1.5rem; }
 .note-navigation::backdrop { background: #0007; }
 
-.transcript-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.transcript-heading { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem .5rem; margin-bottom: .5rem; }
+.transcript-heading h2 { flex: 1; min-width: 9rem; margin-bottom: 0; }
+.transcript-provenance { font-size: .8rem; font-weight: 400; color: var(--muted); }
+.transcript-actions { display: flex; align-items: center; flex-shrink: 0; gap: 2px; }
+.transcript-search[hidden] { display: none; }
+.search-active::after { content: ''; position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--label); }
 .transcript-search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .transcript-search label { flex: 1 1 12rem; min-width: 0; }
 .transcript-search input { width: 100%; min-width: 0; padding: .6rem; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
@@ -176,16 +203,14 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .transcript-block { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: .75rem; margin: 1rem 0; }
 .transcript-block p { margin: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
 .transcript-time { user-select: none; -webkit-user-select: none; font: inherit; font-variant-numeric: tabular-nums; color: var(--label); font-size: .85rem; padding: .2rem; border: 0; background: transparent; align-self: start; text-align: left; text-decoration: underline; cursor: pointer; }
-.player-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
-.player-toolbar h2 { margin-right: auto; }
-.player-toolbar a { font-size: .85rem; }
+.player-toolbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: .5rem; }
+.player-toolbar .work-source { color: var(--text); align-self: start; padding-block: 9px; font-size: 1.1rem; font-weight: 700; }
 .youtube-frame:has(iframe) { width: 100%; aspect-ratio: 16 / 9; min-height: 200px; }
 .youtube-frame iframe { display: block; border: 0; width: 100%; height: 100%; min-height: 200px; }
 
 /* Un seul arbre React : la grille change les positions, jamais les sessions. */
 .work-source { color: var(--muted); font-size: .85rem; font-weight: 400; }
 main:has(.video-workspace) { padding-top: 16px; }
-main:has(.video-workspace) .back-link { margin-bottom: 12px; }
 .video-workspace { display: grid; gap: 1rem; }
 .video-workspace > * { min-width: 0; }
 .workspace-note, .video-player, .video-transcript {
@@ -282,14 +307,14 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 
 
 /* Le contrôle de conservation reste visible quand seul le lecteur est masqué. */
-.video-download { padding: 8px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
-.video-download p { margin: 4px 0 8px; font-size: 0.875rem; }
+.video-download { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; overflow-wrap: anywhere; }
+.video-download > p { margin: 0; font-size: 0.875rem; line-height: 1.5; }
+.download-summary { padding-block: 9px; color: var(--muted); }
+.download-summary:empty { display: none; }
+.video-download > [role="alert"] { flex-basis: 100%; }
 .download-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 @media (min-width: 1100px) {
-  .video-download { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-  .video-download > p { margin: 0; flex: 1 1 160px; }
-  .video-download > p[role="alert"] { flex-basis: 100%; }
   .youtube-frame:has(iframe) { height: clamp(200px, calc(28dvh - 48px), 292px); }
 }
 
@@ -300,3 +325,12 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .markdown-reading img { max-width: 100%; height: auto; }
 @keyframes capture-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .capture-marker::before, .note-toolbar button[aria-busy="true"]::before { animation: none; } }
+
+/* Les icônes réduisent le poids visuel, pas la surface interactive. */
+.icon-control { position: relative; display: inline-flex; flex-shrink: 0; }
+.icon-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 8px; border-color: transparent; background: transparent; }
+.icon-button:disabled { cursor: default; }
+.icon-tooltip { pointer-events: none; position: absolute; z-index: 5; top: calc(100% + 4px); right: 0; width: max-content; max-width: min(240px, 70vw); padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--input); color: var(--text); font-size: 12px; font-weight: 400; line-height: 1.5; visibility: hidden; opacity: 0; transition: opacity .1s, visibility .1s; }
+.icon-control:not(.tooltip-dismissed):hover > .icon-tooltip { visibility: visible; opacity: 1; transition-delay: .5s; }
+.icon-control:not(.tooltip-dismissed):has(button:focus-visible) > .icon-tooltip { visibility: visible; opacity: 1; }
+.icon-control.tooltip-dismissed > .icon-tooltip { visibility: hidden; opacity: 0; transition: none; }

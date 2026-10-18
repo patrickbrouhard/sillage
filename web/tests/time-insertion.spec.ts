@@ -88,7 +88,7 @@ test('lecteur masqué, zéro valide et clics répétés sans réafficher ni repr
   const { editor, video, noteURL } = await openNote(page, request, '')
   await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
   await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   await page.getByRole('button', { name: '+ Temps', exact: true }).click()
   await page.getByRole('button', { name: '+ Temps', exact: true }).click()
   const reference = `[0:00](sillage://videos/${video.id}/sources/${video.sources[0].id}?start_ms=0) `
@@ -165,7 +165,7 @@ test('masquage non confirmé puis destruction refusent l’insertion', async ({ 
     window.youtubeTest.confirmPause = false
     window.youtubeTest.players.at(-1)!.emitState(1)
   })
-  await page.getByRole('button', { name: 'Masquer le lecteur' }).click()
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   await page.getByRole('button', { name: '+ Temps', exact: true }).click()
   await expect(editor).toHaveText('Intact')
   await page.clock.runFor(1100)
