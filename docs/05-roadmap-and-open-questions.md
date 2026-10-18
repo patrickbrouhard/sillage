@@ -1743,3 +1743,7 @@ Incrément 3 : diagnostics métier/techniques distingués à la frontière HTTP 
 absences normales DEBUG, sans diagnostic trompeur. Matrice de tests des réponses,
 niveaux, annulations et causes disque. Un test transporte une vraie erreur de
 processus ffprobe simulé jusqu'au bilan terminal du service, au niveau INFO.
+
+Incrément 4 : corrélation du GET de récupération par clé de commande. Le test REST
+ignore corps et Location de l'acceptation, retrouve la capture par sa clé puis
+vérifie son résultat, l'unique démarrage et l'absence de clé brute dans les logs.

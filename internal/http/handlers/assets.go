@@ -100,6 +100,11 @@ func (h *AssetHandler) ByRequest(w http.ResponseWriter, r *http.Request) {
 		respondAssetError(w, r, err)
 		return
 	}
+	// Corréler la récupération avec la capture acceptée, sans recopier la clé du client.
+	requestlog.Fields(r,
+		slog.Int64("asset_id", a.ID),
+		slog.String("operation_id", fmt.Sprintf("capture:%d", a.ID)),
+	)
 	writeJSON(w, r, 200, assetDTO(a))
 }
 

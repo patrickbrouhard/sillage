@@ -1311,3 +1311,7 @@ Le résultat terminal suit le nettoyage et la finalisation. Une vérification
 confirmant un commit incertain autorise un succès ; sinon les logs distinguent
 l'incertitude et la conservation du fichier. Aucun journal ne remplace l'état
 persistant. Après un crash, un début peut ne pas avoir de fin.
+
+La récupération d'une capture par sa clé de commande enrichit son bilan HTTP
+avec asset_id et operation_id de la capture retrouvée. La clé brute reste exclue ;
+la nouvelle requête HTTP ne remplace pas origin_request_id de l'opération.

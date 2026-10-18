@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/png"
 	"net/http/httptest"
@@ -75,7 +76,17 @@ func TestAssetRESTPersistenceAndPNGContent(t *testing.T) {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
 	origin := w.Header().Get("X-Request-ID")
-	location := w.Header().Get("Location")
+	// Ne pas utiliser le corps ni Location : simuler leur perte après l'acceptation.
+	w = request("GET", "/api/v1/assets/requests/integration_0001", "")
+	var recovered struct{ ID int64 }
+	if err := json.Unmarshal(w.Body.Bytes(), &recovered); err != nil || w.Code != 200 || recovered.ID != 1 {
+		t.Fatalf("recovery: %d %s %v", w.Code, w.Body, err)
+	}
+	recoveryRequest := w.Header().Get("X-Request-ID")
+	if recoveryRequest == origin {
+		t.Fatal("HTTP requests share an identity")
+	}
+	location := fmt.Sprintf("/api/v1/assets/%d", recovered.ID)
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		w = request("GET", location, "")
@@ -110,14 +121,25 @@ func TestAssetRESTPersistenceAndPNGContent(t *testing.T) {
 	}
 	service.Close()
 	counts := map[string]int{}
+	recoverySummaries := 0
 	for _, row := range logRows(t, &output) {
 		event := row["event"].(string)
 		counts[event]++
+		if event == "http.completed" && row["http_request_id"] == recoveryRequest {
+			recoverySummaries++
+			if row["asset_id"] != float64(1) || row["operation_id"] != "capture:1" ||
+				row["route"] != "/api/v1/assets/requests/{request_id}" || row["level"] != "DEBUG" {
+				t.Fatal(row)
+			}
+		}
 		if event == "capture.started" || event == "capture.completed" || event == "test.extraction" {
 			if row["origin_request_id"] != origin || row["operation_id"] != "capture:1" {
 				t.Fatal(row)
 			}
 		}
+	}
+	if recoverySummaries != 1 || strings.Contains(output.String(), "integration_0001") {
+		t.Fatal(output.String())
 	}
 	if counts["capture.started"] != 1 || counts["capture.completed"] != 1 || counts["test.extraction"] != 1 {
 		t.Fatal(counts)
