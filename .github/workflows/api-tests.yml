@@ -88,6 +88,13 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
+      - name: Install media tools for browser tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          /usr/bin/ffmpeg -version
+          /usr/bin/ffprobe -version
+
       - name: Install frontend and Chromium
         run: |
           npm --prefix web ci
