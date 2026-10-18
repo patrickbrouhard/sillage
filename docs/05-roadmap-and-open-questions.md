@@ -1198,9 +1198,9 @@ par le classement natif res:1080, sans préférence MP4 ni liste fermée de cont
 
 ### 7.2 — Captures vidéo implémentées
 
-La base de travail a été vérifiée : master et origin/master à
-`2db04de`, fusion de la PR #11 contenant 7.1 et son correctif.
-L'implémentation 7.2 reste sur une branche dédiée, sans fusion automatique.
+La tranche 7.2 a été fusionnée dans `master` via la PR #12
+(commit `28fe605`, branche `feat/video-captures`). Elle avait été développée
+à partir de `2db04de`, fusion de la PR #11 contenant 7.1 et son correctif.
 
 Livré :
 - Asset persistant, provenance source–vidéo garantie, états pending/available/failed,
@@ -1753,10 +1753,16 @@ servi à /favicon.ico ; aucun filtrage spécial des 404. L'iframe YouTube conser
 fullscreen dans allow sans allowFullscreen redondant. Les tests Web couvrent
 la distribution et le décodage de l'icône, HEAD, les fichiers absents, les
 permissions et l'API native de plein écran avec le double du lecteur.
-La validation manuelle du lecteur YouTube réel sous Brave reste à effectuer.
+Validation manuelle confirmée par l'utilisateur : les essais dans Brave sont
+concluants, y compris le plein écran du lecteur YouTube réel, sans erreur dans
+la console.
 
 Validation des cinq corrections : suite Go complète, go vet, builds et tests de
 concurrence réussis ; 45 requêtes / 135 assertions Postman ; 325 tests Web.
 Build et smoke Docker réussis, avec favicon GET/HEAD, formats JSON/texte,
 persistance, arrêt propre et rotation effective. Aucune dépendance, migration
-ou modification de contrat REST ajoutée. Pas de nouveau test réseau YouTube réel.
+ou modification de contrat REST ajoutée. Aucun nouveau scénario automatisé
+avec accès réseau YouTube réel n'a été lancé.
+
+La tranche de journalisation structurée et ses cinq incréments correctifs sont
+clôturés et prêts à être fusionnés dans `master`.
