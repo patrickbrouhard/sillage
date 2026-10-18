@@ -1682,3 +1682,16 @@ une sortie fatale sur stderr. Les logs ne constituent pas un journal d'audit.
   citation, Undo/Redo et autosauvegarde gardent leurs garanties habituelles.
 - Vérifier ces parcours en mode nuit et sur écran étroit. Les commandes actuelles
   de fichier local restent disponibles ; aucune lecture locale n'est ajoutée.
+
+
+### Validation manuelle du decluttering — partie 2
+
+- Vérifier la barre unique : YouTube, résumé format/taille/durée si disponible,
+  icône téléchargement ou corbeille, puis œil à droite. Aucun séparateur.
+- Vérifier les états chargement, téléchargement, erreur et fichier disponible,
+  ainsi que la confirmation de suppression et son annulation.
+- Survoler puis cliquer l'œil et la loupe, sortir le pointeur, et répéter les
+  ouvertures/fermetures : aucune infobulle ne doit rester affichée à cause du
+  focus souris. Tester également le focus clavier, Échap et un nouveau survol.
+- Vérifier la barre sur écran étroit, sans débordement ni bouton écrasé.
+  La partie 3 et la lecture locale restent différées.

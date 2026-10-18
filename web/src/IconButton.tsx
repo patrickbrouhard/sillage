@@ -34,9 +34,13 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 export function IconButton({ icon, label, tooltip = label, ref, className = '', ...props }: Props) {
   const id = useId()
   const [dismissed, setDismissed] = useState(false)
+  // Un clic peut déplacer le focus ou replier un panneau : il ferme l'aide jusqu'au
+  // prochain survol ou geste clavier, sans confondre focus souris et focus visible.
   return <span className={`icon-control${dismissed ? ' tooltip-dismissed' : ''}`}
-    onMouseLeave={() => setDismissed(false)} onBlur={() => setDismissed(false)}
-    onKeyDown={event => { if (event.key === 'Escape') setDismissed(true) }}>
+    onMouseEnter={() => setDismissed(false)} onMouseLeave={() => setDismissed(true)}
+    onFocus={() => setDismissed(false)} onBlur={() => setDismissed(false)}
+    onClick={() => setDismissed(true)}
+    onKeyDown={event => setDismissed(event.key === 'Escape')}>
     <button {...props} ref={ref} type="button" className={`button icon-button ${className}`}
       aria-label={label} aria-describedby={id}>
       <Icon name={icon} />

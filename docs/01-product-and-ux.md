@@ -1072,3 +1072,8 @@ séparateur disparaissent. Les informations reviennent à la ligne si nécessair
 Les opérations et erreurs restent explicites, sans assimiler un état inconnu à
 une absence. La confirmation de suppression et le suivi partagé sont conservés.
 Il n'y a ni volet intermédiaire, ni sélecteur, ni lecture locale dans cette partie.
+
+Les infobulles se ferment au clic et à la sortie du pointeur, y compris après
+un changement de visibilité ou de recherche. Le focus laissé par un clic ne
+les maintient pas ouvertes. Un focus clavier les affiche ; Échap les ferme.
+Un nouveau survol ou une nouvelle interaction clavier peut les réafficher.

@@ -166,3 +166,39 @@ test('métadonnées locales partagent la consultation et présentent les inconnu
   await expect(metadata).not.toContainText('1080')
   await expect(metadata).not.toContainText('en-US')
 })
+
+
+test('barre unique : informations, commandes, responsive et focus après annulation', async ({ page, request }, info) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trdl0000007' } })).json()
+  let status: typeof absent | typeof available = absent
+  await page.route('**/download', route => route.fulfill({ json: status }))
+  await page.goto(`/videos/${video.id}`)
+  const toolbar = page.locator('.player-toolbar')
+  const title = toolbar.getByRole('heading', { name: 'YouTube', exact: true })
+  const eye = toolbar.getByRole('button', { name: 'Masquer la vidéo' })
+  await expect(toolbar.getByRole('button', { name: 'Télécharger le fichier local' })).toBeVisible()
+  await expect(page.locator('.download-summary')).toBeEmpty()
+  await expect(page.locator('.video-download')).toHaveCSS('border-top-width', '0px')
+  status = available
+  // Une relecture explicite de page simule ici une acquisition terminée hors de cette session.
+  await page.reload()
+  await expect(toolbar.getByRole('button', { name: 'Supprimer le fichier local', exact: true })).toBeVisible()
+  await expect(page.locator('.download-summary')).toHaveText('MKV · 1,9 Mio · 2:05')
+  await expect(toolbar.getByRole('button', { name: 'Télécharger le fichier local' })).toHaveCount(0)
+  for (const width of [1440, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    const heading = await title.boundingBox()
+    const visibility = await eye.boundingBox()
+    expect(Math.abs(heading!.y - visibility!.y)).toBeLessThan(2)
+    expect(visibility!.x).toBeGreaterThan(heading!.x + heading!.width)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await toolbar.screenshot({ path: info.outputPath(`player-toolbar-${width}.png`) })
+  }
+  const trash = toolbar.getByRole('button', { name: 'Supprimer le fichier local', exact: true })
+  await trash.click()
+  await expect(page.getByRole('button', { name: 'Annuler', exact: true })).toBeFocused()
+  await page.getByRole('button', { name: 'Annuler', exact: true }).click()
+  await expect(trash).toBeFocused()
+  await page.mouse.move(0, 0)
+  await expect(page.locator('.icon-tooltip:visible')).toHaveCount(0)
+})

@@ -1793,24 +1793,31 @@ sombre et mobile 320 px ont été vérifiées. Les scénarios couvrent notamment
 le repli de recherche sans perte du résultat actif, les infobulles au clavier,
 la citation et la stabilité de la note. Validation manuelle utilisateur à venir.
 
-### Partie 2 — proposition sans lecture locale (non implémentée)
+### Partie 2 — barre YouTube unique (implémentée)
 
-Après retour sur la partie 1, regrouper les commandes existantes du fichier
-local dans un volet repliable « Fichier local », accessible près du lecteur.
-Ce volet serait une interface de conservation, pas un mode de lecture : pas
-de sélecteur YouTube/Local tant que la lecture locale n'existe pas.
+La proposition de volet repliable a été remplacée par une barre unique : titre
+YouTube, informations techniques du fichier disponible, téléchargement ou
+corbeille, et œil à droite. Aucun texte d'absence permanent, aucune séparation
+ni seconde ligne dédiée ; retours à la ligne possibles sur écran étroit.
+Les opérations, erreurs, réessais, confirmation de suppression et consultation
+partagée restent disponibles sans ajout de lecture locale.
 
-Premier commit proposé : volet et état synthétique (absent, acquisition en
-cours, disponible, échec ou état inconnu), réutilisant le suivi existant.
-Télécharger/Réessayer et les erreurs restent disponibles dans ce volet ; une
-acquisition continue après fermeture sans second polling ni nouveau POST.
-Deuxième commit proposé : corbeille dans le volet, confirmation existante et
-ciblage du fichier conservés ; détails techniques dans les métadonnées, sans
-répétition permanente au-dessus du lecteur. Le rattachement de cette corbeille
-au seul mode Local attend la partie 3.
-Dernier commit : tests combinés, revue desktop/mobile et bilan documentaire.
-Cette partie est une proposition à valider, pas une décision déjà implémentée.
-Après validation des parties 1 et 2, la branche pourra être fusionnée.
+Deux commits : regroupement de la barre, puis consolidation des états,
+infobulles, responsive et documentation. Les infobulles distinguent le focus
+clavier du focus laissé par un clic souris ; clic, sortie du pointeur et Échap
+ferment l'aide. Un nouveau survol ou focus clavier permet de la retrouver.
+Les tests exercent plusieurs cycles de masquage/réaffichage et d'ouverture/
+fermeture de recherche, ainsi que le retour du focus après annulation de suppression.
+
+Validation de la partie 2 : builds frontend/backend, suite Go, go vet et
+vérification TypeScript réussis ; 329 tests Web réussis. Captures de la barre
+vérifiées à 1440 et 320 px. Les tests couvrent les états média, l'annulation de
+suppression et la disparition des infobulles après les cycles œil/loupe.
+La validation manuelle utilisateur reste à effectuer.
+
+La partie 3 reste différée. Après validation utilisateur des parties 1 et 2,
+la branche pourra être fusionnée ; aucune fusion ni implémentation de lecteur
+local n'est réalisée automatiquement.
 
 ### Partie 3 — intégration après la future tranche de lecture locale
 

@@ -318,3 +318,40 @@ test('actions compactes : aide au clavier et recherche utilisable sur écran ét
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   }
 })
+
+
+test('les infobulles œil et loupe ne persistent pas après clic et sortie du pointeur', async ({ page }) => {
+  await prepare(page)
+  const search = page.getByRole('searchbox')
+  await search.press('Escape')
+  const toggle = page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })
+  for (let cycle = 0; cycle < 2; cycle++) {
+    for (const name of ['Masquer la vidéo', 'Afficher la vidéo']) {
+      const eye = page.getByRole('button', { name, exact: true })
+      await eye.hover()
+      await expect(page.getByRole('tooltip').filter({ hasText: name })).toBeVisible()
+      await eye.click()
+      await page.mouse.move(0, 0)
+      await expect(page.locator('.icon-tooltip:visible')).toHaveCount(0)
+    }
+    await toggle.hover()
+    await expect(page.getByRole('tooltip').filter({ hasText: 'Rechercher dans la transcription' })).toBeVisible()
+    await toggle.click()
+    await expect(search).toBeFocused()
+    await page.mouse.move(0, 0)
+    await expect(page.locator('.icon-tooltip:visible')).toHaveCount(0)
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await page.mouse.move(0, 0)
+    await expect(page.locator('.icon-tooltip:visible')).toHaveCount(0)
+    // Le bouton reste focalisé après fermeture, mais ce focus souris n'affiche pas l'aide.
+    await expect(toggle).toBeFocused()
+  }
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Shift+Tab')
+  await expect(toggle).toBeFocused()
+  const help = page.getByRole('tooltip').filter({ hasText: 'Rechercher dans la transcription' })
+  await expect(help).toBeVisible()
+  await toggle.press('Escape')
+  await expect(help).toBeHidden()
+})
