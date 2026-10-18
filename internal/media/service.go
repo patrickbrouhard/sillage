@@ -407,11 +407,7 @@ func (s *Service) Open(ctx context.Context, videoID video.VideoID, id int64) (Fi
 	if f.OriginSourceID != nil && s.active == *f.OriginSourceID {
 		return File{}, nil, ErrUnavailable
 	}
-	storage, ok := s.storage.(interface{ Open(File) (Content, error) })
-	if !ok {
-		return File{}, nil, ErrUnavailable
-	}
-	content, err := storage.Open(f)
+	content, err := s.storage.Open(f)
 	if err != nil {
 		return File{}, nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}

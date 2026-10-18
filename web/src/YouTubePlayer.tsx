@@ -8,7 +8,7 @@ import { revealPlayer } from './player'
 import type { PlayerHandle } from './player'
 
 /** Présente un lecteur YouTube isolé ; une pause confirmée précède son masquage. */
-export function YouTubePlayer({ source, ref, children, heading, initialStartMs }: { source: VideoSource; ref: Ref<PlayerHandle>; children?: ReactNode; heading: ReactNode; initialStartMs?: number }) {
+export function YouTubePlayer({ source, ref, children, heading, status, initialStartMs }: { source: VideoSource; ref: Ref<PlayerHandle>; children?: ReactNode; heading: ReactNode; status?: ReactNode; initialStartMs?: number }) {
   const initialPosition = useRef(initialStartMs)
   const stopPlayer = useRef<(() => void) | null>(null)
   const host = useRef<HTMLDivElement>(null)
@@ -108,7 +108,7 @@ export function YouTubePlayer({ source, ref, children, heading, initialStartMs }
     }
 
     void loadYouTubeAPI().then(api => {
-      if (disposed || conceal.current || !host.current) return
+      if (disposed || failed || conceal.current || !host.current) return
       // Le conteneur appartient à React ; seule son iframe appartient à YouTube.
       const iframe = document.createElement('iframe')
       const params = new URLSearchParams({
@@ -222,6 +222,7 @@ export function YouTubePlayer({ source, ref, children, heading, initialStartMs }
         aria-expanded={!hidden} aria-busy={hiding}
         label={hidden ? 'Afficher la vidéo' : hiding ? 'Mise en pause…' : 'Masquer la vidéo'} />
     </div>
+    {status}
     <div hidden={hidden}>
       {!ready && !message && <p role="status">Chargement du lecteur YouTube…</p>}
       {message && <div role="alert"><p>{message}</p><button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}

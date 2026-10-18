@@ -44,18 +44,18 @@ export function VideoPlayer({ videoID, source, download, ref }: {
   </label>
   const feedback = <p className="player-switch-status" role="status">{message}</p>
   if (selection.mode === 'youtube') return <YouTubePlayer source={source} ref={player}
-    heading={heading} initialStartMs={selection.startMs}>{feedback}</YouTubePlayer>
+    heading={heading} status={feedback} initialStartMs={selection.startMs}><span className="player-spacer" /></YouTubePlayer>
   const file = download.state?.status === 'available' ? download.file : null
   const url = file && file.id !== unloaded ? `/api/v1/videos/${videoID}/media-files/${file.id}/content` : undefined
-  return <LocalPlayer ref={player} heading={heading} url={url} initialStartMs={selection.startMs}>
-    <div>
-      <VideoDownload download={download} beforeDelete={file => {
-        player.current?.stop()
-        setUnloaded(file.id)
-      }} />
-      {feedback}
-      {download.state?.status === 'not_downloaded' && <p className="muted">Aucun fichier local. Téléchargez cette source pour la regarder ici.</p>}
-      {file?.id === unloaded && <button className="button" onClick={() => setUnloaded(undefined)}>Recharger le lecteur local</button>}
-    </div>
+  const status = <>
+    {feedback}
+    {download.state?.status === 'not_downloaded' && <p className="muted">Aucun fichier local. Téléchargez cette source pour la regarder ici.</p>}
+    {file?.id === unloaded && <button className="button" onClick={() => setUnloaded(undefined)}>Recharger le lecteur local</button>}
+  </>
+  return <LocalPlayer ref={player} heading={heading} status={status} url={url} initialStartMs={selection.startMs}>
+    <VideoDownload download={download} beforeDelete={file => {
+      player.current?.stop()
+      setUnloaded(file.id)
+    }} />
   </LocalPlayer>
 }

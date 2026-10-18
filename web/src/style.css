@@ -343,3 +343,10 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 @media (min-width: 900px) {
   .local-video { height: clamp(200px, calc(28dvh - 48px), 292px); aspect-ratio: auto; }
 }
+
+@media (max-width: 500px) {
+  .player-toolbar { grid-template-columns: minmax(0, 1fr) auto; }
+  .player-toolbar > .icon-control { grid-column: 2; grid-row: 1; }
+  .player-toolbar > .video-download { grid-column: 1 / -1; grid-row: 2; }
+  .player-toolbar > .player-spacer { display: none; }
+}

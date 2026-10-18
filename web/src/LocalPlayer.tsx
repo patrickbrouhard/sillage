@@ -5,11 +5,12 @@ import { revealPlayer } from './player'
 import type { PlayerHandle } from './player'
 
 /** Lit une identité média exacte avec les contrôles natifs et sans reprise automatique. */
-export function LocalPlayer({ url, ref, heading, children, initialStartMs }: {
+export function LocalPlayer({ url, ref, heading, children, status, initialStartMs }: {
   url?: string
   ref: Ref<PlayerHandle>
   heading: ReactNode
   children?: ReactNode
+  status?: ReactNode
   initialStartMs?: number
 }) {
   const host = useRef<HTMLVideoElement>(null)
@@ -106,6 +107,7 @@ export function LocalPlayer({ url, ref, heading, children, initialStartMs }: {
           setHidden(value => !value)
         }} />
     </div>
+    {status}
     <div hidden={hidden}>
       {message && <div role="alert"><p>{message}</p><button className="button"
         onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}

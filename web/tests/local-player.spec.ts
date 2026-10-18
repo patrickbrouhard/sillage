@@ -7,7 +7,8 @@ async function setup(page: Page, request: APIRequestContext, downloaded = true) 
   const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/' + externalID } })).json()
   const downloadURL = `/api/v1/videos/${video.id}/sources/${video.sources[0].id}/download`
   if (downloaded) {
-    await request.post(downloadURL)
+    // Le serveur n'accepte qu'une acquisition globale ; la préparation des tests attend sa place.
+    await expect.poll(async () => (await request.post(downloadURL)).status()).not.toBe(503)
     await expect.poll(async () => (await (await request.get(downloadURL)).json()).status).toBe('available')
   }
   await page.goto('/videos/' + video.id)
@@ -118,4 +119,81 @@ test('fin de téléchargement conserve YouTube et son instance', async ({ page, 
   expect(await iframe!.evaluate(n => n === document.querySelector('iframe'))).toBe(true)
   await page.reload()
   await expect(c.mode).toHaveValue('youtube')
+})
+
+test('temps, transcription, références et capture utilisent la timeline locale', async ({ page, request }) => {
+  const c = await setup(page, request)
+  await request.post(`/api/v1/videos/${c.video.id}/sources/${c.video.sources[0].id}/transcript`)
+  await page.reload()
+  await c.mode.selectOption('local')
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThanOrEqual(2)
+  await position(page, 12.345)
+  const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+  await editor.click()
+  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+  await expect.poll(async () => (await (await request.get(`/api/v1/videos/${c.video.id}/note`)).json()).content_md).toContain('start_ms=12345')
+  const calls: number[] = []
+  await page.route('**/captures', route => {
+    calls.push(route.request().postDataJSON().timestamp_ms)
+    return route.fulfill({ status: 503, json: { error: { code: 'capture_busy' } } })
+  })
+  await page.getByRole('button', { name: '+ Capture', exact: true }).click()
+  await expect.poll(() => calls).toEqual([12345])
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
+  await page.getByRole('button', { name: /Aller à .* dans le lecteur/ }).first().click()
+  await expect(c.media).toBeVisible()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(2.96, 2)
+  expect(await c.media.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
+  await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+  await page.getByLabel('Lecture de la note').getByRole('button').first().click()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(12.345, 2)
+  expect(await page.evaluate(() => window.youtubeTest.players.every(p => p.navigationCalls.length === 0))).toBe(true)
+})
+
+test('initialisation retardée, timestamp refusé et bascules rapides sans commande tardive', async ({ page, request }) => {
+  const c = await setup(page, request)
+  await request.post(`/api/v1/videos/${c.video.id}/sources/${c.video.sources[0].id}/transcript`)
+  await page.reload()
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/media-files/*/content', async route => {
+    await gate
+    await route.continue().catch(() => {})
+  })
+  await c.mode.selectOption('local')
+  await page.getByRole('button', { name: /Aller à .* dans le lecteur/ }).first().click()
+  await expect(page.getByText(/Navigation non effectuée : le lecteur local/)).toBeVisible()
+  release()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThanOrEqual(2)
+  expect(await c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(0)
+  await position(page, 30)
+  await page.evaluate(() => { window.youtubeTest.autoReady = false })
+  await c.mode.selectOption('youtube')
+  await expect(page.locator('iframe')).toBeVisible()
+  await c.mode.selectOption('local')
+  await page.evaluate(() => {
+    const old = window.youtubeTest.players.at(-1)!
+    old.options.events.onReady({ target: old })
+    old.emitState(1)
+  })
+  await expect(c.mode).toHaveValue('local')
+  await expect(page.locator('iframe')).toHaveCount(0)
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThanOrEqual(2)
+  expect(await c.media.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
+})
+
+test('lecteur local étroit : note stable et commandes accessibles', async ({ page, request }) => {
+  const c = await setup(page, request)
+  await c.mode.selectOption('local')
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThanOrEqual(2)
+  const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+  const node = await editor.elementHandle()
+  for (const width of [1440, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await expect(page.getByRole('button', { name: 'Supprimer le fichier local', exact: true })).toBeVisible()
+    await page.screenshot({ path: test.info().outputPath(`local-${width}.png`), fullPage: true })
+  }
+  expect(await node!.evaluate(n => n === document.querySelector('.cm-content'))).toBe(true)
 })
