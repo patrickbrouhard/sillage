@@ -1716,9 +1716,10 @@ fichier. Les timestamps, notes, transcription et captures utilisent le lecteur a
 Les bascules préparent autant que possible la position en pause ; masquer met en pause.
 Une erreur locale propose un réessai et laisse le retour vers YouTube manuel.
 
-**YouTube reste sélectionné initialement pendant la validation.** La priorité
-initiale Local est décidée mais attend les essais et l'accord explicite de
-l'utilisateur. Aucun changement automatique à la fin d'un téléchargement.
+**Local est sélectionné initialement si le média de la source de travail est
+disponible**, sinon YouTube. Le choix attend la consultation initiale sans affichage
+fugace de YouTube ; une erreur de consultation choisit YouTube. Les notes restent
+accessibles. Aucun changement automatique à la fin d'un téléchargement.
 
 ### Contenu média
 
@@ -1735,6 +1736,6 @@ l'utilisateur. Aucun changement automatique à la fin d'un téléchargement.
   Aucune conversion ni modification de la politique yt-dlp.
 
 La suppression conserve notes, transcriptions et captures. Elle laisse le panneau
-Local vide ; un rafraîchissement revient actuellement au défaut YouTube.
+Local vide ; un rafraîchissement recalcule le choix et revient à YouTube sans fichier.
 
 Voir [la recette de validation locale](docs/06-local-playback-validation.md).

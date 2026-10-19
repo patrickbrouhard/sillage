@@ -263,12 +263,12 @@ their terminal event. Keep the server cancellation context and copy only safe
 correlation attributes when accepting work. No logger interface, persistent log
 table or job framework. Successful reads, polling and note autosaves are DEBUG.
 
-## Local playback — implementation awaiting manual validation
+## Local playback — local-first enabled
 
-Use one logical player area with YouTube / Local. Keep YouTube as the initial
-selection until the user explicitly validates the trials. Local-first is decided,
-but must not be enabled yet or implemented through a persistent preference/flag.
-Future initial selection must await media availability without a YouTube flash.
+Use one logical player area with YouTube / Local. Initial selection waits for
+media availability without mounting YouTube first: choose Local when available,
+otherwise YouTube, including on availability lookup failure. Do not persist a
+preference or add a flag. Notes and transcript remain accessible while waiting.
 Download completion never changes the selected mode.
 
 Local uses native video controls and the exact media content REST identity.

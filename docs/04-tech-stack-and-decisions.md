@@ -1345,7 +1345,8 @@ autorisation supplémentaire ni commande de lecture n'est ajoutée.
   une description complète des profils et les capacités varient selon le navigateur.
   L'échec réel est affiché sans affirmer systématiquement un codec incompatible.
 - Aucun changement de sélection yt-dlp ni de repli des captures.
-- YouTube initialement pendant les essais. Priorité initiale Local décidée mais
-  non activée avant validation explicite ; pas de préférence persistée ou de flag.
+- Priorité initiale Local activée après accord utilisateur : attendre la disponibilité,
+  choisir Local si available, sinon YouTube (également en cas d'erreur de consultation).
+  Pas de préférence persistée, de flag ni de bascule lors des actualisations.
 - La réservation n'interdit pas une suppression entre deux requêtes HTTP.
   Les octets déjà en tampon d'un autre navigateur ne sont pas révocables.

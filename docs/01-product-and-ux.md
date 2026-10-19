@@ -1104,13 +1104,12 @@ un changement d'affichage seul n'enregistre pas la note.
 
 ## Lecture locale — première implémentation et decluttering partie 3
 
-Une seule zone propose le choix YouTube / Local. YouTube reste sélectionné à
-chaque ouverture, y compris si un fichier existe : cette phase attend les essais
-et la validation explicite de l'utilisateur. Le comportement cible est déjà
-décidé : Local initialement si le média de la source de travail est disponible,
-sinon YouTube. Son activation sera une modification ultérieure, sans préférence
-persistée ; elle devra attendre la consultation initiale sans afficher brièvement
-YouTube avant Local. La note et la transcription ne devront pas attendre ce choix.
+Une seule zone propose le choix YouTube / Local. À chaque ouverture, le lecteur
+attend la consultation initiale : Local si le média de la source de travail est
+disponible, sinon YouTube, y compris en cas d'échec de consultation. Aucun lecteur
+distant n'est monté pendant cette attente. La note et la transcription restent
+accessibles. Ce choix n'est calculé qu'une fois par session, sans préférence persistée ;
+une actualisation de disponibilité ne change pas le mode sélectionné.
 
 Local est sélectionnable sans fichier. Il regroupe téléchargement, état de
 conservation, métadonnées compactes et suppression ; YouTube conserve uniquement

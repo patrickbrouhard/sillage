@@ -2,8 +2,8 @@
 
 ## Statut
 
-L'implémentation garde YouTube initialement. Ne pas activer la priorité Local
-avant validation explicite des essais ci-dessous. Les tests Chromium automatisés
+La priorité initiale Local est activée après accord explicite de l'utilisateur.
+Les tests Chromium automatisés
 ne garantissent pas les capacités de Brave Windows ni tous les conteneurs/codecs.
 
 ## Vérifications manuelles dans Brave sous Windows
@@ -11,7 +11,8 @@ ne garantissent pas les capacités de Brave Windows ni tous les conteneurs/codec
 Utiliser des fichiers réellement téléchargés par Sillage via yt-dlp, dont une
 vidéo longue et les conteneurs disponibles. Conserver la sélection native actuelle.
 
-1. Ouvrir une vidéo avec et sans fichier : YouTube doit être initial dans les deux cas.
+1. Ouvrir une vidéo avec et sans fichier : Local si disponible, sinon YouTube.
+   Avec une consultation lente, aucun lecteur YouTube ne doit apparaître avant Local.
    Local reste sélectionnable sans fichier et permet de télécharger.
 2. Lancer un téléchargement, revenir sur YouTube, démarrer sa lecture. La fin du
    téléchargement ne doit changer ni instance ni lecture ni position.
@@ -31,6 +32,7 @@ vidéo longue et les conteneurs disponibles. Conserver la sélection native actu
 8. Supprimer après confirmation pendant la lecture locale : arrêt et déchargement,
    état Local vide, connaissances et PNG conservés. Annuler ne doit rien arrêter.
    Après refus concurrent, recharger le lecteur ou réessayer explicitement.
+   Après suppression réussie puis rafraîchissement, YouTube doit être sélectionné.
 9. Avec deux onglets, vérifier le refus de suppression pendant un transfert actif
    et l'erreur d'une nouvelle plage après suppression entre deux transferts.
    Les octets déjà tamponnés peuvent encore être lus dans l'autre onglet.
@@ -45,10 +47,10 @@ navigateur peuvent décoder des formats différents. Les captures conservent leu
 repli serveur indépendamment du mode. Aucun test manuel Brave n'est revendiqué
 par la seule réussite de la suite automatisée.
 
-## Étape suivante après accord
+## Choix initial activé
 
-Activer le choix initial Local seulement si le média de la source de travail est
-disponible, sinon YouTube. Attendre le premier résultat de disponibilité sans
+Le choix initial est Local seulement si le média de la source de travail est
+disponible, sinon YouTube, également en cas d'erreur de consultation. Attendre le premier résultat de disponibilité sans
 monter brièvement YouTube ; garder notes/transcription indépendantes. En cas
 d'échec de lecture après sélection de Local, rester Local. Aucune préférence
 persistée et aucune bascule à la fin d'un téléchargement.

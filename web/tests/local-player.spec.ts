@@ -12,7 +12,9 @@ async function setup(page: Page, request: APIRequestContext, downloaded = true) 
     await expect.poll(async () => (await (await request.get(downloadURL)).json()).status).toBe('available')
   }
   await page.goto('/videos/' + video.id)
-  await expect(page.getByLabel('Mode de lecture')).toHaveValue('youtube')
+  await expect(page.getByLabel('Mode de lecture')).toHaveValue(downloaded ? 'local' : 'youtube')
+  // Les parcours de bascule préparent explicitement leur point de départ distant.
+  await page.getByLabel('Mode de lecture').selectOption('youtube')
   await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
   return { video, downloadURL, mode: page.getByLabel('Mode de lecture'), media: page.locator('video') }
 }
@@ -119,7 +121,7 @@ test('fin de téléchargement conserve YouTube et son instance', async ({ page, 
   await expect(c.mode).toHaveValue('youtube')
   expect(await iframe!.evaluate(n => n === document.querySelector('iframe'))).toBe(true)
   await page.reload()
-  await expect(c.mode).toHaveValue('youtube')
+  await expect(c.mode).toHaveValue('local')
 })
 
 test('temps, transcription, références et capture utilisent la timeline locale', async ({ page, request }) => {
@@ -148,13 +150,14 @@ test('temps, transcription, références et capture utilisent la timeline locale
   await page.getByRole('button', { name: 'Lecture', exact: true }).click()
   await page.getByLabel('Lecture de la note').getByRole('button').first().click()
   await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(12.345, 2)
-  expect(await page.evaluate(() => window.youtubeTest.players.every(p => p.navigationCalls.length === 0))).toBe(true)
+  expect(await page.evaluate(() => (window.youtubeTest?.players ?? []).every(p => p.navigationCalls.length === 0))).toBe(true)
 })
 
 test('initialisation retardée, timestamp refusé et bascules rapides sans commande tardive', async ({ page, request }) => {
   const c = await setup(page, request)
   await request.post(`/api/v1/videos/${c.video.id}/sources/${c.video.sources[0].id}/transcript`)
   await page.reload()
+  await c.mode.selectOption('youtube')
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
   await page.route('**/media-files/*/content', async route => {
@@ -203,4 +206,36 @@ test('lecteur local étroit : note stable et commandes accessibles', async ({ pa
     await page.screenshot({ path: test.info().outputPath(`local-${width}.png`), fullPage: true })
   }
   expect(await node!.evaluate(n => n === document.querySelector('.cm-content'))).toBe(true)
+})
+
+test('choix initial attend la disponibilité sans YouTube et laisse la note accessible', async ({ page, request }) => {
+  const c = await setup(page, request)
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/download', async route => {
+    await gate
+    await route.continue()
+  })
+  await page.reload()
+  await expect(page.getByRole('status').filter({ hasText: 'Consultation du fichier local…' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
+  expect(await page.evaluate(() => (window.youtubeTest?.players.length ?? 0))).toBe(0)
+  await expect(page.locator('video, iframe')).toHaveCount(0)
+  release()
+  await expect(c.mode).toHaveValue('local')
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThanOrEqual(2)
+  expect(await c.media.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
+  expect(await page.evaluate(() => (window.youtubeTest?.players.length ?? 0))).toBe(0)
+})
+
+test('échec de consultation initiale ouvre YouTube sans bascule après rétablissement', async ({ page, request }) => {
+  const c = await setup(page, request)
+  await page.route('**/download', route => route.fulfill({ status: 500, json: { error: { code: 'internal_error' } } }))
+  await page.reload()
+  await expect(c.mode).toHaveValue('youtube')
+  await page.unroute('**/download')
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Fichier local', exact: true })).toContainText('WEBM')
+  await expect(c.mode).toHaveValue('youtube')
 })

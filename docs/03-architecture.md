@@ -1348,8 +1348,9 @@ Les réservations de lecture/capture utilisent le refus 503 download_busy exista
 
 VideoPlayer compose les deux composants concrets, avec seulement getCurrentTimeMs,
 navigate et stop comme commandes partagées. Une seule instance est montée.
-YouTube demeure le choix initial, sans configuration temporaire. Le choix n'est
-pas recalculé lors des actualisations du téléchargement. Local utilise directement
+La sélection initiale attend le premier état de téléchargement ou son erreur :
+Local si available, sinon YouTube. Aucun lecteur n'est monté pendant l'attente.
+Le choix n'est pas recalculé lors des actualisations du téléchargement. Local utilise directement
 l'URL HTTP dans video, sans téléchargement préalable du fichier dans un Blob.
 
 La bascule transmet une position initiale facultative, consommée une fois à

@@ -1852,7 +1852,7 @@ des deux modes et leurs styles calculés, le monospace et l'absence de sauvegard
 ou remontage. Captures Édition/Lecture vérifiées en mode sombre à 1920 et 375 px.
 Validation manuelle utilisateur à venir, notamment pour le rendu Segoe UI sous Windows.
 
-## Lecture locale — implémentation en attente de validation utilisateur
+## Lecture locale — implémentation et priorité initiale Local
 
 Cette tranche réalise la diffusion sécurisée GET/HEAD/Range et la partie 3 du
 decluttering précédemment différée. Le choix YouTube/Local, le lecteur HTML5,
@@ -1860,12 +1860,11 @@ les transferts de position en pause, les interactions temporelles existantes,
 les erreurs locales sans repli et la suppression après déchargement sont implémentés.
 Aucune migration, import, conversion, préférence persistée ou nouvelle source.
 
-La priorité initiale au local est décidée, mais volontairement non activée :
-YouTube reste initial à chaque ouverture. Après validation explicite des essais,
-un dernier incrément choisira Local si le fichier de la source de travail est
-disponible, sinon YouTube. Il devra attendre la consultation initiale sans
-affichage transitoire du lecteur distant et sans bloquer les notes.
-La fin d'un téléchargement ne changera toujours pas le lecteur sélectionné.
+La priorité initiale au local est activée après accord explicite de l'utilisateur :
+Local si le fichier de la source de travail est disponible, sinon YouTube.
+La consultation initiale est attendue sans affichage transitoire du lecteur distant
+et sans bloquer les notes. Une erreur de consultation choisit YouTube.
+La fin d'un téléchargement ne change jamais le lecteur sélectionné.
 
 La mention historique d'une partie 3 à faire après la lecture locale est donc
 supersédée par son intégration dans cette même tranche. Les anciens comptes
@@ -1897,4 +1896,4 @@ dans 06-local-playback-validation.md ; elle n'est pas déclarée effectuée.
 La préparation parallèle des tests respecte maintenant la capacité d'une acquisition
 globale ; ces attentes appartiennent aux fixtures, aucun réessai de POST automatique
 n'a été introduit dans le produit. Aucun nouvel essai Brave ou réseau YouTube réel
-n'est revendiqué. La validation utilisateur reste attendue avant Local initial.
+n'est revendiqué. L'activation de Local initial a ensuite été autorisée par l'utilisateur.

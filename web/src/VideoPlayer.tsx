@@ -7,7 +7,7 @@ import { YouTubePlayer } from './YouTubePlayer'
 import { LocalPlayer } from './LocalPlayer'
 import { VideoDownload } from './VideoDownload'
 
-/** Compose deux lecteurs concrets ; le choix reste explicite pendant cette phase de validation. */
+/** Compose deux lecteurs concrets ; le choix initial privilégie le média disponible de la source de travail. */
 export function VideoPlayer({ videoID, source, download, ref }: {
   videoID: number
   source: VideoSource
@@ -15,7 +15,7 @@ export function VideoPlayer({ videoID, source, download, ref }: {
   ref: Ref<PlayerHandle>
 }) {
   const player = useRef<PlayerHandle>(null)
-  const [selection, setSelection] = useState<{ mode: 'youtube' | 'local'; startMs?: number }>({ mode: 'youtube' })
+  const [selection, setSelection] = useState<{ mode: 'youtube' | 'local'; startMs?: number } | null>(null)
   const [message, setMessage] = useState('')
   const [unloaded, setUnloaded] = useState<number>()
   useImperativeHandle(ref, () => ({
@@ -26,10 +26,19 @@ export function VideoPlayer({ videoID, source, download, ref }: {
     navigate: startMs => player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.',
     stop: () => player.current?.stop(),
   }))
+  // Attendre la première consultation sans monter YouTube ; les relectures suivantes
+  // ne doivent jamais remplacer le choix effectué pour cette session.
+  if (selection === null) {
+    if (download.state || download.error) {
+      setSelection({ mode: download.state?.status === 'available' ? 'local' : 'youtube' })
+    }
+    return <p role="status">Consultation du fichier local…</p>
+  }
   const heading = <label className="work-source">
     <span className="sr-only">Mode de lecture</span>
     <select aria-label="Mode de lecture" value={selection.mode} onChange={event => {
       const mode = event.target.value as 'youtube' | 'local'
+      if (mode === selection.mode) return
       let startMs: number | undefined
       try { startMs = player.current?.getCurrentTimeMs() } catch { /* Une position non confirmée ne bloque pas la bascule. */ }
       player.current?.stop()
