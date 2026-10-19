@@ -1,11 +1,12 @@
 import { useId, useState } from 'react'
 import type { ButtonHTMLAttributes, Ref } from 'react'
 
-type IconName = 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear' | 'trash'
+type IconName = 'info' | 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear' | 'trash'
 
 /** Dessine les quelques commandes des panneaux sans dépendance ni texte exposé aux lecteurs d'écran. */
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
+    info: 'M12 11v6 M12 7h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
     eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
     'eye-off': 'm3 3 18 18 M10 5.2A12 12 0 0 1 12 5c6.5 0 10 7 10 7a20 20 0 0 1-3 4 M6 6C3.5 8.2 2 12 2 12s3.5 7 10 7a12 12 0 0 0 5-1 M9.9 9.9a3 3 0 0 0 4.2 4.2',
     download: 'M12 3v12 m-5-5 5 5 5-5 M4 15v5h16v-5',

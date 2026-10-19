@@ -96,6 +96,7 @@ test('erreur locale reste locale et la suppression décharge avant DELETE', asyn
     unloaded = await page.locator('video').evaluateAll(nodes => nodes.every(n => !n.getAttribute('src')))
     await route.continue()
   })
+  await page.getByRole('button', { name: 'Informations', exact: true }).click()
   await page.getByRole('button', { name: 'Supprimer le fichier local', exact: true }).click()
   await page.getByRole('button', { name: 'Confirmer la suppression' }).click()
   await expect(page.getByText(/Aucun fichier local\. Téléchargez/)).toBeVisible()
@@ -110,7 +111,8 @@ test('erreur locale reste locale et la suppression décharge avant DELETE', asyn
 test('fin de téléchargement conserve YouTube et son instance', async ({ page, request }) => {
   const c = await setup(page, request, false)
   await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
-  await expect(page.getByText(/Aucun fichier local\. Téléchargez/)).toBeVisible()
+  await expect(page.getByRole('dialog')).toContainText('Télécharger cette vidéo')
+  await page.getByRole('button', { name: 'Annuler', exact: true }).click()
   await c.mode.getByRole('button', { name: 'YouTube', exact: true }).click()
   await expect(page.locator('iframe')).toBeVisible()
   const iframe = await page.locator('iframe').elementHandle()
@@ -203,7 +205,7 @@ test('lecteur local étroit : note stable et commandes accessibles', async ({ pa
   for (const width of [1440, 375, 320]) {
     await page.setViewportSize({ width, height: 900 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-    await expect(page.getByRole('button', { name: 'Supprimer le fichier local', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Informations', exact: true })).toBeVisible()
     await page.screenshot({ path: test.info().outputPath(`local-${width}.png`), fullPage: true })
   }
   expect(await node!.evaluate(n => n === document.querySelector('.cm-content'))).toBe(true)
