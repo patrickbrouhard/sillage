@@ -204,7 +204,6 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .transcript-block p { margin: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
 .transcript-time { user-select: none; -webkit-user-select: none; font: inherit; font-variant-numeric: tabular-nums; color: var(--label); font-size: .85rem; padding: .2rem; border: 0; background: transparent; align-self: start; text-align: left; text-decoration: underline; cursor: pointer; }
 .player-toolbar { display: flex; align-items: center; justify-content: space-between; gap: .25rem; }
-.player-toolbar .work-source { color: var(--text); align-self: start; padding-block: 9px; font-size: 1.1rem; font-weight: 700; }
 .youtube-frame:has(iframe) { width: 100%; aspect-ratio: 16 / 9; min-height: 200px; }
 .youtube-frame iframe { display: block; border: 0; width: 100%; height: 100%; min-height: 200px; }
 
@@ -305,7 +304,6 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .cm-temporal-navigation .cm-temporal-source,
 .cm-temporal-navigation .cm-temporal-source * { cursor: pointer; }
 
-
 /* Le contrôle de conservation reste visible quand seul le lecteur est masqué. */
 .video-download { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; overflow-wrap: anywhere; }
 .video-download > p { margin: 0; font-size: 0.875rem; line-height: 1.5; }
@@ -339,18 +337,14 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .local-video { display: block; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; background: #000; }
 .player-switch-status:empty { display: none; }
 .player-switch-status { font-size: .85rem; color: var(--muted); }
-.player-toolbar .work-source select { max-width: 100%; font: inherit; }
 @media (min-width: 900px) {
   .local-video { height: clamp(200px, calc(28dvh - 48px), 292px); aspect-ratio: auto; }
 }
 
-
-
-
 /* L'en-tête garde son identité et ses cibles pendant le remplacement de la surface. */
 .player-segments { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; padding: 2px; align-self: center; }
 .player-segments button { min-height: 36px; padding: 6px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer; }
-.player-segments button[aria-pressed="true"] { background: var(--input); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
+.player-segments button[aria-pressed="true"] { background: color-mix(in srgb, var(--label) 12%, var(--surface)); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
 .player-segments button:focus-visible { outline: 2px solid var(--label); outline-offset: 2px; }
 
 .video-player { position: relative; }
@@ -364,7 +358,9 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 @media (prefers-reduced-motion: reduce) { .download-indicator.progress { animation: none; } }
 .player-information { position: absolute; z-index: 10; top: 64px; right: 1rem; width: min(380px, calc(100% - 2rem)); max-height: min(65dvh, 540px); overflow: auto; padding: 1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); box-shadow: 0 8px 24px #0003; overflow-wrap: anywhere; }
 .player-information .source-section { margin: 0; padding: 0; border: 0; }
-.player-information .metadata { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); font-size: .85rem; }
+.player-information .metadata { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .6rem .75rem; margin-bottom: 1rem; font-size: .85rem; }
+.player-information .metadata dt { margin: 0; align-self: center; }
+.player-information .metadata dd { align-self: center; }
 .player-information .source-title { font-weight: 600; }
 .player-information .description { font-size: .85rem; }
 .information-close { display: block; margin-left: auto; margin-bottom: .75rem; font-size: .8rem; }

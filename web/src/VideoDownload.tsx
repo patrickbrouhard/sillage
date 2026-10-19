@@ -27,7 +27,9 @@ export function VideoDownload({ download, ref, onClose, onDelete }: {
       status === 'not_downloaded' ? <p>Télécharger cette vidéo pour la conserver et la regarder dans Sillage ? Le lecteur actuel restera inchangé.</p> :
       <p role="status">Consultation du fichier local…</p>}
     <div className="download-actions">
-      <button className="button" autoFocus onClick={() => element.current?.close()}>Annuler</button>
+      <button className="button" autoFocus onClick={() => element.current?.close()}>
+        {!error && (status === 'not_downloaded' || status === 'failed') ? 'Annuler' : 'Fermer'}
+      </button>
       {!error && (status === 'not_downloaded' || status === 'failed') &&
         <button className="button" disabled={busy} onClick={() => {
           // Le hook verrouille la mutation synchroniquement ; fermer ne signifie pas succès.

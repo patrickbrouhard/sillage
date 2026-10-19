@@ -13,9 +13,11 @@ vidéo longue et les conteneurs disponibles. Conserver la sélection native actu
 
 1. Ouvrir une vidéo avec et sans fichier : Local si disponible, sinon YouTube.
    Avec une consultation lente, aucun lecteur YouTube ne doit apparaître avant Local.
-   Local reste sélectionnable sans fichier et permet de télécharger.
-2. Lancer un téléchargement, revenir sur YouTube, démarrer sa lecture. La fin du
-   téléchargement ne doit changer ni instance ni lecture ni position.
+   Aucun mode n'est annoncé sélectionné pendant la consultation initiale.
+   Sans fichier, Local ouvre la confirmation et conserve le mode actif.
+2. Pendant une lecture YouTube, cliquer Local, annuler, puis confirmer un téléchargement.
+   Aucun de ces gestes ni la fin du téléchargement ne doit changer l'instance,
+   la lecture ou la position. Sélectionner Local ensuite reste volontaire.
 3. Passer à Local vers 12:30 puis revenir à YouTube : arrêt de l'ancien lecteur,
    position approximativement conservée, aucune reprise automatique. Un départ
    YouTube préparé peut rester une vignette jusqu'au clic Lecture.
@@ -54,3 +56,37 @@ disponible, sinon YouTube, également en cas d'erreur de consultation. Attendre 
 monter brièvement YouTube ; garder notes/transcription indépendantes. En cas
 d'échec de lecture après sélection de Local, rester Local. Aucune préférence
 persistée et aucune bascule à la fin d'un téléchargement.
+
+
+## Recette complémentaire — barre phase 1
+
+- Vérifier la ligne unique avec segments, Informations et œil, en clair/sombre
+  à 1440, 375 et 320 px. Le mode actif reste identifiable, le focus reste sur
+  son bouton après bascule. Le libellé Local ne disparaît jamais.
+- Confirmer que les marges de 1rem et les hauteurs de la surface sont inchangées.
+  Aucune validation du bord à bord n'est incluse dans cette recette.
+- Annuler/Échap dans la modale : aucun POST. Double clic Confirmer : une seule demande.
+  Cliquer pendant acquisition : état visible, pas de téléchargement concurrent.
+- Modifier l'état depuis un autre onglet pendant que la modale est ouverte :
+  la consultation existante actualise son contenu et les actions possibles.
+- Vérifier spinner pendant activité, coche/croix cinq secondes après résultat confirmé.
+  Recharger : pas de résultat ancien ; spinner si serveur encore actif.
+  Coupure réseau : diagnostic d'incertitude sans résultat inventé ni second POST.
+- Ouvrir Informations au clavier : contenu focalisé, Tab vers les actions,
+  Échap vers Informations, clic extérieur sans reprise du focus.
+  Vérifier les longues descriptions, dimensions inconnues et added_at local.
+- Supprimer depuis le popover : Annuler focalisé ; retour à Informations ;
+  lecture arrêtée seulement après confirmation en Local. Après suppression,
+  rester Local vide et ouvrir la même modale pour télécharger à nouveau.
+- Depuis YouTube, traiter un fichier enregistré mais indisponible par la fenêtre
+  Local : suppression confirmée de l'identité sans arrêter YouTube.
+- Vérifier que les erreurs restent accessibles après fermeture des informations
+  et après disparition de la croix. Une erreur de décodage n'est pas un échec d'acquisition.
+- Revoir Métadonnées et sources : toutes les sources et informations internes
+  demeurent accessibles, indépendamment du popover de la source de travail.
+
+Les tests player-panel.spec.ts produisent des captures en clair/sombre pour trois
+largeurs, avec un vrai WebM synthétique et une acquisition distante simulée.
+Les captures YouTube utilisent l'API simulée (iframe vide) : vérifier le véritable
+lecteur et ses interactions de focus/modalité dans Brave Windows.
+La phase 2 reste interdite sans retour explicite après ce bilan.

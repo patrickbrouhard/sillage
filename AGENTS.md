@@ -279,3 +279,18 @@ Pause on hide, keep notes/transcript mounted, and preserve the server capture fa
 Playback errors remain Local without conversion, deletion or automatic fallback.
 Confirmed deletion unloads the local element first and leaves Local empty on success.
 Reservations protect HTTP requests, not entire viewing sessions.
+
+
+## Player panel — phase 1, visual approval required before phase 2
+
+Keep the panel and segmented native buttons mounted across surface switches.
+Without available media, Local opens one shared conservation dialog without changing
+mode or commanding YouTube. The Local-empty state after deletion uses that same dialog.
+Keep one useVideoDownload consultation. Activity survives refresh through server state;
+success/failure indicators last five seconds and never persist across openings.
+Unknown availability, deletion and decoder errors are not download failures.
+Contextual information and confirmed deletion preserve all sources in the existing
+metadata section. Confirmed deletion from YouTube must not stop the remote player.
+Retain video padding, aspect ratios and height limits. Stop before edge-to-edge work;
+phase 2 requires explicit user approval of phase 1. Clips are exploratory only,
+with no chosen entity, schema, endpoint, cutting or export implementation.

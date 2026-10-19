@@ -1213,3 +1213,11 @@ La disponibilité persistée/disque et le décodage par le navigateur sont disti
 Une erreur du lecteur n'altère ni la référence du média ni les connaissances.
 La réservation de lecture est éphémère et limitée au transfert HTTP, sans objet
 de session persistant. La suppression n'efface toujours ni source ni Asset.
+
+
+### Question exploratoire : clips durables
+
+La roadmap décrit un parcours de clips conservés indépendamment du média complet
+après génération. Le choix entre Asset, MediaFile ou une autre entité reste ouvert.
+Ce renvoi ne modifie ni le modèle existant ni ses invariants de suppression.
+Voir « Piste exploratoire — clips vidéo durables » dans 05-roadmap-and-open-questions.md.

@@ -1350,3 +1350,14 @@ autorisation supplémentaire ni commande de lecture n'est ajoutée.
   Pas de préférence persistée, de flag ni de bascule lors des actualisations.
 - La réservation n'interdit pas une suppression entre deux requêtes HTTP.
   Les octets déjà en tampon d'un autre navigateur ne sont pas révocables.
+
+
+## Panneau vidéo — phase 1
+
+Boutons natifs groupés avec aria-pressed, confirmations via dialog et popover
+non modal positionné dans le panneau non découpé. Fermeture clavier/extérieure
+et retour de focus explicites ; aucune nouvelle bibliothèque.
+En-tête permanent, surfaces concrètes remplaçables, suivi réseau partagé.
+Les résultats temporaires d'acquisition durent cinq secondes sans persistance.
+Pas de menu général, options de téléchargement, bord à bord ou nouveau dimensionnement.
+La phase 2 exige un accord utilisateur distinct après inspection de la phase 1.

@@ -1346,8 +1346,11 @@ video_not_found/media_file_not_found, 409 local_media_unavailable et 500 interna
 Les réservations de lecture/capture utilisent le refus 503 download_busy existant
 à la suppression, avec un message désormais adapté à l'utilisation d'un média.
 
-VideoPlayer compose les deux composants concrets, avec seulement getCurrentTimeMs,
-navigate et stop comme commandes partagées. Une seule instance est montée.
+VideoPlayer possède le panneau et l'en-tête permanents ; il compose les deux surfaces
+concrètes avec getCurrentTimeMs, navigate et stop pour les usages du workspace.
+PlayerSurfaceHandle ajoute seulement toggleVisibility pour l'en-tête ; la surface
+publie sa visibilité confirmée, notamment après pause YouTube. Une seule instance
+de lecture est montée.
 La sélection initiale attend le premier état de téléchargement ou son erreur :
 Local si available, sinon YouTube. Aucun lecteur n'est monté pendant l'attente.
 Le choix n'est pas recalculé lors des actualisations du téléchargement. Local utilise directement
@@ -1364,3 +1367,16 @@ Les tests navigateur ajoutent un WebM VP8/Opus généré par ffmpeg dans le work
 temporaire du lanceur. L'acquisition distante est simulée, mais publication,
 SQLite, GET/Range, ffprobe et décodage HTML5 sont réels. Les fixtures MKV factices
 restent utilisées pour les seuls parcours de gestion des téléchargements.
+
+
+### Panneau vidéo — interactions de la phase 1
+
+useVideoDownload demeure l'unique propriétaire de la consultation et du polling.
+Son suivi éphémère distingue une demande, une activité observée et son résultat
+confirmé ; un timer de cinq secondes efface seulement le résultat de présentation.
+Aucun champ métier, stockage navigateur ou contrat REST supplémentaire.
+VideoDownload est la modale de conservation unique. Les suppressions mémorisent
+l'identité exacte du fichier à confirmer ; elles réutilisent mutate et le déchargement.
+PlayerInformation partage les données déjà chargées ; LocalFileDetails utilise
+un identifiant accessible propre à chaque instance. Aucun appel HTTP à l'ouverture
+du popover. Les commandes d'en-tête ne remountent ni notes ni transcription.

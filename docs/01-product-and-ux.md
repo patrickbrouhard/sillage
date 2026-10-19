@@ -1111,12 +1111,14 @@ distant n'est monté pendant cette attente. La note et la transcription restent
 accessibles. Ce choix n'est calculé qu'une fois par session, sans préférence persistée ;
 une actualisation de disponibilité ne change pas le mode sélectionné.
 
-Local est sélectionnable sans fichier. Il regroupe téléchargement, état de
-conservation, métadonnées compactes et suppression ; YouTube conserve uniquement
-ses commandes de lecture et visibilité. Les états vide, acquisition, erreur de
-consultation et fichier disponible restent distincts. Sur écran étroit, les
-commandes de conservation peuvent occuper une seconde ligne, sans volet ajouté.
-Les métadonnées détaillées partagent toujours la consultation existante.
+Le contrôle segmenté YouTube / Local conserve le mode réellement sélectionné.
+Sans fichier disponible, cliquer Local ouvre une modale de conservation sans changer
+le mode actif ; ce comportement remplace la sélection systématique de Local vide.
+Après suppression depuis Local, ce mode reste sélectionné et son panneau vide
+propose la même modale. Les états vide, acquisition, erreur de consultation et fichier
+disponible restent distincts. Informations et œil restent sur la même ligne permanente.
+Les métadonnées et commandes de conservation sont accessibles dans les informations
+contextuelles ou la modale, avec la consultation partagée existante.
 
 La fin d'une acquisition ne change jamais le mode choisi. Si Local est déjà choisi,
 le fichier peut apparaître dans ce panneau, sans lecture automatique. Aucun
@@ -1150,3 +1152,62 @@ réessai automatique de suppression. En cas de refus, recharger le lecteur est
 une action explicite. Après succès, Local reste sélectionné avec l'état sans fichier.
 Les connaissances et captures restent intactes. Un rafraîchissement recommence
 le choix initial : YouTube dans cette phase, puis la politique cible après validation.
+
+
+## Panneau vidéo — phase 1 : barre stable et conservation volontaire
+
+Le panneau et l'en-tête restent montés lors d'une bascule ; seule la surface propre
+au lecteur change. Les deux boutons natifs ont aria-pressed et gardent le focus ;
+aucun mode n'est annoncé sélectionné pendant la consultation initiale.
+Les marges de la vidéo, ratios et limites de hauteur restent inchangés dans cette phase.
+
+Cliquer Local avec un fichier disponible sélectionne le lecteur. Sinon une seule
+modale présente l'état courant : confirmation Télécharger si absent, activité sans
+POST si téléchargement en cours, erreur et Réessayer si échec, Actualiser l'état
+si consultation incertaine. Une référence à un fichier indisponible reste supprimable
+après confirmation. Les changements d'état serveur actualisent la fenêtre ouverte.
+Annuler/Échap ferme sans acquisition. Pendant une activité, Fermer ferme seulement
+la fenêtre et ne prétend pas annuler le travail serveur. Confirmer déclenche un seul POST puis ferme
+la fenêtre sans attendre son résultat. YouTube n'est ni arrêté ni remplacé.
+Le panneau Local vide après suppression utilise exactement cette même fenêtre.
+
+Un emplacement fixe devant Local accueille un spinner pendant la demande ou
+l'activité serveur, une coche verte après conservation confirmée et une croix rouge
+après échec d'une activité suivie. Les deux résultats durent cinq secondes.
+Les annonces accessibles complètent les symboles, sans dépendre de la couleur.
+Une première consultation available/failed reste neutre ; downloading rétablit
+le spinner après rafraîchissement. Les résultats ne sont pas persistés.
+Après POST perdu, une conservation confirmée peut annoncer le succès ; un ancien
+failed sans activité observée ne prouve pas l'échec d'une nouvelle demande.
+Une erreur de consultation, de suppression ou de décodage ne produit pas de croix.
+Les erreurs importantes restent visibles et leur détail reste consultable.
+
+Informations ouvre un popover non modal, fermé par Échap, clic extérieur, bouton
+Fermer ou changement de mode. Il prend le focus à l'ouverture ; Échap rend le
+focus à Informations, tandis qu'un clic extérieur garde sa destination.
+Les informations YouTube concernent la source de travail : titre, identifiant,
+compte de publication, durée, URL et description repliable.
+Les informations Local incluent les propriétés techniques et added_at du fichier,
+ainsi que sa suppression. La confirmation ferme le popover ; Annuler est focalisé.
+Après fermeture de la confirmation, le focus revient à Informations.
+Seule une suppression confirmée depuis Local décharge le média ; depuis YouTube,
+le lecteur distant reste intact. Une suppression refusée permet de recharger le local.
+
+La section Métadonnées et sources reste intégralement accessible : toutes les sources,
+leurs descriptions et les informations internes à Sillage ne sont pas remplacées
+par le popover de la source de travail.
+
+### Phase 2 différée : surface bord à bord
+
+Une validation visuelle et fonctionnelle explicite de la phase 1 est obligatoire
+avant toute modification des marges de la surface ou de ses dimensions.
+Le rendu bord à bord n'est pas réalisé dans cette phase.
+
+### Parcours exploratoire : conserver des clips d'étude
+
+Piste future, sans implémentation ni modèle arrêté : télécharger une vidéo complète,
+l'étudier et repérer des plages, produire quelques clips durables, les réutiliser
+dans les notes, puis supprimer volontairement le complet en conservant clips, notes,
+transcriptions et captures. L'export externe serait une possibilité distincte,
+facultative. Voir les questions ouvertes de la roadmap ; aucune option de découpe
+ou d'export n'est ajoutée à la barre actuelle.

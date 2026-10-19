@@ -47,9 +47,20 @@ export function VideoPlayer({ videoID, source, download, ref }: {
       setInformation(false)
       informationButton.current?.focus()
     }
+    // Un clic dans l'iframe YouTube ne traverse pas le document parent.
+    // Le changement de focus ferme alors le popover sans reprendre le focus.
+    let frameTimer: number | undefined
+    const frameFocus = () => {
+      frameTimer = window.setTimeout(() => {
+        if (document.activeElement?.tagName === 'IFRAME') setInformation(false)
+      }, 0)
+    }
+    window.addEventListener('blur', frameFocus)
     document.addEventListener('pointerdown', outside)
     document.addEventListener('keydown', escape)
     return () => {
+      window.removeEventListener('blur', frameFocus)
+      window.clearTimeout(frameTimer)
       document.removeEventListener('pointerdown', outside)
       document.removeEventListener('keydown', escape)
     }

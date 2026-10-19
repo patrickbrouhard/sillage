@@ -81,6 +81,7 @@ test('modale, annulation et acquisition conservent lecture YouTube, focus, note 
   await expect(page.locator('.download-indicator.progress')).toBeVisible()
   await local(page)
   await expect(page.getByRole('dialog')).toContainText('Téléchargement en cours')
+  await expect(page.getByRole('button', { name: 'Fermer', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Télécharger le fichier local', exact: true })).toHaveCount(0)
   await page.keyboard.press('Escape')
   status = available
@@ -215,6 +216,9 @@ test('informations, clavier, consultation partagée et dimensions de barre stabl
   await page.getByRole('button', { name: 'Informations', exact: true }).click()
   await expect(popover).toContainText('Source YouTube')
   await expect(popover.getByRole('link', { name: 'Ouvrir la source' })).toHaveAttribute('target', '_blank')
+  await page.locator('iframe').evaluate((frame: HTMLIFrameElement) => frame.focus())
+  await expect(popover).toHaveCount(0)
+  await page.getByRole('button', { name: 'Informations', exact: true }).click()
   await local(page)
   await expect(popover).toHaveCount(0)
 
@@ -233,6 +237,7 @@ test('une modale ouverte suit les changements serveur sans acquisition concurren
   status = active
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await expect(page.getByRole('dialog')).toContainText('Téléchargement en cours')
+  await expect(page.getByRole('button', { name: 'Fermer', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Télécharger le fichier local', exact: true })).toHaveCount(0)
   status = available
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))

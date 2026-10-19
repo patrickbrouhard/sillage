@@ -1897,3 +1897,48 @@ La préparation parallèle des tests respecte maintenant la capacité d'une acqu
 globale ; ces attentes appartiennent aux fixtures, aucun réessai de POST automatique
 n'a été introduit dans le produit. Aucun nouvel essai Brave ou réseau YouTube réel
 n'est revendiqué. L'activation de Local initial a ensuite été autorisée par l'utilisateur.
+
+
+## Panneau vidéo — phase 1 implémentée, validation visuelle attendue
+
+Sur feat/local-video-playback : panneau et barre stables, contrôle segmenté,
+modale unique de conservation, informations contextuelles et indicateurs temporaires.
+Les notes, références, captures et garanties de lecture sont conservées.
+La section Métadonnées et sources reste complète.
+La recette de 06-local-playback-validation.md décrit les vérifications supplémentaires.
+
+Arrêt obligatoire après cette phase. La phase 2 (surface vidéo bord à bord) n'a
+pas commencé ; aucun changement de padding vidéo, ratio ou limite de hauteur.
+Elle nécessitera un retour explicite sur les captures et essais de la phase 1.
+
+## Piste exploratoire — clips vidéo durables
+
+Parcours envisagé : conserver un média complet, étudier ses passages, générer
+des clips à partir de plages temporelles structurées, les utiliser dans les notes,
+puis supprimer volontairement le complet sans perdre les clips ni les connaissances.
+Une fois généré, le clip doit pouvoir être conservé indépendamment du fichier
+complet ayant servi à sa génération. L'export vers un fichier externe est distinct
+et facultatif ; il ne conditionne pas cette conservation interne.
+
+Questions ouvertes avant une tranche dédiée :
+- modèle : extension d'Asset, représentation MediaFile ou autre entité justifiée ;
+- identité, provenance, source de travail et bornes canoniques de la plage ;
+- précision des coupes, formats, codecs et conséquences d'un éventuel réencodage ;
+- références et présentation dans les notes, navigation relative ou d'origine ;
+- conservation, suppression explicite des clips et traitement des générations échouées ;
+- réservation du complet pendant génération et comportement en cas de suppression concurrente ;
+- parcours et périmètre d'export, indépendant du parcours de conservation.
+
+Aucune de ces alternatives de modèle n'est décidée. Aucune migration, API,
+découpe ou export n'est implémenté dans la phase 1 du panneau.
+
+
+### Validation de la phase 1 du panneau
+
+Build TypeScript/Vite et serveur Go réussis ; 345 tests Playwright Chromium passent.
+La recette visuelle couvre 1440/375/320 px, clair/sombre, informations ouvertes et
+téléchargement/modalité. Les captures ont été inspectées ; métadonnées compactées
+sur deux colonnes, sans changement des marges ou hauteurs de la vidéo.
+Les références visuelles sont générées sous web/test-results/ par player-panel.spec.ts.
+Le vrai lecteur YouTube et Brave Windows restent à vérifier manuellement.
+Aucune validation de la phase 2 n'est implicite dans ces résultats.
