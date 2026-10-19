@@ -1,16 +1,13 @@
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
-import type { ReactNode, Ref } from 'react'
-import { IconButton } from './IconButton'
+import type { Ref } from 'react'
 import { revealPlayer } from './player'
-import type { PlayerHandle } from './player'
+import type { PlayerSurfaceHandle, PlayerVisibility } from './player'
 
 /** Lit une identité média exacte avec les contrôles natifs et sans reprise automatique. */
-export function LocalPlayer({ url, ref, heading, children, status, initialStartMs }: {
+export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
   url?: string
-  ref: Ref<PlayerHandle>
-  heading: ReactNode
-  children?: ReactNode
-  status?: ReactNode
+  ref: Ref<PlayerSurfaceHandle>
+  onVisibility: (state: PlayerVisibility) => void
   initialStartMs?: number
 }) {
   const host = useRef<HTMLVideoElement>(null)
@@ -64,11 +61,19 @@ export function LocalPlayer({ url, ref, heading, children, status, initialStartM
   }, [url, attempt])
 
   useLayoutEffect(() => {
+    onVisibility({ hidden, hiding: false })
+  }, [hidden, onVisibility])
+
+  useLayoutEffect(() => {
     if (navigation && host.current) revealPlayer(host.current)
   }, [navigation])
 
   useImperativeHandle(ref, () => ({
     stop,
+    toggleVisibility() {
+      if (!hidden) host.current?.pause()
+      setHidden(value => !value)
+    },
     getCurrentTimeMs() {
       const current = host.current
       const milliseconds = Math.round((current?.currentTime ?? NaN) * 1000)
@@ -97,18 +102,7 @@ export function LocalPlayer({ url, ref, heading, children, status, initialStartM
     },
   }))
 
-  return <section className="video-player" aria-label="Lecteur">
-    <div className="player-toolbar">
-      {heading}
-      {children}
-      <IconButton icon={hidden ? 'eye' : 'eye-off'} aria-expanded={!hidden}
-        label={hidden ? 'Afficher la vidéo' : 'Masquer la vidéo'} onClick={() => {
-          if (!hidden) host.current?.pause()
-          setHidden(value => !value)
-        }} />
-    </div>
-    {status}
-    <div hidden={hidden}>
+  return <div hidden={hidden}>
       {message && <div role="alert"><p>{message}</p><button className="button"
         onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}
       {url && <video ref={host} className="local-video" aria-label="Lecteur vidéo local"
@@ -117,5 +111,4 @@ export function LocalPlayer({ url, ref, heading, children, status, initialStartM
           if (hidden || stopped.current) host.current?.pause()
         }} />}
     </div>
-  </section>
 }

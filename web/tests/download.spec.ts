@@ -11,7 +11,7 @@ test('téléchargement réel simulé, rechargement et suppression préservent la
   const downloadURL = `/api/v1/videos/${video.id}/sources/${video.sources[0].id}/download`
   await request.put(noteURL, { data: { content_md: 'Connaissance durable', expected_revision: 0 } })
   await page.goto(`/videos/${video.id}`)
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
   await expect(page.locator('.download-summary')).toContainText('MKV ·')
   const downloaded = (await (await request.get(downloadURL)).json()).media_file
@@ -25,7 +25,7 @@ test('téléchargement réel simulé, rechargement et suppression préservent la
   await expect(metadata).toContainText('29,97 images/s')
   const first = downloaded.id
   await page.reload()
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   await expect(page.locator('.download-summary')).toContainText('MKV ·')
   expect((await (await request.post(downloadURL)).json()).media_file.id).toBe(first)
   await page.getByRole('button', { name: 'Supprimer le fichier local', exact: true }).click()
@@ -47,7 +47,7 @@ test('suivi sans remontage, note en cours, position et lecteur masqué préserv�
     return route.fulfill({ status: route.request().method() === 'POST' ? 202 : 200, json: status })
   })
   await page.goto(`/videos/${video.id}`)
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   const editor = page.getByRole('textbox', { name: 'Note Markdown' })
   await expect(editor).toBeVisible()
 
@@ -61,7 +61,7 @@ test('suivi sans remontage, note en cours, position et lecteur masqué préserv�
   await expect(page.locator('.download-summary')).toContainText('MKV ·')
   expect(posts).toBe(1)
   expect(await editorNode!.evaluate(node => node === document.querySelector('.cm-content'))).toBe(true)
-  await expect(page.getByLabel('Mode de lecture')).toHaveValue('local')
+  await expect(page.getByLabel('Mode de lecture').getByRole('button', { name: 'Local', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await editor.focus()
   await page.keyboard.press('Control+z')
   await expect(editor).toHaveText('')
@@ -85,12 +85,12 @@ test('réponse POST perdue relue sans nouvelle acquisition ; état retrouvé apr
     return route.fulfill({ json: status })
   })
   await page.goto(`/videos/${video.id}`)
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
   await expect(page.getByText('Téléchargement en cours sur le serveur…')).toBeVisible()
   await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await page.goto(`/videos/${video.id}`)
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   await expect(page.getByText('Téléchargement en cours sur le serveur…')).toBeVisible()
   expect(posts).toBe(1)
 })
@@ -106,7 +106,7 @@ test('erreur de consultation distincte, fichier manquant supprimable et échec d
   })
   await page.route('**/media-files/*', route => { deletes++; mode = 'failed'; return route.fulfill({ status: 204 }) })
   await page.goto(`/videos/${video.id}`)
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   await expect(page.getByText('État du fichier local indisponible.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Télécharger le fichier local', exact: true })).toHaveCount(0)
   mode = 'missing'
@@ -127,7 +127,7 @@ test('serveur occupé et suppression refusée restent visibles sans réessai aut
     return route.fulfill({ json: status })
   })
   await page.goto(`/videos/${video.id}`)
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
   await expect(page.getByText(/Le média est utilisé ou un téléchargement occupe le serveur/)).toBeVisible()
   expect(posts).toBe(1)
@@ -151,7 +151,7 @@ test('métadonnées locales partagent la consultation et présentent les inconnu
     } : file } })
   })
   await page.goto('/videos/' + video.id)
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   await expect(page.locator('.download-summary')).toContainText('MKV ·')
   const before = gets
   await page.getByText('Métadonnées et sources', { exact: true }).click()
@@ -163,7 +163,7 @@ test('métadonnées locales partagent la consultation et présentent les inconnu
   expect(gets).toBe(before)
   legacy = true
   await page.reload()
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   await expect(page.locator('.download-summary')).toContainText('MKV ·')
   await page.getByText('Métadonnées et sources', { exact: true }).click()
   await expect(metadata).toContainText('Inconnues')
@@ -177,7 +177,7 @@ test('barre unique : informations, commandes, responsive et focus après annulat
   let status: typeof absent | typeof available = absent
   await page.route('**/download', route => route.fulfill({ json: status }))
   await page.goto(`/videos/${video.id}`)
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   const toolbar = page.locator('.player-toolbar')
   const title = toolbar.getByLabel('Mode de lecture')
   const eye = toolbar.getByRole('button', { name: 'Masquer la vidéo' })
@@ -187,7 +187,7 @@ test('barre unique : informations, commandes, responsive et focus après annulat
   status = available
   // Une relecture explicite de page simule ici une acquisition terminée hors de cette session.
   await page.reload()
-  await page.getByLabel('Mode de lecture').selectOption('local')
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
   await expect(toolbar.getByRole('button', { name: 'Supprimer le fichier local', exact: true })).toBeVisible()
   await expect(page.locator('.download-summary')).toHaveText('MKV · 1,9 Mio · 2:05')
   await expect(toolbar.getByRole('button', { name: 'Télécharger le fichier local' })).toHaveCount(0)

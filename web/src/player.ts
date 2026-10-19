@@ -19,3 +19,15 @@ export function revealPlayer(element: HTMLElement) {
     : bounds.bottom > top + height ? bounds.bottom - top - height : 0
   if (delta) window.scrollBy({ top: delta, behavior: 'instant' })
 }
+
+/** Commandes internes de la surface, indépendantes de l'en-tête permanent. */
+export interface PlayerSurfaceHandle extends PlayerHandle {
+  /** Masque après arrêt confirmé, ou révèle sans reprendre la lecture. */
+  toggleVisibility(): void
+}
+
+/** État de visibilité confirmé par la surface, notamment après la pause YouTube. */
+export interface PlayerVisibility {
+  hidden: boolean
+  hiding: boolean
+}

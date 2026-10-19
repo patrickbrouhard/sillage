@@ -350,3 +350,10 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
   .player-toolbar > .video-download { grid-column: 1 / -1; grid-row: 2; }
   .player-toolbar > .player-spacer { display: none; }
 }
+
+
+/* L'en-tête garde son identité et ses cibles pendant le remplacement de la surface. */
+.player-segments { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; padding: 2px; align-self: center; }
+.player-segments button { min-height: 36px; padding: 6px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer; }
+.player-segments button[aria-pressed="true"] { background: var(--input); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
+.player-segments button:focus-visible { outline: 2px solid var(--label); outline-offset: 2px; }

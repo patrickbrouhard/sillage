@@ -1,14 +1,18 @@
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
-import type { ReactNode, Ref } from 'react'
+import type { Ref } from 'react'
 import type { VideoSource } from './api'
-import { IconButton } from './IconButton'
 import { loadYouTubeAPI } from './youtubeApi'
 import type { YouTubePlayer as Player } from './youtubeApi'
 import { revealPlayer } from './player'
-import type { PlayerHandle } from './player'
+import type { PlayerSurfaceHandle, PlayerVisibility } from './player'
 
 /** Présente un lecteur YouTube isolé ; une pause confirmée précède son masquage. */
-export function YouTubePlayer({ source, ref, children, heading, status, initialStartMs }: { source: VideoSource; ref: Ref<PlayerHandle>; children?: ReactNode; heading: ReactNode; status?: ReactNode; initialStartMs?: number }) {
+export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
+  source: VideoSource
+  ref: Ref<PlayerSurfaceHandle>
+  onVisibility: (state: PlayerVisibility) => void
+  initialStartMs?: number
+}) {
   const initialPosition = useRef(initialStartMs)
   const stopPlayer = useRef<(() => void) | null>(null)
   const host = useRef<HTMLDivElement>(null)
@@ -25,6 +29,10 @@ export function YouTubePlayer({ source, ref, children, heading, status, initialS
   const [navigation, setNavigation] = useState(0)
 
   useLayoutEffect(() => {
+    onVisibility({ hidden, hiding })
+  }, [hidden, hiding, onVisibility])
+
+  useLayoutEffect(() => {
     if (!navigation || !host.current) return
     // La commande et le réaffichage sont déjà commités. Seule la page défile,
     // jamais les panneaux internes ; aucun travail n'attend onReady.
@@ -33,6 +41,7 @@ export function YouTubePlayer({ source, ref, children, heading, status, initialS
 
   useImperativeHandle(ref, () => ({
     stop() { stopPlayer.current?.() },
+    toggleVisibility: toggle,
     getCurrentTimeMs() {
       const current = player.current
       if (!current || !ready || hiding) {
@@ -214,19 +223,9 @@ export function YouTubePlayer({ source, ref, children, heading, status, initialS
     }, 1_000)
   }
 
-  return <section className="video-player" aria-label="Lecteur">
-    <div className="player-toolbar">
-      {heading}
-      {children}
-      <IconButton icon={hidden ? 'eye' : 'eye-off'} onClick={toggle} disabled={hiding}
-        aria-expanded={!hidden} aria-busy={hiding}
-        label={hidden ? 'Afficher la vidéo' : hiding ? 'Mise en pause…' : 'Masquer la vidéo'} />
-    </div>
-    {status}
-    <div hidden={hidden}>
+  return <div hidden={hidden}>
       {!ready && !message && <p role="status">Chargement du lecteur YouTube…</p>}
       {message && <div role="alert"><p>{message}</p><button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}
       <div className="youtube-frame" ref={host} />
     </div>
-  </section>
 }
