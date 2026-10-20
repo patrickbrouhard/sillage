@@ -14,6 +14,11 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
   initialStartMs?: number
 }) {
   const initialPosition = useRef(initialStartMs)
+  const prepared = useRef(initialStartMs)
+  const uncertain = useRef(false)
+  const experienced = useRef(false)
+  const seekBuffering = useRef(false)
+  const pendingSeek = useRef<number | undefined>(undefined)
   const stopPlayer = useRef<(() => void) | null>(null)
   const host = useRef<HTMLDivElement>(null)
   const player = useRef<Player | null>(null)
@@ -42,9 +47,29 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
   useImperativeHandle(ref, () => ({
     stop() { stopPlayer.current?.() },
     toggleVisibility: toggle,
+    getTransferPosition() {
+      if (uncertain.current || hiding || pendingSeek.current !== undefined) return { kind: 'uncertain' }
+      try {
+        const current = player.current
+        if (prepared.current !== undefined) {
+          // L'état interrogé peut précéder la livraison du callback correspondant.
+          if (!current || [-1, 2, 5].includes(current.getPlayerState())) {
+            return { kind: 'prepared', milliseconds: prepared.current }
+          }
+          prepared.current = undefined
+          experienced.current = true
+        }
+        if (current && ready && [0, 1, 2].includes(current.getPlayerState())) {
+          const milliseconds = Math.round(current.getCurrentTime() * 1000)
+          if (Number.isSafeInteger(milliseconds) && milliseconds >= 0) return { kind: 'confirmed', milliseconds }
+          return { kind: 'uncertain' }
+        }
+        return { kind: !experienced.current && (!current || [-1, 5].includes(current.getPlayerState())) ? 'empty' : 'uncertain' }
+      } catch { return { kind: 'uncertain' } }
+    },
     getCurrentTimeMs() {
       const current = player.current
-      if (!current || !ready || hiding) {
+      if (!current || !ready || hiding || prepared.current !== undefined || pendingSeek.current !== undefined) {
         throw new Error('Temps indisponible : le lecteur doit être prêt et son masquage terminé.')
       }
       try {
@@ -72,12 +97,22 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
       try {
         const state = current.getPlayerState()
         const seconds = startMs / 1000
-        if ([1, 2, 3].includes(state)) current.seekTo(seconds, true)
+        if ([1, 2, 3].includes(state)) {
+          // Un getter peut encore renvoyer l'ancien temps après acceptation du seek.
+          prepared.current = undefined
+          pendingSeek.current = startMs
+          seekBuffering.current = false
+          current.seekTo(seconds, true)
+        }
         // seekTo démarre depuis cued, unstarted ou ended : préparer seulement le départ.
-        else if ([-1, 0, 5].includes(state)) current.cueVideoById({
-          videoId: source.external_id!,
-          startSeconds: seconds,
-        })
+        else if ([-1, 0, 5].includes(state)) {
+          prepared.current = startMs
+          pendingSeek.current = undefined
+          current.cueVideoById({
+            videoId: source.external_id!,
+            startSeconds: seconds,
+          })
+        }
         else return 'Navigation non effectuée : état du lecteur inconnu. Réessayez lorsque le lecteur est prêt.'
         setNavigation(value => value + 1)
         return ''
@@ -100,6 +135,10 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
     function fail(description: string) {
       if (disposed || failed) return
       failed = true
+      uncertain.current = true
+      prepared.current = undefined
+      initialPosition.current = undefined
+      pendingSeek.current = undefined
       window.clearTimeout(readyTimer)
       instance?.destroy()
       instance = null; player.current = null
@@ -149,7 +188,25 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
           if (conceal.current) event.target.pauseVideo()
         },
         onStateChange: event => {
-          if (disposed || failed || !conceal.current) return
+          if (disposed || failed) return
+          // La lecture ou le buffering rend l'ancien départ cued impropre au repli.
+          if ([1, 3].includes(event.data)) {
+            experienced.current = true
+            prepared.current = undefined
+          }
+          if (event.data === 3 && pendingSeek.current !== undefined) seekBuffering.current = true
+          if ([0, 1, 2].includes(event.data)) {
+            if (pendingSeek.current !== undefined) {
+              // Sans identifiant de commande YouTube, ne valider que la cible observée.
+              try {
+                if (seekBuffering.current || Math.round(event.target.getCurrentTime() * 1000) === pendingSeek.current) {
+                  pendingSeek.current = undefined
+                }
+              } catch { uncertain.current = true }
+            }
+            if (pendingSeek.current === undefined) uncertain.current = false
+          }
+          if (!conceal.current) return
           if ([1, 3].includes(event.data)) {
             // Une reprise tardive après masquage ne doit pas devenir une lecture en arrière-plan.
             if (concealed.current) fail('Le lecteur a été arrêté après une reprise inattendue alors qu’il était masqué.')
@@ -216,6 +273,9 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
     // En l'absence de confirmation, retirer l'iframe garantit l'arrêt du média.
     // Cette panne exceptionnelle ne garantit pas la restauration de position.
     concealTimer.current = window.setTimeout(() => {
+      uncertain.current = true
+      prepared.current = undefined
+      initialPosition.current = undefined
       player.current = null
       concealed.current = true
       setHidden(true); setHiding(false)

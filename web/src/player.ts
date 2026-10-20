@@ -20,8 +20,15 @@ export function revealPlayer(element: HTMLElement) {
   if (delta) window.scrollBy({ top: delta, behavior: 'instant' })
 }
 
+/** État réservé au transfert ; une préparation ne certifie jamais un temps de capture. */
+export type TransferPosition =
+  | { kind: 'confirmed' | 'prepared'; milliseconds: number }
+  | { kind: 'empty' | 'uncertain' }
+
 /** Commandes internes de la surface, indépendantes de l'en-tête permanent. */
 export interface PlayerSurfaceHandle extends PlayerHandle {
+  /** Distingue un départ encore valable d'une position devenue indéterminable. */
+  getTransferPosition(): TransferPosition
   /** Masque après arrêt confirmé, ou révèle sans reprendre la lecture. */
   toggleVisibility(): void
 }

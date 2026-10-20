@@ -71,6 +71,10 @@ test('bascule transfère la position en pause et conserve la session et autosauv
   await expect.poll(() => page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([
     { command: 'cue', seconds: 32.567, videoId: c.video.sources[0].external_id },
   ])
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(32.567, 2)
+  await expect(page.locator('.player-switch-status')).toBeEmpty()
+  expect(await c.media.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
   expect(await node!.evaluate(n => n === document.querySelector('.cm-content'))).toBe(true)
   await expect.poll(async () => (await (await request.get(`/api/v1/videos/${c.video.id}/note`)).json()).content_md).toBe('Une connaissance durable')
   await editor.focus()
@@ -192,6 +196,7 @@ test('initialisation retardée, timestamp refusé et bascules rapides sans comma
   await expect(page.getByText(/Impossible de lire ce fichier local/)).toHaveCount(0)
   await expect(page.locator('iframe')).toHaveCount(0)
   expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(30, 2)
   await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThanOrEqual(2)
   expect(await c.media.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
 })
@@ -242,3 +247,72 @@ test('échec de consultation initiale ouvre YouTube sans bascule après rétabli
   await expect(page.getByRole('region', { name: 'Fichier local', exact: true })).toContainText('WEBM')
   await expect(c.mode.getByRole('button', { name: 'YouTube', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
+
+test('départ YouTube vierge : pas de faux avertissement', async ({ page, request }) => {
+  const c = await setup(page, request, false)
+  await expect.poll(async () => (await request.post(c.downloadURL)).status()).not.toBe(503)
+  await expect.poll(async () => (await (await request.get(c.downloadURL)).json()).status).toBe('available')
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Fichier local', exact: true })).toContainText('WEBM')
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect(page.locator('.player-switch-status')).toBeEmpty()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(0)
+})
+
+test('préparation actualisée par référence, temps strict et nouvelle lecture prioritaire', async ({ page, request }) => {
+  const c = await setup(page, request)
+  const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+  await editor.fill('[cible](sillage://videos/' + c.video.id + '/sources/' + c.video.sources[0].id + '?start_ms=80000)')
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await position(page, 40)
+  await c.mode.getByRole('button', { name: 'YouTube', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(5)
+  await editor.click()
+  const before = await editor.textContent()
+  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+  await expect(page.getByText(/Temps indisponible/)).toBeVisible()
+  expect(await editor.textContent()).toBe(before)
+  const captures: string[] = []
+  page.on('request', r => { if (r.url().endsWith('/captures')) captures.push(r.url()) })
+  await page.getByRole('button', { name: '+ Capture', exact: true }).click()
+  expect(captures).toEqual([])
+  await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+  await page.getByLabel('Lecture de la note').getByRole('button').first().click()
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(80, 2)
+  await c.mode.getByRole('button', { name: 'YouTube', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(5)
+  await page.evaluate(() => { const p = window.youtubeTest.players.at(-1)!; p.position = 91.234; p.emitState(1) })
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(91.234, 2)
+})
+
+for (const state of ['buffering', 'error', 'stale-seek'] as const) {
+  test('position incertaine sans repli ancien : ' + state, async ({ page, request }) => {
+    const c = await setup(page, request)
+    await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+    await position(page, 40)
+    await c.mode.getByRole('button', { name: 'YouTube', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(5)
+    await page.evaluate(kind => {
+      const p = window.youtubeTest.players.at(-1)!
+      if (kind === 'error') p.options.events.onError({ data: 100 })
+      else if (kind === 'buffering') p.emitState(3)
+      else {
+        p.position = 41
+        p.emitState(2)
+        p.seekTo = () => {} // Commande acceptée, getter encore obsolète.
+      }
+    }, state)
+    if (state === 'stale-seek') {
+      await page.getByRole('textbox', { name: 'Note Markdown' }).fill('[cible](sillage://videos/' + c.video.id + '/sources/' + c.video.sources[0].id + '?start_ms=80000)')
+      await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+      await page.getByLabel('Lecture de la note').getByRole('button').first().click()
+    }
+    await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+    await expect(page.locator('.player-switch-status')).toContainText('sans transfert')
+    await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(0)
+    expect(await c.media.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
+  })
+}

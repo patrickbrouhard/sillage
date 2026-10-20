@@ -13,6 +13,7 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
   const host = useRef<HTMLVideoElement>(null)
   const stopped = useRef(false)
   const initialPosition = useRef(initialStartMs)
+  const prepared = useRef(initialStartMs)
   const [hidden, setHidden] = useState(false)
   const [message, setMessage] = useState('')
   const [attempt, setAttempt] = useState(0)
@@ -21,6 +22,8 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
   /** Retire aussi la source pour interrompre les requêtes HTTP, même en pause. */
   function stop() {
     stopped.current = true
+    prepared.current = undefined
+    initialPosition.current = undefined
     const current = host.current
     if (current) { current.pause(); current.removeAttribute('src'); current.load() }
   }
@@ -45,15 +48,20 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
         // Le transfert est borné par la durée réelle, sans modifier les références enregistrées.
         try {
           current.pause()
-          current.currentTime = Math.min(position / 1000, Number.isFinite(current.duration) ? current.duration : position / 1000)
+          const seconds = Math.min(position / 1000, Number.isFinite(current.duration) ? current.duration : position / 1000)
+          prepared.current = Math.round(seconds * 1000)
+          current.currentTime = seconds
         } catch { fail() }
       }
     }
+    const settled = () => { if (!disposed) prepared.current = undefined }
+    current.addEventListener('seeked', settled)
     current.addEventListener('loadedmetadata', ready)
     current.addEventListener('error', fail)
     current.src = url
     return () => {
       disposed = true
+      current.removeEventListener('seeked', settled)
       current.removeEventListener('loadedmetadata', ready)
       current.removeEventListener('error', fail)
       current.pause(); current.removeAttribute('src'); current.load()
@@ -70,6 +78,22 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
 
   useImperativeHandle(ref, () => ({
     stop,
+    getTransferPosition() {
+      const current = host.current
+      if (!url) return { kind: 'empty' }
+      if (!current || stopped.current || current.error) return { kind: 'uncertain' }
+      const milliseconds = Math.round(current.currentTime * 1000)
+      if (current.readyState >= 2 && !current.seeking && Number.isSafeInteger(milliseconds) && milliseconds >= 0) {
+        return { kind: 'confirmed', milliseconds }
+      }
+      // Le chargement initial et un seek explicite en pause conservent leur cible.
+      // Un seek natif ou une lecture ne réutilise jamais un ancien curseur.
+      if (prepared.current !== undefined && current.paused &&
+          (current.readyState < 1 || milliseconds === prepared.current)) {
+        return { kind: 'prepared', milliseconds: prepared.current }
+      }
+      return { kind: current.readyState < 1 && prepared.current === undefined ? 'empty' : 'uncertain' }
+    },
     toggleVisibility() {
       if (!hidden) host.current?.pause()
       setHidden(value => !value)
@@ -96,6 +120,7 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
       try {
         // Affecter currentTime ne lance pas la lecture ; un lecteur masqué est déjà en pause.
         current.currentTime = startMs / 1000
+        prepared.current = startMs
         setNavigation(value => value + 1)
         return ''
       } catch { return 'Navigation non effectuée : le repositionnement local a échoué.' }
@@ -107,6 +132,7 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
         onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}
       {url && <video ref={host} className="local-video" aria-label="Lecteur vidéo local"
         controls playsInline preload="metadata" onPlay={() => {
+          prepared.current = undefined
           // Une reprise native tardive ne doit pas contourner le masquage.
           if (hidden || stopped.current) host.current?.pause()
         }} />}

@@ -104,11 +104,13 @@ export function VideoPlayer({ videoID, source, download, ref }: {
       return
     }
     if (mode === selection.mode) return
-    let startMs: number | undefined
-    try { startMs = player.current?.getCurrentTimeMs() } catch { /* Une position non confirmée ne bloque pas la bascule. */ }
+    // Le curseur de session circule uniquement entre surfaces de cette source.
+    // Les commandes de connaissance continuent de lire exclusivement le temps confirmé.
+    const position = player.current?.getTransferPosition() ?? { kind: 'uncertain' }
+    const startMs = 'milliseconds' in position ? position.milliseconds : undefined
     player.current?.stop()
     setInformation(false)
-    setMessage(startMs === undefined ? 'Lecteur changé sans transfert de position : le temps précédent était indisponible.' : '')
+    setMessage(position.kind === 'uncertain' ? 'Lecteur changé sans transfert de position : le temps précédent était indisponible.' : '')
     setUnloaded(undefined)
     setSelection({ mode, startMs })
   }
