@@ -325,3 +325,12 @@ and clear its message on playing. The API does not explicitly guarantee that
 event after seekTo. No synthetic detection, retry, timer or polling. Preserve
 visibility/disposal guards and annotation time semantics. Await manual Brave
 validation; panel phase 2 remains deferred.
+
+## Player panel phase 2 — authorized, manual visual validation pending
+
+Phase 1 and explicit YouTube navigation were manually validated in Brave.
+Phase 2 now extends only the video surfaces to the side and bottom inner edges.
+Keep header/messages padded, panel overflow visible for popovers, and rounded
+lower media corners. Existing ratios, height limits and responsive breakpoints
+remain unchanged. No player behavior, workspace structure or persistence changes.
+The previous phase-1 padding freeze is superseded only for this presentation work.

@@ -367,3 +367,14 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .media-dialog { width: min(480px, calc(100% - 32px)); }
 .player-error { font-size: .85rem; margin-bottom: .75rem; }
 .player-error p { margin-block: .5rem; }
+
+/* Seule l'image rejoint les bords : textes et en-tête gardent le padding du panneau.
+   Ne pas découper le panneau lui-même, qui contient le popover Informations. */
+.video-player:has(.player-surface:not([hidden]) :is(video, iframe)) { padding-bottom: 0; }
+.video-player .player-surface :is(.local-video, .youtube-frame:has(iframe)) {
+  width: calc(100% + 2rem);
+  margin-inline: -1rem;
+  border-radius: 0 0 calc(.75rem - 1px) calc(.75rem - 1px);
+}
+.video-player .youtube-frame:has(iframe) { overflow: hidden; }
+.video-player .player-surface > [role="alert"] { margin-bottom: .75rem; }

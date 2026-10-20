@@ -127,7 +127,7 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
     },
   }))
 
-  return <div hidden={hidden}>
+  return <div className="player-surface" hidden={hidden}>
       {message && <div role="alert"><p>{message}</p><button className="button"
         onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}
       {url && <video ref={host} className="local-video" aria-label="Lecteur vidéo local"

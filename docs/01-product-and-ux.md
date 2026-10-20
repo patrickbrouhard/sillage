@@ -1265,3 +1265,17 @@ lors d'un clic temporel avant première lecture : seul le transfert entre lecteu
 prépare désormais un départ. Les commandes refusées avant disponibilité ne sont
 toujours pas différées. Masquage en cours, erreurs, identités vidéo/source et
 conservation de la session de note restent protégés.
+
+## Panneau vidéo — phase 2 bord à bord
+
+Les surfaces YouTube et Local rejoignent les bords intérieurs gauche, droit et
+inférieur du panneau Lecteur. L'en-tête et les messages gardent leur espacement
+de 1rem, avec la séparation existante de .75rem avant la surface. Les coins
+inférieurs de la vidéo suivent ceux du panneau.
+
+Les ratios, hauteurs minimales, limites de hauteur et seuils responsive restent
+inchangés. Une largeur accrue ne garantit pas une image agrandie sur desktop :
+les bandes noires restent possibles, sans recadrage. Le popover Informations
+peut dépasser le panneau, notamment lorsque le lecteur est masqué.
+Les états sans surface retrouvent le padding inférieur normal.
+Aucun changement de comportement des lecteurs ou du workspace.

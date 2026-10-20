@@ -1994,3 +1994,15 @@ les évolutions temporelles et la navigation explicite YouTube avant cette phase
 La préparation sans lecture lors des bascules et le comportement Local sont
 conservés. La phase 2 bord à bord est désormais autorisée ; sa validation visuelle
 et fonctionnelle fera l'objet d'un nouveau retour utilisateur.
+
+## Phase 2 du panneau — bord à bord, validation visuelle Brave attendue
+
+Après validation utilisateur de la phase 1 et des évolutions fonctionnelles,
+les surfaces Local et YouTube rejoignent les bords latéraux et inférieur.
+En-tête, messages, popover et règles de dimensionnement sont conservés.
+La modification est CSS, avec une classe sur les conteneurs existants.
+
+La recette automatisée mesure les bords, hauteurs et rayons, et produit les
+captures à 1440/375/320 px en clair/sombre : lecture, informations, masquage,
+erreur, état vide, téléchargement et modale. YouTube reste simulé dans ces tests.
+Le rendu réel est soumis à une nouvelle validation utilisateur dans Brave.

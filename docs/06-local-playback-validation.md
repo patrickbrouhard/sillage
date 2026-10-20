@@ -63,8 +63,9 @@ persistée et aucune bascule à la fin d'un téléchargement.
 - Vérifier la ligne unique avec segments, Informations et œil, en clair/sombre
   à 1440, 375 et 320 px. Le mode actif reste identifiable, le focus reste sur
   son bouton après bascule. Le libellé Local ne disparaît jamais.
-- Confirmer que les marges de 1rem et les hauteurs de la surface sont inchangées.
-  Aucune validation du bord à bord n'est incluse dans cette recette.
+- La référence phase 1 conservait les marges de 1rem autour de la vidéo.
+  La phase 2 ci-dessous supprime ces marges latérales et inférieure ; les règles
+  de hauteur restent identiques.
 - Annuler/Échap dans la modale : aucun POST. Double clic Confirmer : une seule demande.
   Cliquer pendant acquisition : état visible, pas de téléchargement concurrent.
 - Modifier l'état depuis un autre onglet pendant que la modale est ouverte :
@@ -89,7 +90,7 @@ Les tests player-panel.spec.ts produisent des captures en clair/sombre pour troi
 largeurs, avec un vrai WebM synthétique et une acquisition distante simulée.
 Les captures YouTube utilisent l'API simulée (iframe vide) : vérifier le véritable
 lecteur et ses interactions de focus/modalité dans Brave Windows.
-La phase 2 reste interdite sans retour explicite après ce bilan.
+La phase 1 a depuis été validée ; la phase 2 a reçu une autorisation explicite.
 
 ## Recette complémentaire — transfert temporel de session
 
@@ -163,3 +164,23 @@ les évolutions temporelles et la navigation explicite YouTube avant cette phase
 La préparation sans lecture lors des bascules et le comportement Local sont
 conservés. La phase 2 bord à bord est désormais autorisée ; sa validation visuelle
 et fonctionnelle fera l'objet d'un nouveau retour utilisateur.
+
+## Recette phase 2 — bord à bord
+
+- À 1440, 375 et 320 px, en clair et sombre, vérifier Local et YouTube :
+  surface jusqu'aux bords intérieurs latéraux et inférieur, bordure visible,
+  coins inférieurs arrondis et absence de débordement horizontal.
+- Vérifier en-tête toujours espacé, séparation avant la vidéo, contrôles natifs
+  utilisables. Les limites de hauteur et ratios sont inchangés ; ne pas confondre
+  bandes noires du média et marges du panneau. Aucun recadrage n'est recherché.
+- Ouvrir Informations, y compris lecteur masqué : popover non tronqué, fermeture
+  clavier et clic extérieur, actions accessibles. Vérifier les infobulles.
+- Vérifier chargement, erreur de lecture, média supprimé/absent : textes et actions
+  gardent leur padding. Masquer retire la surface et restaure le fond espacé.
+- Vérifier plein écran, bascules, lecture/pause, références, annotations et notes
+  comme contrôle de non-régression, sans nouveau comportement attendu.
+
+Les captures sont produites par player-panel.spec.ts dans web/test-results.
+Local utilise un WebM décodable ; l'iframe YouTube simulée est vide. Les mesures
+automatisées contrôlent son rectangle, mais la recette Brave reste nécessaire
+pour l'image réelle, les contrôles et leurs coins.

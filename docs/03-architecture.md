@@ -1417,3 +1417,14 @@ disposed/failed ignorent les événements obsolètes. Aucune détection par dél
 polling, relance, changement de mode ou coupure du son. L'API ne cite pas
 explicitement seekTo parmi les appels couverts par ce signal ; son absence
 n'est pas une preuve de démarrage. Les erreurs fatales restent distinctes.
+
+### Présentation bord à bord du lecteur
+
+La classe player-surface identifie les deux conteneurs déjà existants ; aucun
+nouvel arbre React ni changement de cycle de vie. Le CSS étend seulement video
+et youtube-frame de 2rem avec marges latérales négatives. Le padding inférieur
+du panneau est retiré uniquement lorsqu'une surface non masquée contient le média.
+Le panneau reste en overflow visible ; seule la youtube-frame découpe son iframe
+aux coins inférieurs. video porte directement son arrondi. Le rayon intérieur
+soustrait le pixel de bordure au rayon du panneau.
+Les règles de ratio, hauteur et responsive sont conservées.
