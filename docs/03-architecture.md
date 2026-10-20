@@ -1366,9 +1366,15 @@ chaque surface conserve et qualifie sa préparation, sans historique parallèle 
 hook supplémentaire. La clé vidéo/source du workspace borne cette mémoire.
 YouTube conserve un départ cued, remplacé par une nouvelle commande cue acceptée.
 Lecture et buffering invalident ce repli ; les erreurs et destructions forcées
-l'invalident aussi. Un seek explicite bloque la lecture stricte du temps jusqu'à
-un événement stable observant sa cible ou suivant le buffering du seek. L'API
-YouTube ne fournit pas d'identifiant de seek ni de garantie image par image.
+l'invalident aussi. Un seek explicite ne crée aucun verrou de confirmation.
+YouTube est interrogé au clic dans les états ended, playing ou paused ; le temps
+annoncé est utilisé même s'il diffère de la cible et sans nouvel événement.
+Les départs seulement préparés, buffering, états inconnus, erreurs et masquage
+en cours restent refusés. L'API ne fournit pas d'identifiant de seek ni de garantie
+image par image ; un temps momentanément ancien après commande reste une limite
+acceptée. Aucun seuil de proximité, délai de confirmation ni polling n'est ajouté.
+Le libellé interne confirmed du transfert désigne une mesure admissible selon le
+lecteur, pas un accusé de réception du dernier seek YouTube.
 Local distingue le chargement initial, le seek demandé en pause et une position
 réellement décodable ; la durée effective borne la préparation. Arrêt, erreur et
 suppression effacent les préparations locales. Les callbacks d'instances détruites

@@ -1364,3 +1364,18 @@ En-tête permanent, surfaces concrètes remplaçables, suivi réseau partagé.
 Les résultats temporaires d'acquisition durent cinq secondes sans persistance.
 Pas de menu général, options de téléchargement, bord à bord ou nouveau dimensionnement.
 La phase 2 exige un accord utilisateur distinct après inspection de la phase 1.
+
+## Temps YouTube — priorité aux annotations
+
+Le verrou pendingSeek et son suivi de buffering sont supprimés. Les annotations
+lisent la position annoncée par l'API dans un état admissible, sans comparer la
+mesure à la dernière cible et sans attendre d'événement de fin de seek.
+Une mesure approchée est conservée en millisecondes ; une mesure momentanément
+ancienne reste possible juste après commande. Ce compromis privilégie l'usage
+d'annotation sans prétendre certifier la fraîcheur de l'API YouTube.
+
+Conserver les contrôles de disponibilité, d'état, d'identité et de valeur, ainsi
+que la distinction avec les départs préparés. Les captures restent des extractions
+FFmpeg au timestamp demandé, pas des copies de l'image de l'iframe. Les garanties
+HTML5 (seeking, données disponibles) restent inchangées. Les navigations avant
+première lecture et la phase 2 du panneau ne sont pas modifiées.

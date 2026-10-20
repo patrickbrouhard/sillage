@@ -1124,7 +1124,7 @@ La fin d'une acquisition ne change jamais le mode choisi. Si Local est déjà ch
 le fichier peut apparaître dans ce panneau, sans lecture automatique. Aucun
 transfert de position n'est gardé en attente d'un téléchargement futur.
 
-Une bascule relève la position confirmée si possible, arrête et décharge
+Une bascule relève la position courante admissible si possible, arrête et décharge
 l'ancienne instance puis prépare la nouvelle sans autoplay. Le départ préparé reste
 transférable tant qu'aucune activité ne l'a rendu incertain : Local à 0:40,
 YouTube préparé sans lecture, puis Local conserve 0:40. Une référence acceptée
@@ -1132,7 +1132,7 @@ depuis YouTube cued remplace ce départ ; une commande refusée ne le remplace p
 Le transfert peut attendre une fois l'initialisation de la nouvelle instance,
 sans reporter les navigations ordinaires.
 L'absence normale de position avant une première lecture ne produit aucun avertissement.
-Une position devenue incertaine (erreur, buffering, seek non confirmé) n'est jamais
+Une position devenue incertaine (erreur, buffering, seek local en cours) n'est jamais
 remplacée par une ancienne position : la bascule sans transfert est signalée.
 Cette mémoire est limitée à la fiche et à sa source temporelle pendant la session ;
 elle ne constitue pas une reprise de lecture persistée.
@@ -1145,7 +1145,7 @@ Masquer Local met en pause et conserve normalement sa position ; réafficher ne
 relance rien. La note, sa sélection, Undo/Redo, l'autosauvegarde et la transcription
 restent montées au changement de mode. Les références vidéo/source existantes
 commandent uniquement le lecteur actif de cette même source. + Temps et + Capture
-lisent exclusivement sa position confirmée, y compris masqué en pause, sans commande
+lisent exclusivement sa position courante admissible, y compris masqué en pause, sans commande
 de lecture. Un départ préparé ne suffit jamais à ces opérations, même si le
 masquage fait passer YouTube à l'état paused. Le local
 refuse une position pendant le chargement, le seek ou après une erreur.
@@ -1221,3 +1221,29 @@ dans les notes, puis supprimer volontairement le complet en conservant clips, no
 transcriptions et captures. L'export externe serait une possibilité distincte,
 facultative. Voir les questions ouvertes de la roadmap ; aucune option de découpe
 ou d'export n'est ajoutée à la barre actuelle.
+
+## Orientation de travail — accès immédiat et étude approfondie
+
+YouTube est le moyen d'accès immédiat à une vidéo ; Local est le mode de travail
+privilégié pour l'étudier en profondeur. YouTube permet la consultation, les notes,
+les références et les captures sans téléchargement préalable. Local facilite
+l'étude prolongée, les navigations répétées et la rédaction structurée.
+Cette orientation ne réserve aucune action d'annotation à Local.
+
+Les priorités sont, dans cet ordre, la fiabilité et la fluidité des annotations,
+le fonctionnement naturel de la lecture/navigation, puis le confort de continuité
+entre lecteurs. La priorité initiale Local lorsque le fichier est disponible reste
+inchangée.
+
+Pour YouTube, + Temps et + Capture utilisent le temps réellement annoncé au clic
+dans un état admissible, jamais la cible d'une commande. Après un seek vers
+80.123 s, un temps annoncé de 80.080 s produit une référence ou une demande de
+capture à 80080 ms. Aucun verrou ne dépend de l'égalité avec la cible, d'une
+tolérance, d'un délai ou d'une notification de fin de seek.
+Une mesure peut rester momentanément ancienne après une commande : cette limite
+de fraîcheur de l'API est acceptée, sans promettre une synchronisation image par
+image. Les millisecondes des données Sillage restent conservées.
+
+Les navigations depuis un lecteur non démarré, cued ou terminé continuent de
+préparer le départ sans autoplay. Leur évolution sera étudiée séparément après
+validation manuelle ; une préparation seule ne permet toujours pas d'annoter.

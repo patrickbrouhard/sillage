@@ -103,7 +103,7 @@ La phase 2 reste interdite sans retour explicite après ce bilan.
   Après lecture puis pause, ils retrouvent leur comportement habituel.
 - Basculer rapidement pendant initialisation ; une ancienne instance ne doit
   commander ni déplacer le nouveau lecteur. Un timestamp refusé n'est pas différé.
-- Basculer pendant buffering, seek non confirmé ou après erreur : aucun retour
+- Basculer pendant buffering, seek local en cours ou après erreur : aucun retour
   trompeur vers 0:40 ; avertissement de transfert impossible, nouveau lecteur en pause.
 - Masquer un lecteur réellement en pause puis basculer : conserver son temps.
   Tester également le cas d'une pause YouTube non confirmée et détruite.
@@ -116,3 +116,25 @@ La phase 2 reste interdite sans retour explicite après ce bilan.
 Le spinner natif Local, preload, ratios, paddings et hauteurs ne sont pas modifiés.
 La simulation YouTube couvre les commandes et refus mais ne remplace pas ces essais
 sur l'API réelle dans Brave Windows, notamment ses délais de seek et de buffering.
+
+## Recette complémentaire — annotations après navigation YouTube
+
+- En pause, activer une référence de transcription ou Markdown puis + Temps et
+  + Capture : utiliser le temps annoncé, même légèrement différent de la cible.
+- Tester seeks courts et longs, avant/arrière, portions chargées et non chargées,
+  références successives et déplacements dans les contrôles natifs.
+- Vérifier qu'une navigation ne laisse pas un verrou durable après retour à un
+  état exploitable. Buffering, erreur, lecteur absent et masquage en cours restent
+  des motifs de refus ; une ancienne commande de seek n'en est plus un.
+- Vérifier les captures à partir de la position relevée, sans exiger l'identité
+  image par image avec l'iframe. La fraîcheur instantanée du getter YouTube n'est
+  pas certifiée ; observer notamment les clics très rapprochés de la navigation.
+- Depuis un lecteur non démarré, cued ou terminé : départ préparé sans autoplay,
+  annotations refusées tant qu'il reste seulement préparé. Ce parcours n'est
+  pas modifié et fera l'objet d'une discussion séparée.
+- Local conserve le refus pendant seeking ; préparation et bascules restent
+  distinctes de la lecture du temps pour les annotations.
+
+Les tests de caractérisation de 83a7f40 sont remplacés par des assertions de
+réussite à la valeur annoncée. Le cas d'un getter encore ancien explicite la
+limite acceptée ; il ne prétend pas reproduire un défaut observé dans Brave.

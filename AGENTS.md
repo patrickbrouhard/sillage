@@ -303,3 +303,13 @@ cued target across switches, including accepted cue navigation, but never fall b
 to an old target after activity/error makes it uncertain. Ordinary navigation stays
 immediate-only. No progress polling, persistence or layout changes. Brave validation
 is required before proceeding to panel phase 2.
+
+## YouTube annotation time — no durable seek confirmation
+
+Use the current time reported by YouTube in an admissible state, never the requested
+seek target or a prepared departure. Do not restore pendingSeek, target tolerances,
+confirmation timers or temporal polling. An immediately stale getter is an accepted
+API limitation. Keep prepared departures separate and non-annotatable, and retain
+readiness/state/value/error/visibility guards. Local keeps its seeking/data guards.
+Navigation from unstarted/cued/ended remains unchanged pending separate discussion.
+Prioritize annotations, then playback/navigation, then switching comfort.

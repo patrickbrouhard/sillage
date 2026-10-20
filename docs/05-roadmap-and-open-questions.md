@@ -1943,15 +1943,34 @@ Les références visuelles sont générées sous web/test-results/ par player-pa
 Le vrai lecteur YouTube et Brave Windows restent à vérifier manuellement.
 Aucune validation de la phase 2 n'est implicite dans ces résultats.
 
-## Correction du transfert temporel — validation Brave attendue
+## Correction du transfert temporel — parcours principaux validés dans Brave
 
 La bascule conserve les départs préparés encore valables pendant la session,
 notamment Local → YouTube cued → Local et une référence acceptée depuis cued.
 Un temps devenu incertain ne réutilise aucune ancienne cible. L'absence normale
 de temps avant lecture n'est pas une erreur. + Temps et + Capture exigent toujours
-une position confirmée. Tests Chromium complétés ; recette Brave à valider avant
-de poursuivre les évolutions du panneau. La phase 2 reste différée.
+une position admissible du lecteur. Les parcours principaux ont été validés dans
+Brave par l'utilisateur. Le test de seek approché a ensuite démontré un défaut
+logique du verrou pendingSeek ; sa manifestation réelle dans Brave n'était pas
+établie. La simplification ci-dessous remplace cette confirmation. La phase 2
+reste différée.
 
 La reprise de lecture entre sessions et un éventuel suivi de progression restent
 des pistes futures distinctes. Cette correction ne décide ni stockage, ni cadence
 de sauvegarde, ni contrat API pour ces fonctionnalités.
+
+## Simplification temporelle YouTube — nouvelle validation manuelle attendue
+
+Après réévaluation produit, suppression du verrou durable pendingSeek : utiliser
+le temps annoncé par YouTube dans un état admissible, conserver les départs
+préparés séparément et accepter la limite résiduelle de fraîcheur après commande.
+Pas de tolérance ajoutée, de suivi périodique ni de persistance.
+
+Les tests couvrent les temps exacts, approchés et momentanément anciens, avec ou
+sans notification stable ; annotations et transfert utilisent la mesure annoncée.
+La recette Brave doit vérifier pause → référence → + Temps/+ Capture, seeks courts,
+navigations répétées et contrôles natifs. Les départs préparés restent non annotables.
+
+À étudier séparément après validation : navigation YouTube depuis une vidéo non
+démarrée. Aucun changement de ce comportement n'est inclus ici. La phase 2 du
+panneau et la reprise de lecture persistée restent hors périmètre.
