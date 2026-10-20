@@ -1428,3 +1428,22 @@ Le panneau reste en overflow visible ; seule la youtube-frame découpe son ifram
 aux coins inférieurs. video porte directement son arrondi. Le rayon intérieur
 soustrait le pixel de bordure au rayon du panneau.
 Les règles de ratio, hauteur et responsive sont conservées.
+
+## Fiche vidéo — onglets locaux (tranche A)
+
+App fournit un emplacement DOM stable dans l'en-tête ; VideoDetail y rend son h1
+par portail depuis son unique lecture REST. Le démontage de la fiche retire son
+titre, y compris lors d'une navigation avec requête précédente encore en cours.
+Il n'existe ni état miroir du titre ni requête d'en-tête.
+
+VideoDetail possède uniquement le choix Note/Informations et les boutons d'onglet.
+VideoNote reste monté ; son panneau est masqué avec hidden, tandis que le dialogue
+de départ et le signalement d'erreur restent hors de ce panneau. NoteSession garde
+les écritures, conflits et protections de navigation. Chaque panneau conserve son
+propre défilement desktop. Le mobile conserve le flux lecteur, note, transcription.
+
+MarkdownEditor contrôle l'admissibilité d'une citation avant d'appeler la révélation
+synchrone de Note. La transaction isolée et le focus s'appliquent ensuite à la même
+vue visible. Une bascule ordinaire demande seulement une nouvelle mesure CodeMirror,
+sans prendre le focus du bouton d'onglet. Les captures en cours gardent leur handle
+et leur ancrage ; leur retour réseau ne révèle pas Note.

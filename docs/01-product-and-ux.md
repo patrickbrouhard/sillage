@@ -144,8 +144,8 @@ transcription à droite. La hauteur du workspace est adaptée à l'espace dispon
 note et transcription défilent indépendamment. Masquer le lecteur libère la place
 pour la transcription. Sur écran étroit, la page défile normalement dans l'ordre
 lecteur, note, transcription. Le responsive et les interactions des autres panneaux
-ne démontent jamais la session de note. Les métadonnées complètes restent dans une
-section secondaire repliable. Aucun panneau redimensionnable ou détachable ici.
+ne démontent jamais la session de note. Les métadonnées complètes restent accessibles dans l'onglet Informations
+de la zone Note. Aucun panneau redimensionnable ou détachable ici.
 
 La première source YouTube exploitable dans l'ordre REST est la source de travail
 commune : identité externe pour le lecteur, ID Sillage pour la transcription.
@@ -153,12 +153,30 @@ Elle est identifiée dans l'interface. Ce choix de présentation ne persiste auc
 source principale et ne nécessite pas de sélecteur. Sans source compatible, note
 et métadonnées restent accessibles.
 
-L'en-tête de la fiche est compact : bandeau Sillage réduit sans slogan, titre
-puis tags et action de classement sur une même ligne lorsque la largeur le permet.
-La date d'ajout est consultable dans « Métadonnées et sources ». La provenance
-YouTube figure discrètement dans la barre du lecteur ; la source de travail et son identifiant
-externe sont détaillés dans les métadonnées, sans répéter le titre au-dessus du
-workspace. La bibliothèque et la page d'ajout conservent leur bandeau habituel.
+L'en-tête principal compact accueille le titre de la première source REST,
+indépendamment de la source de travail du lecteur. Le titre est tronqué sur une
+ligne desktop et deux lignes maximum sur mobile ; Informations en présente le
+texte complet, sélectionnable. Aucun titre personnalisé n'est implémenté.
+La bibliothèque et la page d'ajout conservent leur bandeau et leur footer ;
+la fiche n'affiche plus de footer.
+
+Les tags de la vidéo restent au-dessus des deux onglets locaux Note et Informations,
+quel que soit l'onglet sélectionné. Note est sélectionné à l'ouverture d'une fiche.
+Les flèches gauche/droite, Home et End changent d'onglet et y gardent le focus.
+La session, le mode Édition/Lecture, la sélection, Undo/Redo, le défilement et
+l'autosauvegarde sont conservés. Une bascule seule ne provoque aucune écriture.
+Erreurs de note et conflits restent signalés lorsque Informations est ouvert ;
+le dialogue de départ reste accessible et les captures acceptées se terminent.
+
+Une citation depuis Informations conserve toutes les conditions d'admissibilité :
+lecture et absence de position choisie dans une note non vide restent des refus.
+Seule une insertion acceptée révèle Note puis focalise l'insertion ; aucun refus
+ne change l'onglet et aucune commande n'est envoyée au lecteur.
+
+Informations reprend la date d'ajout Sillage, toutes les sources et leurs
+descriptions, la source de travail et les propriétés du fichier local actuellement
+consulté. Le popover du lecteur reste contextuel à YouTube/Local avec ses actions
+existantes. Les nouvelles fonctions de gestion ne sont pas incluses.
 
 ### 5.2 Comptes de publication et personnes
 
@@ -1205,7 +1223,7 @@ Après fermeture de la confirmation, le focus revient à Informations.
 Seule une suppression confirmée depuis Local décharge le média ; depuis YouTube,
 le lecteur distant reste intact. Une suppression refusée permet de recharger le local.
 
-La section Métadonnées et sources reste intégralement accessible : toutes les sources,
+L'onglet Informations de la zone Note conserve intégralement les métadonnées : toutes les sources,
 leurs descriptions et les informations internes à Sillage ne sont pas remplacées
 par le popover de la source de travail.
 

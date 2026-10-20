@@ -1,5 +1,5 @@
 import { captureMarker, setCaptureMarker, captureVisualTransaction } from './captureMarker'
-import { useEffect, useImperativeHandle, useRef } from 'react'
+import { useEffect, useLayoutEffect, useImperativeHandle, useRef } from 'react'
 import type { TemporalReference } from './temporalReference'
 import type { Ref } from 'react'
 import { compactTemporalReferences } from './compactTemporalReferences'
@@ -21,6 +21,7 @@ interface Props {
   ref: Ref<MarkdownEditorHandle>
   initial: string
   active: boolean
+  visible?: boolean
   onChange: (content: string) => void
   onSave: () => void
   onNavigate: (reference: TemporalReference) => void
@@ -37,11 +38,11 @@ export interface MarkdownEditorHandle {
   /** Retire une intention refusée sans toucher au document. */
   abandonCapture(id: string): void
   /** Insère un bloc uniquement à un emplacement choisi, sauf pour un document vide. */
-  insertCitation(markdown: string): void
+  insertCitation(markdown: string, beforeInsert?: () => void): void
 }
 
 /** Garde l'état CodeMirror stable ; seules les actions utilisateur modifient le texte. */
-export function MarkdownEditor({ initial, active, onChange, onSave, onNavigate, ref }: Props) {
+export function MarkdownEditor({ initial, active, visible = true, onChange, onSave, onNavigate, ref }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
   const wasActive = useRef(active)
@@ -49,12 +50,14 @@ export function MarkdownEditor({ initial, active, onChange, onSave, onNavigate, 
   const callbacks = useRef({ onChange, onSave, onNavigate })
   callbacks.current = { onChange, onSave, onNavigate }
   /** Ajoute uniquement du texte ; les séparateurs de bloc font partie du même Undo. */
-  function insert(text: string, citation = false) {
+  function insert(text: string, citation = false, beforeInsert?: () => void) {
     const view = editor.current
     if (!view || !active) throw new Error('Passez en mode Édition pour insérer une référence.')
     if (citation && view.state.doc.length && !explicitPosition.current) {
       throw new Error('Placez le curseur dans la note, puis recommencez la sélection de transcription.')
     }
+    // Le refus précède toute révélation ; la vue visible reçoit ensuite la même transaction.
+    beforeInsert?.()
     const position = view.state.selection.main.to
     let existingBreaks = 0
     if (citation) {
@@ -108,7 +111,7 @@ export function MarkdownEditor({ initial, active, onChange, onSave, onNavigate, 
         view.dispatch({ effects: setCaptureMarker.of(null), annotations: captureVisualTransaction })
       }
     },
-    insertCitation: markdown => insert(markdown, true),
+    insertCitation: (markdown, beforeInsert) => insert(markdown, true, beforeInsert),
   }))
   useEffect(() => {
     explicitPosition.current = false
@@ -162,5 +165,9 @@ export function MarkdownEditor({ initial, active, onChange, onSave, onNavigate, 
     }
     wasActive.current = active
   }, [active])
+  useLayoutEffect(() => {
+    // Réafficher un onglet ne reprend pas le focus détenu par son bouton.
+    if (visible) editor.current?.requestMeasure()
+  }, [visible])
   return <div className="markdown-editor" ref={host} />
 }

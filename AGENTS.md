@@ -334,3 +334,18 @@ Keep header/messages padded, panel overflow visible for popovers, and rounded
 lower media corners. Existing ratios, height limits and responsive breakpoints
 remain unchanged. No player behavior, workspace structure or persistence changes.
 The previous phase-1 padding freeze is superseded only for this presentation work.
+
+## Video workspace — tranche A
+
+The title belongs in the main header, rendered from the existing VideoDetail data;
+retain first REST source semantics, one line desktop and up to two lines mobile.
+No title_override implementation. Only video pages omit the footer.
+Keep three grid children and mobile order player, note, transcript. Tags sit above
+local Note/Informations tabs. Keep VideoNote, NoteSession and CodeMirror mounted,
+with mode, selection, history and independent panel scroll preserved. Autosave
+continues while hidden; errors/conflicts and the leave dialog stay accessible.
+An accepted citation reveals Note before insertion/focus; refusals never switch tabs.
+Capture completion must not reveal the note or steal focus. Move all existing
+metadata into Informations, retaining the contextual player popover and one shared
+download consultation. No generic tabs, domain/API changes or title editing.
+Player dimensions remain unchanged; 16:9 is tranche B after manual Brave validation.

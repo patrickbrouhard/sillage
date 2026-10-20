@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
@@ -62,6 +62,14 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
   const player = useRef<PlayerHandle>(null)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const [tab, setTab] = useState<'note' | 'information'>('note')
+  const tabButtons = useRef<Array<HTMLButtonElement | null>>([])
+
+  /** Révèle la note avant que l'insertion acceptée mesure et focalise CodeMirror. */
+  function revealNote() {
+    flushSync(() => setTab('note'))
+    tabButtons.current[0]?.focus({ preventScroll: true })
+  }
   const source = state.status === 'ready' ? workSource(state.video.sources) : undefined
   const download = useVideoDownload(Number(id), source?.id)
   // Le titre suit la première source REST, indépendamment de la source de travail.
@@ -115,12 +123,34 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
       )}
       {state.status === 'ready' && (
         <>
-          <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
           <div className={`video-workspace${source ? '' : ' without-source'}`}>
             {source ? <VideoPlayer key={`player-${source.id}`} videoID={state.video.id} source={source} download={download} ref={player} />
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
-              <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote ref={note} videoID={state.video.id}
+              <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
+              <div className="note-tabs" role="tablist" aria-label="Contenu de la vidéo">
+                {(['note', 'information'] as const).map((value, index) => (
+                  <button
+                    key={value}
+                    ref={element => { tabButtons.current[index] = element }}
+                    className="button"
+                    role="tab"
+                    id={value + '-tab'}
+                    aria-controls={value + '-panel'}
+                    aria-selected={tab === value}
+                    tabIndex={tab === value ? 0 : -1}
+                    onClick={() => setTab(value)}
+                    onKeyDown={event => {
+                      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+                      event.preventDefault()
+                      const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index
+                      setTab(next === 0 ? 'note' : 'information')
+                      tabButtons.current[next]?.focus()
+                    }}
+                  >{value === 'note' ? 'Note' : 'Informations'}</button>
+                ))}
+              </div>
+              <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote ref={note} videoID={state.video.id} visible={tab === 'note'} onReveal={revealNote}
                 onNavigate={reference => {
                   if (reference.videoID !== state.video.id) return 'Cette référence concerne une autre vidéo. Aucune navigation effectuée.'
                   if (!source) return 'Navigation non effectuée : aucun lecteur disponible pour cette vidéo.'
@@ -135,6 +165,23 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                   if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
                   return temporalReference(state.video.id, source.id, player.current.getCurrentTimeMs())
                 }} /></Suspense>
+              <section id="information-panel" className="note-panel video-information" role="tabpanel" aria-labelledby="information-tab" tabIndex={0} hidden={tab !== 'information'}>
+                <h2>Titre complet</h2>
+                <p className="full-video-title">{title}</p>
+                <p className="muted">Ajoutée le <time dateTime={state.video.created_at}>
+                  {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
+                </time></p>
+                {source && <LocalFileDetails download={download} />}
+                {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
+                {state.video.sources.map((videoSource, index) => (
+                  <SourceDetails
+                    key={videoSource.id}
+                    source={videoSource}
+                    index={index}
+                    working={videoSource.id === source?.id}
+                  />
+                ))}
+              </section>
             </div>
             {source && <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id}
               onCite={excerpt => {
@@ -143,22 +190,6 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
               }}
               onNavigate={navigate} />}
           </div>
-          <details className="video-metadata">
-            <summary>Métadonnées et sources</summary>
-            <p className="muted">Ajoutée le <time dateTime={state.video.created_at}>
-              {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
-            </time></p>
-            {source && <LocalFileDetails download={download} />}
-            {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
-            {state.video.sources.map((videoSource, index) => (
-              <SourceDetails
-                key={videoSource.id}
-                source={videoSource}
-                index={index}
-                working={videoSource.id === source?.id}
-              />
-            ))}
-          </details>
         </>
       )}
     </>

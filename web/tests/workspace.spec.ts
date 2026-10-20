@@ -18,6 +18,24 @@ test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions 
   await page.keyboard.press('Control+End')
   await page.keyboard.type('suite')
   await page.keyboard.press('Shift+Home')
+  const information = page.getByRole('tab', { name: 'Informations', exact: true })
+  const noteTab = page.getByRole('tab', { name: 'Note', exact: true })
+  await information.click()
+  await expect(editor).toBeHidden()
+  await expect(page.getByRole('button', { name: /tags/ })).toBeVisible()
+  // L'autosauvegarde continue malgré la disparition visuelle de l'éditeur.
+  await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(canonical + 'suite')
+  await information.press('Home')
+  await expect(noteTab).toBeFocused()
+  await expect(noteTab).toHaveAttribute('aria-selected', 'true')
+  await noteTab.press('ArrowLeft')
+  await expect(information).toBeFocused()
+  await information.press('ArrowRight')
+  await expect(noteTab).toBeFocused()
+  await noteTab.press('End')
+  await expect(information).toBeFocused()
+  await information.press('Home')
+  await expect(editor).toBeVisible()
   await page.getByLabel('Thème', { exact: true }).selectOption('dark')
   await expect(page.locator('.markdown-editor')).toHaveCSS('background-color', 'rgb(16, 28, 48)')
   await expect(editor).toHaveCSS('color', 'rgb(224, 232, 245)')
@@ -58,7 +76,7 @@ test('défilements indépendants, espace libéré et ordre mobile sans remontage
   await expect(page.locator('.transcript-block')).toHaveCount(180)
   await expect(page.locator('.youtube-frame iframe')).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toContainText('Une longue note')
-  const note = page.locator('.workspace-note')
+  const note = page.locator('#note-panel')
   const text = page.getByLabel('Texte de la transcription')
   const before = await text.boundingBox()
   expect(await note.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true)
@@ -73,7 +91,7 @@ test('défilements indépendants, espace libéré et ordre mobile sans remontage
     await page.setViewportSize({ width, height: 812 })
     await page.getByRole('button', { name: 'Afficher la vidéo' }).click()
     const player = await page.locator('.video-player').boundingBox()
-    const editor = await note.boundingBox()
+    const editor = await page.locator('.workspace-note').boundingBox()
     const transcript = await page.locator('.video-transcript').boundingBox()
     expect(player!.y + player!.height).toBeLessThanOrEqual(editor!.y)
     expect(editor!.y + editor!.height).toBeLessThanOrEqual(transcript!.y)
@@ -103,7 +121,7 @@ test('source commune dans l’ordre REST et absence compatible sans bloquer la n
   })
   await page.goto('/videos/42')
   await expect(page.getByRole('group', { name: 'Mode de lecture' })).toContainText('YouTube')
-  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
   const workingSource = page.locator('.source-section').filter({ hasText: 'Source de travail du lecteur et de la transcription' })
   await expect(workingSource).toContainText('Source retenue')
   await expect(workingSource).toContainText('ABCDEFGHIJK')
@@ -115,3 +133,69 @@ test('source commune dans l’ordre REST et absence compatible sans bloquer la n
   await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
   await expect(page.locator('iframe')).toHaveCount(0)
 })
+
+test('onglets : défilement, mode Lecture et absence d’écriture conservés', async ({ page, request }) => {
+  const video = await (await request.post('/api/v1/videos', {
+    data: { url: 'https://youtu.be/trTabsScroll' },
+  })).json()
+  await request.put('/api/v1/videos/' + video.id + '/note', {
+    data: { content_md: 'Paragraphe long.\n\n'.repeat(150), expected_revision: 0 },
+  })
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/videos/' + video.id)
+  const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+  await expect(editor).toBeVisible()
+  const node = await editor.elementHandle()
+  let writes = 0
+  page.on('request', request => {
+    if (request.method() === 'PUT' && request.url().endsWith('/note')) writes++
+  })
+  const panel = page.locator('#note-panel')
+  await panel.evaluate(element => { element.scrollTop = 400 })
+  const scroll = await panel.evaluate(element => element.scrollTop)
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
+  await page.getByRole('tabpanel', { name: 'Informations', exact: true }).evaluate(element => { element.scrollTop = 150 })
+  await page.getByRole('tab', { name: 'Note', exact: true }).click()
+  await expect.poll(() => panel.evaluate(element => element.scrollTop)).toBe(scroll)
+  expect(await node!.evaluate(element => element === document.querySelector('.cm-content'))).toBe(true)
+  await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+  await expect(page.locator('.markdown-reading')).toBeVisible()
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
+  await page.getByRole('tab', { name: 'Note', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Lecture', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(editor).toBeHidden()
+  await page.getByRole('button', { name: 'Édition', exact: true }).click()
+  expect(await node!.evaluate(element => element === document.querySelector('.cm-content'))).toBe(true)
+  expect(writes).toBe(0)
+})
+
+for (const failure of ['conflict', 'error']) {
+  test('Informations conserve les protections de note : ' + failure, async ({ page, request }) => {
+    const video = await (await request.post('/api/v1/videos', {
+      data: { url: 'https://youtu.be/trTabs' + failure },
+    })).json()
+    const noteURL = '/api/v1/videos/' + video.id + '/note'
+    await request.put(noteURL, { data: { content_md: 'Initial', expected_revision: 0 } })
+    await page.goto('/videos/' + video.id)
+    const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+    await editor.fill('Texte local')
+    if (failure === 'conflict') {
+      await request.put(noteURL, { data: { content_md: 'Texte distant', expected_revision: 1 } })
+    } else {
+      await page.route('**' + noteURL, route => route.request().method() === 'PUT'
+        ? route.fulfill({ status: 400, json: { error: { code: 'bad_request' } } })
+        : route.continue())
+    }
+    await page.getByRole('tab', { name: 'Informations', exact: true }).click()
+    await page.keyboard.press('Control+s')
+    await expect(page.locator('.note-hidden-error')).toBeVisible()
+    await page.getByRole('link', { name: 'Sillage, accueil' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Quitter la note ?' })
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Rester sur la note' }).click()
+    await expect(page.getByRole('tab', { name: 'Informations', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('button', { name: 'Revenir à la note' }).click()
+    await expect(editor).toHaveText('Texte local')
+    if (failure === 'conflict') await expect(page.getByRole('region', { name: 'Résolution du conflit' })).toBeVisible()
+  })
+}

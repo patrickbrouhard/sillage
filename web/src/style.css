@@ -218,8 +218,6 @@ main:has(.video-workspace) { padding-top: 16px; }
 .video-workspace h2 { font-size: 1.1rem; margin-top: 0; }
 .player-toolbar { margin-bottom: .75rem; }
 .player-toolbar h2 { margin-bottom: 0; }
-.video-metadata { margin-top: 1.5rem; }
-.video-metadata > summary { font-size: 1rem; }
 
 @media (min-width: 1100px) {
   main:has(.video-workspace) { max-width: 1720px; padding: 16px 32px 40px; }
@@ -383,4 +381,19 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 @media (max-width: 600px) {
   .header-video-title { order: 1; flex-basis: 100%; }
   .header-video-title h1 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow-wrap: anywhere; }
+}
+
+/* Les deux panneaux gardent chacun leur défilement et leur identité. */
+.note-tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.note-tabs [aria-selected=true] { outline: 2px solid var(--focus); }
+.note-panel[hidden] { display: none; }
+.full-video-title { overflow-wrap: anywhere; }
+.video-information .source-overview { grid-template-columns: 1fr; }
+.video-information .thumbnail { width: 100%; max-width: 320px; }
+.note-hidden-error { overflow-wrap: anywhere; }
+@media (min-width: 1100px) {
+  .workspace-note { display: flex; flex-direction: column; overflow: hidden; }
+  .workspace-note > :not(.note-panel) { flex-shrink: 0; }
+  .note-panel { overflow: auto; min-height: 0; flex: 1; }
+  .note-hidden-error { max-height: 12rem; overflow: auto; }
 }
