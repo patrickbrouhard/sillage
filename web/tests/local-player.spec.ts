@@ -21,6 +21,8 @@ async function setup(page: Page, request: APIRequestContext, downloaded = true) 
 
 /** Attend une position réellement décodable après un seek HTML5. */
 async function position(page: Page, seconds: number) {
+  // Attendre aussi le départ initial avant de simuler un seek de l'utilisateur.
+  await expect.poll(() => page.locator('video').evaluate((v: HTMLVideoElement) => !v.seeking && v.readyState >= 2)).toBe(true)
   await page.locator('video').evaluate((v: HTMLVideoElement, t) => { v.currentTime = t }, seconds)
   await expect.poll(() => page.locator('video').evaluate((v: HTMLVideoElement) => !v.seeking && v.readyState >= 2)).toBe(true)
 }
@@ -316,3 +318,45 @@ for (const state of ['buffering', 'error', 'stale-seek'] as const) {
     expect(await c.media.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
   })
 }
+
+test('départ préparé masqué reste transférable mais ne devient pas un temps confirmé', async ({ page, request }) => {
+  const c = await setup(page, request)
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await position(page, 40)
+  await c.mode.getByRole('button', { name: 'YouTube', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(5)
+  await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
+  await page.getByRole('textbox', { name: 'Note Markdown' }).click()
+  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+  await expect(page.getByText(/Temps indisponible/)).toBeVisible()
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(40, 2)
+  await expect(page.locator('.player-switch-status')).toBeEmpty()
+  expect(await c.media.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
+})
+
+test('une position bornée à la durée locale remplace la cible distante', async ({ page, request }) => {
+  const c = await setup(page, request)
+  await page.evaluate(() => { const p = window.youtubeTest.players.at(-1)!; p.position = 200; p.emitState(1) })
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => !v.seeking && v.readyState >= 2)).toBe(true)
+  const duration = await c.media.evaluate((v: HTMLVideoElement) => v.duration)
+  expect(await c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(duration, 2)
+  await c.mode.getByRole('button', { name: 'YouTube', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls.at(-1)?.seconds)).toBeCloseTo(duration, 2)
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(duration, 2)
+})
+
+test('une nouvelle référence après réessai rétablit une préparation explicite', async ({ page, request }) => {
+  const c = await setup(page, request)
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.options.events.onError({ data: 100 }))
+  await page.getByRole('button', { name: 'Réessayer le lecteur', exact: true }).click()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  await page.getByRole('textbox', { name: 'Note Markdown' }).fill('[cible](sillage://videos/' + c.video.id + '/sources/' + c.video.sources[0].id + '?start_ms=80000)')
+  await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+  await page.getByLabel('Lecture de la note').getByRole('button').first().click()
+  await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(80, 2)
+  await expect(page.locator('.player-switch-status')).toBeEmpty()
+})

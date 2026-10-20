@@ -1339,6 +1339,9 @@ autorisation supplémentaire ni commande de lecture n'est ajoutée.
   contrôlée côté filesystem. Aucune exposition du répertoire data/media.
 - Une seule instance lecteur active ; transfert approximatif en pause. YouTube
   utilise cueVideoById pour éviter le démarrage implicite de seekTo depuis cued.
+  Un départ préparé encore valable peut circuler entre lecteurs pendant la session,
+  mais n'alimente jamais + Temps ou + Capture. Une position devenue incertaine
+  interdit le repli sur l'ancien départ ; aucun suivi ni stockage de progression.
 - L'affectation de currentTime conserve lecture/pause pour les navigations locales.
   Une position courante locale exige des données disponibles et aucun seek en cours.
 - Pas de canPlayType comme filtre définitif : les noms ffprobe ne constituent pas

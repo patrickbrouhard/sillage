@@ -1125,9 +1125,17 @@ le fichier peut apparaître dans ce panneau, sans lecture automatique. Aucun
 transfert de position n'est gardé en attente d'un téléchargement futur.
 
 Une bascule relève la position confirmée si possible, arrête et décharge
-l'ancienne instance puis prépare la nouvelle sans autoplay. Le transfert peut
-attendre une fois l'initialisation, et est invalidé au départ de l'instance.
-Une position indisponible n'empêche pas la bascule et donne un message explicite.
+l'ancienne instance puis prépare la nouvelle sans autoplay. Le départ préparé reste
+transférable tant qu'aucune activité ne l'a rendu incertain : Local à 0:40,
+YouTube préparé sans lecture, puis Local conserve 0:40. Une référence acceptée
+depuis YouTube cued remplace ce départ ; une commande refusée ne le remplace pas.
+Le transfert peut attendre une fois l'initialisation de la nouvelle instance,
+sans reporter les navigations ordinaires.
+L'absence normale de position avant une première lecture ne produit aucun avertissement.
+Une position devenue incertaine (erreur, buffering, seek non confirmé) n'est jamais
+remplacée par une ancienne position : la bascule sans transfert est signalée.
+Cette mémoire est limitée à la fiche et à sa source temporelle pendant la session ;
+elle ne constitue pas une reprise de lecture persistée.
 YouTube peut afficher une vignette avec départ préparé plutôt qu'une image à
 l'instant demandé. La correspondance reste approximative. La position initiale
 locale est bornée par la durée décodée ; une navigation ordinaire hors durée est
@@ -1137,7 +1145,9 @@ Masquer Local met en pause et conserve normalement sa position ; réafficher ne
 relance rien. La note, sa sélection, Undo/Redo, l'autosauvegarde et la transcription
 restent montées au changement de mode. Les références vidéo/source existantes
 commandent uniquement le lecteur actif de cette même source. + Temps et + Capture
-lisent sa position, y compris masqué en pause, sans commande de lecture. Le local
+lisent exclusivement sa position confirmée, y compris masqué en pause, sans commande
+de lecture. Un départ préparé ne suffit jamais à ces opérations, même si le
+masquage fait passer YouTube à l'état paused. Le local
 refuse une position pendant le chargement, le seek ou après une erreur.
 Les captures gardent leur extraction serveur et leur repli distant sélectif.
 

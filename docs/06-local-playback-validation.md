@@ -90,3 +90,29 @@ largeurs, avec un vrai WebM synthétique et une acquisition distante simulée.
 Les captures YouTube utilisent l'API simulée (iframe vide) : vérifier le véritable
 lecteur et ses interactions de focus/modalité dans Brave Windows.
 La phase 2 reste interdite sans retour explicite après ce bilan.
+
+## Recette complémentaire — transfert temporel de session
+
+- YouTube jamais démarré → Local : début du fichier, aucun faux avertissement.
+- Local à 0:40 → YouTube préparé → Local sans lecture : environ 0:40, en pause.
+- Depuis ce YouTube préparé, activer une référence vers 1:20 (transcription,
+  Lecture Markdown, puis Édition) : retour Local vers 1:20 si commande acceptée.
+- Lire YouTube jusqu'à 1:10 après une préparation à 0:40 : Local reçoit le temps
+  réellement lu, sans reprendre automatiquement.
+- Sur YouTube cued, y compris après masquage, + Temps et + Capture doivent refuser.
+  Après lecture puis pause, ils retrouvent leur comportement habituel.
+- Basculer rapidement pendant initialisation ; une ancienne instance ne doit
+  commander ni déplacer le nouveau lecteur. Un timestamp refusé n'est pas différé.
+- Basculer pendant buffering, seek non confirmé ou après erreur : aucun retour
+  trompeur vers 0:40 ; avertissement de transfert impossible, nouveau lecteur en pause.
+- Masquer un lecteur réellement en pause puis basculer : conserver son temps.
+  Tester également le cas d'une pause YouTube non confirmée et détruite.
+- Atteindre une position distante au-delà de la durée locale : la cible locale
+  est bornée ; revenir sur YouTube ne doit pas ressusciter la cible hors durée.
+- Supprimer/recharger le média, changer de fiche/source et rafraîchir : pas de
+  reprise d'une ancienne préparation. Note, sélection, Undo/Redo et autosauvegarde
+  restent inchangés.
+
+Le spinner natif Local, preload, ratios, paddings et hauteurs ne sont pas modifiés.
+La simulation YouTube couvre les commandes et refus mais ne remplace pas ces essais
+sur l'API réelle dans Brave Windows, notamment ses délais de seek et de buffering.

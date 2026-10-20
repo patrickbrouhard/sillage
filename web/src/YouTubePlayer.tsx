@@ -106,6 +106,8 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
         }
         // seekTo démarre depuis cued, unstarted ou ended : préparer seulement le départ.
         else if ([-1, 0, 5].includes(state)) {
+          // Une nouvelle demande explicite peut rétablir un départ après une erreur.
+          uncertain.current = false
           prepared.current = startMs
           pendingSeek.current = undefined
           current.cueVideoById({

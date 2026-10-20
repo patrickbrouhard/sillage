@@ -1348,7 +1348,8 @@ Les réservations de lecture/capture utilisent le refus 503 download_busy exista
 
 VideoPlayer possède le panneau et l'en-tête permanents ; il compose les deux surfaces
 concrètes avec getCurrentTimeMs, navigate et stop pour les usages du workspace.
-PlayerSurfaceHandle ajoute seulement toggleVisibility pour l'en-tête ; la surface
+PlayerSurfaceHandle ajoute toggleVisibility pour l'en-tête et getTransferPosition,
+réservé à la bascule (confirmed, prepared, empty ou uncertain) ; la surface
 publie sa visibilité confirmée, notamment après pause YouTube. Une seule instance
 de lecture est montée.
 La sélection initiale attend le premier état de téléchargement ou son erreur :
@@ -1360,6 +1361,20 @@ La bascule transmet une position initiale facultative, consommée une fois à
 onReady/loadedmetadata. L'ancienne instance est arrêtée avant la transition ;
 les effets nettoient leurs écouteurs et ignorent les événements obsolètes.
 Les timestamps ordinaires ne rejoignent jamais ce mécanisme d'initialisation.
+Le curseur de transfert circule dans VideoPlayer par la sélection de session ;
+chaque surface conserve et qualifie sa préparation, sans historique parallèle ni
+hook supplémentaire. La clé vidéo/source du workspace borne cette mémoire.
+YouTube conserve un départ cued, remplacé par une nouvelle commande cue acceptée.
+Lecture et buffering invalident ce repli ; les erreurs et destructions forcées
+l'invalident aussi. Un seek explicite bloque la lecture stricte du temps jusqu'à
+un événement stable observant sa cible ou suivant le buffering du seek. L'API
+YouTube ne fournit pas d'identifiant de seek ni de garantie image par image.
+Local distingue le chargement initial, le seek demandé en pause et une position
+réellement décodable ; la durée effective borne la préparation. Arrêt, erreur et
+suppression effacent les préparations locales. Les callbacks d'instances détruites
+restent ignorés. Aucun polling temporel ni stockage de progression.
+getCurrentTimeMs reste indépendant de ce repli et refuse les préparations :
++ Temps et + Capture ne consomment jamais le curseur de transfert.
 Le défilement conditionnel est partagé, sans focus forcé ni scroll des panneaux.
 VideoNote, sa session et VideoTranscript restent hors de cette alternance.
 

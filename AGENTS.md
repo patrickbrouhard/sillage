@@ -294,3 +294,12 @@ metadata section. Confirmed deletion from YouTube must not stop the remote playe
 Retain video padding, aspect ratios and height limits. Stop before edge-to-edge work;
 phase 2 requires explicit user approval of phase 1. Clips are exploratory only,
 with no chosen entity, schema, endpoint, cutting or export implementation.
+
+## Session position transfer
+
+Keep getCurrentTimeMs strict for time insertion and capture. Surface-only transfer
+snapshots distinguish confirmed, prepared, empty and uncertain. Preserve a still-valid
+cued target across switches, including accepted cue navigation, but never fall back
+to an old target after activity/error makes it uncertain. Ordinary navigation stays
+immediate-only. No progress polling, persistence or layout changes. Brave validation
+is required before proceeding to panel phase 2.

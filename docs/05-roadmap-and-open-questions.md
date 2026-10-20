@@ -1942,3 +1942,16 @@ sur deux colonnes, sans changement des marges ou hauteurs de la vidéo.
 Les références visuelles sont générées sous web/test-results/ par player-panel.spec.ts.
 Le vrai lecteur YouTube et Brave Windows restent à vérifier manuellement.
 Aucune validation de la phase 2 n'est implicite dans ces résultats.
+
+## Correction du transfert temporel — validation Brave attendue
+
+La bascule conserve les départs préparés encore valables pendant la session,
+notamment Local → YouTube cued → Local et une référence acceptée depuis cued.
+Un temps devenu incertain ne réutilise aucune ancienne cible. L'absence normale
+de temps avant lecture n'est pas une erreur. + Temps et + Capture exigent toujours
+une position confirmée. Tests Chromium complétés ; recette Brave à valider avant
+de poursuivre les évolutions du panneau. La phase 2 reste différée.
+
+La reprise de lecture entre sessions et un éventuel suivi de progression restent
+des pistes futures distinctes. Cette correction ne décide ni stockage, ni cadence
+de sauvegarde, ni contrat API pour ces fonctionnalités.
