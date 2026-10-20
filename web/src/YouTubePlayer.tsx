@@ -17,8 +17,6 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
   const prepared = useRef(initialStartMs)
   const uncertain = useRef(false)
   const experienced = useRef(false)
-  const seekBuffering = useRef(false)
-  const pendingSeek = useRef<number | undefined>(undefined)
   const stopPlayer = useRef<(() => void) | null>(null)
   const host = useRef<HTMLDivElement>(null)
   const player = useRef<Player | null>(null)
@@ -48,7 +46,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
     stop() { stopPlayer.current?.() },
     toggleVisibility: toggle,
     getTransferPosition() {
-      if (uncertain.current || hiding || pendingSeek.current !== undefined) return { kind: 'uncertain' }
+      if (uncertain.current || hiding) return { kind: 'uncertain' }
       try {
         const current = player.current
         if (prepared.current !== undefined) {
@@ -69,7 +67,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
     },
     getCurrentTimeMs() {
       const current = player.current
-      if (!current || !ready || hiding || prepared.current !== undefined || pendingSeek.current !== undefined) {
+      if (!current || !ready || hiding || prepared.current !== undefined) {
         throw new Error('Temps indisponible : le lecteur doit être prêt et son masquage terminé.')
       }
       try {
@@ -98,10 +96,8 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
         const state = current.getPlayerState()
         const seconds = startMs / 1000
         if ([1, 2, 3].includes(state)) {
-          // Un getter peut encore renvoyer l'ancien temps après acceptation du seek.
+          // La cible demandée ne remplace jamais la position annoncée par YouTube.
           prepared.current = undefined
-          pendingSeek.current = startMs
-          seekBuffering.current = false
           current.seekTo(seconds, true)
         }
         // seekTo démarre depuis cued, unstarted ou ended : préparer seulement le départ.
@@ -109,7 +105,6 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
           // Une nouvelle demande explicite peut rétablir un départ après une erreur.
           uncertain.current = false
           prepared.current = startMs
-          pendingSeek.current = undefined
           current.cueVideoById({
             videoId: source.external_id!,
             startSeconds: seconds,
@@ -140,7 +135,6 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
       uncertain.current = true
       prepared.current = undefined
       initialPosition.current = undefined
-      pendingSeek.current = undefined
       window.clearTimeout(readyTimer)
       instance?.destroy()
       instance = null; player.current = null
@@ -196,18 +190,9 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
             experienced.current = true
             prepared.current = undefined
           }
-          if (event.data === 3 && pendingSeek.current !== undefined) seekBuffering.current = true
-          if ([0, 1, 2].includes(event.data)) {
-            if (pendingSeek.current !== undefined) {
-              // Sans identifiant de commande YouTube, ne valider que la cible observée.
-              try {
-                if (seekBuffering.current || Math.round(event.target.getCurrentTime() * 1000) === pendingSeek.current) {
-                  pendingSeek.current = undefined
-                }
-              } catch { uncertain.current = true }
-            }
-            if (pendingSeek.current === undefined) uncertain.current = false
-          }
+          // Les états admissibles rétablissent la lecture du temps courant, sans
+          // chercher un accusé de fin de seek que l'API ne garantit pas.
+          if ([0, 1, 2].includes(event.data)) uncertain.current = false
           if (!conceal.current) return
           if ([1, 3].includes(event.data)) {
             // Une reprise tardive après masquage ne doit pas devenir une lecture en arrière-plan.

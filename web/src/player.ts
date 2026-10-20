@@ -1,6 +1,6 @@
 /** Commandes communes aux deux lecteurs concrets du workspace. */
 export interface PlayerHandle {
-  /** Lit une position confirmée en millisecondes, sans commander le lecteur. */
+  /** Lit le temps annoncé en millisecondes dans un état admissible, jamais un départ préparé. */
   getCurrentTimeMs(): number
   /** Navigue immédiatement ou retourne un refus, sans mise en attente. */
   navigate(startMs: number): string
