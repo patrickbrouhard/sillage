@@ -360,3 +360,76 @@ test('une nouvelle référence après réessai rétablit une préparation explic
   await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(80, 2)
   await expect(page.locator('.player-switch-status')).toBeEmpty()
 })
+
+// Caractérisation du défaut pendingSeek, pas un contrat UX à pérenniser :
+// après correction, le cas approché devra réussir avec le temps observé 80080.
+for (const observedSeconds of [80.123, 80.080]) {
+  test('diagnostic seek stable sans buffering : position observée ' + observedSeconds, async ({ page, request }) => {
+    const c = await setup(page, request)
+    const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+    const reference = '[cible](sillage://videos/' + c.video.id + '/sources/' + c.video.sources[0].id + '?start_ms=80123)'
+    await editor.fill(reference)
+    await page.evaluate(observed => {
+      const p = window.youtubeTest.players.at(-1)!
+      // Établir une vraie position simulée, distincte de toute préparation cued.
+      p.position = 40
+      p.emitState(1)
+      p.emitState(2)
+      p.seekTo = (seconds, allowSeekAhead) => {
+        p.navigationCalls.push({ command: 'seek', seconds, allowSeekAhead })
+        p.position = observed
+        // Le seek se termine en pause, sans aucun état 3 intermédiaire.
+        p.emitState(2)
+      }
+    }, observedSeconds)
+    await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+    await page.getByLabel('Lecture de la note').getByRole('button').first().click()
+    expect(await page.evaluate(() => {
+      const p = window.youtubeTest.players.at(-1)!
+      return { call: p.navigationCalls.at(-1), state: p.getPlayerState(), seconds: p.getCurrentTime() }
+    })).toEqual({
+      call: { command: 'seek', seconds: 80.123, allowSeekAhead: true },
+      state: 2,
+      seconds: observedSeconds,
+    })
+    // Un autre événement stable ne suffit pas non plus à déverrouiller le cas approché.
+    await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(2))
+    await page.getByRole('button', { name: 'Édition', exact: true }).click()
+    await editor.click()
+    const before = await editor.textContent()
+    const blocked = observedSeconds !== 80.123
+    const timeErrors = page.getByRole('alert').filter({ hasText: 'Temps indisponible' })
+    await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+    if (blocked) {
+      await expect(timeErrors).toHaveCount(1)
+      expect(await editor.textContent()).toBe(before)
+    } else {
+      await expect(timeErrors).toHaveCount(0)
+      // CodeMirror compacte les liens : vérifier le Markdown sauvegardé, pas les widgets.
+      await page.getByRole('button', { name: 'Enregistrer la note', exact: true }).click()
+      await expect.poll(async () => {
+        const note = await (await request.get('/api/v1/videos/' + c.video.id + '/note')).json()
+        return note.content_md.match(/start_ms=80123/g)?.length ?? 0
+      }).toBe(2)
+    }
+    const captures: number[] = []
+    await page.route('**/captures', route => {
+      captures.push(route.request().postDataJSON().timestamp_ms)
+      return route.fulfill({ status: 503, json: { error: { code: 'capture_busy' } } })
+    })
+    await page.getByRole('button', { name: '+ Capture', exact: true }).click()
+    if (blocked) {
+      // Le retour d'erreur prouve que le traitement de l'action a bien eu lieu.
+      await expect(timeErrors).toHaveCount(2)
+      expect(captures).toEqual([])
+    } else {
+      await expect.poll(() => captures).toEqual([80123])
+    }
+    await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
+    await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => !v.seeking && v.readyState >= 2)).toBe(true)
+    expect(await c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(blocked ? 0 : observedSeconds, 3)
+    expect(await c.media.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true)
+    if (blocked) await expect(page.locator('.player-switch-status')).toContainText('sans transfert')
+    else await expect(page.locator('.player-switch-status')).toBeEmpty()
+  })
+}
