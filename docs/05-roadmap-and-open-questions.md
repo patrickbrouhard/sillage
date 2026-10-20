@@ -2009,13 +2009,51 @@ L'utilisateur a validé manuellement le rendu bord à bord dans Brave.
 La validation visuelle de cette phase est donc acquise ; les scénarios de la
 recette restent disponibles pour les vérifications de non-régression ultérieures.
 
-## Refonte de la fiche — tranche A, en cours
+## Refonte de la fiche — tranche A, validation Brave attendue
 
 L'en-tête principal accueille le titre issu de la première source REST (repli
 « Vidéo sans titre »), sur une ligne desktop et deux lignes maximum sur mobile.
 La fiche alimente directement cet emplacement depuis ses données chargées :
 aucune requête supplémentaire ni état miroir du titre. Chargement et erreurs
 ont leur propre titre. Le footer reste réservé aux pages hors fiche.
-Les onglets et l'optimisation verticale suivent dans la même tranche.
+Les tags sont communs aux onglets Note/Informations ; toutes les informations de
+l'ancienne section sous la grille sont transférées. La session reste montée,
+les refus de citation ne changent pas d'onglet et les insertions acceptées révèlent
+Note avant le focus. Les captures acceptées et l'autosauvegarde continuent sous
+Informations ; erreurs, conflits et dialogue de départ restent accessibles.
+La grille utilise la hauteur restante sous l'en-tête réel, avec 16 px en haut/bas
+et un minimum de 38rem autorisant le défilement de page sur fenêtre basse.
+À viewport 1920 × 1080, la recette mesure 984 px pour le workspace.
 Les dimensions des lecteurs restent inchangées ; le 16:9 relève de la tranche B,
 après validation manuelle dans Brave.
+
+### Validation automatisée de la tranche A
+
+Le build final passe les 372 tests Playwright, dont les nouveaux parcours
+d'onglets, de citation depuis Informations, de capture en arrière-plan,
+de conflit et de chargement différé de l'éditeur. Les recettes couvrent les
+largeurs 320 à 1920 px, la fenêtre basse et les grands caractères.
+Les captures desktop et mobile ont été inspectées.
+make test passe : tests Go, go vet, go build et vérification TypeScript.
+Le build Vite passe également ; son avertissement de chunk supérieur à 500 kB
+était déjà présent avant cette tranche. La validation manuelle Brave reste attendue.
+
+### Recette manuelle avant la tranche B
+
+- Dans Brave, vérifier une fiche à 1920 × 1080 puis dans une fenêtre plus basse :
+  titre compact, workspace proche du bandeau, trois zones et transcription confortable.
+- Essayer un titre long, de nombreux tags et les deux thèmes ; consulter/copier
+  le titre complet et parcourir toutes les sources/descriptions dans Informations.
+- Éditer puis sélectionner du texte, ouvrir Informations et revenir : vérifier
+  sélection, Undo/Redo, défilement, mode Lecture/Édition et sauvegarde.
+- Depuis Informations, citer un extrait après avoir choisi une position : seule
+  une insertion admissible révèle Note. En Lecture ou sans position choisie dans
+  une note non vide, Informations doit rester ouvert avec un refus explicite.
+- Vérifier les commandes et le popover YouTube/Local, la conservation/suppression,
+  les captures en cours et les liens temporels ; aucune dimension média n'a changé.
+- Réduire la largeur sous 1100 px, puis à 375/320 px : Lecteur, Note, Transcription
+  restent dans cet ordre et la page défile normalement sans débordement horizontal.
+
+La validation automatisée utilise l'API YouTube simulée et un vrai média local
+pour les scénarios de décodage. Elle ne remplace pas cette recette dans Brave.
+Aucun push ni passage au 16:9 n'est inclus dans la livraison de la tranche A.

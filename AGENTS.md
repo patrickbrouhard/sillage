@@ -349,3 +349,8 @@ Capture completion must not reveal the note or steal focus. Move all existing
 metadata into Informations, retaining the contextual player popover and one shared
 download consultation. No generic tabs, domain/API changes or title editing.
 Player dimensions remain unchanged; 16:9 is tranche B after manual Brave validation.
+
+Desktop height uses the actual header row plus remaining viewport space, with
+16px vertical main padding and a 38rem workspace minimum allowing page overflow.
+Keep current grid widths and the 1100px breakpoint; mobile retains normal flow.
+Tranche A requires manual Brave validation before starting tranche B.

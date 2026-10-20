@@ -37,7 +37,7 @@ export interface MarkdownEditorHandle {
   finishCapture(id: string, markdown: string): boolean
   /** Retire une intention refusée sans toucher au document. */
   abandonCapture(id: string): void
-  /** Insère un bloc uniquement à un emplacement choisi, sauf pour un document vide. */
+  /** Vérifie l’emplacement, révèle éventuellement la vue, puis insère un bloc isolé dans Undo. */
   insertCitation(markdown: string, beforeInsert?: () => void): void
 }
 

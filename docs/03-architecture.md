@@ -1447,3 +1447,8 @@ synchrone de Note. La transaction isolée et le focus s'appliquent ensuite à la
 vue visible. Une bascule ordinaire demande seulement une nouvelle mesure CodeMirror,
 sans prendre le focus du bouton d'onglet. Les captures en cours gardent leur handle
 et leur ancrage ; leur retour réseau ne révèle pas Note.
+
+La hauteur desktop est allouée par deux lignes CSS au niveau de la page :
+en-tête intrinsèque puis main avec minimum de 40rem (workspace 38rem + paddings).
+La grille des trois zones reste unique ; aucune colonne React supplémentaire,
+aucun observateur de taille ni hauteur d'en-tête codée en JavaScript.

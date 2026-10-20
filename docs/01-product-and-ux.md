@@ -1297,3 +1297,19 @@ les bandes noires restent possibles, sans recadrage. Le popover Informations
 peut dépasser le panneau, notamment lorsque le lecteur est masqué.
 Les états sans surface retrouvent le padding inférieur normal.
 Aucun changement de comportement des lecteurs ou du workspace.
+
+## Fiche vidéo — budget vertical de la tranche A
+
+À partir de 1100 px, le workspace occupe l'espace sous l'en-tête réel avec
+16 px en haut et en bas. La largeur maximale de 1720 px, les paddings latéraux
+de 32 px, l'écart de 16 px et le rapport 1.2/1 des pistes restent inchangés.
+Une hauteur minimale de workspace de 38rem permet le défilement de page sur
+fenêtre basse. Les onglets ont des défilements indépendants ; une accumulation
+de tags laisse également défiler leur panneau pour garder les commandes accessibles.
+Sous 1100 px, la page garde son flux normal Lecteur → Note → Transcription.
+
+Le budget nominal à viewport 1920 × 1080 est : en-tête 64 px, marge 16 px,
+workspace 984 px et marge basse 16 px. Ce n'est pas une garantie liée à la
+résolution physique de l'écran : barres navigateur, zoom, police et messages
+modifient l'espace réellement disponible. Aucune règle de dimensions de média
+n'est modifiée : le passage au 16:9 reste réservé à la tranche B après Brave.

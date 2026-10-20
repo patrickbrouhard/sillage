@@ -199,3 +199,95 @@ for (const failure of ['conflict', 'error']) {
     if (failure === 'conflict') await expect(page.getByRole('region', { name: 'Résolution du conflit' })).toBeVisible()
   })
 }
+
+test('budget vertical, dimensions vidéo inchangées et responsive sans débordement', async ({ page, request }, info) => {
+  const video = await (await request.post('/api/v1/videos', {
+    data: { url: 'https://youtu.be/trLayoutA00' },
+  })).json()
+  await request.put('/api/v1/videos/' + video.id + '/note', {
+    data: { content_md: 'Note de travail.\n\n'.repeat(60), expected_revision: 0 },
+  })
+  await page.route('**/transcript', route => route.fulfill({ json: {
+    language: 'fr', provenance: 'youtube_auto', last_fetched_at: '2026-10-20T10:00:00Z',
+    items: Array.from({ length: 80 }, (_, index) => ({ start_ms: index * 10000, text: 'Un passage de transcription suffisamment long pour consulter le contenu.' })),
+  } }))
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.goto('/videos/' + video.id)
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
+  const grid = page.locator('.video-workspace')
+  const header = page.locator('.site-header')
+  const normal = await grid.boundingBox()
+  const headerBox = await header.boundingBox()
+  expect(normal!.y - headerBox!.height).toBeCloseTo(16, 0)
+  expect(normal!.height).toBeGreaterThanOrEqual(980)
+  expect(normal!.y + normal!.height).toBeCloseTo(1064, 0)
+  expect((await page.locator('.youtube-frame').boundingBox())!.height).toBeCloseTo(254.4, 0)
+  expect((await page.locator('.video-transcript').boundingBox())!.height).toBeGreaterThan(600)
+  await page.screenshot({ path: info.outputPath('workspace-1920.png'), fullPage: true })
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
+  await expect(page.locator('.full-video-title')).toHaveText(video.sources[0].title)
+  await page.screenshot({ path: info.outputPath('information-1920.png'), fullPage: true })
+  for (const width of [1440, 1100, 1099, 900, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    const player = await page.locator('.video-player').boundingBox()
+    const note = await page.locator('.workspace-note').boundingBox()
+    const transcript = await page.locator('.video-transcript').boundingBox()
+    if (width >= 1100) {
+      expect(note!.x).toBeLessThan(player!.x)
+      expect(note!.y).toBe(player!.y)
+      expect(transcript!.y).toBeGreaterThan(player!.y)
+    } else {
+      expect(note!.y).toBeGreaterThanOrEqual(player!.y + player!.height)
+      expect(transcript!.y).toBeGreaterThanOrEqual(note!.y + note!.height)
+    }
+    if (width === 320) {
+      await page.screenshot({ path: info.outputPath('information-320.png') })
+      await page.locator('.workspace-note').screenshot({ path: info.outputPath('information-panel-320.png') })
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 500 })
+  expect(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight)).toBe(true)
+  expect((await grid.boundingBox())!.height).toBeGreaterThanOrEqual(608)
+  await page.screenshot({ path: info.outputPath('workspace-short.png'), fullPage: true })
+})
+
+test('nombreux tags et grands caractères laissent les panneaux accessibles', async ({ page }) => {
+  await page.route('**/api/v1/videos/42', route => route.fulfill({ json: {
+    id: 42, created_at: '2026-10-20', person_ids: [], sources: [],
+    tags: Array.from({ length: 60 }, (_, index) => ({ id: index + 1, name: 'Classement détaillé numéro ' + index })),
+  } }))
+  await page.route('**/note', route => route.fulfill({ status: 404, json: { error: { code: 'note_not_found' } } }))
+  await page.setViewportSize({ width: 1100, height: 600 })
+  await page.goto('/videos/42')
+  await page.evaluate(() => { document.documentElement.style.fontSize = '24px' })
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
+  await expect(page.getByText('Aucune source disponible.', { exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Note', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('chargement différé de l’éditeur respecte l’onglet choisi', async ({ page }) => {
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/assets/VideoNote-*.js', async route => {
+    await gate
+    await route.continue()
+  })
+  await page.route('**/api/v1/videos/42', route => route.fulfill({ json: {
+    id: 42, created_at: '2026-10-20', person_ids: [], sources: [], tags: [],
+  } }))
+  await page.route('**/note', route => route.fulfill({ status: 404, json: { error: { code: 'note_not_found' } } }))
+  await page.goto('/videos/42', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByText('Chargement de l’éditeur…')).toBeVisible()
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
+  await expect(page.getByText('Chargement de l’éditeur…')).toBeHidden()
+  release()
+  await expect(page.locator('.cm-content')).toBeAttached()
+  await expect(page.getByRole('tab', { name: 'Informations', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('tab', { name: 'Note', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
+})

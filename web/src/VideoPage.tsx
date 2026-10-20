@@ -150,22 +150,41 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                   >{value === 'note' ? 'Note' : 'Informations'}</button>
                 ))}
               </div>
-              <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote ref={note} videoID={state.video.id} visible={tab === 'note'} onReveal={revealNote}
-                onNavigate={reference => {
-                  if (reference.videoID !== state.video.id) return 'Cette référence concerne une autre vidéo. Aucune navigation effectuée.'
-                  if (!source) return 'Navigation non effectuée : aucun lecteur disponible pour cette vidéo.'
-                  if (reference.sourceID !== source.id) return 'Cette référence concerne une autre source de cette vidéo. Aucune navigation effectuée.'
-                  return navigate(reference.startMs)
-                }}
-                getCaptureTarget={() => {
-                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
-                  return { videoID: state.video.id, sourceID: source.id, timestampMs: player.current.getCurrentTimeMs() }
-                }}
-                getTimeReference={() => {
-                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
-                  return temporalReference(state.video.id, source.id, player.current.getCurrentTimeMs())
-                }} /></Suspense>
-              <section id="information-panel" className="note-panel video-information" role="tabpanel" aria-labelledby="information-tab" tabIndex={0} hidden={tab !== 'information'}>
+              <Suspense fallback={
+                <section id="note-panel" className="note-panel" role="tabpanel"
+                  aria-labelledby="note-tab" tabIndex={0} hidden={tab !== 'note'}>
+                  <p role="status">Chargement de l’éditeur…</p>
+                </section>
+              }>
+                <VideoNote
+                  ref={note}
+                  videoID={state.video.id}
+                  visible={tab === 'note'}
+                  onReveal={revealNote}
+                  onNavigate={reference => {
+                    if (reference.videoID !== state.video.id) return 'Cette référence concerne une autre vidéo. Aucune navigation effectuée.'
+                    if (!source) return 'Navigation non effectuée : aucun lecteur disponible pour cette vidéo.'
+                    if (reference.sourceID !== source.id) return 'Cette référence concerne une autre source de cette vidéo. Aucune navigation effectuée.'
+                    return navigate(reference.startMs)
+                  }}
+                  getCaptureTarget={() => {
+                    if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
+                    return { videoID: state.video.id, sourceID: source.id, timestampMs: player.current.getCurrentTimeMs() }
+                  }}
+                  getTimeReference={() => {
+                    if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
+                    return temporalReference(state.video.id, source.id, player.current.getCurrentTimeMs())
+                  }}
+                />
+              </Suspense>
+              <section
+                id="information-panel"
+                className="note-panel video-information"
+                role="tabpanel"
+                aria-labelledby="information-tab"
+                tabIndex={0}
+                hidden={tab !== 'information'}
+              >
                 <h2>Titre complet</h2>
                 <p className="full-video-title">{title}</p>
                 <p className="muted">Ajoutée le <time dateTime={state.video.created_at}>

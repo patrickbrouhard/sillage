@@ -220,12 +220,26 @@ main:has(.video-workspace) { padding-top: 16px; }
 .player-toolbar h2 { margin-bottom: 0; }
 
 @media (min-width: 1100px) {
-  main:has(.video-workspace) { max-width: 1720px; padding: 16px 32px 40px; }
+  /* La ligne d'en-tête mesure sa hauteur réelle ; les petites fenêtres peuvent défiler. */
+  #root:has(.video-workspace) {
+    display: grid;
+    grid-template-rows: auto minmax(40rem, 1fr);
+    height: 100dvh;
+  }
+  main:has(.video-workspace) {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+    max-width: 1720px;
+    padding: 16px 32px;
+  }
   .video-workspace {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas: "note player" "note transcript";
-    height: max(38rem, calc(100dvh - 18rem));
+    flex: 1;
+    min-height: 38rem;
   }
   .workspace-note { grid-area: note; overflow: auto; min-height: 0; }
   .video-player { grid-area: player; }
@@ -392,8 +406,10 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .video-information .thumbnail { width: 100%; max-width: 320px; }
 .note-hidden-error { overflow-wrap: anywhere; }
 @media (min-width: 1100px) {
-  .workspace-note { display: flex; flex-direction: column; overflow: hidden; }
+  /* Si les tags occupent beaucoup de place, le panneau entier reste parcourable. */
+  .workspace-note { display: flex; flex-direction: column; overflow: auto; }
   .workspace-note > :not(.note-panel) { flex-shrink: 0; }
-  .note-panel { overflow: auto; min-height: 0; flex: 1; }
+  /* Réserver l'épaisseur du focus pour ne pas le couper au bord du défilement. */
+  .note-panel { overflow: auto; min-height: 16rem; flex: 1; padding: 3px; }
   .note-hidden-error { max-height: 12rem; overflow: auto; }
 }

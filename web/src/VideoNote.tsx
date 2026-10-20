@@ -143,7 +143,7 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
 
   return <>
     <section id="note-panel" className="video-note note-panel" role="tabpanel"
-      aria-labelledby="note-tab" hidden={!visible}>
+      aria-labelledby="note-tab" tabIndex={0} hidden={!visible}>
       {!state.loaded ? <>
         <p role="status">{state.message || 'Chargement de la note…'}</p>
         {state.message && <button className="button" onClick={() => void session.start()}>Relire la note</button>}
