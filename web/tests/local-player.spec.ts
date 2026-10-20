@@ -262,7 +262,7 @@ test('départ YouTube vierge : pas de faux avertissement', async ({ page, reques
   await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBe(0)
 })
 
-test('préparation actualisée par référence, temps strict et nouvelle lecture prioritaire', async ({ page, request }) => {
+test('référence depuis un départ préparé lance la lecture puis transfère le temps annoncé', async ({ page, request }) => {
   const c = await setup(page, request)
   const editor = page.getByRole('textbox', { name: 'Note Markdown' })
   await editor.fill('[cible](sillage://videos/' + c.video.id + '/sources/' + c.video.sources[0].id + '?start_ms=80000)')
@@ -281,6 +281,18 @@ test('préparation actualisée par référence, temps strict et nouvelle lecture
   expect(captures).toEqual([])
   await page.getByRole('button', { name: 'Lecture', exact: true }).click()
   await page.getByLabel('Lecture de la note').getByRole('button').first().click()
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(1)
+  await page.getByRole('button', { name: 'Édition', exact: true }).click()
+  await editor.click()
+  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+  const captureTimes: number[] = []
+  await page.route('**/captures', route => {
+    captureTimes.push(route.request().postDataJSON().timestamp_ms)
+    return route.fulfill({ status: 503, json: { error: { code: 'capture_busy' } } })
+  })
+  await page.getByRole('button', { name: '+ Capture', exact: true }).click()
+  await expect.poll(() => captureTimes).toEqual([80000])
+  await expect(page.getByText(/Temps indisponible/)).toHaveCount(0)
   await c.mode.getByRole('button', { name: 'Local', exact: true }).click()
   await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(80, 2)
   await c.mode.getByRole('button', { name: 'YouTube', exact: true }).click()
@@ -338,7 +350,7 @@ test('une position bornée à la durée locale remplace la cible distante', asyn
   await expect.poll(() => c.media.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(duration, 2)
 })
 
-test('une nouvelle référence après réessai rétablit une préparation explicite', async ({ page, request }) => {
+test('une nouvelle référence après réessai lance une navigation explicite', async ({ page, request }) => {
   const c = await setup(page, request)
   await page.evaluate(() => window.youtubeTest.players.at(-1)!.options.events.onError({ data: 100 }))
   await page.getByRole('button', { name: 'Réessayer le lecteur', exact: true }).click()

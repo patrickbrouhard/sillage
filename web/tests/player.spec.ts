@@ -30,16 +30,13 @@ for (const state of [-1, 0, 1, 2, 3, 5]) {
     await first.press('Enter')
     await first.press('Space')
     await page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' }).click()
-    const prepare = [-1, 0, 5].includes(state)
     expect(await page.evaluate(() => {
       const player = window.youtubeTest.players.at(-1)!
       return { state: player.state, position: player.position, calls: player.navigationCalls }
     })).toEqual({
-      state: prepare ? 5 : state === 2 ? 2 : 1,
+      state: state === 2 ? 2 : 1,
       position: 12.75,
-      calls: [1.25, 1.25, 12.75].map(seconds => prepare
-        ? { command: 'cue', seconds, videoId: 'abcdefghijk' }
-        : { command: 'seek', seconds, allowSeekAhead: true }),
+      calls: [1.25, 1.25, 12.75].map(seconds => ({ command: 'seek', seconds, allowSeekAhead: true })),
     })
     expect(requests).toEqual(['GET'])
   })
@@ -80,7 +77,7 @@ test('aucune commande en attente avant onReady, après erreur ou après réessai
   await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
   expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
   await timestamp.click()
-  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(5)
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(1)
 })
 
 test('un clic pendant le masquage ne court-circuite pas l’arrêt, puis réaffichage sans commande différée', async ({ page }) => {
@@ -138,7 +135,7 @@ test('API bloquée et commande en exception restent explicites sans faux succès
   await expect(page.locator('.youtube-frame iframe')).toBeVisible()
   await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
   await page.evaluate(() => {
-    window.youtubeTest.players.at(-1)!.cueVideoById = () => { throw new Error('Commande impossible') }
+    window.youtubeTest.players.at(-1)!.seekTo = () => { throw new Error('Commande impossible') }
   })
   await timestamp.click()
   await expect(page.getByRole('alert')).toContainText('La commande YouTube a échoué')
@@ -295,7 +292,7 @@ test('le plein écran est déclaré une seule fois et reste utilisable', async (
   const iframe = page.locator('.youtube-frame iframe')
   await expect(iframe).toBeVisible()
   await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
-  await expect(iframe).toHaveAttribute('allow', 'encrypted-media; fullscreen; picture-in-picture')
+  await expect(iframe).toHaveAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture')
   expect(await iframe.getAttribute('allowfullscreen')).toBeNull()
   // Le double about:blank permet un vrai geste utilisateur et l'API native, sans réseau YouTube.
   const frame = page.frameLocator('.youtube-frame iframe')
@@ -309,4 +306,61 @@ test('le plein écran est déclaré une seule fois et reste utilisable', async (
   await frame.getByRole('button', { name: 'Plein écran test' }).click()
   await expect.poll(() => page.evaluate(() => document.fullscreenElement?.tagName)).toBe('IFRAME')
   await page.evaluate(() => document.exitFullscreen())
+})
+
+test('blocage annoncé non fatal, aucune relance et disparition à la lecture', async ({ page }) => {
+  await page.clock.install()
+  await page.goto('/videos/42')
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  const frame = page.locator('.youtube-frame iframe')
+  await expect(frame).toHaveAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture')
+  const node = await frame.elementHandle()
+  await page.evaluate(() => {
+    const p = window.youtubeTest.players.at(-1)!
+    p.seekTo = (seconds, allowSeekAhead) => {
+      p.navigationCalls.push({ command: 'seek', seconds, allowSeekAhead })
+      p.options.events.onAutoplayBlocked({ target: p })
+    }
+  })
+  await page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' }).click()
+  const message = page.getByRole('status').filter({ hasText: 'Le navigateur a bloqué le démarrage' })
+  await expect(message).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Réessayer le lecteur' })).toHaveCount(0)
+  await page.clock.runFor(5_000)
+  expect(await page.evaluate(() => {
+    const p = window.youtubeTest.players.at(-1)!
+    return { destroyed: p.destroyed, calls: p.navigationCalls }
+  })).toEqual({ destroyed: false, calls: [{ command: 'seek', seconds: 12.75, allowSeekAhead: true }] })
+  expect(await node!.evaluate(n => n === document.querySelector('.youtube-frame iframe'))).toBe(true)
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(2))
+  await expect(message).toBeVisible()
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
+  await expect(message).toHaveCount(0)
+  // Après destruction, même le signal tardif d'une ancienne instance est ignoré.
+  await page.evaluate(() => {
+    const p = window.youtubeTest.players.at(-1)!
+    p.options.events.onError({ data: 100 })
+    p.options.events.onAutoplayBlocked({ target: p })
+  })
+  await expect(message).toHaveCount(0)
+})
+
+test('sans événement de blocage, aucun diagnostic ni relance inventés', async ({ page }) => {
+  await page.clock.install()
+  await page.goto('/videos/42')
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
+  await page.evaluate(() => {
+    const p = window.youtubeTest.players.at(-1)!
+    p.seekTo = (seconds, allowSeekAhead) => {
+      p.navigationCalls.push({ command: 'seek', seconds, allowSeekAhead })
+    }
+  })
+  await page.getByRole('button', { name: 'Aller à 0:12 dans le lecteur' }).click()
+  await page.clock.runFor(5_000)
+  await expect(page.getByText('Le navigateur a bloqué le démarrage.', { exact: false })).toHaveCount(0)
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([
+    { command: 'seek', seconds: 12.75, allowSeekAhead: true },
+  ])
 })

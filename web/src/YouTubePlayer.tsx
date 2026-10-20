@@ -28,6 +28,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
   const [hiding, setHiding] = useState(false)
   const [ready, setReady] = useState(false)
   const [message, setMessage] = useState('')
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [navigation, setNavigation] = useState(0)
 
@@ -95,22 +96,13 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
       try {
         const state = current.getPlayerState()
         const seconds = startMs / 1000
-        if ([1, 2, 3].includes(state)) {
-          // La cible demandée ne remplace jamais la position annoncée par YouTube.
-          prepared.current = undefined
-          current.seekTo(seconds, true)
+        if (![-1, 0, 1, 2, 3, 5].includes(state)) {
+          return 'Navigation non effectuée : état du lecteur inconnu. Réessayez lorsque le lecteur est prêt.'
         }
-        // seekTo démarre depuis cued, unstarted ou ended : préparer seulement le départ.
-        else if ([-1, 0, 5].includes(state)) {
-          // Une nouvelle demande explicite peut rétablir un départ après une erreur.
-          uncertain.current = false
-          prepared.current = startMs
-          current.cueVideoById({
-            videoId: source.external_id!,
-            startSeconds: seconds,
-          })
-        }
-        else return 'Navigation non effectuée : état du lecteur inconnu. Réessayez lorsque le lecteur est prêt.'
+        // Une référence demande une navigation réelle ; seul paused conserve la pause.
+        // Le départ sans lecture reste réservé à l'initialisation d'une bascule.
+        prepared.current = undefined
+        current.seekTo(seconds, true)
         setNavigation(value => value + 1)
         return ''
       } catch {
@@ -126,7 +118,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
     let failed = false
     let instance: Player | null = null
     let readyTimer: number | undefined
-    setReady(false); setMessage('')
+    setReady(false); setMessage(''); setAutoplayBlocked(false)
 
     /** Une initialisation en échec ne peut pas être réactivée par un événement tardif. */
     function fail(description: string) {
@@ -139,7 +131,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
       instance?.destroy()
       instance = null; player.current = null
       host.current?.replaceChildren()
-      setReady(false); setMessage(description)
+      setReady(false); setMessage(description); setAutoplayBlocked(false)
     }
     failPlayer.current = fail
     stopPlayer.current = () => {
@@ -164,7 +156,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
       })
       iframe.src = `https://www.youtube.com/embed/${source.external_id}?${params}`
       iframe.title = `Lecteur YouTube : ${source.title}`
-      iframe.allow = 'encrypted-media; fullscreen; picture-in-picture'
+      iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture'
       iframe.referrerPolicy = 'strict-origin-when-cross-origin'
       host.current.append(iframe)
       readyTimer = window.setTimeout(() => fail('Le lecteur YouTube ne répond pas. Vous pouvez réessayer ou ouvrir la vidéo sur YouTube.'), 15_000)
@@ -185,6 +177,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
         },
         onStateChange: event => {
           if (disposed || failed) return
+          if (event.data === 1) setAutoplayBlocked(false)
           // La lecture ou le buffering rend l'ancien départ cued impropre au repli.
           if ([1, 3].includes(event.data)) {
             experienced.current = true
@@ -204,6 +197,11 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
             concealed.current = true
             setHidden(true); setHiding(false)
           }
+        },
+        onAutoplayBlocked: () => {
+          // Ce signal n'est pas garanti après seekTo : aucune détection de remplacement.
+          if (disposed || failed) return
+          setAutoplayBlocked(true)
         },
         onError: event => {
           const errors: Record<number, string> = {
@@ -273,6 +271,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
   return <div hidden={hidden}>
       {!ready && !message && <p role="status">Chargement du lecteur YouTube…</p>}
       {message && <div role="alert"><p>{message}</p><button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}
+      {autoplayBlocked && <p role="status">Le navigateur a bloqué le démarrage. Utilisez le bouton Lecture du lecteur.</p>}
       <div className="youtube-frame" ref={host} />
     </div>
 }
