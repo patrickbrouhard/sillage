@@ -129,12 +129,29 @@ sur l'API réelle dans Brave Windows, notamment ses délais de seek et de buffer
 - Vérifier les captures à partir de la position relevée, sans exiger l'identité
   image par image avec l'iframe. La fraîcheur instantanée du getter YouTube n'est
   pas certifiée ; observer notamment les clics très rapprochés de la navigation.
-- Depuis un lecteur non démarré, cued ou terminé : départ préparé sans autoplay,
-  annotations refusées tant qu'il reste seulement préparé. Ce parcours n'est
-  pas modifié et fera l'objet d'une discussion séparée.
+- Depuis un lecteur non démarré, cued ou terminé : un clic temporel demande
+  désormais la lecture au passage. Une bascule seule garde son départ préparé
+  sans lecture et ne rend pas ce départ annotable.
 - Local conserve le refus pendant seeking ; préparation et bascules restent
   distinctes de la lecture du temps pour les annotations.
 
 Les tests de caractérisation de 83a7f40 sont remplacés par des assertions de
 réussite à la valeur annoncée. Le cas d'un getter encore ancien explicite la
 limite acceptée ; il ne prétend pas reproduire un défaut observé dans Brave.
+
+## Recette complémentaire — navigation explicite YouTube
+
+- Sur un profil Brave peu utilisé, ouvrir YouTube sans démarrer : cliquer un
+  timestamp de transcription puis une référence Markdown, y compris au clavier.
+  Le lecteur doit demander la lecture au passage ; vérifier aussi ended et cued.
+- En lecture, continuer après navigation ; en pause, rester en pause. Tester
+  Lecture Markdown, callouts, Ctrl-clic et Mod-Entrée dans l'éditeur.
+- Local → YouTube : départ préparé sans lecture. Cliquer ensuite une référence :
+  abandonner l'ancien départ, naviguer, puis annoter avec le temps annoncé.
+- Avec restrictions du navigateur, le lecteur reste accessible. Si le signal
+  onAutoplayBlocked arrive, un message invite à utiliser Lecture. Il disparaît
+  à playing. Sans signal, aucun diagnostic par délai ni relance automatique.
+- Masquage en cours : navigation refusée. Lecteur masqué conservé en pause :
+  révélation et seek sans reprise. Une instance détruite ne réagit plus.
+- Vérifier l'absence de lecture à l'ouverture et à chaque bascule. Local,
+  captures, sélection, Undo/Redo et autosauvegarde restent inchangés.

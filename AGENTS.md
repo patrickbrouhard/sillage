@@ -101,7 +101,8 @@ the first usable YouTube source in REST order; this is not a persisted primary
 source. Keep the note mounted across layout and player visibility changes.
 Transcript grouping is presentation only and preserves source order and whitespace.
 Step 6.1 connects transcript timestamp buttons to the same YouTube player, preserving
-playback/pause and preparing unstarted or ended videos without autoplay. Navigation
+playback/pause. Explicit navigation now starts unstarted/cued/ended videos;
+cue-only preparation without playback is reserved for switches. Navigation
 is immediate only: unavailable players require another explicit click, never a queued
 command. Step 6.2 inserts `[12:42](sillage://videos/5/sources/5?start_ms=762345)`:
 `videos` is the logical authority, both Sillage IDs are explicit, milliseconds
@@ -311,5 +312,16 @@ seek target or a prepared departure. Do not restore pendingSeek, target toleranc
 confirmation timers or temporal polling. An immediately stale getter is an accepted
 API limitation. Keep prepared departures separate and non-annotatable, and retain
 readiness/state/value/error/visibility guards. Local keeps its seeking/data guards.
-Navigation from unstarted/cued/ended remains unchanged pending separate discussion.
+Explicit YouTube navigation now uses seekTo from every known state: paused stays
+paused; unstarted/cued/ended start playback. Keep cueVideoById only for switch
+initialization without playback. Local behavior remains unchanged.
 Prioritize annotations, then playback/navigation, then switching comfort.
+
+## Explicit YouTube navigation
+
+Delegate autoplay to the iframe but keep autoplay: 0 on opening and cue-only
+switch initialization. Handle onAutoplayBlocked only when emitted, non-fatally,
+and clear its message on playing. The API does not explicitly guarantee that
+event after seekTo. No synthetic detection, retry, timer or polling. Preserve
+visibility/disposal guards and annotation time semantics. Await manual Brave
+validation; panel phase 2 remains deferred.

@@ -850,10 +850,10 @@ temporel ne traverse la session de note et aucune file de commandes n'est créé
 
 Selon la [sémantique officielle de l'IFrame API](https://developers.google.com/youtube/iframe_api_reference#seekTo),
 `seekTo(seconds, true)` conserve la pause uniquement depuis l'état `paused` (2).
-Il est utilisé depuis `playing` (1), `paused` (2) et `buffering` (3), ce dernier
-prolongeant la lecture en cours de chargement. Depuis `unstarted` (-1), `ended` (0)
-ou `video cued` (5), `cueVideoById({videoId, startSeconds})` prépare le départ sans
-lecture. Un état inconnu refuse la commande. Aucun `playVideo()` n'est ajouté.
+Il est utilisé pour toutes les navigations explicites depuis les états connus
+(-1, 0, 1, 2, 3, 5). Depuis unstarted, cued ou ended, le clic demande donc aussi
+le démarrage. Un état inconnu refuse la commande. Aucun playVideo supplémentaire.
+cueVideoById reste réservé au départ initial d'une bascule, sans lecture.
 YouTube peut viser l'image clé précédente : transmettre la valeur exacte ne
 garantit pas une précision de lecture à la milliseconde.
 
@@ -876,7 +876,7 @@ et d'une lecture synchrone `getCurrentTimeMs()` du lecteur. L'adapter YouTube
 appelle `getCurrentTime()` seulement pour une instance prête, hors masquage en
 cours, dans les états ended (0), playing (1) ou paused (2). Un lecteur masqué
 conservé en pause reste utilisable sans réaffichage. Les états unstarted (-1),
-cued (5), buffering (3) et inconnus sont refusés ; un départ préparé par 6.1
+cued (5), buffering (3) et inconnus sont refusés ; un départ préparé lors d'une bascule
 n'est jamais substitué à la position courante. Les valeurs non finies, négatives
 ou hors des entiers sûrs en millisecondes sont refusées. Zéro reste valide.
 La conversion utilise `Math.round(seconds * 1000)` ; elle conserve la précision
@@ -1364,7 +1364,8 @@ Les timestamps ordinaires ne rejoignent jamais ce mécanisme d'initialisation.
 Le curseur de transfert circule dans VideoPlayer par la sélection de session ;
 chaque surface conserve et qualifie sa préparation, sans historique parallèle ni
 hook supplémentaire. La clé vidéo/source du workspace borne cette mémoire.
-YouTube conserve un départ cued, remplacé par une nouvelle commande cue acceptée.
+YouTube conserve le départ cued d'une bascule. Une navigation explicite invalide
+ce départ et utilise seekTo ; elle ne stocke pas sa cible comme temps courant.
 Lecture et buffering invalident ce repli ; les erreurs et destructions forcées
 l'invalident aussi. Un seek explicite ne crée aucun verrou de confirmation.
 YouTube est interrogé au clic dans les états ended, playing ou paused ; le temps
@@ -1401,3 +1402,18 @@ l'identité exacte du fichier à confirmer ; elles réutilisent mutate et le dé
 PlayerInformation partage les données déjà chargées ; LocalFileDetails utilise
 un identifiant accessible propre à chaque instance. Aucun appel HTTP à l'ouverture
 du popover. Les commandes d'en-tête ne remountent ni notes ni transcription.
+
+### Navigation explicite YouTube et blocage navigateur
+
+La navigation commune aux notes, callouts, éditeur et transcription appelle seekTo
+directement depuis le geste utilisateur. Elle conserve la pause depuis paused,
+sinon demande la lecture. L'initialisation et les bascules conservent autoplay: 0
+et cueVideoById ; Local est inchangé.
+
+L'iframe délègue autoplay en plus des capacités existantes. Cette permission
+n'est pas une commande de démarrage. onAutoplayBlocked affiche seulement un
+message non fatal lorsqu'il est reçu ; l'événement playing l'efface. Les gardes
+disposed/failed ignorent les événements obsolètes. Aucune détection par délai,
+polling, relance, changement de mode ou coupure du son. L'API ne cite pas
+explicitement seekTo parmi les appels couverts par ce signal ; son absence
+n'est pas une preuve de démarrage. Les erreurs fatales restent distinctes.

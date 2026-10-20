@@ -437,8 +437,9 @@ changement de modèle ou de persistance n'est introduit.
 En 6.1, chaque timestamp est un bouton accessible au clavier (Entrée ou Espace).
 Il demande au lecteur YouTube de rejoindre le `start_ms` réel du bloc, sans
 arrondir à la seconde affichée. Une lecture en cours continue ; une vidéo en pause
-reste en pause. Avant la première lecture ou après la fin, le point de départ est
-préparé sans démarrage automatique. Un lecteur masqué est réaffiché.
+reste en pause. Avant la première lecture, depuis cued ou après la fin, le clic
+demande maintenant la lecture au passage ; la préparation sans démarrage reste
+réservée aux bascules. Un lecteur masqué est réaffiché.
 Pendant un masquage en cours, la garantie d'arrêt reste prioritaire : un message
 invite à renouveler l'action après l'arrêt. Si le lecteur est indisponible ou pas
 encore prêt, le message explique que la navigation n'a pas eu lieu ; le timestamp
@@ -1128,7 +1129,8 @@ Une bascule relève la position courante admissible si possible, arrête et déc
 l'ancienne instance puis prépare la nouvelle sans autoplay. Le départ préparé reste
 transférable tant qu'aucune activité ne l'a rendu incertain : Local à 0:40,
 YouTube préparé sans lecture, puis Local conserve 0:40. Une référence acceptée
-depuis YouTube cued remplace ce départ ; une commande refusée ne le remplace pas.
+depuis YouTube cued abandonne ce départ et demande une navigation avec lecture ;
+une commande refusée ne le remplace pas.
 Le transfert peut attendre une fois l'initialisation de la nouvelle instance,
 sans reporter les navigations ordinaires.
 L'absence normale de position avant une première lecture ne produit aucun avertissement.
@@ -1244,6 +1246,22 @@ Une mesure peut rester momentanément ancienne après une commande : cette limit
 de fraîcheur de l'API est acceptée, sans promettre une synchronisation image par
 image. Les millisecondes des données Sillage restent conservées.
 
-Les navigations depuis un lecteur non démarré, cued ou terminé continuent de
-préparer le départ sans autoplay. Leur évolution sera étudiée séparément après
-validation manuelle ; une préparation seule ne permet toujours pas d'annoter.
+Une référence Markdown ou un timestamp de transcription exprime une intention
+explicite : YouTube navigue en conservant la lecture ou la pause ; depuis non
+démarré, cued ou terminé, il demande aussi le démarrage. Une bascule vers YouTube
+prépare toujours le départ sans lecture. Une préparation seule ne permet pas
+d'annoter. Local conserve strictement son comportement de navigation actuel.
+
+Si YouTube signale que le navigateur a bloqué le démarrage, afficher un message
+invitant à utiliser Lecture dans le lecteur, sans le détruire ni relancer la
+commande. Le message disparaît lorsque la lecture démarre. Le signal n'est pas
+garanti après seekTo : aucune absence de lecture n'est diagnostiquée par délai.
+L'ouverture d'une fiche et les bascules ne déclenchent jamais de lecture.
+
+### Navigation YouTube — règle actuelle
+
+Cette règle remplace les descriptions antérieures de préparation sans lecture
+lors d'un clic temporel avant première lecture : seul le transfert entre lecteurs
+prépare désormais un départ. Les commandes refusées avant disponibilité ne sont
+toujours pas différées. Masquage en cours, erreurs, identités vidéo/source et
+conservation de la session de note restent protégés.

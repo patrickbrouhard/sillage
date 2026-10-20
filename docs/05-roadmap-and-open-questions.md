@@ -1959,7 +1959,7 @@ La reprise de lecture entre sessions et un éventuel suivi de progression resten
 des pistes futures distinctes. Cette correction ne décide ni stockage, ni cadence
 de sauvegarde, ni contrat API pour ces fonctionnalités.
 
-## Simplification temporelle YouTube — nouvelle validation manuelle attendue
+## Simplification temporelle YouTube — validée dans Brave
 
 Après réévaluation produit, suppression du verrou durable pendingSeek : utiliser
 le temps annoncé par YouTube dans un état admissible, conserver les départs
@@ -1971,6 +1971,18 @@ sans notification stable ; annotations et transfert utilisent la mesure annoncé
 La recette Brave doit vérifier pause → référence → + Temps/+ Capture, seeks courts,
 navigations répétées et contrôles natifs. Les départs préparés restent non annotables.
 
-À étudier séparément après validation : navigation YouTube depuis une vidéo non
-démarrée. Aucun changement de ce comportement n'est inclus ici. La phase 2 du
-panneau et la reprise de lecture persistée restent hors périmètre.
+La simplification a été validée manuellement dans Brave par l'utilisateur.
+La navigation avant première lecture fait l'objet de l'incrément suivant.
+La phase 2 du panneau et la reprise persistée restent hors périmètre.
+
+## Navigation explicite YouTube — recette Brave attendue
+
+Références Markdown et transcription naviguent avec seekTo : maintien de la pause
+depuis paused, lecture depuis non démarré/cued/terminé. Les bascules préparent
+toujours sans lecture ; Local reste inchangé. Signal de blocage navigateur
+facultatif, message non fatal effacé à la lecture, sans détection supplémentaire.
+
+Vérifier dans Brave le démarrage au premier clic, les activations clavier,
+le refus navigateur et la reprise via Lecture natif. Les tests simulés ne
+démontrent pas les politiques réelles de lecture. Arrêt après validation
+automatisée ; aucune approbation implicite de la phase 2.

@@ -1328,8 +1328,9 @@ jusqu'au bilan terminal, avec la classification publique media_invalid inchangé
 
 Le build Web fournit un favicon ICO statique déclaré dans index.html. Les fichiers
 absents gardent leur 404 habituel. L'autorisation fullscreen du lecteur est portée
-uniquement par iframe.allow, avec encrypted-media et picture-in-picture ; aucune
-autorisation supplémentaire ni commande de lecture n'est ajoutée.
+uniquement par iframe.allow, avec encrypted-media et picture-in-picture.
+La délégation autoplay est ajoutée pour les navigations explicites ; elle ne
+commande aucune lecture à l'ouverture.
 
 ## Lecture locale — décisions de cette tranche
 
@@ -1338,7 +1339,7 @@ autorisation supplémentaire ni commande de lecture n'est ajoutée.
 - GET/HEAD/Range par net/http.ServeContent, réservation par requête et ouverture
   contrôlée côté filesystem. Aucune exposition du répertoire data/media.
 - Une seule instance lecteur active ; transfert approximatif en pause. YouTube
-  utilise cueVideoById pour éviter le démarrage implicite de seekTo depuis cued.
+  utilise cueVideoById seulement pour préparer la position lors d'une bascule.
   Un départ préparé encore valable peut circuler entre lecteurs pendant la session,
   mais n'alimente jamais + Temps ou + Capture. Une position devenue incertaine
   interdit le repli sur l'ancien départ ; aucun suivi ni stockage de progression.
@@ -1377,5 +1378,17 @@ d'annotation sans prétendre certifier la fraîcheur de l'API YouTube.
 Conserver les contrôles de disponibilité, d'état, d'identité et de valeur, ainsi
 que la distinction avec les départs préparés. Les captures restent des extractions
 FFmpeg au timestamp demandé, pas des copies de l'image de l'iframe. Les garanties
-HTML5 (seeking, données disponibles) restent inchangées. Les navigations avant
-première lecture et la phase 2 du panneau ne sont pas modifiées.
+HTML5 (seeking, données disponibles) restent inchangées. La navigation explicite avant première lecture est précisée ci-dessous ;
+la phase 2 du panneau reste différée.
+
+## Navigation explicite YouTube
+
+Utiliser seekTo pour les références dans tous les états connus : paused conserve
+la pause ; les autres demandent la lecture. Conserver cueVideoById pour les
+bascules sans démarrage. Pas de loadVideoById ni playVideo supplémentaire.
+Déléguer autoplay à l'iframe tout en gardant autoplay: 0 à l'initialisation.
+
+Traiter onAutoplayBlocked uniquement lorsqu'il est reçu, sans arrêt ni réessai
+automatique ; effacer le message à playing. La documentation officielle ne
+garantit pas explicitement ce signal après seekTo. Ne pas reconstruire cette
+détection. Les politiques réelles du navigateur exigent une recette Brave.
