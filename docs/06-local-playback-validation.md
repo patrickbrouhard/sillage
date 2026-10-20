@@ -162,10 +162,13 @@ limite acceptée ; il ne prétend pas reproduire un défaut observé dans Brave.
 L'utilisateur a validé manuellement dans Brave Windows la phase 1 du panneau,
 les évolutions temporelles et la navigation explicite YouTube avant cette phase.
 La préparation sans lecture lors des bascules et le comportement Local sont
-conservés. La phase 2 bord à bord est désormais autorisée ; sa validation visuelle
-et fonctionnelle fera l'objet d'un nouveau retour utilisateur.
+conservés. Cette validation a autorisé la phase 2 bord à bord, dont le rendu
+a ensuite été validé dans Brave par l'utilisateur (voir ci-dessous).
 
 ## Recette phase 2 — bord à bord
+
+Statut : rendu bord à bord validé manuellement dans Brave par l'utilisateur.
+Les scénarios ci-dessous sont conservés comme recette de non-régression.
 
 - À 1440, 375 et 320 px, en clair et sombre, vérifier Local et YouTube :
   surface jusqu'aux bords intérieurs latéraux et inférieur, bordure visible,
@@ -182,5 +185,5 @@ et fonctionnelle fera l'objet d'un nouveau retour utilisateur.
 
 Les captures sont produites par player-panel.spec.ts dans web/test-results.
 Local utilise un WebM décodable ; l'iframe YouTube simulée est vide. Les mesures
-automatisées contrôlent son rectangle, mais la recette Brave reste nécessaire
-pour l'image réelle, les contrôles et leurs coins.
+automatisées contrôlent son rectangle et ne remplacent pas l'inspection du lecteur
+réel. La validation du rendu dans Brave a été confirmée par l'utilisateur.

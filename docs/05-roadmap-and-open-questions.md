@@ -1992,10 +1992,10 @@ automatisée ; aucune approbation implicite de la phase 2.
 L'utilisateur a validé manuellement dans Brave Windows la phase 1 du panneau,
 les évolutions temporelles et la navigation explicite YouTube avant cette phase.
 La préparation sans lecture lors des bascules et le comportement Local sont
-conservés. La phase 2 bord à bord est désormais autorisée ; sa validation visuelle
-et fonctionnelle fera l'objet d'un nouveau retour utilisateur.
+conservés. Cette validation a autorisé la phase 2 bord à bord, dont le rendu
+a ensuite été validé dans Brave par l'utilisateur (voir ci-dessous).
 
-## Phase 2 du panneau — bord à bord, validation visuelle Brave attendue
+## Phase 2 du panneau — rendu bord à bord validé dans Brave
 
 Après validation utilisateur de la phase 1 et des évolutions fonctionnelles,
 les surfaces Local et YouTube rejoignent les bords latéraux et inférieur.
@@ -2005,4 +2005,6 @@ La modification est CSS, avec une classe sur les conteneurs existants.
 La recette automatisée mesure les bords, hauteurs et rayons, et produit les
 captures à 1440/375/320 px en clair/sombre : lecture, informations, masquage,
 erreur, état vide, téléchargement et modale. YouTube reste simulé dans ces tests.
-Le rendu réel est soumis à une nouvelle validation utilisateur dans Brave.
+L'utilisateur a validé manuellement le rendu bord à bord dans Brave.
+La validation visuelle de cette phase est donc acquise ; les scénarios de la
+recette restent disponibles pour les vérifications de non-régression ultérieures.
