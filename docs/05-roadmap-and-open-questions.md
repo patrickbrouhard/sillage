@@ -2008,3 +2008,14 @@ erreur, état vide, téléchargement et modale. YouTube reste simulé dans ces t
 L'utilisateur a validé manuellement le rendu bord à bord dans Brave.
 La validation visuelle de cette phase est donc acquise ; les scénarios de la
 recette restent disponibles pour les vérifications de non-régression ultérieures.
+
+## Refonte de la fiche — tranche A, en cours
+
+L'en-tête principal accueille le titre issu de la première source REST (repli
+« Vidéo sans titre »), sur une ligne desktop et deux lignes maximum sur mobile.
+La fiche alimente directement cet emplacement depuis ses données chargées :
+aucune requête supplémentaire ni état miroir du titre. Chargement et erreurs
+ont leur propre titre. Le footer reste réservé aux pages hors fiche.
+Les onglets et l'optimisation verticale suivent dans la même tranche.
+Les dimensions des lecteurs restent inchangées ; le 16:9 relève de la tranche B,
+après validation manuelle dans Brave.

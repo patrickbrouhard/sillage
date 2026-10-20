@@ -224,3 +224,29 @@ test('permet de relire une fiche après une erreur serveur', async ({ page }) =>
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une fiche de test')
   await expect(page).toHaveTitle('Une fiche de test · Sillage')
 })
+
+test('titre du bandeau, requête unique et footer ciblé', async ({ page }) => {
+  let reads = 0
+  const title = 'Un très long titre de vidéo '.repeat(25).trim()
+  await page.route('**/api/v1/videos/42', route => {
+    reads++
+    return route.fulfill({ json: { ...fixture, sources: [{ ...fixture.sources[0], title }] } })
+  })
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.goto('/videos/42')
+  const heading = page.locator('header h1')
+  await expect(heading).toHaveText(title)
+  await expect(page).toHaveTitle(title + ' · Sillage')
+  expect(reads).toBe(1)
+  await expect(page.locator('footer')).toHaveCount(0)
+  expect(await heading.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
+  expect((await heading.boundingBox())!.height).toBeLessThan(30)
+  for (const width of [375, 320]) {
+    await page.setViewportSize({ width, height: 812 })
+    expect((await heading.boundingBox())!.height).toBeLessThan(55)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  await page.getByRole('link', { name: 'Sillage, accueil' }).click()
+  await expect(page.locator('header h1')).toHaveCount(0)
+  await expect(page.locator('footer')).toBeVisible()
+})

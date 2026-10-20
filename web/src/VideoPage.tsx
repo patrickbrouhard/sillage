@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
@@ -56,13 +57,17 @@ function SourceDetails({ source, index, working }: { source: VideoSource; index:
 }
 
 /** Relit une fiche par son identité Sillage, sans dépendre de la navigation précédente. */
-function VideoDetail({ id }: { id: string }) {
+function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | null }) {
   const note = useRef<VideoNoteHandle>(null)
   const player = useRef<PlayerHandle>(null)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const source = state.status === 'ready' ? workSource(state.video.sources) : undefined
   const download = useVideoDownload(Number(id), source?.id)
+  // Le titre suit la première source REST, indépendamment de la source de travail.
+  const title = state.status === 'ready' ? state.video.sources[0]?.title || 'Vidéo sans titre'
+    : state.status === 'error' ? state.missing ? 'Vidéo introuvable' : 'Impossible d’ouvrir cette vidéo'
+    : 'Fiche vidéo'
   /** Point d'entrée commun : le lecteur décide de la disponibilité et du défilement. */
   function navigate(startMs: number): string {
     return player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.'
@@ -95,11 +100,12 @@ function VideoDetail({ id }: { id: string }) {
 
   return (
     <>
-      <title>{`${state.status === 'ready' ? state.video.sources[0]?.title || 'Vidéo' : 'Fiche vidéo'} · Sillage`}</title>
+      <title>{title + ' · Sillage'}</title>
+      {/* Le portail garde les données dans la fiche : aucun titre miroir ni requête supplémentaire. */}
+      {titleHost && createPortal(<h1 id="video-title" title={title}>{title}</h1>, titleHost)}
       {state.status === 'loading' && <div className="state-panel" role="status">Chargement de la vidéo…</div>}
       {state.status === 'error' && (
         <div className="state-panel error" role="alert">
-          <h1>{state.missing ? 'Vidéo introuvable' : 'Impossible d’ouvrir cette vidéo'}</h1>
           <p>{state.message}</p>
           {!state.missing && <button className="button" onClick={() => {
             setState({ status: 'loading' })
@@ -109,7 +115,6 @@ function VideoDetail({ id }: { id: string }) {
       )}
       {state.status === 'ready' && (
         <>
-          <h1 className="video-title">{state.video.sources[0]?.title || 'Vidéo sans titre'}</h1>
           <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
           <div className={`video-workspace${source ? '' : ' without-source'}`}>
             {source ? <VideoPlayer key={`player-${source.id}`} videoID={state.video.id} source={source} download={download} ref={player} />
@@ -161,7 +166,7 @@ function VideoDetail({ id }: { id: string }) {
 }
 
 /** Réinitialise la fiche au changement d'identité pour ne jamais afficher l'ancienne vidéo. */
-export function VideoPage() {
+export function VideoPage({ titleHost }: { titleHost: HTMLElement | null }) {
   const { videoId = '' } = useParams()
-  return <VideoDetail key={videoId} id={videoId} />
+  return <VideoDetail key={videoId} id={videoId} titleHost={titleHost} />
 }
