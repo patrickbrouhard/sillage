@@ -19,6 +19,8 @@ export interface YouTubeOptions {
   events: {
     onReady: (event: { target: YouTubePlayer }) => void
     onStateChange: (event: { target: YouTubePlayer; data: number }) => void
+    /** Signale un blocage de lecture scriptée, sans garantie pour chaque seekTo. */
+    onAutoplayBlocked: (event: { target: YouTubePlayer }) => void
     onError: (event: { data: number }) => void
   }
 }

@@ -1328,5 +1328,67 @@ jusqu'au bilan terminal, avec la classification publique media_invalid inchangé
 
 Le build Web fournit un favicon ICO statique déclaré dans index.html. Les fichiers
 absents gardent leur 404 habituel. L'autorisation fullscreen du lecteur est portée
-uniquement par iframe.allow, avec encrypted-media et picture-in-picture ; aucune
-autorisation supplémentaire ni commande de lecture n'est ajoutée.
+uniquement par iframe.allow, avec encrypted-media et picture-in-picture.
+La délégation autoplay est ajoutée pour les navigations explicites ; elle ne
+commande aucune lecture à l'ouverture.
+
+## Lecture locale — décisions de cette tranche
+
+- HTML5 video et contrôles natifs, sans dépendance de lecteur, transcodage ou MSE.
+- Même source de travail et même format de références temporelles ; aucune migration.
+- GET/HEAD/Range par net/http.ServeContent, réservation par requête et ouverture
+  contrôlée côté filesystem. Aucune exposition du répertoire data/media.
+- Une seule instance lecteur active ; transfert approximatif en pause. YouTube
+  utilise cueVideoById seulement pour préparer la position lors d'une bascule.
+  Un départ préparé encore valable peut circuler entre lecteurs pendant la session,
+  mais n'alimente jamais + Temps ou + Capture. Une position devenue incertaine
+  interdit le repli sur l'ancien départ ; aucun suivi ni stockage de progression.
+- L'affectation de currentTime conserve lecture/pause pour les navigations locales.
+  Une position courante locale exige des données disponibles et aucun seek en cours.
+- Pas de canPlayType comme filtre définitif : les noms ffprobe ne constituent pas
+  une description complète des profils et les capacités varient selon le navigateur.
+  L'échec réel est affiché sans affirmer systématiquement un codec incompatible.
+- Aucun changement de sélection yt-dlp ni de repli des captures.
+- Priorité initiale Local activée après accord utilisateur : attendre la disponibilité,
+  choisir Local si available, sinon YouTube (également en cas d'erreur de consultation).
+  Pas de préférence persistée, de flag ni de bascule lors des actualisations.
+- La réservation n'interdit pas une suppression entre deux requêtes HTTP.
+  Les octets déjà en tampon d'un autre navigateur ne sont pas révocables.
+
+
+## Panneau vidéo — phase 1
+
+Boutons natifs groupés avec aria-pressed, confirmations via dialog et popover
+non modal positionné dans le panneau non découpé. Fermeture clavier/extérieure
+et retour de focus explicites ; aucune nouvelle bibliothèque.
+En-tête permanent, surfaces concrètes remplaçables, suivi réseau partagé.
+Les résultats temporaires d'acquisition durent cinq secondes sans persistance.
+Pas de menu général, options de téléchargement, bord à bord ou nouveau dimensionnement.
+La phase 2 exige un accord utilisateur distinct après inspection de la phase 1.
+
+## Temps YouTube — priorité aux annotations
+
+Le verrou pendingSeek et son suivi de buffering sont supprimés. Les annotations
+lisent la position annoncée par l'API dans un état admissible, sans comparer la
+mesure à la dernière cible et sans attendre d'événement de fin de seek.
+Une mesure approchée est conservée en millisecondes ; une mesure momentanément
+ancienne reste possible juste après commande. Ce compromis privilégie l'usage
+d'annotation sans prétendre certifier la fraîcheur de l'API YouTube.
+
+Conserver les contrôles de disponibilité, d'état, d'identité et de valeur, ainsi
+que la distinction avec les départs préparés. Les captures restent des extractions
+FFmpeg au timestamp demandé, pas des copies de l'image de l'iframe. Les garanties
+HTML5 (seeking, données disponibles) restent inchangées. La navigation explicite avant première lecture est précisée ci-dessous ;
+la phase 2 du panneau reste différée.
+
+## Navigation explicite YouTube
+
+Utiliser seekTo pour les références dans tous les états connus : paused conserve
+la pause ; les autres demandent la lecture. Conserver cueVideoById pour les
+bascules sans démarrage. Pas de loadVideoById ni playVideo supplémentaire.
+Déléguer autoplay à l'iframe tout en gardant autoplay: 0 à l'initialisation.
+
+Traiter onAutoplayBlocked uniquement lorsqu'il est reçu, sans arrêt ni réessai
+automatique ; effacer le message à playing. La documentation officielle ne
+garantit pas explicitement ce signal après seekTo. Ne pas reconstruire cette
+détection. Les politiques réelles du navigateur exigent une recette Brave.

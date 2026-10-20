@@ -48,9 +48,7 @@ for (const text of [link, callout]) {
       })).toEqual(selection)
       expect(await node!.evaluate(el => el === document.querySelector('.cm-content'))).toBe(true)
       expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([
-        state === 1 || state === 2 || state === 3
-          ? { command: 'seek', seconds: 40.36, allowSeekAhead: true }
-          : { command: 'cue', seconds: 40.36, videoId: 'abcdefghijk' },
+        { command: 'seek', seconds: 40.36, allowSeekAhead: true },
       ])
       expect(writes).toEqual([])
       if (text === callout) {

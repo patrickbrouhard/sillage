@@ -1851,3 +1851,160 @@ Validation : builds frontend/backend, suite Go, go vet et TypeScript réussis ;
 des deux modes et leurs styles calculés, le monospace et l'absence de sauvegarde
 ou remontage. Captures Édition/Lecture vérifiées en mode sombre à 1920 et 375 px.
 Validation manuelle utilisateur à venir, notamment pour le rendu Segoe UI sous Windows.
+
+## Lecture locale — implémentation et priorité initiale Local
+
+Cette tranche réalise la diffusion sécurisée GET/HEAD/Range et la partie 3 du
+decluttering précédemment différée. Le choix YouTube/Local, le lecteur HTML5,
+les transferts de position en pause, les interactions temporelles existantes,
+les erreurs locales sans repli et la suppression après déchargement sont implémentés.
+Aucune migration, import, conversion, préférence persistée ou nouvelle source.
+
+La priorité initiale au local est activée après accord explicite de l'utilisateur :
+Local si le fichier de la source de travail est disponible, sinon YouTube.
+La consultation initiale est attendue sans affichage transitoire du lecteur distant
+et sans bloquer les notes. Une erreur de consultation choisit YouTube.
+La fin d'un téléchargement ne change jamais le lecteur sélectionné.
+
+La mention historique d'une partie 3 à faire après la lecture locale est donc
+supersédée par son intégration dans cette même tranche. Les anciens comptes
+rendus de validation restent historiques. La recette Brave Windows est décrite
+dans 06-local-playback-validation.md ; elle n'est pas déclarée effectuée.
+
+### Validation automatisée de la lecture locale — 19 octobre 2026
+
+- Suite Go complète, go vet, builds et go test -race ./... réussis.
+- Tests natifs de l'adapter exécutés avec yt-dlp installé, ffmpeg et ffprobe :
+  réussis. Les deux tests d'intégration réseau YouTube restent explicitement ignorés.
+- TypeScript/build Vite réussis ; avertissement préexistant du chunk CodeMirror
+  supérieur à 500 kB conservé.
+- 337 tests Playwright Chromium réussis, dont sept parcours du lecteur local.
+  Vrai WebM VP8/Opus : décodage d'image, lecture, pause, seek, requêtes Range,
+  bascule et transfert, erreurs, suppression, réouverture, note et autosauvegarde,
+  temps/transcription/capture, événements obsolètes, responsive.
+- Tests HTTP avec vrai filesystem et SQLite : appartenance, HEAD, Range,
+  réservation active et libération après déconnexion client. Tests de sécurité
+  des noms, racine/lien symbolique, taille, fichier absent et suppression ambiguë.
+- Postman déterministe : 45 requêtes, 135 assertions, aucun échec.
+- Build Docker et smoke Compose réussis : outils, HTTP/SPA, persistance,
+  journalisation, rotation et arrêt propre.
+- Captures desktop et mobile inspectées ; barre ajustée pour éviter les messages
+  étroits à 320 px. Les données de validation sont temporaires.
+- Chromium WSL utilise les bibliothèques NSS/NSPR déjà extraites dans /tmp,
+  sans modification de la configuration système.
+
+La préparation parallèle des tests respecte maintenant la capacité d'une acquisition
+globale ; ces attentes appartiennent aux fixtures, aucun réessai de POST automatique
+n'a été introduit dans le produit. Aucun nouvel essai Brave ou réseau YouTube réel
+n'est revendiqué. L'activation de Local initial a ensuite été autorisée par l'utilisateur.
+
+
+## Panneau vidéo — phase 1 implémentée, validation visuelle attendue
+
+Sur feat/local-video-playback : panneau et barre stables, contrôle segmenté,
+modale unique de conservation, informations contextuelles et indicateurs temporaires.
+Les notes, références, captures et garanties de lecture sont conservées.
+La section Métadonnées et sources reste complète.
+La recette de 06-local-playback-validation.md décrit les vérifications supplémentaires.
+
+Arrêt obligatoire après cette phase. La phase 2 (surface vidéo bord à bord) n'a
+pas commencé ; aucun changement de padding vidéo, ratio ou limite de hauteur.
+Elle nécessitera un retour explicite sur les captures et essais de la phase 1.
+
+## Piste exploratoire — clips vidéo durables
+
+Parcours envisagé : conserver un média complet, étudier ses passages, générer
+des clips à partir de plages temporelles structurées, les utiliser dans les notes,
+puis supprimer volontairement le complet sans perdre les clips ni les connaissances.
+Une fois généré, le clip doit pouvoir être conservé indépendamment du fichier
+complet ayant servi à sa génération. L'export vers un fichier externe est distinct
+et facultatif ; il ne conditionne pas cette conservation interne.
+
+Questions ouvertes avant une tranche dédiée :
+- modèle : extension d'Asset, représentation MediaFile ou autre entité justifiée ;
+- identité, provenance, source de travail et bornes canoniques de la plage ;
+- précision des coupes, formats, codecs et conséquences d'un éventuel réencodage ;
+- références et présentation dans les notes, navigation relative ou d'origine ;
+- conservation, suppression explicite des clips et traitement des générations échouées ;
+- réservation du complet pendant génération et comportement en cas de suppression concurrente ;
+- parcours et périmètre d'export, indépendant du parcours de conservation.
+
+Aucune de ces alternatives de modèle n'est décidée. Aucune migration, API,
+découpe ou export n'est implémenté dans la phase 1 du panneau.
+
+
+### Validation de la phase 1 du panneau
+
+Build TypeScript/Vite et serveur Go réussis ; 345 tests Playwright Chromium passent.
+La recette visuelle couvre 1440/375/320 px, clair/sombre, informations ouvertes et
+téléchargement/modalité. Les captures ont été inspectées ; métadonnées compactées
+sur deux colonnes, sans changement des marges ou hauteurs de la vidéo.
+Les références visuelles sont générées sous web/test-results/ par player-panel.spec.ts.
+Le vrai lecteur YouTube et Brave Windows restent à vérifier manuellement.
+Aucune validation de la phase 2 n'est implicite dans ces résultats.
+
+## Correction du transfert temporel — parcours principaux validés dans Brave
+
+La bascule conserve les départs préparés encore valables pendant la session,
+notamment Local → YouTube cued → Local et une référence acceptée depuis cued.
+Un temps devenu incertain ne réutilise aucune ancienne cible. L'absence normale
+de temps avant lecture n'est pas une erreur. + Temps et + Capture exigent toujours
+une position admissible du lecteur. Les parcours principaux ont été validés dans
+Brave par l'utilisateur. Le test de seek approché a ensuite démontré un défaut
+logique du verrou pendingSeek ; sa manifestation réelle dans Brave n'était pas
+établie. La simplification ci-dessous remplace cette confirmation. La phase 2
+reste différée.
+
+La reprise de lecture entre sessions et un éventuel suivi de progression restent
+des pistes futures distinctes. Cette correction ne décide ni stockage, ni cadence
+de sauvegarde, ni contrat API pour ces fonctionnalités.
+
+## Simplification temporelle YouTube — validée dans Brave
+
+Après réévaluation produit, suppression du verrou durable pendingSeek : utiliser
+le temps annoncé par YouTube dans un état admissible, conserver les départs
+préparés séparément et accepter la limite résiduelle de fraîcheur après commande.
+Pas de tolérance ajoutée, de suivi périodique ni de persistance.
+
+Les tests couvrent les temps exacts, approchés et momentanément anciens, avec ou
+sans notification stable ; annotations et transfert utilisent la mesure annoncée.
+La recette Brave doit vérifier pause → référence → + Temps/+ Capture, seeks courts,
+navigations répétées et contrôles natifs. Les départs préparés restent non annotables.
+
+La simplification a été validée manuellement dans Brave par l'utilisateur.
+La navigation avant première lecture fait l'objet de l'incrément suivant.
+La phase 2 du panneau et la reprise persistée restent hors périmètre.
+
+## Navigation explicite YouTube — validée dans Brave
+
+Références Markdown et transcription naviguent avec seekTo : maintien de la pause
+depuis paused, lecture depuis non démarré/cued/terminé. Les bascules préparent
+toujours sans lecture ; Local reste inchangé. Signal de blocage navigateur
+facultatif, message non fatal effacé à la lecture, sans détection supplémentaire.
+
+Vérifier dans Brave le démarrage au premier clic, les activations clavier,
+le refus navigateur et la reprise via Lecture natif. Les tests simulés ne
+démontrent pas les politiques réelles de lecture. Arrêt après validation
+automatisée ; aucune approbation implicite de la phase 2.
+
+## Validation Brave avant la phase 2
+
+L'utilisateur a validé manuellement dans Brave Windows la phase 1 du panneau,
+les évolutions temporelles et la navigation explicite YouTube avant cette phase.
+La préparation sans lecture lors des bascules et le comportement Local sont
+conservés. Cette validation a autorisé la phase 2 bord à bord, dont le rendu
+a ensuite été validé dans Brave par l'utilisateur (voir ci-dessous).
+
+## Phase 2 du panneau — rendu bord à bord validé dans Brave
+
+Après validation utilisateur de la phase 1 et des évolutions fonctionnelles,
+les surfaces Local et YouTube rejoignent les bords latéraux et inférieur.
+En-tête, messages, popover et règles de dimensionnement sont conservés.
+La modification est CSS, avec une classe sur les conteneurs existants.
+
+La recette automatisée mesure les bords, hauteurs et rayons, et produit les
+captures à 1440/375/320 px en clair/sombre : lecture, informations, masquage,
+erreur, état vide, téléchargement et modale. YouTube reste simulé dans ces tests.
+L'utilisateur a validé manuellement le rendu bord à bord dans Brave.
+La validation visuelle de cette phase est donc acquise ; les scénarios de la
+recette restent disponibles pour les vérifications de non-régression ultérieures.

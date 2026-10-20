@@ -102,7 +102,7 @@ test('source commune dans l’ordre REST et absence compatible sans bloquer la n
     return route.fulfill({ status: 404, json: { error: { code: 'transcript_not_found' } } })
   })
   await page.goto('/videos/42')
-  await expect(page.locator('.work-source')).toContainText('YouTube')
+  await expect(page.getByRole('group', { name: 'Mode de lecture' })).toContainText('YouTube')
   await page.getByText('Métadonnées et sources', { exact: true }).click()
   const workingSource = page.locator('.source-section').filter({ hasText: 'Source de travail du lecteur et de la transcription' })
   await expect(workingSource).toContainText('Source retenue')

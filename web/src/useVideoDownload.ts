@@ -7,6 +7,31 @@ export function useVideoDownload(videoID: number, sourceID: number | undefined) 
   const [state, setState] = useState<DownloadState | null>(null)
   const [error, setError] = useState('')
   const [missing, setMissing] = useState<MediaFile | null>(null)
+  const [result, setResult] = useState<'success' | 'failure' | null>(null)
+  const observedDownload = useRef(false)
+  const requestedDownload = useRef(false)
+  const [requesting, setRequesting] = useState(false)
+  // Un état initial disponible/échoué n'est pas le résultat d'une opération suivie ici.
+  // Après POST perdu, available confirme la conservation ; failed peut être ancien
+  // et n'est un nouveau résultat que si l'activité serveur a réellement été observée.
+  const observe = useCallback((value: DownloadState) => {
+    if (value.status === 'downloading') {
+      observedDownload.current = true
+      setResult(null)
+    } else if (observedDownload.current || requestedDownload.current) {
+      if (value.status === 'available' || (value.status === 'failed' && observedDownload.current)) {
+        setResult(value.status === 'available' ? 'success' : 'failure')
+      }
+      observedDownload.current = false
+      requestedDownload.current = false
+    }
+    setState(value)
+  }, [])
+  useEffect(() => {
+    if (!result) return
+    const timer = window.setTimeout(() => setResult(null), 5_000)
+    return () => window.clearTimeout(timer)
+  }, [result])
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
   const lifetime = useRef<AbortController | null>(null)
@@ -19,7 +44,7 @@ export function useVideoDownload(videoID: number, sourceID: number | undefined) 
     try {
       const value = await getDownload(videoID, sourceID, signal)
       if (!signal.aborted && current === revision.current) {
-        setState(value)
+        observe(value)
         setMissing(null)
         setError('')
       }
@@ -30,13 +55,17 @@ export function useVideoDownload(videoID: number, sourceID: number | undefined) 
         setState(null)
       }
     }
-  }, [videoID, sourceID])
+  }, [videoID, sourceID, observe])
 
   useEffect(() => {
     const controller = new AbortController()
     lifetime.current = controller
     busyRef.current = false
     setBusy(false)
+    setRequesting(false)
+    setResult(null)
+    observedDownload.current = false
+    requestedDownload.current = false
     setState(null)
     setMissing(null)
     setError('')
@@ -65,6 +94,11 @@ export function useVideoDownload(videoID: number, sourceID: number | undefined) 
     setBusy(true)
     revision.current++
     setError('')
+    if (!file) {
+      requestedDownload.current = true
+      setRequesting(true)
+      setResult(null)
+    }
     let failed = false
     try {
       if (file) {
@@ -72,7 +106,7 @@ export function useVideoDownload(videoID: number, sourceID: number | undefined) 
         if (!signal.aborted) setMissing(null)
       } else {
         const next = await startDownload(videoID, sourceID, signal)
-        if (!signal.aborted) setState(next)
+        if (!signal.aborted) observe(next)
       }
     } catch (cause) {
       failed = true
@@ -81,13 +115,14 @@ export function useVideoDownload(videoID: number, sourceID: number | undefined) 
       if (lifetime.current?.signal === signal) busyRef.current = false
       if (!signal.aborted) {
         setBusy(false)
+        setRequesting(false)
         // Même après une réponse perdue, seule une lecture est automatique.
         // Le message de refus reste visible si la relecture retrouve l'absence.
         const current = ++revision.current
         try {
           const next = await getDownload(videoID, sourceID, signal)
           if (!signal.aborted && current === revision.current) {
-            setState(next)
+            observe(next)
             setMissing(null)
             if (!failed || (!file && (next.status === 'available' || next.status === 'downloading'))) setError('')
           }
@@ -102,5 +137,5 @@ export function useVideoDownload(videoID: number, sourceID: number | undefined) 
     }
   }
 
-  return { state, error, busy, file: state?.media_file ?? missing, load, mutate }
+  return { state, error, busy, requesting, result, file: state?.media_file ?? missing, load, mutate }
 }

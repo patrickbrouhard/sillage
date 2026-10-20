@@ -85,6 +85,8 @@ func NewRouter(
 			r.Post("/{video_id}/sources/{source_id}/download", m.Start)
 			r.Get("/{video_id}/sources/{source_id}/download", m.Get)
 			r.Delete("/{video_id}/media-files/{media_file_id}", m.Delete)
+			r.Get("/{video_id}/media-files/{media_file_id}/content", m.Content)
+			r.Head("/{video_id}/media-files/{media_file_id}/content", m.Content)
 		}
 		r.Post("/", h.Add)
 		r.Get("/", h.List)

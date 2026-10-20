@@ -21,7 +21,7 @@ export interface DownloadState {
 }
 
 const messages: Record<string, string> = {
-  download_busy: 'Un autre téléchargement occupe le serveur. Réessayez après sa fin.',
+  download_busy: 'Le média est utilisé ou un téléchargement occupe le serveur. Réessayez après sa fin.',
   download_timeout: 'Le délai de téléchargement est dépassé. Vous pouvez réessayer.',
   download_interrupted: 'Le téléchargement a été interrompu.',
   download_failed: 'Le téléchargement du média a échoué. Vous pouvez réessayer.',

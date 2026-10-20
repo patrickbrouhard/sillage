@@ -373,7 +373,7 @@ L'ouverture et la réapparition du lecteur ne déclenchent aucune lecture automa
 Masquer le lecteur YouTube interrompt la lecture et laisse un bandeau « Lecteur »
 avec une action de réaffichage. La position est conservée lors d'un masquage
 ordinaire dans la même fiche, sans garantie après erreur, recharge ou navigation.
-Ce comportement est propre à YouTube ; un futur lecteur local pourra garder l'audio.
+Le lecteur Local suit désormais la même règle de pause au masquage. La lecture audio en arrière-plan reste différée.
 Chargement, échec d'initialisation, vidéo inaccessible et intégration interdite
 restent propres au panneau. Le lien externe reste accessible lorsqu'il est valide.
 Les dimensions et la visibilité respectent les exigences du lecteur YouTube.
@@ -437,8 +437,9 @@ changement de modèle ou de persistance n'est introduit.
 En 6.1, chaque timestamp est un bouton accessible au clavier (Entrée ou Espace).
 Il demande au lecteur YouTube de rejoindre le `start_ms` réel du bloc, sans
 arrondir à la seconde affichée. Une lecture en cours continue ; une vidéo en pause
-reste en pause. Avant la première lecture ou après la fin, le point de départ est
-préparé sans démarrage automatique. Un lecteur masqué est réaffiché.
+reste en pause. Avant la première lecture, depuis cued ou après la fin, le clic
+demande maintenant la lecture au passage ; la préparation sans démarrage reste
+réservée aux bascules. Un lecteur masqué est réaffiché.
 Pendant un masquage en cours, la garantie d'arrêt reste prioritaire : un message
 invite à renouveler l'action après l'arrêt. Si le lecteur est indisponible ou pas
 encore prêt, le message explique que la navigation n'a pas eu lieu ; le timestamp
@@ -1101,3 +1102,180 @@ présentations spécifiques. La cohérence typographique ne rend pas les deux mo
 identiques : le Markdown source et le rendu produisent des hauteurs différentes.
 La bascule conserve la session, l'historique, les sélections et l'autosauvegarde ;
 un changement d'affichage seul n'enregistre pas la note.
+
+## Lecture locale — première implémentation et decluttering partie 3
+
+Une seule zone propose le choix YouTube / Local. À chaque ouverture, le lecteur
+attend la consultation initiale : Local si le média de la source de travail est
+disponible, sinon YouTube, y compris en cas d'échec de consultation. Aucun lecteur
+distant n'est monté pendant cette attente. La note et la transcription restent
+accessibles. Ce choix n'est calculé qu'une fois par session, sans préférence persistée ;
+une actualisation de disponibilité ne change pas le mode sélectionné.
+
+Le contrôle segmenté YouTube / Local conserve le mode réellement sélectionné.
+Sans fichier disponible, cliquer Local ouvre une modale de conservation sans changer
+le mode actif ; ce comportement remplace la sélection systématique de Local vide.
+Après suppression depuis Local, ce mode reste sélectionné et son panneau vide
+propose la même modale. Les états vide, acquisition, erreur de consultation et fichier
+disponible restent distincts. Informations et œil restent sur la même ligne permanente.
+Les métadonnées et commandes de conservation sont accessibles dans les informations
+contextuelles ou la modale, avec la consultation partagée existante.
+
+La fin d'une acquisition ne change jamais le mode choisi. Si Local est déjà choisi,
+le fichier peut apparaître dans ce panneau, sans lecture automatique. Aucun
+transfert de position n'est gardé en attente d'un téléchargement futur.
+
+Une bascule relève la position courante admissible si possible, arrête et décharge
+l'ancienne instance puis prépare la nouvelle sans autoplay. Le départ préparé reste
+transférable tant qu'aucune activité ne l'a rendu incertain : Local à 0:40,
+YouTube préparé sans lecture, puis Local conserve 0:40. Une référence acceptée
+depuis YouTube cued abandonne ce départ et demande une navigation avec lecture ;
+une commande refusée ne le remplace pas.
+Le transfert peut attendre une fois l'initialisation de la nouvelle instance,
+sans reporter les navigations ordinaires.
+L'absence normale de position avant une première lecture ne produit aucun avertissement.
+Une position devenue incertaine (erreur, buffering, seek local en cours) n'est jamais
+remplacée par une ancienne position : la bascule sans transfert est signalée.
+Cette mémoire est limitée à la fiche et à sa source temporelle pendant la session ;
+elle ne constitue pas une reprise de lecture persistée.
+YouTube peut afficher une vignette avec départ préparé plutôt qu'une image à
+l'instant demandé. La correspondance reste approximative. La position initiale
+locale est bornée par la durée décodée ; une navigation ordinaire hors durée est
+refusée. Les timestamps sur un lecteur non prêt restent refusés sans mise en attente.
+
+Masquer Local met en pause et conserve normalement sa position ; réafficher ne
+relance rien. La note, sa sélection, Undo/Redo, l'autosauvegarde et la transcription
+restent montées au changement de mode. Les références vidéo/source existantes
+commandent uniquement le lecteur actif de cette même source. + Temps et + Capture
+lisent exclusivement sa position courante admissible, y compris masqué en pause, sans commande
+de lecture. Un départ préparé ne suffit jamais à ces opérations, même si le
+masquage fait passer YouTube à l'état paused. Le local
+refuse une position pendant le chargement, le seek ou après une erreur.
+Les captures gardent leur extraction serveur et leur repli distant sélectif.
+
+Une erreur de lecture reste en Local, avec un message prudent, un réessai et le
+choix manuel YouTube. Elle ne transforme pas le téléchargement en échec et ne
+provoque ni conversion ni effacement. Le navigateur et ffmpeg peuvent avoir des
+capacités de décodage différentes.
+
+Après confirmation de suppression, le lecteur est arrêté et déchargé avant DELETE.
+Une réservation concurrente peut encore provoquer un refus temporaire ; aucun
+réessai automatique de suppression. En cas de refus, recharger le lecteur est
+une action explicite. Après succès, Local reste sélectionné avec l'état sans fichier.
+Les connaissances et captures restent intactes. Un rafraîchissement recommence
+le choix initial : YouTube dans cette phase, puis la politique cible après validation.
+
+
+## Panneau vidéo — phase 1 : barre stable et conservation volontaire
+
+Le panneau et l'en-tête restent montés lors d'une bascule ; seule la surface propre
+au lecteur change. Les deux boutons natifs ont aria-pressed et gardent le focus ;
+aucun mode n'est annoncé sélectionné pendant la consultation initiale.
+Les marges de la vidéo, ratios et limites de hauteur restent inchangés dans cette phase.
+
+Cliquer Local avec un fichier disponible sélectionne le lecteur. Sinon une seule
+modale présente l'état courant : confirmation Télécharger si absent, activité sans
+POST si téléchargement en cours, erreur et Réessayer si échec, Actualiser l'état
+si consultation incertaine. Une référence à un fichier indisponible reste supprimable
+après confirmation. Les changements d'état serveur actualisent la fenêtre ouverte.
+Annuler/Échap ferme sans acquisition. Pendant une activité, Fermer ferme seulement
+la fenêtre et ne prétend pas annuler le travail serveur. Confirmer déclenche un seul POST puis ferme
+la fenêtre sans attendre son résultat. YouTube n'est ni arrêté ni remplacé.
+Le panneau Local vide après suppression utilise exactement cette même fenêtre.
+
+Un emplacement fixe devant Local accueille un spinner pendant la demande ou
+l'activité serveur, une coche verte après conservation confirmée et une croix rouge
+après échec d'une activité suivie. Les deux résultats durent cinq secondes.
+Les annonces accessibles complètent les symboles, sans dépendre de la couleur.
+Une première consultation available/failed reste neutre ; downloading rétablit
+le spinner après rafraîchissement. Les résultats ne sont pas persistés.
+Après POST perdu, une conservation confirmée peut annoncer le succès ; un ancien
+failed sans activité observée ne prouve pas l'échec d'une nouvelle demande.
+Une erreur de consultation, de suppression ou de décodage ne produit pas de croix.
+Les erreurs importantes restent visibles et leur détail reste consultable.
+
+Informations ouvre un popover non modal, fermé par Échap, clic extérieur, bouton
+Fermer ou changement de mode. Il prend le focus à l'ouverture ; Échap rend le
+focus à Informations, tandis qu'un clic extérieur garde sa destination.
+Les informations YouTube concernent la source de travail : titre, identifiant,
+compte de publication, durée, URL et description repliable.
+Les informations Local incluent les propriétés techniques et added_at du fichier,
+ainsi que sa suppression. La confirmation ferme le popover ; Annuler est focalisé.
+Après fermeture de la confirmation, le focus revient à Informations.
+Seule une suppression confirmée depuis Local décharge le média ; depuis YouTube,
+le lecteur distant reste intact. Une suppression refusée permet de recharger le local.
+
+La section Métadonnées et sources reste intégralement accessible : toutes les sources,
+leurs descriptions et les informations internes à Sillage ne sont pas remplacées
+par le popover de la source de travail.
+
+### Phase 2 différée : surface bord à bord
+
+Une validation visuelle et fonctionnelle explicite de la phase 1 est obligatoire
+avant toute modification des marges de la surface ou de ses dimensions.
+Le rendu bord à bord n'est pas réalisé dans cette phase.
+
+### Parcours exploratoire : conserver des clips d'étude
+
+Piste future, sans implémentation ni modèle arrêté : télécharger une vidéo complète,
+l'étudier et repérer des plages, produire quelques clips durables, les réutiliser
+dans les notes, puis supprimer volontairement le complet en conservant clips, notes,
+transcriptions et captures. L'export externe serait une possibilité distincte,
+facultative. Voir les questions ouvertes de la roadmap ; aucune option de découpe
+ou d'export n'est ajoutée à la barre actuelle.
+
+## Orientation de travail — accès immédiat et étude approfondie
+
+YouTube est le moyen d'accès immédiat à une vidéo ; Local est le mode de travail
+privilégié pour l'étudier en profondeur. YouTube permet la consultation, les notes,
+les références et les captures sans téléchargement préalable. Local facilite
+l'étude prolongée, les navigations répétées et la rédaction structurée.
+Cette orientation ne réserve aucune action d'annotation à Local.
+
+Les priorités sont, dans cet ordre, la fiabilité et la fluidité des annotations,
+le fonctionnement naturel de la lecture/navigation, puis le confort de continuité
+entre lecteurs. La priorité initiale Local lorsque le fichier est disponible reste
+inchangée.
+
+Pour YouTube, + Temps et + Capture utilisent le temps réellement annoncé au clic
+dans un état admissible, jamais la cible d'une commande. Après un seek vers
+80.123 s, un temps annoncé de 80.080 s produit une référence ou une demande de
+capture à 80080 ms. Aucun verrou ne dépend de l'égalité avec la cible, d'une
+tolérance, d'un délai ou d'une notification de fin de seek.
+Une mesure peut rester momentanément ancienne après une commande : cette limite
+de fraîcheur de l'API est acceptée, sans promettre une synchronisation image par
+image. Les millisecondes des données Sillage restent conservées.
+
+Une référence Markdown ou un timestamp de transcription exprime une intention
+explicite : YouTube navigue en conservant la lecture ou la pause ; depuis non
+démarré, cued ou terminé, il demande aussi le démarrage. Une bascule vers YouTube
+prépare toujours le départ sans lecture. Une préparation seule ne permet pas
+d'annoter. Local conserve strictement son comportement de navigation actuel.
+
+Si YouTube signale que le navigateur a bloqué le démarrage, afficher un message
+invitant à utiliser Lecture dans le lecteur, sans le détruire ni relancer la
+commande. Le message disparaît lorsque la lecture démarre. Le signal n'est pas
+garanti après seekTo : aucune absence de lecture n'est diagnostiquée par délai.
+L'ouverture d'une fiche et les bascules ne déclenchent jamais de lecture.
+
+### Navigation YouTube — règle actuelle
+
+Cette règle remplace les descriptions antérieures de préparation sans lecture
+lors d'un clic temporel avant première lecture : seul le transfert entre lecteurs
+prépare désormais un départ. Les commandes refusées avant disponibilité ne sont
+toujours pas différées. Masquage en cours, erreurs, identités vidéo/source et
+conservation de la session de note restent protégés.
+
+## Panneau vidéo — phase 2 bord à bord
+
+Les surfaces YouTube et Local rejoignent les bords intérieurs gauche, droit et
+inférieur du panneau Lecteur. L'en-tête et les messages gardent leur espacement
+de 1rem, avec la séparation existante de .75rem avant la surface. Les coins
+inférieurs de la vidéo suivent ceux du panneau.
+
+Les ratios, hauteurs minimales, limites de hauteur et seuils responsive restent
+inchangés. Une largeur accrue ne garantit pas une image agrandie sur desktop :
+les bandes noires restent possibles, sans recadrage. Le popover Informations
+peut dépasser le panneau, notamment lorsque le lecteur est masqué.
+Les états sans surface retrouvent le padding inférieur normal.
+Aucun changement de comportement des lecteurs ou du workspace.

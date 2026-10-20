@@ -850,10 +850,10 @@ temporel ne traverse la session de note et aucune file de commandes n'est créé
 
 Selon la [sémantique officielle de l'IFrame API](https://developers.google.com/youtube/iframe_api_reference#seekTo),
 `seekTo(seconds, true)` conserve la pause uniquement depuis l'état `paused` (2).
-Il est utilisé depuis `playing` (1), `paused` (2) et `buffering` (3), ce dernier
-prolongeant la lecture en cours de chargement. Depuis `unstarted` (-1), `ended` (0)
-ou `video cued` (5), `cueVideoById({videoId, startSeconds})` prépare le départ sans
-lecture. Un état inconnu refuse la commande. Aucun `playVideo()` n'est ajouté.
+Il est utilisé pour toutes les navigations explicites depuis les états connus
+(-1, 0, 1, 2, 3, 5). Depuis unstarted, cued ou ended, le clic demande donc aussi
+le démarrage. Un état inconnu refuse la commande. Aucun playVideo supplémentaire.
+cueVideoById reste réservé au départ initial d'une bascule, sans lecture.
 YouTube peut viser l'image clé précédente : transmettre la valeur exacte ne
 garantit pas une précision de lecture à la milliseconde.
 
@@ -876,7 +876,7 @@ et d'une lecture synchrone `getCurrentTimeMs()` du lecteur. L'adapter YouTube
 appelle `getCurrentTime()` seulement pour une instance prête, hors masquage en
 cours, dans les états ended (0), playing (1) ou paused (2). Un lecteur masqué
 conservé en pause reste utilisable sans réaffichage. Les états unstarted (-1),
-cued (5), buffering (3) et inconnus sont refusés ; un départ préparé par 6.1
+cued (5), buffering (3) et inconnus sont refusés ; un départ préparé lors d'une bascule
 n'est jamais substitué à la position courante. Les valeurs non finies, négatives
 ou hors des entiers sûrs en millisecondes sont refusées. Zéro reste valide.
 La conversion utilise `Math.round(seconds * 1000)` ; elle conserve la précision
@@ -1191,7 +1191,7 @@ Routes retenues :
 
 POST sans corps : 202 et Location pour une acquisition active, 200 si déjà disponible.
 GET local : non téléchargé/en cours/disponible/échec ; aucune exposition des chemins.
-La suppression vise une identité précise. Aucun endpoint des octets vidéo.
+La suppression vise une identité précise. La tranche de lecture locale ajoute désormais GET/HEAD sur le contenu de cette identité (voir ci-dessous).
 
 Acquisition dans une zone maîtrisée de data/media, sur le filesystem final :
 validation, synchronisation, renommage puis transaction SQLite courte.
@@ -1315,3 +1315,116 @@ persistant. Après un crash, un début peut ne pas avoir de fin.
 La récupération d'une capture par sa clé de commande enrichit son bilan HTTP
 avec asset_id et operation_id de la capture retrouvée. La clé brute reste exclue ;
 la nouvelle requête HTTP ne remplace pas origin_request_id de l'opération.
+
+## Lecture locale — transport et composition du workspace
+
+GET et HEAD /api/v1/videos/{video_id}/media-files/{media_file_id}/content
+servent une identité exacte. Le service vérifie les IDs, la vidéo propriétaire,
+la finalisation et l'ouverture. Le port Storage.Open retourne Reader/Seeker/Closer.
+Le filesystem borne l'ouverture par os.OpenRoot, vérifie la racine ouverte,
+refuse les liens symboliques finaux avec O_NOFOLLOW et les fichiers non réguliers.
+O_NONBLOCK évite le blocage sur un FIFO substitué ; Stat contrôle le descripteur
+réel et sa taille. Les fichiers .deleting ambigus restent indisponibles.
+Aucun chemin ne vient de la requête ni ne sort dans les DTO.
+
+L'ouverture et la prise de réservation sont sérialisées avec DELETE. La lecture
+s'effectue sans verrou global. Close ferme le descripteur puis libère une seule
+fois la réservation ; le handler le diffère, y compris après déconnexion ou panic.
+Plusieurs lectures sont possibles, ainsi que les captures et les téléchargements
+d'autres sources. DELETE refuse un fichier réservé. Une réservation protège une
+requête, pas une séance complète : après sa fin, une suppression peut réussir et
+une requête Range ultérieure recevoir 404. La connaissance reste accessible.
+
+Le handler utilise http.ServeContent : corps complet, HEAD, plages et réponses
+206/416, requêtes conditionnelles natives. Le MIME est déduit de l'extension du
+conteneur validé, avec application/octet-stream si inconnu, sans liste de formats
+autorisés. X-Content-Type-Options: nosniff et Cache-Control: no-store sont posés.
+Sur les erreurs de plage, Go peut retirer les en-têtes de cache selon son
+comportement standard. Aucun encodage HTTP transformant les octets n'est ajouté.
+Les erreurs avant transfert conservent les codes 400 bad_request, 404
+video_not_found/media_file_not_found, 409 local_media_unavailable et 500 internal_error.
+Les réservations de lecture/capture utilisent le refus 503 download_busy existant
+à la suppression, avec un message désormais adapté à l'utilisation d'un média.
+
+VideoPlayer possède le panneau et l'en-tête permanents ; il compose les deux surfaces
+concrètes avec getCurrentTimeMs, navigate et stop pour les usages du workspace.
+PlayerSurfaceHandle ajoute toggleVisibility pour l'en-tête et getTransferPosition,
+réservé à la bascule (confirmed, prepared, empty ou uncertain) ; la surface
+publie sa visibilité confirmée, notamment après pause YouTube. Une seule instance
+de lecture est montée.
+La sélection initiale attend le premier état de téléchargement ou son erreur :
+Local si available, sinon YouTube. Aucun lecteur n'est monté pendant l'attente.
+Le choix n'est pas recalculé lors des actualisations du téléchargement. Local utilise directement
+l'URL HTTP dans video, sans téléchargement préalable du fichier dans un Blob.
+
+La bascule transmet une position initiale facultative, consommée une fois à
+onReady/loadedmetadata. L'ancienne instance est arrêtée avant la transition ;
+les effets nettoient leurs écouteurs et ignorent les événements obsolètes.
+Les timestamps ordinaires ne rejoignent jamais ce mécanisme d'initialisation.
+Le curseur de transfert circule dans VideoPlayer par la sélection de session ;
+chaque surface conserve et qualifie sa préparation, sans historique parallèle ni
+hook supplémentaire. La clé vidéo/source du workspace borne cette mémoire.
+YouTube conserve le départ cued d'une bascule. Une navigation explicite invalide
+ce départ et utilise seekTo ; elle ne stocke pas sa cible comme temps courant.
+Lecture et buffering invalident ce repli ; les erreurs et destructions forcées
+l'invalident aussi. Un seek explicite ne crée aucun verrou de confirmation.
+YouTube est interrogé au clic dans les états ended, playing ou paused ; le temps
+annoncé est utilisé même s'il diffère de la cible et sans nouvel événement.
+Les départs seulement préparés, buffering, états inconnus, erreurs et masquage
+en cours restent refusés. L'API ne fournit pas d'identifiant de seek ni de garantie
+image par image ; un temps momentanément ancien après commande reste une limite
+acceptée. Aucun seuil de proximité, délai de confirmation ni polling n'est ajouté.
+Le libellé interne confirmed du transfert désigne une mesure admissible selon le
+lecteur, pas un accusé de réception du dernier seek YouTube.
+Local distingue le chargement initial, le seek demandé en pause et une position
+réellement décodable ; la durée effective borne la préparation. Arrêt, erreur et
+suppression effacent les préparations locales. Les callbacks d'instances détruites
+restent ignorés. Aucun polling temporel ni stockage de progression.
+getCurrentTimeMs reste indépendant de ce repli et refuse les préparations :
++ Temps et + Capture ne consomment jamais le curseur de transfert.
+Le défilement conditionnel est partagé, sans focus forcé ni scroll des panneaux.
+VideoNote, sa session et VideoTranscript restent hors de cette alternance.
+
+Les tests navigateur ajoutent un WebM VP8/Opus généré par ffmpeg dans le workspace
+temporaire du lanceur. L'acquisition distante est simulée, mais publication,
+SQLite, GET/Range, ffprobe et décodage HTML5 sont réels. Les fixtures MKV factices
+restent utilisées pour les seuls parcours de gestion des téléchargements.
+
+
+### Panneau vidéo — interactions de la phase 1
+
+useVideoDownload demeure l'unique propriétaire de la consultation et du polling.
+Son suivi éphémère distingue une demande, une activité observée et son résultat
+confirmé ; un timer de cinq secondes efface seulement le résultat de présentation.
+Aucun champ métier, stockage navigateur ou contrat REST supplémentaire.
+VideoDownload est la modale de conservation unique. Les suppressions mémorisent
+l'identité exacte du fichier à confirmer ; elles réutilisent mutate et le déchargement.
+PlayerInformation partage les données déjà chargées ; LocalFileDetails utilise
+un identifiant accessible propre à chaque instance. Aucun appel HTTP à l'ouverture
+du popover. Les commandes d'en-tête ne remountent ni notes ni transcription.
+
+### Navigation explicite YouTube et blocage navigateur
+
+La navigation commune aux notes, callouts, éditeur et transcription appelle seekTo
+directement depuis le geste utilisateur. Elle conserve la pause depuis paused,
+sinon demande la lecture. L'initialisation et les bascules conservent autoplay: 0
+et cueVideoById ; Local est inchangé.
+
+L'iframe délègue autoplay en plus des capacités existantes. Cette permission
+n'est pas une commande de démarrage. onAutoplayBlocked affiche seulement un
+message non fatal lorsqu'il est reçu ; l'événement playing l'efface. Les gardes
+disposed/failed ignorent les événements obsolètes. Aucune détection par délai,
+polling, relance, changement de mode ou coupure du son. L'API ne cite pas
+explicitement seekTo parmi les appels couverts par ce signal ; son absence
+n'est pas une preuve de démarrage. Les erreurs fatales restent distinctes.
+
+### Présentation bord à bord du lecteur
+
+La classe player-surface identifie les deux conteneurs déjà existants ; aucun
+nouvel arbre React ni changement de cycle de vie. Le CSS étend seulement video
+et youtube-frame de 2rem avec marges latérales négatives. Le padding inférieur
+du panneau est retiré uniquement lorsqu'une surface non masquée contient le média.
+Le panneau reste en overflow visible ; seule la youtube-frame découpe son iframe
+aux coins inférieurs. video porte directement son arrondi. Le rayon intérieur
+soustrait le pixel de bordure au rayon du panneau.
+Les règles de ratio, hauteur et responsive sont conservées.

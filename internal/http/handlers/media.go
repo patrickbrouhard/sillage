@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"strconv"
 	"time"
@@ -144,7 +145,7 @@ func respondMediaError(w http.ResponseWriter, r *http.Request, state media.State
 		writeError(w, r, 409, "media_source_unsupported", "source is not supported")
 	case errors.Is(err, media.ErrBusy):
 		w.Header().Set("Retry-After", "3")
-		writeError(w, r, 503, "download_busy", "another download is active")
+		writeError(w, r, 503, "download_busy", "media is currently in use")
 	case errors.Is(err, media.ErrUnavailable):
 		if err != media.ErrUnavailable {
 			requestlog.Result(r, "", err)
@@ -161,4 +162,39 @@ func respondMediaError(w http.ResponseWriter, r *http.Request, state media.State
 		requestlog.Result(r, "", err)
 		writeError(w, r, 500, "internal_error", "internal error")
 	}
+}
+
+// MediaContentService ouvre un média exact sans exposer son chemin au transport.
+type MediaContentService interface {
+	Open(context.Context, video.VideoID, int64) (media.File, media.Content, error)
+}
+
+// Content sert les octets publiés ; ServeContent traite HEAD et les plages HTTP.
+func (h *MediaHandler) Content(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	videoID, e1 := strconv.ParseInt(chi.URLParam(r, "video_id"), 10, 64)
+	id, e2 := strconv.ParseInt(chi.URLParam(r, "media_file_id"), 10, 64)
+	if e1 != nil || e2 != nil || videoID <= 0 || id <= 0 {
+		writeError(w, r, 400, "bad_request", "invalid media id")
+		return
+	}
+	service, ok := h.service.(MediaContentService)
+	if !ok {
+		respondMediaError(w, r, media.State{}, media.ErrUnavailable)
+		return
+	}
+	f, content, err := service.Open(r.Context(), video.VideoID(videoID), id)
+	if err != nil {
+		respondMediaError(w, r, media.State{}, err)
+		return
+	}
+	defer content.Close()
+	// Les formats conservés restent ouverts ; un MIME inconnu ne promet aucun décodage.
+	kind := mime.TypeByExtension("." + f.Format)
+	if kind == "" {
+		kind = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", kind)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(w, r, "", f.AddedAt, content)
 }

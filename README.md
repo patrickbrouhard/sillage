@@ -1707,3 +1707,49 @@ une sortie fatale sur stderr. Les logs ne constituent pas un journal d'audit.
   et révélées, navigation temporelle, Undo/Redo et stabilité lors des bascules.
 - Une ouverture, bascule de mode ou redimensionnement sans édition ne doit pas
   déclencher d'enregistrement. Le panneau et les commandes gardent leur largeur.
+
+## Lecture locale dans le workspace
+
+Le choix **YouTube / Local** permet de regarder le fichier conservé de la source
+de travail. La barre stable propose deux boutons, Informations et Masquer/Afficher.
+Sans fichier, cliquer Local ouvre une confirmation sans interrompre YouTube.
+Les timestamps, notes, transcription et captures utilisent le lecteur actif.
+Les bascules préparent autant que possible la position en pause ; masquer met en pause.
+Une erreur locale propose un réessai et laisse le retour vers YouTube manuel.
+
+**Local est sélectionné initialement si le média de la source de travail est
+disponible**, sinon YouTube. Le choix attend la consultation initiale sans affichage
+fugace de YouTube ; une erreur de consultation choisit YouTube. Les notes restent
+accessibles. Aucun changement automatique à la fin d'un téléchargement.
+
+### Contenu média
+
+- GET /api/v1/videos/{video_id}/media-files/{media_file_id}/content
+- HEAD sur la même URL, sans corps.
+- GET complet : 200 ; plages satisfaites : 206 avec Content-Range ; hors limites : 416.
+- IDs invalides : 400 ; vidéo/média absent ou mauvaise appartenance : 404 ;
+  fichier connu mais indisponible : 409 local_media_unavailable.
+- URL fondée sur l'identité exacte, jamais sur un chemin du disque.
+- Cache-Control: no-store pour le contenu, MIME du conteneur, nosniff.
+- Un DELETE peut recevoir 503 download_busy tant qu'une lecture HTTP ou capture
+  réserve le média. Arrêter/décharger le lecteur puis réessayer explicitement.
+- Un fichier conservé n'est pas nécessairement décodable par le navigateur.
+  Aucune conversion ni modification de la politique yt-dlp.
+
+La suppression conserve notes, transcriptions et captures. Elle laisse le panneau
+Local vide ; un rafraîchissement recalcule le choix et revient à YouTube sans fichier.
+
+Voir [la recette de validation locale](docs/06-local-playback-validation.md).
+
+
+### Panneau vidéo : phase 1
+
+Informations ouvre les détails de la source YouTube ou du fichier Local, avec sa
+date d'ajout et sa suppression confirmée. Métadonnées et sources reste disponible.
+Le panneau Local vide après suppression utilise la même confirmation de téléchargement.
+Pendant une acquisition, Local garde son libellé et affiche un spinner ; les résultats
+confirmés suivis dans cette ouverture affichent une coche/croix pendant cinq secondes.
+Les erreurs restent consultables. Aucune bascule automatique en fin de téléchargement.
+
+Les marges et dimensions de la vidéo sont conservées. Le bord à bord reste différé
+jusqu'à validation visuelle explicite de cette phase.

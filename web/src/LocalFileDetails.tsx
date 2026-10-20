@@ -1,11 +1,13 @@
+import { useId } from 'react'
 import type { useVideoDownload } from './useVideoDownload'
 import { formatDuration } from './videoPresentation'
 
 /** Décrit la représentation locale de la source de travail, distincte de sa provenance. */
 export function LocalFileDetails({ download }: { download: ReturnType<typeof useVideoDownload> }) {
+  const titleID = useId()
   const { file, state, error } = download
-  return <section className="source-section" aria-labelledby="local-file-title">
-    <h2 id="local-file-title">Fichier local</h2>
+  return <section className="source-section" aria-labelledby={titleID}>
+    <h2 id={titleID}>Fichier local</h2>
     <p className="muted">Représentation conservée de la source de travail</p>
     {file ? <>
       {error && <p className="error">Disponibilité non confirmée. Métadonnées enregistrées :</p>}
@@ -18,6 +20,7 @@ export function LocalFileDetails({ download }: { download: ReturnType<typeof use
         <dt>Codec audio</dt><dd>{file.audio_codec ?? 'Inconnu'}</dd>
         <dt>Langue audio déclarée</dt><dd>{file.audio_language ?? 'Inconnue'}</dd>
         <dt>Durée</dt><dd>{formatDuration(file.duration_ms)}</dd>
+        <dt>Fichier ajouté le</dt><dd><time dateTime={file.added_at}>{new Date(file.added_at).toLocaleString('fr-FR')}</time></dd>
       </dl>
     </> : <p>{error ? 'Consultation du fichier impossible.' :
       state?.status === 'downloading' ? 'Acquisition en cours.' :

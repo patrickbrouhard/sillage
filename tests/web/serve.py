@@ -74,7 +74,16 @@ def main():
         probe_executable = workspace / "ffprobe"
         probe_executable.write_text((ROOT / "tests/web/ffprobe.py").read_text(encoding="utf-8"), encoding="utf-8")
         probe_executable.chmod(0o700)
+        # Un vrai média commun exerce le décodage, les seeks et le transport HTTP.
+        playable = workspace / "playable.webm"
+        subprocess.run([
+            "/usr/bin/ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=160x90:r=10",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+            "-t", "125", "-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", "8",
+            "-b:v", "100k", "-c:a", "libopus", "-b:a", "16k", str(playable),
+        ], check=True)
         env = os.environ.copy()
+        env["SILLAGE_TEST_MEDIA"] = str(playable)
         env["PATH"] = f"{workspace}:/usr/bin:/bin"
         env["SILLAGE_WEB_DIR"] = str(ROOT / "web" / "dist")
 

@@ -148,8 +148,8 @@ for (const state of [-1, 0, 1, 2, 3, 5]) {
       return { call: player.navigationCalls.at(-1), state: player.state }
     })
     expect(result.call?.seconds).toBe(40.36)
-    expect(result.call?.command).toBe([-1, 0, 5].includes(state) ? 'cue' : 'seek')
-    expect(result.state).toBe([-1, 0, 5].includes(state) ? 5 : state === 2 ? 2 : 1)
+    expect(result.call?.command).toBe('seek')
+    expect(result.state).toBe(state === 2 ? 2 : 1)
   })
 }
 

@@ -101,7 +101,8 @@ the first usable YouTube source in REST order; this is not a persisted primary
 source. Keep the note mounted across layout and player visibility changes.
 Transcript grouping is presentation only and preserves source order and whitespace.
 Step 6.1 connects transcript timestamp buttons to the same YouTube player, preserving
-playback/pause and preparing unstarted or ended videos without autoplay. Navigation
+playback/pause. Explicit navigation now starts unstarted/cued/ended videos;
+cue-only preparation without playback is reserved for switches. Navigation
 is immediate only: unavailable players require another explicit click, never a queued
 command. Step 6.2 inserts `[12:42](sillage://videos/5/sources/5?start_ms=762345)`:
 `videos` is the logical authority, both Sillage IDs are explicit, milliseconds
@@ -238,7 +239,7 @@ Live explicit deletion may remove bytes after SQL confirmation; live operations
 may clean their own temporary directory. Isolate media anomalies from knowledge.
 Expose downloading until finalization releases activity; available must allow deletion.
 One server per data directory, application-owned jobs, 6h default timeout, no queue.
-Local playback, screenshots, imports and interactive storage maintenance remain future.
+Screenshots and local playback are implemented in later increments below; imports and interactive storage maintenance remain future.
 
 
 ## Step 7.1 — Acquisition metadata (implemented)
@@ -262,3 +263,74 @@ boundaries. HTTP handlers enrich one request summary; asynchronous services own
 their terminal event. Keep the server cancellation context and copy only safe
 correlation attributes when accepting work. No logger interface, persistent log
 table or job framework. Successful reads, polling and note autosaves are DEBUG.
+
+## Local playback — local-first enabled
+
+Use one logical player area with YouTube / Local. Initial selection waits for
+media availability without mounting YouTube first: choose Local when available,
+otherwise YouTube, including on availability lookup failure. Do not persist a
+preference or add a flag. Notes and transcript remain accessible while waiting.
+Download completion never changes the selected mode.
+
+Local uses native video controls and the exact media content REST identity.
+Keep the current work source for playback, transcripts, time links and captures.
+Switches stop the previous instance and may apply one initial position when ready,
+without autoplay; ordinary timestamp navigation remains immediate only.
+Pause on hide, keep notes/transcript mounted, and preserve the server capture fallback.
+Playback errors remain Local without conversion, deletion or automatic fallback.
+Confirmed deletion unloads the local element first and leaves Local empty on success.
+Reservations protect HTTP requests, not entire viewing sessions.
+
+
+## Player panel — phase 1, visual approval required before phase 2
+
+Keep the panel and segmented native buttons mounted across surface switches.
+Without available media, Local opens one shared conservation dialog without changing
+mode or commanding YouTube. The Local-empty state after deletion uses that same dialog.
+Keep one useVideoDownload consultation. Activity survives refresh through server state;
+success/failure indicators last five seconds and never persist across openings.
+Unknown availability, deletion and decoder errors are not download failures.
+Contextual information and confirmed deletion preserve all sources in the existing
+metadata section. Confirmed deletion from YouTube must not stop the remote player.
+Retain video padding, aspect ratios and height limits. Stop before edge-to-edge work;
+phase 2 requires explicit user approval of phase 1. Clips are exploratory only,
+with no chosen entity, schema, endpoint, cutting or export implementation.
+
+## Session position transfer
+
+Keep getCurrentTimeMs strict for time insertion and capture. Surface-only transfer
+snapshots distinguish confirmed, prepared, empty and uncertain. Preserve a still-valid
+cued target across switches, including accepted cue navigation, but never fall back
+to an old target after activity/error makes it uncertain. Ordinary navigation stays
+immediate-only. No progress polling, persistence or layout changes. Brave validation
+is required before proceeding to panel phase 2.
+
+## YouTube annotation time — no durable seek confirmation
+
+Use the current time reported by YouTube in an admissible state, never the requested
+seek target or a prepared departure. Do not restore pendingSeek, target tolerances,
+confirmation timers or temporal polling. An immediately stale getter is an accepted
+API limitation. Keep prepared departures separate and non-annotatable, and retain
+readiness/state/value/error/visibility guards. Local keeps its seeking/data guards.
+Explicit YouTube navigation now uses seekTo from every known state: paused stays
+paused; unstarted/cued/ended start playback. Keep cueVideoById only for switch
+initialization without playback. Local behavior remains unchanged.
+Prioritize annotations, then playback/navigation, then switching comfort.
+
+## Explicit YouTube navigation
+
+Delegate autoplay to the iframe but keep autoplay: 0 on opening and cue-only
+switch initialization. Handle onAutoplayBlocked only when emitted, non-fatally,
+and clear its message on playing. The API does not explicitly guarantee that
+event after seekTo. No synthetic detection, retry, timer or polling. Preserve
+visibility/disposal guards and annotation time semantics. Await manual Brave
+validation; panel phase 2 remains deferred.
+
+## Player panel phase 2 — authorized, manual visual validation pending
+
+Phase 1 and explicit YouTube navigation were manually validated in Brave.
+Phase 2 now extends only the video surfaces to the side and bottom inner edges.
+Keep header/messages padded, panel overflow visible for popovers, and rounded
+lower media corners. Existing ratios, height limits and responsive breakpoints
+remain unchanged. No player behavior, workspace structure or persistence changes.
+The previous phase-1 padding freeze is superseded only for this presentation work.

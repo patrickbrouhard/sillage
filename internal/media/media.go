@@ -4,6 +4,7 @@ package media
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/video"
@@ -96,6 +97,8 @@ type Storage interface {
 	Discard(string) error
 	// Publish synchronise puis expose un fichier complet sous un nom unique.
 	Publish(context.Context, string, Acquired) (string, error)
+	// Open retourne un descripteur vérifié du fichier exact, sans suivre de lien symbolique.
+	Open(File) (Content, error)
 	// Check vérifie présence, lisibilité et taille sans accès distant.
 	Check(File) error
 	// StageDelete déplace le fichier pour permettre une restauration après échec SQL.
@@ -126,4 +129,11 @@ func Code(err error) string {
 	default:
 		return "internal_error"
 	}
+}
+
+// Content est un contenu seekable dont la fermeture libère aussi sa réservation.
+type Content interface {
+	io.Reader
+	io.Seeker
+	io.Closer
 }

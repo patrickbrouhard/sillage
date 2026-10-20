@@ -230,3 +230,7 @@ La sélection technique d'une méthode de capture est une question distincte.
 
 La préservation prime sur le nettoyage automatique : une absence de référence
 SQLite ne rend jamais un média utilisateur jetable.
+
+La priorité initiale au lecteur local est active lorsque le média de la source
+de travail est disponible. Ce choix UX ne change ni la valeur des représentations
+ni leur politique de conservation.

@@ -383,3 +383,58 @@ func (e *finalizationError) Unwrap() error { return e.cause }
 func (e *finalizationError) LogValue() slog.Value {
 	return slog.GroupValue(slog.String("stage", "finalize"), slog.Bool("file_published", true), logging.Error(e.cause))
 }
+
+// Open réserve une identité exacte pendant son transfert, sans verrou pendant la lecture.
+func (s *Service) Open(ctx context.Context, videoID video.VideoID, id int64) (File, Content, error) {
+	if videoID <= 0 || id <= 0 {
+		return File{}, nil, video.ErrInvalidInput
+	}
+	if _, err := s.videos.Get(ctx, videoID); err != nil {
+		return File{}, nil, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.storageErr != nil {
+		return File{}, nil, ErrUnavailable
+	}
+	f, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return File{}, nil, err
+	}
+	if f.VideoID != videoID {
+		return File{}, nil, ErrNotFound
+	}
+	if f.OriginSourceID != nil && s.active == *f.OriginSourceID {
+		return File{}, nil, ErrUnavailable
+	}
+	content, err := s.storage.Open(f)
+	if err != nil {
+		return File{}, nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
+	}
+	if s.leases == nil {
+		s.leases = make(map[int64]int)
+	}
+	s.leases[f.ID]++
+	return f, &reservedContent{Content: content, release: func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.leases[f.ID]--
+		if s.leases[f.ID] == 0 {
+			delete(s.leases, f.ID)
+		}
+	}}, nil
+}
+
+// reservedContent garde la réservation jusqu'à fermeture effective, même sur abandon HTTP.
+type reservedContent struct {
+	Content
+	once    sync.Once
+	release func()
+	err     error
+}
+
+// Close ferme le descripteur et libère une seule fois la réservation.
+func (c *reservedContent) Close() error {
+	c.once.Do(func() { c.err = c.Content.Close(); c.release() })
+	return c.err
+}
