@@ -1975,7 +1975,7 @@ La simplification a été validée manuellement dans Brave par l'utilisateur.
 La navigation avant première lecture fait l'objet de l'incrément suivant.
 La phase 2 du panneau et la reprise persistée restent hors périmètre.
 
-## Navigation explicite YouTube — recette Brave attendue
+## Navigation explicite YouTube — validée dans Brave
 
 Références Markdown et transcription naviguent avec seekTo : maintien de la pause
 depuis paused, lecture depuis non démarré/cued/terminé. Les bascules préparent
@@ -1986,3 +1986,11 @@ Vérifier dans Brave le démarrage au premier clic, les activations clavier,
 le refus navigateur et la reprise via Lecture natif. Les tests simulés ne
 démontrent pas les politiques réelles de lecture. Arrêt après validation
 automatisée ; aucune approbation implicite de la phase 2.
+
+## Validation Brave avant la phase 2
+
+L'utilisateur a validé manuellement dans Brave Windows la phase 1 du panneau,
+les évolutions temporelles et la navigation explicite YouTube avant cette phase.
+La préparation sans lecture lors des bascules et le comportement Local sont
+conservés. La phase 2 bord à bord est désormais autorisée ; sa validation visuelle
+et fonctionnelle fera l'objet d'un nouveau retour utilisateur.

@@ -155,3 +155,11 @@ limite acceptée ; il ne prétend pas reproduire un défaut observé dans Brave.
   révélation et seek sans reprise. Une instance détruite ne réagit plus.
 - Vérifier l'absence de lecture à l'ouverture et à chaque bascule. Local,
   captures, sélection, Undo/Redo et autosauvegarde restent inchangés.
+
+## Validation Brave avant la phase 2
+
+L'utilisateur a validé manuellement dans Brave Windows la phase 1 du panneau,
+les évolutions temporelles et la navigation explicite YouTube avant cette phase.
+La préparation sans lecture lors des bascules et le comportement Local sont
+conservés. La phase 2 bord à bord est désormais autorisée ; sa validation visuelle
+et fonctionnelle fera l'objet d'un nouveau retour utilisateur.
