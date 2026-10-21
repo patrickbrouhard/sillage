@@ -32,6 +32,8 @@ export function VideoTagList({ tags, onRestoreFocus }: { tags: Tag[]; onRestoreF
 
   useLayoutEffect(() => {
     const box = container.current!
+    const group = box.parentElement!
+    const management = box.nextElementSibling!
     const measureBox = measurements.current!
     const panel = popover.current!
     // Une nouvelle liste rend la consultation ouverte périmée, même si sa longueur reste identique.
@@ -42,7 +44,11 @@ export function VideoTagList({ tags, onRestoreFocus }: { tags: Tag[]; onRestoreF
     const measure = () => {
       const widths = [...measureBox.querySelectorAll<HTMLElement>('[data-tag-width]')].map(el => el.getBoundingClientRect().width)
       const counters = [...measureBox.querySelectorAll<HTMLElement>('[data-counter-width]')].map(el => el.getBoundingClientRect().width)
-      const available = box.getBoundingClientRect().width
+      // Mesurer le groupe alloué, pas la liste ajustée à son contenu : le bouton
+      // peut suivre les tags sans créer une boucle entre budget et préfixe visible.
+      const available = group.getBoundingClientRect().width
+        - management.getBoundingClientRect().width
+        - (Number.parseFloat(getComputedStyle(group).columnGap) || 0)
       const gap = Number.parseFloat(getComputedStyle(box).columnGap) || 0
       const total = widths.reduce((sum, width) => sum + width, 0) + Math.max(0, widths.length - 1) * gap
       let next = widths.length
@@ -69,7 +75,8 @@ export function VideoTagList({ tags, onRestoreFocus }: { tags: Tag[]; onRestoreF
     measure()
     // Les tailles cachées restent indépendantes du nombre retenu : aucune boucle de layout.
     const observer = new ResizeObserver(measure)
-    observer.observe(box)
+    observer.observe(group)
+    observer.observe(management)
     for (const child of measureBox.children) observer.observe(child)
     return () => observer.disconnect()
   }, [tags])

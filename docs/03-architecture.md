@@ -1503,8 +1503,9 @@ de la gestion. VideoTagList ne reçoit que la liste chargée et un rappel de foc
 
 VideoTagList mesure les pilules et les compteurs dans des copies non interactives,
 inert et aria-hidden, découpées dans un contenant positionné de hauteur nulle.
-ResizeObserver suit le conteneur disponible et ces copies, indépendamment des
-liens visibles. Le calcul teste les préfixes dans l'ordre REST avec la largeur
+ResizeObserver suit le groupe de classement, le bouton de gestion et ces copies.
+Le budget soustrait la largeur du bouton et son espacement ; la liste visible
+prend seulement sa largeur de contenu, sans rétroaction sur le budget disponible. Le calcul teste les préfixes dans l'ordre REST avec la largeur
 exacte du compteur correspondant, y compris aux transitions +9/+10/+100.
 Il n'existe ni tri local ni nombre maximal fixe de tags. Les règles CSS gardent
 min-width: 0 et une piste racine minmax(0, 1fr), empêchant les noms longs de

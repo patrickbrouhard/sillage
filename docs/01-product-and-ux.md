@@ -1318,7 +1318,9 @@ n'est modifiée : le passage au 16:9 reste réservé à la tranche B après Brav
 ## Fiche vidéo — finitions de la zone Note (tranche A)
 
 Sur les fiches seules, le bandeau est transparent et sans bordure horizontale.
-Le logo conserve son lien nommé « Sillage, accueil » ; le nom visible disparaît.
+La signature compacte « [Logo] Sillage » conserve son lien nommé « Sillage, accueil ».
+Le symbole mesure 29 × 20 px, le texte 20 px, avec un espacement de 4 px et
+une hauteur cliquable minimale de 40 px.
 Un séparateur vertical précède le titre. Sur mobile, logo et titre restent sur
 la même ligne, les tags passent dessous ; le titre garde deux lignes maximum.
 Le sélecteur de thème appartient au volet de navigation global. Les autres pages conservent leur identité et leur footer.
@@ -1367,7 +1369,7 @@ Son ouverture rend l'arrière-plan inerte ; Tab reste dans le volet, Échap,
 le bouton de fermeture et un clic extérieur le ferment. Une navigation ferme
 d'abord le volet pour laisser les protections de départ de la note s'afficher.
 
-Sur les fiches, le bandeau transparent contient hamburger, logo, séparateur,
+Sur les fiches, le bandeau transparent contient hamburger, signature Sillage, séparateur,
 titre et tags. Le titre conserve la première source REST et sa troncature CSS.
 Sur desktop, il prend sa largeur naturelle jusqu'à 70ch et au plus 62 % de
 l'espace partagé ; les tags prennent le reste. Un titre court libère donc plus
@@ -1390,3 +1392,7 @@ focalisé qui disparaît de la ligne rend le focus à un accès encore visible.
 Le bouton distinct Gérer les tags ouvre la modale existante, seule responsable
 des ajouts et retraits. Les tags ne prennent plus de place au-dessus des onglets
 Note / Informations. Les couleurs individuelles restent une évolution future.
+
+Le bouton de gestion suit directement la dernière pilule ou le compteur +n,
+avec 6 px d'espacement. Le groupe reste aligné à gauche ; son budget de largeur
+est indépendant de la largeur du préfixe visible.

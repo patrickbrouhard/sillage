@@ -241,7 +241,7 @@ test('budget vertical, dimensions vidéo inchangées et responsive sans déborde
   const headerBox = await header.boundingBox()
   await expect(header).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   await expect(header).toHaveCSS('border-bottom-width', '0px')
-  await expect(page.getByRole('link', { name: 'Sillage, accueil' })).toHaveText('≈')
+  await expect(page.getByRole('link', { name: 'Sillage, accueil' })).toHaveText('≈Sillage')
   await expect(page.locator('.header-video-title')).toHaveCSS('border-left-width', '1px')
   expect(normal!.y - headerBox!.height).toBeCloseTo(16, 0)
   expect(normal!.height).toBeGreaterThanOrEqual(980)

@@ -2156,3 +2156,10 @@ Retouche après premier retour Brave : hamburger agrandi à 24 px (trait 2 px),
 cible conservée à 40 px, marges latérales de l'en-tête fixées à 16 px sur toutes
 les pages. Vérifier le résultat à 1920 px, en 4K et sur mobile. L'alignement du
 groupe de tags à droite reste une proposition non implémentée.
+
+Retour visuel suivant : abandon de la proposition de tags alignés à droite.
+Le bouton de gestion suit désormais les tags ou +n avec 6 px d'écart.
+La signature [Logo] Sillage revient sur les fiches, avec symbole 29 × 20 px,
+texte 20 px et écart 4 px, proche de l'encombrement de la signature YouTube.
+Vérifier cet ensemble à 320/375 px, 1920 px et en 4K, ainsi que le calcul des
+tags visibles après redimensionnement. Les lecteurs restent inchangés.

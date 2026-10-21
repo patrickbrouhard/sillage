@@ -357,7 +357,7 @@ Tranche A requires manual Brave validation before starting tranche B.
 
 ## Video workspace — Note presentation refinements
 
-Video pages use a transparent header, home logo without visible brand text and a
+Video pages use a transparent header, compact home logo with visible Sillage wordmark and a
 vertical title separator. Keep local line tabs and their keyboard behavior.
 Note controls stay outside the shared edit/read scroll surface on desktop; mobile
 uses page scrolling and sticky controls. Keep the 700px useful text width and
