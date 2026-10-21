@@ -351,13 +351,13 @@ download consultation. No generic tabs, domain/API changes or title editing.
 Player dimensions remain unchanged; 16:9 is tranche B after manual Brave validation.
 
 Desktop height uses the actual header row plus remaining viewport space, with
-16px vertical main padding and a 38rem workspace minimum allowing page overflow.
+8px top and 16px bottom main padding and a 38rem workspace minimum allowing page overflow.
 Keep current grid widths and the 1100px breakpoint; mobile retains normal flow.
 Tranche A requires manual Brave validation before starting tranche B.
 
 ## Video workspace — Note presentation refinements
 
-Video pages use a transparent header, compact home logo with visible Sillage wordmark and a
+Video pages use a transparent header, compact home logo with visible Sillage wordmark and no
 vertical title separator. Keep local line tabs and their keyboard behavior.
 Note controls stay outside the shared edit/read scroll surface on desktop; mobile
 uses page scrolling and sticky controls. Keep the 700px useful text width and
@@ -390,3 +390,18 @@ space. Close before router navigation can open the note leave guard. Keep the
 single theme selector in the navigation; no fake account/settings features or
 persisted drawer state. CodeMirror and player identities remain unchanged.
 Manual Brave validation is pending; no 16:9 work is authorized by this increment.
+
+
+## Compact header and conditional centering
+
+Desktop video headers use a 56px minimum, 8px vertical padding and no title
+separator. Keep the workspace minimum at 38rem; main reserves 24px total vertical
+padding and continues to overflow naturally on short windows. Player sizes do
+not change. Keep mobile layout below 1100px and the two-line small-mobile title.
+
+Prioritize the full title without 70ch/62% caps; reserve tag management and +n
+before truncating it. Compute the maximal tag prefix using all space after the
+navigation, independently of placement. Center the actual title/tag group only
+when it fits without collisions or reducing visible content; otherwise align
+left. Never feed the centered width back into the tag budget. Keep the portal,
+CodeMirror, players, focus protections and existing API reads unchanged.

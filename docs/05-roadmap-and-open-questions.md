@@ -2163,3 +2163,43 @@ La signature [Logo] Sillage revient sur les fiches, avec symbole 29 × 20 px,
 texte 20 px et écart 4 px, proche de l'encombrement de la signature YouTube.
 Vérifier cet ensemble à 320/375 px, 1920 px et en 4K, ainsi que le calcul des
 tags visibles après redimensionnement. Les lecteurs restent inchangés.
+
+
+### Bandeau compact et centrage conditionnel — validation Brave attendue
+
+Choix validés implémentés : minimum desktop 56 px, marge workspace supérieure
+8 px, séparateur supprimé. Titre intégral prioritaire, plafonds 70ch/62 % retirés,
++n préservé et centrage réel seulement s'il ne diminue pas le contenu visible.
+Le repli à gauche récupère l'espace après la signature. Aucun ratio de lecteur
+ni minimum de workspace n'est changé.
+
+Recette Brave :
+- À 1920, 1440 et 1100 px, comparer titre court, long, zéro tag et nombreux tags.
+  Le groupe est centré sur la surface de page ou entièrement à gauche, sans
+  collision avec la signature ; la gestion suit toujours les tags ou +n.
+- Réduire puis agrandir progressivement la fenêtre près du basculement :
+  aucun tremblement à largeur fixe, même préfixe et même placement au retour
+  à une largeur donnée. Le centrage ne doit jamais cacher un tag supplémentaire.
+- Tester les transitions de compteur +9/+10, un premier tag très long et le
+  popover ouvert pendant le redimensionnement.
+- Vérifier le zoom 125/150/200 %, les thèmes et les fenêtres basses. À viewport
+  CSS 1920 × 1080 et police standard, le workspace nominal mesure 1000 px.
+  La page défile lorsque son minimum de 38rem ne tient plus.
+- Sous 1100 px puis à 375/320 px, conserver tags sur leur rangée, titre limité
+  à deux lignes sur petit mobile et ordre Lecteur, Note, Transcription.
+- Vérifier sélection, Undo/Redo, défilement de note, volet et modale de tags,
+  lecteur YouTube/Local et capture en cours pendant ces interactions.
+
+Cette recette remplace les anciennes attentes de séparateur et de budget
+984 px. Le passage au 16:9 reste hors périmètre ; aucun push.
+
+Validation automatisée : build Vite et make test réussis (tests Go, vet, build,
+TypeScript). La suite complète passe 391 tests. Après ajout du cas où un tag
+est plus court que +1 et affinage du balayage au pixel près, les 36 tests ciblés
+du bandeau, de la navigation, de la fiche et du workspace passent également.
+Le parcours progressif contrôle 85 étapes de 1920 à 1100 px et retour, puis
+82 étapes au pixel près autour d'une transition ; plusieurs frames à largeur
+fixe doivent donner le même résultat, ainsi que le trajet inverse.
+Les captures à 1920, 1440, 1100 et 375 px, plus un cas effectivement centré,
+ont été inspectées. L'avertissement Vite préexistant de chunk > 500 kB demeure.
+Le vrai zoom navigateur et les lecteurs réels restent à valider dans Brave.

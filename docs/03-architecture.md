@@ -1449,7 +1449,7 @@ sans prendre le focus du bouton d'onglet. Les captures en cours gardent leur han
 et leur ancrage ; leur retour réseau ne révèle pas Note.
 
 La hauteur desktop est allouée par deux lignes CSS au niveau de la page :
-en-tête intrinsèque puis main avec minimum de 40rem (workspace 38rem + paddings).
+en-tête intrinsèque puis main avec minimum de calc(38rem + 24px) (workspace 38rem + paddings).
 La grille des trois zones reste unique ; aucune colonne React supplémentaire,
 aucun observateur de hauteur ni hauteur d'en-tête codée en JavaScript.
 
@@ -1518,3 +1518,27 @@ défilement reste possible. Les changements de liste ou de préfixe visible
 ferment une consultation périmée et restaurent au besoin un focus visible.
 Les copies de mesure n'agrandissent jamais le document. Aucun appel réseau
 n'accompagne une ouverture du popover ou un redimensionnement.
+
+
+### Centrage conditionnel du bandeau compact
+
+Sur desktop, App regroupe la navigation et la signature dans header-navigation.
+Une grille réserve deux pistes latérales symétriques quand le portail tient au
+centre ; en repli, celui-ci occupe les deux dernières pistes et s'aligne à gauche.
+Le portail DOM reste identique. Sur mobile, display: contents restitue la grille
+existante et l'ordre du titre et des tags.
+
+measureHeaderLayout mesure la surface intérieure du bandeau, la navigation et
+une copie inerte du titre en largeur naturelle. Cette copie est cachée et découpée,
+sans contribution au débordement du document. Le budget disponible après la
+navigation réserve d'abord la gestion et, si nécessaire, le compteur de tous les
+tags, ou les tags eux-mêmes lorsque leur totalité est moins large que le compteur.
+Le titre prend le reste au maximum de sa largeur naturelle.
+
+VideoTagList conserve le calcul du plus long préfixe dans ce budget indépendant.
+Il en déduit la largeur réellement occupée, puis le choix centré/gauche et les
+variables CSS de taille. Aucun calcul n'utilise la largeur du groupe rendu pour
+décider de son propre budget desktop. ResizeObserver suit les entrées, notamment
+la copie du titre et la navigation. Les mesures sont nettoyées au démontage ;
+aucune requête, persistance ou modification de session métier n'est ajoutée.
+Un popover ouvert est repositionné même si seul le placement change.

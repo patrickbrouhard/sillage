@@ -1301,7 +1301,7 @@ Aucun changement de comportement des lecteurs ou du workspace.
 ## Fiche vidéo — budget vertical de la tranche A
 
 À partir de 1100 px, le workspace occupe l'espace sous l'en-tête réel avec
-16 px en haut et en bas. La largeur maximale de 1720 px, les paddings latéraux
+8 px en haut et 16 px en bas. La largeur maximale de 1720 px, les paddings latéraux
 de 32 px, l'écart de 16 px et le rapport 1.2/1 des pistes restent inchangés.
 Une hauteur minimale de workspace de 38rem permet le défilement de page sur
 fenêtre basse. Informations garde son défilement ; Note dispose d'une surface de défilement
@@ -1309,8 +1309,8 @@ commune à Édition et Lecture, sous les commandes. Les tags restent sur une lig
 compacte dans l'en-tête, avec débordement dans un popover.
 Sous 1100 px, la page garde son flux normal Lecteur → Note → Transcription.
 
-Le budget nominal à viewport 1920 × 1080 est : en-tête 64 px, marge 16 px,
-workspace 984 px et marge basse 16 px. Ce n'est pas une garantie liée à la
+Le budget nominal à viewport 1920 × 1080 est : en-tête 56 px, marge 8 px,
+workspace 1000 px et marge basse 16 px. Ce n'est pas une garantie liée à la
 résolution physique de l'écran : barres navigateur, zoom, police et messages
 modifient l'espace réellement disponible. Aucune règle de dimensions de média
 n'est modifiée : le passage au 16:9 reste réservé à la tranche B après Brave.
@@ -1321,7 +1321,7 @@ Sur les fiches seules, le bandeau est transparent et sans bordure horizontale.
 La signature compacte « [Logo] Sillage » conserve son lien nommé « Sillage, accueil ».
 Le symbole mesure 29 × 20 px, le texte 20 px, avec un espacement de 4 px et
 une hauteur cliquable minimale de 40 px.
-Un séparateur vertical précède le titre. Sur mobile, logo et titre restent sur
+Aucun séparateur vertical ne précède le titre. Sur mobile, logo et titre restent sur
 la même ligne, les tags passent dessous ; le titre garde deux lignes maximum.
 Le sélecteur de thème appartient au volet de navigation global. Les autres pages conservent leur identité et leur footer.
 
@@ -1369,11 +1369,14 @@ Son ouverture rend l'arrière-plan inerte ; Tab reste dans le volet, Échap,
 le bouton de fermeture et un clic extérieur le ferment. Une navigation ferme
 d'abord le volet pour laisser les protections de départ de la note s'afficher.
 
-Sur les fiches, le bandeau transparent contient hamburger, signature Sillage, séparateur,
+Sur les fiches, le bandeau transparent contient hamburger, signature Sillage,
 titre et tags. Le titre conserve la première source REST et sa troncature CSS.
-Sur desktop, il prend sa largeur naturelle jusqu'à 70ch et au plus 62 % de
-l'espace partagé ; les tags prennent le reste. Un titre court libère donc plus
-de place. Sous 1100 px, les tags occupent une ligne distincte sur toute la largeur
+Sur desktop, le titre intégral est prioritaire, sans plafond de 70ch ou de 62 %.
+L'accès minimal aux tags (+n et gestion) reste réservé avant sa troncature.
+Les tags utilisent l'espace restant ; un titre très long peut tous les masquer
+derrière +n. Le groupe titre/tags est centré sur la surface de page hors gouttière
+lorsque sa largeur réelle le permet sans perdre de contenu. Sinon, il est aligné
+à gauche après la signature. Le texte du titre reste toujours aligné à gauche. Sous 1100 px, les tags occupent une ligne distincte sur toute la largeur
 du bandeau ; à 600 px et moins, le titre garde deux lignes maximum.
 Le titre complet reste consultable et copiable dans Informations.
 
@@ -1394,5 +1397,13 @@ des ajouts et retraits. Les tags ne prennent plus de place au-dessus des onglets
 Note / Informations. Les couleurs individuelles restent une évolution future.
 
 Le bouton de gestion suit directement la dernière pilule ou le compteur +n,
-avec 6 px d'espacement. Le groupe reste aligné à gauche ; son budget de largeur
+avec 6 px d'espacement. Le budget de largeur du groupe
 est indépendant de la largeur du préfixe visible.
+
+Le bandeau vidéo desktop a une hauteur minimale de 56 px et 8 px de padding
+vertical autour des commandes de 40 px ; il peut grandir avec la typographie.
+Le calcul des tags utilise toujours la largeur disponible après la navigation,
+jamais la zone centrée plus étroite. Le placement ne change donc ni le titre
+visible ni le préfixe de tags retenu. Le centrage n'est pas garanti sur les
+fiches très chargées, même sur grand écran. La disposition sous 1100 px demeure
+celle du bandeau à plusieurs rangées, sans hauteur fixe.
