@@ -26,7 +26,7 @@ export function App() {
         <Link className="brand" to="/" aria-label="Sillage, accueil">
           <span className="brand-mark" aria-hidden="true">≈</span>{!videoPage && 'Sillage'}
         </Link>
-        {videoPage && <div className="header-video-title" ref={setTitleHost} />}
+        {videoPage && <div className="video-header-content" ref={setTitleHost} />}
         {!videoPage && <span className="header-caption">Une trace de ce qui compte.</span>}
       </header>
       <main id="main" ref={main} tabIndex={-1} aria-labelledby={videoPage ? 'video-title' : undefined}>

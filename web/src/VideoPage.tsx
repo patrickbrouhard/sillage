@@ -110,7 +110,10 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
     <>
       <title>{title + ' · Sillage'}</title>
       {/* Le portail garde les données dans la fiche : aucun titre miroir ni requête supplémentaire. */}
-      {titleHost && createPortal(<h1 id="video-title" title={title}>{title}</h1>, titleHost)}
+      {titleHost && createPortal(<>
+        <div className="header-video-title"><h1 id="video-title" title={title}>{title}</h1></div>
+        {state.status === 'ready' && <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />}
+      </>, titleHost)}
       {state.status === 'loading' && <div className="state-panel" role="status">Chargement de la vidéo…</div>}
       {state.status === 'error' && (
         <div className="state-panel error" role="alert">
@@ -127,7 +130,6 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
             {source ? <VideoPlayer key={`player-${source.id}`} videoID={state.video.id} source={source} download={download} ref={player} />
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
-              <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
               <div className="note-tabs" role="tablist" aria-label="Contenu de la vidéo">
                 {(['note', 'information'] as const).map((value, index) => (
                   <button

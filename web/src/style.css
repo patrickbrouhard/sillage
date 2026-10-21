@@ -391,8 +391,8 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 
 /* Le titre complet reste dans le DOM et dans les informations de la fiche. */
 .site-header-compact { background: transparent; border-bottom: 0; }
-.header-video-title { flex: 1; min-width: 0; border-left: 1px solid var(--border); padding-left: 16px; }
-.header-video-title h1 { margin: 0; font-size: 1.2rem; line-height: 1.4; letter-spacing: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-video-title { flex: 0 1 auto; min-width: 0; max-width: min(70ch, 62%); font-size: 1.2rem; border-left: 1px solid var(--border); padding-left: 16px; }
+.header-video-title h1 { margin: 0; font-size: inherit; line-height: 1.4; letter-spacing: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 600px) {
   .site-header-compact { display: grid; grid-template-columns: 40px 39px minmax(0, 1fr); }
   .header-video-title { grid-column: 3; }
@@ -411,7 +411,6 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .note-hidden-error { overflow-wrap: anywhere; }
 /* Les commandes restent hors du défilement ; seule la rédaction touche les bords. */
 .workspace-note { padding: 0; }
-.workspace-note > .video-tags { margin: 1rem; }
 .note-tabs { margin: 0 1rem; }
 /* Contenir aussi le texte accessible positionné en absolu des liens externes :
    sans ce repère, il échappe au défilement du panneau et agrandit la page. */
@@ -462,3 +461,18 @@ html:has(.site-navigation[open]) { overflow: hidden; }
 .site-navigation nav a[aria-current=page] { background: var(--tag); font-weight: 650; }
 .site-navigation .theme-selector { flex-wrap: wrap; }
 @media (max-width: 600px) { .site-header-compact { column-gap: 8px; } }
+
+/* La fiche fournit titre et classement au même portail, y compris sur mobile. */
+.video-header-content { display: flex; align-items: center; gap: 24px; flex: 1; min-width: 0; }
+.video-header-content:has(.video-tags[data-empty=true]) .header-video-title { max-width: 70ch; }
+.video-tags { flex: 1; min-width: 40px; margin: 0; gap: 6px; }
+.video-tags .detail-tags { gap: 6px; min-width: 0; }
+.video-tags .detail-tags li { padding: 0; border-radius: 999px; font-size: 12px; }
+.video-tags .detail-tags a { padding: 7px 10px; border-radius: inherit; text-decoration: none; }
+.video-tags .detail-tags a:hover { text-decoration: underline; }
+@media (max-width: 1099px) {
+  .site-header-compact { display: grid; grid-template-columns: 40px 39px minmax(0, 1fr); }
+  .video-header-content { display: contents; }
+  .header-video-title { grid-column: 3; max-width: none; }
+  .video-tags { grid-column: 1 / -1; }
+}
