@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
-import { Link } from 'react-router'
 import type { Tag } from './api'
 import { TagEditor } from './TagEditor'
 import { IconButton } from './IconButton'
+import { VideoTagList } from './VideoTagList'
 
 interface Props {
   videoID: number
@@ -23,11 +23,7 @@ export function VideoTags({ videoID, tags, onChange }: Props) {
 
   return (
     <section className="video-tags" data-empty={tags.length === 0} aria-label="Classement de la vidéo">
-      {tags.length > 0 && <ul className="tags detail-tags" aria-label="Tags de la vidéo">
-        {tags.map((tag) => <li key={tag.id}>
-          <Link to={`/?tag_id=${tag.id}`}>{tag.name}</Link>
-        </li>)}
-      </ul>}
+      <VideoTagList tags={tags} onRestoreFocus={() => trigger.current?.focus({ preventScroll: true })} />
       <IconButton icon="tags" label={tags.length ? 'Gérer les tags' : 'Ajouter des tags'} ref={trigger} onClick={() => {
         dialog.current?.showModal()
         setActive(true)

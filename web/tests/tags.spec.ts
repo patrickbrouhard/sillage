@@ -272,8 +272,8 @@ test('une réponse de mutation abandonnée ne modifie pas la fiche suivante', as
   await page.getByRole('link', { name: 'Consulter : Comprendre SQLite et ses transactions' }).click()
   release()
   await done
-  await expect(page.getByLabel('Tags de la vidéo')).not.toContainText('Réponse tardive')
-  await expect(page.getByLabel('Tags de la vidéo')).toContainText('SQLite')
+  await expect(page.getByLabel('Tags de la vidéo', { exact: true })).not.toContainText('Réponse tardive')
+  await expect(page.getByLabel('Tags de la vidéo', { exact: true })).toContainText('SQLite')
 })
 
 test('un ancien filtre lent ne remplace pas la sélection suivante', async ({ page }) => {

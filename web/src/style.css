@@ -117,7 +117,6 @@ main:focus { outline: none; }
 /* Les outils de classement restent secondaires à la consultation. */
 .video-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 12px 0 16px; }
 .video-tags .detail-tags { margin: 0; }
-.video-tags > .button { padding: 7px 12px; }
 .detail-tags a { display: inline-block; padding: 4px; text-underline-offset: 3px; }
 summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .library-filter { margin-bottom: 24px; }
@@ -224,6 +223,7 @@ main:has(.video-workspace) { padding-top: 16px; }
   #root:has(.video-workspace) {
     display: grid;
     grid-template-rows: auto minmax(40rem, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     height: 100dvh;
   }
   main:has(.video-workspace) {
@@ -451,6 +451,7 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 html { scrollbar-gutter: stable; }
 html:has(.site-navigation[open]) { overflow: hidden; }
 .site-header { justify-content: flex-start; }
+.site-header > .icon-control > .icon-tooltip { left: 0; right: auto; }
 .header-caption { margin-left: auto; }
 .site-navigation { position: fixed; inset: 0 auto 0 0; margin: 0; width: min(320px, calc(100% - 24px)); max-width: none; height: 100dvh; max-height: none; padding: 20px; border: 0; border-right: 1px solid var(--border); background: var(--surface); color: var(--text); overflow: auto; }
 .site-navigation::backdrop { background: #0005; }
@@ -476,3 +477,21 @@ html:has(.site-navigation[open]) { overflow: hidden; }
   .header-video-title { grid-column: 3; max-width: none; }
   .video-tags { grid-column: 1 / -1; }
 }
+
+/* Le budget de tags dépend du conteneur, jamais de la largeur du préfixe affiché. */
+.video-tags { flex-wrap: nowrap; min-width: 110px; }
+.video-tags[data-empty=true] { flex: 0 0 40px; min-width: 40px; }
+.video-tags[data-empty=true] .video-tag-list { display: none; }
+.video-tag-list { position: relative; display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.video-tags .detail-tags { flex-wrap: nowrap; flex: 0 0 auto; }
+.video-tags .detail-tags:empty { display: none; }
+.video-tags .tag-pill { display: inline-block; padding: 7px 10px; border: 0; border-radius: 999px; background: var(--tag); color: var(--muted); font-size: 12px; font-weight: inherit; white-space: nowrap; text-decoration: none; }
+.tag-overflow-button { flex: none; white-space: nowrap; font-size: 12px; padding: 7px 10px; min-height: 32px; border-radius: 999px; }
+.tag-overflow-button[hidden] { display: none; }
+.tag-measurements { position: absolute; inset: 0; height: 0; overflow: clip; visibility: hidden; pointer-events: none; display: flex; gap: 6px; }
+.tag-measurements > * { flex: none; }
+.tag-overflow-popover { position: fixed; inset: auto; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); overflow: auto; box-shadow: 0 8px 24px #0003; }
+.tag-overflow-popover p { margin: 0 0 8px; font-weight: 650; }
+.tag-overflow-popover ul { list-style: none; margin: 0; padding: 0; }
+.tag-overflow-popover a { display: block; padding: 10px 8px; border-radius: 6px; overflow-wrap: anywhere; text-decoration: none; }
+.tag-overflow-popover a:hover { background: var(--tag); }

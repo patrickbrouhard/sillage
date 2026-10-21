@@ -106,7 +106,7 @@ test('affiche toutes les sources, les tags directs et le texte brut sur écran �
   await expect(second).toContainText('Inconnue')
   await expect(second.getByRole('link')).toHaveCount(0)
   await expect(second).toContainText('<script>contenu source</script>')
-  await expect(page.getByLabel('Tags de la vidéo')).toHaveText('Connaissances')
+  await expect(page.getByLabel('Tags de la vidéo', { exact: true })).toHaveText('Connaissances')
   await expect(page.getByRole('link', { name: /Ouvrir la source/ })).toHaveAttribute('href', fixture.sources[0].canonical_url!)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
 })

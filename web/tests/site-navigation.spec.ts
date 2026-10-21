@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures'
 
 for (const width of [1920, 375]) {
-  test('volet superposé, clavier et sessions stables à ' + width, async ({ page, request }) => {
+  test('volet superposé, clavier et sessions stables à ' + width, async ({ page, request }, info) => {
     const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trNav' + String(width).padStart(6, '0') } })).json()
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/videos/' + video.id)
@@ -25,6 +25,7 @@ for (const width of [1920, 375]) {
     await page.keyboard.press('Shift+Tab')
     await expect(page.getByLabel('Thème', { exact: true })).toBeFocused()
     await page.getByLabel('Thème', { exact: true }).selectOption('dark')
+    await page.screenshot({ path: info.outputPath('navigation-dark.png') })
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
     await expect(trigger).toBeFocused()
