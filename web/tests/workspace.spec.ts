@@ -314,3 +314,39 @@ test('chargement différé de l’éditeur respecte l’onglet choisi', async ({
   await page.getByRole('tab', { name: 'Note', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
 })
+
+test('Informations ne crée pas de débordement de page ni de déplacement du workspace', async ({ page }) => {
+  await page.route('**/api/v1/videos/42', route => route.fulfill({ json: {
+    id: 42, created_at: '2026-10-20', person_ids: [], tags: [],
+    sources: [{ id: 1, provider: 'youtube', external_id: 'abcdefghijk', canonical_url: 'https://www.youtube.com/watch?v=abcdefghijk', title: 'Informations longues',
+      description: 'Une description détaillée de la source.\n'.repeat(60) }],
+  } }))
+  await page.route('**/note', route => route.fulfill({ json: {
+    video_id: 42, content_md: 'Note longue\n\n'.repeat(100), revision: 1,
+    created_at: '2026-10-20', updated_at: '2026-10-20',
+  } }))
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.goto('/videos/42')
+  await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toBeVisible()
+  await expect(page.locator('.youtube-frame iframe')).toBeVisible()
+  const geometry = () => page.evaluate(() => ({
+    height: document.documentElement.scrollHeight,
+    panels: [...document.querySelectorAll('.workspace-note, .video-player, .video-transcript')]
+      .map(element => { const r = element.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }),
+  }))
+  // La hauteur utile d'un écran 1080p est réduite par les barres du navigateur.
+  for (const [width, height] of [[1920, 1080], [1920, 900], [1920, 800], [1920, 500], [3840, 2160]]) {
+    await page.setViewportSize({ width, height })
+    await page.getByRole('tab', { name: 'Note', exact: true }).click()
+    await page.evaluate(() => window.scrollTo(0, 0))
+    const before = await geometry()
+    await page.getByRole('tab', { name: 'Informations', exact: true }).click()
+    await page.evaluate(() => window.scrollTo(0, 0))
+    const after = await geometry()
+    expect(after).toEqual(before)
+    if (height >= 800) expect(after.height).toBe(height)
+    await expect(page.getByRole('link', { name: 'Ouvrir la source (nouvel onglet)' })).toBeAttached()
+    await page.getByRole('tab', { name: 'Note', exact: true }).click()
+    expect(await geometry()).toEqual(before)
+  }
+})

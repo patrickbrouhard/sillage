@@ -414,7 +414,9 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .workspace-note { padding: 0; }
 .workspace-note > .video-tags { margin: 1rem; }
 .note-tabs { margin: 0 1rem; }
-.video-information { padding: 1rem; }
+/* Contenir aussi le texte accessible positionné en absolu des liens externes :
+   sans ce repère, il échappe au défilement du panneau et agrandit la page. */
+.video-information { position: relative; padding: 1rem; }
 .note-controls { padding: .75rem 1rem; background: var(--surface); }
 /* clip respecte les coins mobiles sans créer un conteneur de défilement. */
 .note-content { overflow: clip; background: var(--input); border-radius: 0 0 calc(.75rem - 1px) calc(.75rem - 1px); }

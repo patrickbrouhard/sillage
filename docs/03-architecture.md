@@ -1475,3 +1475,11 @@ Une confirmation partielle est consommée sans coche. Le compteur évite de déd
 un succès de la résolution de save(), qui peut aussi terminer sans écriture,
 sur erreur ou conflit. Les règles, délais, réessais et protections de NoteSession
 restent inchangés ; le temporisateur de présentation est nettoyé au démontage.
+
+### Débordement des informations — contenant des textes accessibles
+
+Le panneau video-information est positionné relativement pour contenir les
+descendants absolus, notamment le libellé sr-only « nouvel onglet » des liens
+externes. Sans ce contenant, ce texte invisible peut échapper à overflow auto
+et augmenter le scrollHeight de la page. La correction conserve le défilement
+interne, le libellé accessible et le défilement de page des fenêtres basses.
