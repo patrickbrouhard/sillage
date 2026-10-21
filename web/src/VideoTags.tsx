@@ -5,13 +5,14 @@ import { IconButton } from './IconButton'
 import { VideoTagList } from './VideoTagList'
 
 interface Props {
+  title: string
   videoID: number
   tags: Tag[]
   onChange: (tags: Tag[]) => void
 }
 
 /** Présente les liens de classement et héberge provisoirement l'éditeur dans un dialogue natif. */
-export function VideoTags({ videoID, tags, onChange }: Props) {
+export function VideoTags({ title, videoID, tags, onChange }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const [active, setActive] = useState(false)
@@ -23,7 +24,7 @@ export function VideoTags({ videoID, tags, onChange }: Props) {
 
   return (
     <section className="video-tags" data-empty={tags.length === 0} aria-label="Classement de la vidéo">
-      <VideoTagList tags={tags} onRestoreFocus={() => trigger.current?.focus({ preventScroll: true })} />
+      <VideoTagList title={title} tags={tags} onRestoreFocus={() => trigger.current?.focus({ preventScroll: true })} />
       <IconButton icon="tags" label={tags.length ? 'Gérer les tags' : 'Ajouter des tags'} ref={trigger} onClick={() => {
         dialog.current?.showModal()
         setActive(true)

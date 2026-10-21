@@ -391,7 +391,7 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 
 /* Le titre complet reste dans le DOM et dans les informations de la fiche. */
 .site-header-compact { background: transparent; border-bottom: 0; }
-.header-video-title { flex: 0 1 auto; min-width: 0; max-width: min(70ch, 62%); font-size: 1.2rem;  }
+.header-video-title { flex: 0 1 auto; min-width: 0; max-width: none; font-size: 1.2rem;  }
 .header-video-title h1 { margin: 0; font-size: inherit; line-height: 1.4; letter-spacing: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 600px) {
   .site-header-compact { display: grid; grid-template-columns: 40px max-content minmax(0, 1fr); }
@@ -453,7 +453,7 @@ html:has(.site-navigation[open]) { overflow: hidden; }
 .site-header { justify-content: flex-start; }
 .navigation-trigger { padding: 7px; }
 .navigation-trigger svg { flex: none; width: 24px; height: 24px; stroke-width: 2; }
-.site-header > .icon-control > .icon-tooltip { left: 0; right: auto; }
+.header-navigation > .icon-control > .icon-tooltip { left: 0; right: auto; }
 .header-caption { margin-left: auto; }
 .site-navigation { position: fixed; inset: 0 auto 0 0; margin: 0; width: min(320px, calc(100% - 24px)); max-width: none; height: 100dvh; max-height: none; padding: 20px; border: 0; border-right: 1px solid var(--border); background: var(--surface); color: var(--text); overflow: auto; }
 .site-navigation::backdrop { background: #0005; }
@@ -467,7 +467,7 @@ html:has(.site-navigation[open]) { overflow: hidden; }
 
 /* La fiche fournit titre et classement au même portail, y compris sur mobile. */
 .video-header-content { display: flex; align-items: center; gap: 24px; flex: 1; min-width: 0; }
-.video-header-content:has(.video-tags[data-empty=true]) .header-video-title { max-width: 70ch; }
+
 .video-tags { flex: 1; min-width: 40px; margin: 0; gap: 6px; }
 .video-tags .detail-tags { gap: 6px; min-width: 0; }
 .video-tags .detail-tags li { padding: 0; border-radius: 999px; font-size: 12px; }
@@ -501,4 +501,20 @@ html:has(.site-navigation[open]) { overflow: hidden; }
 /* Le bandeau desktop gagne de la place sans imposer une hauteur aux contenus agrandis. */
 @media (min-width: 1100px) {
   .site-header.site-header-compact { min-height: 56px; padding-block: 8px; }
+}
+
+/* Le portail et la navigation restent montés ; seules leurs pistes changent. */
+.header-navigation { display: flex; align-items: center; gap: 16px; flex: none; }
+.header-video-title { position: relative; overflow: clip; }
+.header-title-measure { position: absolute; top: 0; left: 0; width: max-content; max-width: none; height: 0; overflow: clip; visibility: hidden; white-space: nowrap; font-weight: 650; letter-spacing: normal; }
+@media (min-width: 1100px) {
+  .site-header-compact { display: grid; grid-template-columns: var(--navigation-width, max-content) minmax(0, 1fr) var(--navigation-width, 0px); }
+  .site-header-compact .header-navigation { grid-row: 1; grid-column: 1; }
+  .video-header-content { grid-row: 1; grid-column: 2 / -1; justify-self: start; width: var(--group-width, 100%); }
+  .video-header-content[data-centered=true] { grid-column: 2; justify-self: center; }
+  .header-video-title { flex: none; width: var(--title-width, auto); max-width: 100%; }
+  .video-tags { flex: none; min-width: 0; }
+}
+@media (max-width: 1099px) {
+  .site-header-compact .header-navigation { display: contents; }
 }

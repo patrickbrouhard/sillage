@@ -22,10 +22,12 @@ export function App() {
     <>
       <a className="skip-link" href="#main">Aller au contenu</a>
       <header className={`site-header${videoPage ? ' site-header-compact' : ''}`}>
-        <SiteNavigation />
-        <Link className="brand" to="/" aria-label="Sillage, accueil">
-          <span className="brand-mark" aria-hidden="true">≈</span><span>Sillage</span>
-        </Link>
+        <div className="header-navigation">
+          <SiteNavigation />
+          <Link className="brand" to="/" aria-label="Sillage, accueil">
+            <span className="brand-mark" aria-hidden="true">≈</span><span>Sillage</span>
+          </Link>
+        </div>
         {videoPage && <div className="video-header-content" ref={setTitleHost} />}
         {!videoPage && <span className="header-caption">Une trace de ce qui compte.</span>}
       </header>

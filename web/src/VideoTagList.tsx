@@ -1,9 +1,10 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { Tag } from './api'
+import { measureHeaderLayout } from './videoHeaderLayout'
 
 /** Affiche un préfixe stable des tags selon leur largeur réelle, sans requête ni classement local. */
-export function VideoTagList({ tags, onRestoreFocus }: { tags: Tag[]; onRestoreFocus: () => void }) {
+export function VideoTagList({ title, tags, onRestoreFocus }: { title: string; tags: Tag[]; onRestoreFocus: () => void }) {
   const id = useId()
   const container = useRef<HTMLDivElement>(null)
   const measurements = useRef<HTMLDivElement>(null)
@@ -36,6 +37,10 @@ export function VideoTagList({ tags, onRestoreFocus }: { tags: Tag[]; onRestoreF
     const management = box.nextElementSibling!
     const measureBox = measurements.current!
     const panel = popover.current!
+    const header = group.closest<HTMLElement>('.site-header')!
+    const host = group.parentElement!
+    const navigation = header.querySelector<HTMLElement>('.header-navigation')!
+    const titleMeasure = host.querySelector<HTMLElement>('.header-title-measure')!
     // Une nouvelle liste rend la consultation ouverte périmée, même si sa longueur reste identique.
     if (panel.matches(':popover-open')) {
       restoreFocus.current = panel.contains(document.activeElement)
@@ -44,13 +49,25 @@ export function VideoTagList({ tags, onRestoreFocus }: { tags: Tag[]; onRestoreF
     const measure = () => {
       const widths = [...measureBox.querySelectorAll<HTMLElement>('[data-tag-width]')].map(el => el.getBoundingClientRect().width)
       const counters = [...measureBox.querySelectorAll<HTMLElement>('[data-counter-width]')].map(el => el.getBoundingClientRect().width)
-      // Mesurer le groupe alloué, pas la liste ajustée à son contenu : le bouton
-      // peut suivre les tags sans créer une boucle entre budget et préfixe visible.
-      const available = group.getBoundingClientRect().width
-        - management.getBoundingClientRect().width
-        - (Number.parseFloat(getComputedStyle(group).columnGap) || 0)
       const gap = Number.parseFloat(getComputedStyle(box).columnGap) || 0
       const total = widths.reduce((sum, width) => sum + width, 0) + Math.max(0, widths.length - 1) * gap
+      // Un tag très court peut être moins large que +1 : ne pas tronquer le titre
+      // pour réserver un compteur dont l'affichage intégral permet de se passer.
+      const minimumTags = Math.min(total, counters.at(-1) ?? 0)
+      // Mesurer le groupe alloué, pas la liste ajustée à son contenu : le bouton
+      // peut suivre les tags sans créer une boucle entre budget et préfixe visible.
+      const desktop = matchMedia('(min-width: 1100px)').matches
+      const layout = desktop ? measureHeaderLayout(
+        header,
+        navigation,
+        titleMeasure,
+        management,
+        minimumTags,
+        widths.length > 0,
+      ) : null
+      const available = layout?.tagBudget ?? (group.getBoundingClientRect().width
+        - management.getBoundingClientRect().width
+        - (Number.parseFloat(getComputedStyle(group).columnGap) || 0))
       let next = widths.length
       if (total > available) {
         next = 0
@@ -62,7 +79,26 @@ export function VideoTagList({ tags, onRestoreFocus }: { tags: Tag[]; onRestoreF
           if (needed <= available) next = i
         }
       }
-      if (next === count.current) return
+      // Le placement dépend du résultat, mais ne modifie jamais le budget du calcul.
+      const prefixWidth = widths.slice(0, next).reduce((sum, width) => sum + width, 0)
+        + Math.max(0, next - 1) * gap
+      const used = next === widths.length ? prefixWidth
+        : prefixWidth + (next > 0 ? gap : 0) + counters[widths.length - next - 1]
+      if (layout) {
+        header.style.setProperty('--navigation-width', layout.navigationWidth + 'px')
+        host.style.setProperty('--title-width', layout.titleWidth + 'px')
+        host.style.setProperty('--group-width', layout.groupWidth(used) + 'px')
+        host.dataset.centered = String(layout.groupWidth(used) <= layout.centerBudget)
+      } else {
+        host.style.removeProperty('--title-width')
+        host.style.removeProperty('--group-width')
+        delete host.dataset.centered
+      }
+      if (next === count.current) {
+        // Le groupe peut changer de placement sans changer de préfixe.
+        if (panel.matches(':popover-open')) positionPopover()
+        return
+      }
       const focusedIndex = [...(list.current?.querySelectorAll('a') ?? [])].findIndex(el => el === document.activeElement)
       restoreFocus.current ||= focusedIndex >= next && focusedIndex >= 0
       if (panel.matches(':popover-open')) {
@@ -75,11 +111,20 @@ export function VideoTagList({ tags, onRestoreFocus }: { tags: Tag[]; onRestoreF
     measure()
     // Les tailles cachées restent indépendantes du nombre retenu : aucune boucle de layout.
     const observer = new ResizeObserver(measure)
+    observer.observe(header)
+    observer.observe(navigation)
+    observer.observe(titleMeasure)
     observer.observe(group)
     observer.observe(management)
     for (const child of measureBox.children) observer.observe(child)
-    return () => observer.disconnect()
-  }, [tags])
+    return () => {
+      observer.disconnect()
+      header.style.removeProperty('--navigation-width')
+      host.style.removeProperty('--title-width')
+      host.style.removeProperty('--group-width')
+      delete host.dataset.centered
+    }
+  }, [tags, title])
 
   useLayoutEffect(() => {
     if (!restoreFocus.current) return

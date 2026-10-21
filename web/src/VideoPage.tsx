@@ -111,8 +111,11 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
       <title>{title + ' · Sillage'}</title>
       {/* Le portail garde les données dans la fiche : aucun titre miroir ni requête supplémentaire. */}
       {titleHost && createPortal(<>
-        <div className="header-video-title"><h1 id="video-title" title={title}>{title}</h1></div>
-        {state.status === 'ready' && <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />}
+        <div className="header-video-title">
+          <h1 id="video-title" title={title}>{title}</h1>
+          <span className="header-title-measure" aria-hidden="true" inert>{title}</span>
+        </div>
+        {state.status === 'ready' && <VideoTags title={title} videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />}
       </>, titleHost)}
       {state.status === 'loading' && <div className="state-panel" role="status">Chargement de la vidéo…</div>}
       {state.status === 'error' && (
