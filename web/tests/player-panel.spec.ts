@@ -117,9 +117,8 @@ test('recette visuelle : téléchargement en cours et modale sans interruption',
 async function checkEdges(panel: Locator, surface: Locator) {
   const p = (await panel.boundingBox())!
   const v = (await surface.boundingBox())!
-  const viewportWidth = await surface.evaluate(() => innerWidth)
-  // Les règles existantes restent 16/9 avec minimum 200 px, puis clamp desktop.
-  expect(v.height).toBeCloseTo(viewportWidth >= 1100 ? 204 : Math.max(200, v.width * 9 / 16), 1)
+  // Les deux surfaces suivent la largeur, avec le minimum mobile commun de 200 px.
+  expect(v.height).toBeCloseTo(Math.max(200, v.width * 9 / 16), 1)
   expect(v.x).toBeCloseTo(p.x + 1, 1)
   expect(v.x + v.width).toBeCloseTo(p.x + p.width - 1, 1)
   expect(v.y + v.height).toBeCloseTo(p.y + p.height - 1, 1)

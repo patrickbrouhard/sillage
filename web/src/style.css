@@ -243,7 +243,6 @@ main:has(.video-workspace) { padding-top: 16px; }
   }
   .workspace-note { grid-area: note; overflow: auto; min-height: 0; }
   .video-player { grid-area: player; }
-  .youtube-frame:has(iframe) { height: clamp(200px, 28dvh, 340px); aspect-ratio: auto; }
   .video-transcript { grid-area: transcript; display: flex; flex-direction: column; min-height: 0; overflow: auto; }
   /* Les commandes restent accessibles même lorsque les messages réduisent la hauteur disponible. */
   .video-transcript > :not(.transcript-content) { flex-shrink: 0; }
@@ -322,9 +321,6 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .video-download > [role="alert"] { flex-basis: 100%; }
 .download-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-@media (min-width: 1100px) {
-  .youtube-frame:has(iframe) { height: clamp(200px, calc(28dvh - 48px), 292px); }
-}
 
 /* Le marqueur appartient à l'interface, jamais au texte copié ou sauvegardé. */
 .capture-marker { display: inline-block; font: 0.85em system-ui, sans-serif; padding: .15em .5em; margin-inline: .2em; border: 1px solid currentColor; border-radius: .35em; opacity: .8; user-select: none; }
@@ -344,12 +340,9 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .icon-control.tooltip-dismissed > .icon-tooltip { visibility: hidden; opacity: 0; transition: none; }
 
 /* Les deux représentations occupent la même place, sans modifier la grille de la note. */
-.local-video { display: block; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; background: #000; }
+.local-video { display: block; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; height: auto; object-fit: contain; background: #000; }
 .player-switch-status:empty { display: none; }
 .player-switch-status { font-size: .85rem; color: var(--muted); }
-@media (min-width: 900px) {
-  .local-video { height: clamp(200px, calc(28dvh - 48px), 292px); aspect-ratio: auto; }
-}
 
 /* L'en-tête garde son identité et ses cibles pendant le remplacement de la surface. */
 .player-segments { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; padding: 2px; align-self: center; }

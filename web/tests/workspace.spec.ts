@@ -246,8 +246,9 @@ test('budget vertical, dimensions vidéo inchangées et responsive sans déborde
   expect(normal!.y - headerBox!.height).toBeCloseTo(8, 0)
   expect(normal!.height).toBeGreaterThanOrEqual(980)
   expect(normal!.y + normal!.height).toBeCloseTo(1064, 0)
-  expect((await page.locator('.youtube-frame').boundingBox())!.height).toBeCloseTo(254.4, 0)
-  expect((await page.locator('.video-transcript').boundingBox())!.height).toBeGreaterThan(600)
+  const mediaBox = (await page.locator('.youtube-frame').boundingBox())!
+  expect(mediaBox.height).toBeCloseTo(mediaBox.width * 9 / 16, 0)
+  expect((await page.locator('.video-transcript').boundingBox())!.height).toBeGreaterThan(450)
   await page.screenshot({ path: info.outputPath('workspace-1920.png'), fullPage: true })
   await page.getByRole('tab', { name: 'Informations', exact: true }).click()
   await expect(page.locator('.full-video-title')).toHaveText(video.sources[0].title)
