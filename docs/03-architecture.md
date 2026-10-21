@@ -1418,16 +1418,34 @@ polling, relance, changement de mode ou coupure du son. L'API ne cite pas
 explicitement seekTo parmi les appels couverts par ce signal ; son absence
 n'est pas une preuve de démarrage. Les erreurs fatales restent distinctes.
 
-### Présentation bord à bord du lecteur
+### Présentation du lecteur et panneau droit — tranche B
 
-La classe player-surface identifie les deux conteneurs déjà existants ; aucun
-nouvel arbre React ni changement de cycle de vie. Le CSS étend seulement video
-et youtube-frame de 2rem avec marges latérales négatives. Le padding inférieur
-du panneau est retiré uniquement lorsqu'une surface non masquée contient le média.
-Le panneau reste en overflow visible ; seule la youtube-frame découpe son iframe
-aux coins inférieurs. video porte directement son arrondi. Le rayon intérieur
-soustrait le pixel de bordure au rayon du panneau.
-Les règles de ratio, hauteur et responsive sont conservées.
+player-surface conserve son cycle de vie. Les règles de hauteur clamp liées au
+viewport, y compris l'ancien seuil Local à 900 px, sont supprimées. local-video
+et youtube-frame suivent la largeur avec aspect-ratio: 16 / 9 et min-height: 200px.
+L'iframe remplit ce contenant ; Local utilise object-fit: contain. Les marges
+latérales négatives existantes conservent le bord à bord, avec quatre coins
+arrondis. Le panneau ne découpe pas les popovers.
+
+Le popover Informations est enfant de player-toolbar, positionnée relativement :
+top: 100% suit la hauteur réelle des commandes, y compris lors d'un retour à la
+ligne. Son contenu, focus, fermeture et opérations restent inchangés.
+Les statuts de transfert et de démarrage sont rendus après le média ; les erreurs
+avec réessai restent à proximité. Aucun bus de notification ou abstraction flash.
+
+La grille desktop conserve ses trois enfants et ses pistes 1.2fr/1fr. En présence
+de Transcription, row-gap: 0 et les bordures jointives créent un cadre unique.
+Les lignes sont auto / minmax(auto, 1fr), avec un minimum intrinsèque du workspace.
+Le plancher de la ligne main conserve 38rem + 24px ; les minima réels peuvent
+l'excéder sur fenêtre basse. Sans transcription, le cadre du Lecteur reste complet.
+
+La transcription garde ses commandes et messages non réductibles ; son texte
+utilise flex: 1 1 0, min-height: 12rem et overflow: auto. Le panneau externe est
+en overflow visible. contain: size sur les surfaces défilantes desktop
+note-content, video-information et transcript-content exclut la longueur des
+documents du minimum intrinsèque de la grille ; leurs minima explicites restent
+pris en compte. Aucun éditeur ou lecteur n'est remonté. Les styles de continuité
+du cadre, de minimum de transcription et de containment sont limités au desktop.
 
 ## Fiche vidéo — onglets locaux (tranche A)
 

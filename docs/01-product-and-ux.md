@@ -1284,19 +1284,45 @@ prépare désormais un départ. Les commandes refusées avant disponibilité ne 
 toujours pas différées. Masquage en cours, erreurs, identités vidéo/source et
 conservation de la session de note restent protégés.
 
-## Panneau vidéo — phase 2 bord à bord
+## Panneau vidéo — surfaces 16:9 et tranche B
 
-Les surfaces YouTube et Local rejoignent les bords intérieurs gauche, droit et
-inférieur du panneau Lecteur. L'en-tête et les messages gardent leur espacement
-de 1rem, avec la séparation existante de .75rem avant la surface. Les coins
-inférieurs de la vidéo suivent ceux du panneau.
+Les surfaces YouTube et Local rejoignent les bords intérieurs gauche et droit
+du panneau Lecteur. Elles ont la même largeur et une hauteur de largeur × 9/16,
+sans plafond lié au viewport. Le minimum commun de 200 px demeure sur petit
+mobile pour respecter le minimum du lecteur YouTube : sous environ 356 px de
+largeur de surface, le contenant n'est donc pas strictement 16:9.
+Local utilise object-fit: contain sur fond noir ; aucune déformation ni recadrage.
+YouTube conserve le rendu interne de son iframe.
 
-Les ratios, hauteurs minimales, limites de hauteur et seuils responsive restent
-inchangés. Une largeur accrue ne garantit pas une image agrandie sur desktop :
-les bandes noires restent possibles, sans recadrage. Le popover Informations
-peut dépasser le panneau, notamment lorsque le lecteur est masqué.
-Les états sans surface retrouvent le padding inférieur normal.
-Aucun changement de comportement des lecteurs ou du workspace.
+Les quatre coins de la surface sont arrondis au rayon intérieur du cadre.
+Seule la surface YouTube découpe son iframe ; le panneau garde overflow visible
+pour le popover Informations, ancré sous sa barre de commandes.
+
+Sur desktop à partir de 1100 px, Lecteur et Transcription partagent un cadre
+apparent : pas de gap vertical, pas de bordure à leur jonction, fond commun,
+arrondis supérieurs du Lecteur et inférieurs de Transcription. Les composants et
+les trois enfants de la grille restent séparés. Le ratio des colonnes 1.2/1 est
+conservé. Sans source exploitable, le panneau d'information garde son cadre complet.
+Sur mobile, les trois cadres distincts et l'ordre Lecteur, Note, Transcription
+restent inchangés.
+
+Les commandes desktop conservent des cibles de 40 px, 16 px d'espacement latéral
+et environ 8 px au-dessus/dessous. La barre Lecteur mesure normalement 58 px
+avec la bordure du switch ; celle de Transcription a un minimum de 56 px.
+Elles peuvent grandir avec leurs contenus. La recherche reste une rangée distincte.
+
+Le texte de transcription dispose d'un minimum desktop de 12rem, en plus de
+ses commandes, recherche et messages. Lui seul défile dans le panneau ; les
+contenus longs n'agrandissent pas la grille. Lorsque les minima des panneaux ne
+tiennent plus, la page défile. Une transcription absente n'impose pas de surface
+de texte vide. Masquer la vidéo conserve les commandes et libère sa hauteur
+pour la transcription, avec les règles de pause existantes.
+
+Les messages informatifs non bloquants du lecteur sont placés après la surface,
+notamment transfert indisponible et démarrage bloqué. Les erreurs avec action
+restent près du lecteur. Aucun système global de notifications n'est introduit.
+Une erreur ou un état sans média peut modifier la hauteur du panneau ; aucune
+réserve noire artificielle n'est imposée.
 
 ## Fiche vidéo — budget vertical de la tranche A
 
@@ -1312,8 +1338,7 @@ Sous 1100 px, la page garde son flux normal Lecteur → Note → Transcription.
 Le budget nominal à viewport 1920 × 1080 est : en-tête 56 px, marge 8 px,
 workspace 1000 px et marge basse 16 px. Ce n'est pas une garantie liée à la
 résolution physique de l'écran : barres navigateur, zoom, police et messages
-modifient l'espace réellement disponible. Aucune règle de dimensions de média
-n'est modifiée : le passage au 16:9 reste réservé à la tranche B après Brave.
+modifient l'espace réellement disponible. La tranche B applique désormais les règles 16:9 décrites ci-dessus.
 
 ## Fiche vidéo — finitions de la zone Note (tranche A)
 

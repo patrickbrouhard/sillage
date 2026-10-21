@@ -2203,3 +2203,57 @@ fixe doivent donner le même résultat, ainsi que le trajet inverse.
 Les captures à 1920, 1440, 1100 et 375 px, plus un cas effectivement centré,
 ont été inspectées. L'avertissement Vite préexistant de chunk > 500 kB demeure.
 Le vrai zoom navigateur et les lecteurs réels restent à valider dans Brave.
+
+
+## Workspace tranche B — validation Brave attendue
+
+Les recommandations et trois arbitrages ont été validés : surfaces 16:9 avec
+exception commune de 200 px sur petit mobile, texte de transcription desktop
+d'au moins 12rem hors outils et messages, informations non bloquantes après la
+surface. Cette tranche remplace les anciennes contraintes de hauteur et autorise
+les quatre coins arrondis, sans recadrage. Les trois composants restent séparés,
+avec un cadre droit jointif sur desktop et les trois cadres habituels sur mobile.
+
+Incréments : règles de surface communes ; barres compactes et cadre jointif ;
+répartition verticale, tests et documentation. Le masquage récupère l'espace,
+les erreurs restent près du lecteur et les popovers peuvent dépasser les panneaux.
+Le système global de notifications flash reste une tranche indépendante, sans
+abstraction préparatoire ici.
+
+Recette Brave :
+- À 1920 × 1080, 1920 × 800, 1440 × 900 et 1100 px, vérifier le cadre droit
+  continu, ses barres compactes, le bord à bord horizontal et les quatre coins.
+- Comparer YouTube et Local : mêmes dimensions et position en situation normale,
+  aucune déformation. Essayer de vrais contenus 16:9, 4:3 et portrait, leurs bandes
+  noires, les commandes natives, le plein écran et le retour au workspace.
+- À 1099, 900, 375 et 320 px, vérifier les surfaces identiques, le minimum de
+  200 px sur petit mobile et l'ordre Lecteur, Note, Transcription avec trois cadres.
+- Afficher recherche, résultats, messages et une erreur de transcription puis
+  réduire la hauteur : 12rem de texte restent accessibles, la page peut défiler,
+  sans second ascenseur dans le panneau de transcription.
+- Avec de longues notes et transcriptions, vérifier leurs défilements indépendants,
+  puis Note/Informations : pas de page agrandie par le document masqué.
+- Masquer un lecteur en cours de lecture puis le révéler : pause respectée,
+  espace rendu à la transcription. Ouvrir Informations lorsque la vidéo est
+  masquée : popover visible au-dessus de la transcription, focus et Échap corrects.
+- Vérifier transfert de position, références temporelles, citations, captures
+  en cours, Undo/Redo et autosauvegarde. Un message de démarrage bloqué ou de
+  transfert incertain apparaît après la surface ; un réessai reste accessible.
+- Tester clair/sombre, zoom 125/150/200 % et navigation clavier des commandes,
+  infobulles, recherche et dialogues.
+
+La séparation déplaçable reste future. À largeur constante, le 16:9 pleine
+largeur impose une hauteur unique : son futur réglage demandera un arbitrage
+sur la largeur de la surface ou le ratio de son contenant. Aucun mécanisme de
+redimensionnement, préférence persistée ou nouvelle API n'est ajouté.
+
+Validation automatisée de la tranche B : 394 tests Playwright réussis ; make test
+réussi (Go, vet, build, TypeScript) et build Vite réussi. Les bascules comparent
+les rectangles Local/YouTube à 1920, 1440, 1100, 1099, 900, 375 et 320 px, avec
+un vrai média local et YouTube simulé. Les nouveaux parcours vérifient les 12rem
+avec recherche et erreur, le défilement sur fenêtre basse, le cadre jointif,
+l'ancrage du popover masqué et la stabilité de la surface lors d'un message
+informatif. Les régressions de longue note et d'onglet Informations passent.
+Captures desktop/mobile et fenêtres basses inspectées. L'avertissement Vite
+préexistant de chunk > 500 kB subsiste. Brave reste requis pour les médias réels
+4:3/portrait, YouTube, plein écran et zoom. Aucun push effectué.

@@ -405,3 +405,24 @@ navigation, independently of placement. Center the actual title/tag group only
 when it fits without collisions or reducing visible content; otherwise align
 left. Never feed the centered width back into the tag budget. Keep the portal,
 CodeMirror, players, focus protections and existing API reads unchanged.
+
+
+## Video workspace — tranche B authorized and implemented, Brave validation pending
+
+This supersedes earlier freezes on player dimensions and the lower-corners-only
+presentation. YouTube and Local share full-width 16:9 surfaces without viewport
+height clamps, retaining a common 200px minimum on small mobile. Use contain for
+local video, black bars for nonmatching formats, and four rounded media corners.
+Keep the player panel overflow visible and anchor its information popover below
+the actual toolbar. Nonblocking informational messages follow the surface; errors
+with actions remain near the player. No global notifications or preparatory bus.
+
+Keep the three React/grid children, desktop column ratio 1.2/1 and mobile order.
+Join the right-panel borders only on desktop with a transcript, without a row gap
+or horizontal divider. Keep full standalone borders when no transcript exists.
+Desktop controls remain about 40px, with flexible 56–58px bars. Transcript text
+keeps a 12rem minimum excluding controls/search/messages; only text scrolls.
+Allow page overflow when these minima exceed the viewport. Size containment on
+desktop scrolling documents excludes their text length from intrinsic sizing,
+without changing sessions or minimum writing space. Hiding releases media space.
+Do not add a resizable separator or persist dimensions in this slice.
