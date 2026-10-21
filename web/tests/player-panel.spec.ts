@@ -1,3 +1,4 @@
+import { selectTheme } from './navigationHelpers'
 import type { Locator } from '@playwright/test'
 import { test, expect } from './fixtures'
 
@@ -23,7 +24,7 @@ Le lecteur reste un outil de travail : notes et transcription conservent leur pl
   for (const width of [1440, 375, 320]) {
     for (const theme of ['light', 'dark']) {
       await page.setViewportSize({ width, height: 900 })
-      await page.getByLabel('Thème', { exact: true }).selectOption(theme)
+      await selectTheme(page, theme)
       await expect(panel).toHaveCSS('padding-left', '16px')
       await expect(panel).toHaveCSS('padding-right', '16px')
       await expect(panel).toHaveCSS('padding-bottom', '0px')
@@ -74,7 +75,7 @@ Le lecteur reste un outil de travail : notes et transcription conservent leur pl
     for (const width of [1440, 375, 320]) {
       for (const theme of ['light', 'dark']) {
         await page.setViewportSize({ width, height: 900 })
-        await page.getByLabel('Thème', { exact: true }).selectOption(theme)
+        await selectTheme(page, theme)
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
         const text = state === 'error' ? page.getByText(/Impossible de lire ce fichier local/) : page.locator('.local-empty')
         const bounds = (await text.boundingBox())!
@@ -102,7 +103,7 @@ test('recette visuelle : téléchargement en cours et modale sans interruption',
   for (const width of [1440, 375, 320]) {
     for (const theme of ['light', 'dark']) {
       await page.setViewportSize({ width, height: 900 })
-      await page.getByLabel('Thème', { exact: true }).selectOption(theme)
+      await selectTheme(page, theme)
       await expect(page.getByRole('button', { name: 'YouTube', exact: true })).toHaveAttribute('aria-pressed', 'true')
       await page.screenshot({ path: info.outputPath(`download-${width}-${theme}.png`), fullPage: true })
       await page.getByRole('button', { name: 'Local', exact: true }).click()

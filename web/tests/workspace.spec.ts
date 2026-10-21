@@ -1,3 +1,4 @@
+import { selectTheme } from './navigationHelpers'
 import { expect, test } from './fixtures'
 
 test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions du workspace', async ({ page, request }, info) => {
@@ -39,7 +40,7 @@ test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions 
   await expect(information).toBeFocused()
   await information.press('Home')
   await expect(editor).toBeVisible()
-  await page.getByLabel('Thème', { exact: true }).selectOption('dark')
+  await selectTheme(page, 'dark')
   await expect(page.locator('.markdown-editor')).toHaveCSS('background-color', 'rgb(16, 28, 48)')
   await expect(editor).toHaveCSS('color', 'rgb(224, 232, 245)')
   await page.screenshot({ path: info.outputPath('workspace-dark.png'), fullPage: true })
@@ -49,7 +50,7 @@ test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions 
   await page.setViewportSize({ width: 375, height: 812 })
   await page.getByRole('button', { name: /Aller à .* dans le lecteur/ }).first().click()
   await expect(page.locator('.youtube-frame iframe')).toBeVisible()
-  await page.getByLabel('Thème', { exact: true }).selectOption('light')
+  await selectTheme(page, 'light')
   expect(await node!.evaluate(element => element === document.querySelector('.cm-content'))).toBe(true)
   await editor.focus()
   await page.keyboard.type('remplacement')

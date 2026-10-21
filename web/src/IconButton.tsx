@@ -1,11 +1,13 @@
 import { useId, useState } from 'react'
 import type { ButtonHTMLAttributes, Ref } from 'react'
 
-type IconName = 'info' | 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear' | 'trash' | 'save' | 'check' | 'spinner' | 'conflict'
+type IconName = 'info' | 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear' | 'trash' | 'save' | 'check' | 'spinner' | 'conflict' | 'menu' | 'tags'
 
 /** Dessine les quelques commandes des panneaux sans dépendance ni texte exposé aux lecteurs d'écran. */
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
+    menu: 'M4 6h16 M4 12h16 M4 18h16',
+    tags: 'M3 3h8l10 10-8 8L3 11V3 M7 7h.01',
     save: 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2 M7 3v6h9V3 M7 21v-8h10v8',
     check: 'm5 12 4 4L19 6',
     spinner: 'M21 12a9 9 0 1 1-9-9',
