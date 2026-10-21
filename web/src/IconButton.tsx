@@ -1,11 +1,15 @@
 import { useId, useState } from 'react'
 import type { ButtonHTMLAttributes, Ref } from 'react'
 
-type IconName = 'info' | 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear' | 'trash'
+type IconName = 'info' | 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear' | 'trash' | 'save' | 'check' | 'spinner' | 'conflict'
 
 /** Dessine les quelques commandes des panneaux sans dépendance ni texte exposé aux lecteurs d'écran. */
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
+    save: 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2 M7 3v6h9V3 M7 21v-8h10v8',
+    check: 'm5 12 4 4L19 6',
+    spinner: 'M21 12a9 9 0 1 1-9-9',
+    conflict: 'M12 3 2 21h20L12 3 M12 9v5 M12 17h.01',
     info: 'M12 11v6 M12 7h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
     eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
     'eye-off': 'm3 3 18 18 M10 5.2A12 12 0 0 1 12 5c6.5 0 10 7 10 7a20 20 0 0 1-3 4 M6 6C3.5 8.2 2 12 2 12s3.5 7 10 7a12 12 0 0 0 5-1 M9.9 9.9a3 3 0 0 0 4.2 4.2',

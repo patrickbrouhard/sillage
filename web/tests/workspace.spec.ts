@@ -29,6 +29,7 @@ test('note stable, sélection, Undo/Redo et sauvegarde pendant les interactions 
   await expect(information).toHaveCSS('border-bottom-width', '2px')
   await information.press('Home')
   await expect(noteTab).toBeFocused()
+  await expect(noteTab).toHaveCSS('outline-width', '2px')
   await expect(noteTab).toHaveAttribute('aria-selected', 'true')
   await noteTab.press('ArrowLeft')
   await expect(information).toBeFocused()
@@ -101,6 +102,10 @@ test('défilements indépendants, espace libéré et ordre mobile sans remontage
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.screenshot({ path: info.outputPath(`workspace-${width}.png`) })
+    await page.evaluate(y => window.scrollTo(0, y), editor!.y + 300)
+    await expect.poll(async () => (await page.locator('.note-controls').boundingBox())!.y).toBe(0)
+    await expect(note).toHaveCSS('overflow-y', 'clip')
+    expect(await note.evaluate(element => element.scrollHeight <= element.clientHeight + 1)).toBe(true)
     await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   }
 })
