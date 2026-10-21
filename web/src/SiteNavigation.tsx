@@ -22,7 +22,7 @@ export function SiteNavigation() {
   }, [location.key])
 
   return <>
-    <IconButton ref={trigger} icon="menu" label="Ouvrir la navigation"
+    <IconButton ref={trigger} icon="menu" label="Ouvrir la navigation" className="navigation-trigger"
       aria-expanded={open} aria-controls="site-navigation" aria-haspopup="dialog"
       onClick={() => { dialog.current?.showModal(); setOpen(true) }} />
     <dialog id="site-navigation" ref={dialog} className="site-navigation" aria-labelledby="navigation-title"

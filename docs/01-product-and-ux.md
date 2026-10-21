@@ -1356,7 +1356,9 @@ Le retour dans Note ne relance pas la durée de confirmation.
 
 ## En-tête, classement et navigation superposée
 
-Le hamburger précède le logo sur toutes les pages. Il ouvre un volet gauche
+Le hamburger précède le logo sur toutes les pages. Son icône mesure 24 × 24 px
+avec un trait de 2 px dans une cible de 40 × 40 px. L'en-tête utilise toute la
+largeur disponible avec 16 px de marge intérieure latérale, sans marge en vw. Il ouvre un volet gauche
 superposé, fermé par défaut et sans état d'ouverture mémorisé. Il contient les
 liens Bibliothèque et Ajouter une vidéo, puis le choix Clair / Sombre / Système.
 Aucun emplacement interactif fictif pour les paramètres ou le compte.

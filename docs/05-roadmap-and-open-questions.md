@@ -2151,3 +2151,8 @@ tags de la vidéo ». Après précision du sélecteur, les 23 tests des fichiers
 tags d'en-tête et navigation passent, incluant le scénario concerné. Les captures
 du bandeau, du popover et du volet desktop/mobile ont été inspectées.
 L'avertissement Vite préexistant de chunk supérieur à 500 kB demeure.
+
+Retouche après premier retour Brave : hamburger agrandi à 24 px (trait 2 px),
+cible conservée à 40 px, marges latérales de l'en-tête fixées à 16 px sur toutes
+les pages. Vérifier le résultat à 1920 px, en 4K et sur mobile. L'alignement du
+groupe de tags à droite reste une proposition non implémentée.
