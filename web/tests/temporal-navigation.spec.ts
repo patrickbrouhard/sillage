@@ -152,11 +152,11 @@ for (const width of [1440, 375]) {
           host.style.aspectRatio = 'auto'
           const y = host.getBoundingClientRect().top + window.scrollY
           window.scrollTo(0, mode === 'visible' ? y - 10 : mode === 'partial' ? y - innerHeight + 100 : y + 100)
-          document.querySelector<HTMLElement>('#note-panel')!.scrollTop = 70
+          document.querySelector<HTMLElement>('.note-content')!.scrollTop = 70
           const button = document.querySelector<HTMLButtonElement>(from)!
           button.focus({ preventScroll: true })
           return {
-            y: scrollY, note: document.querySelector('#note-panel')!.scrollTop,
+            y: scrollY, note: document.querySelector('.note-content')!.scrollTop,
             transcript: document.querySelector('.transcript-content')!.scrollTop,
           }
         }, { from, mode })
@@ -165,7 +165,7 @@ for (const width of [1440, 375]) {
         const after = await page.evaluate(() => {
           const bounds = document.querySelector('.youtube-frame')!.getBoundingClientRect()
           return { y: scrollY, top: bounds.top, bottom: bounds.bottom, height: innerHeight,
-            note: document.querySelector('#note-panel')!.scrollTop,
+            note: document.querySelector('.note-content')!.scrollTop,
             transcript: document.querySelector('.transcript-content')!.scrollTop }
         })
         expect(after.note).toBe(before.note)

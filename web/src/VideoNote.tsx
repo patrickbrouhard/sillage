@@ -148,6 +148,7 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
         <p role="status">{state.message || 'Chargement de la note…'}</p>
         {state.message && <button className="button" onClick={() => void session.start()}>Relire la note</button>}
       </> : <>
+        <div className="note-controls">
         <div className="note-toolbar" aria-label="Mode de la note">
           <button className="button" aria-pressed={!reading} onClick={() => setReading(false)}>Édition</button>
           <button className="button" aria-pressed={reading} disabled={accepting} onClick={() => setReading(true)}>Lecture</button>
@@ -162,6 +163,8 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
         {captureState.asset?.status === 'failed' && <p role="alert">La génération de la capture a échoué ou a été interrompue. Sa référence est conservée dans la note.</p>}
         {insertionError && <p role="alert">{insertionError}</p>}
         <div role="status" aria-label="Navigation temporelle" hidden={reading}>{navigationMessage}</div>
+        </div>
+        <div className="note-content">
         <div hidden={reading}>
           {initial !== null && <MarkdownEditor
             ref={editor}
@@ -192,6 +195,7 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
           </div>
         </div>}
         {state.confirmed && <p className="muted">Dernier contenu confirmé : révision {state.confirmed.revision} · <time dateTime={state.confirmed.updated_at}>{new Date(state.confirmed.updated_at).toLocaleTimeString('fr-FR')}</time></p>}
+        </div>
       </>}
     </section>
     {/* Ces protections restent accessibles même lorsque le panneau Note est masqué. */}

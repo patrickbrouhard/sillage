@@ -155,7 +155,7 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
   margin: 2rem 0;
 }
 .markdown-editor, .markdown-reading { font-family: var(--note-font); font-size: 16px; line-height: 1.5; }
-.markdown-editor .cm-scroller { font-family: inherit; line-height: inherit; }
+.markdown-editor .cm-scroller { font-family: inherit; line-height: inherit; overflow: visible; }
 /* La limite porte sur le texte utile ; les paddings restent en supplément. */
 .markdown-editor .cm-content {
   width: 100%; max-width: calc(var(--note-text-width) + 2 * var(--note-padding));
@@ -165,16 +165,16 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .markdown-editor .cm-markdown-code, .markdown-reading pre, .markdown-reading code {
   font-family: var(--note-code-font); font-size: 1em;
 }
-.markdown-editor { border: 1px solid var(--border); border-radius: .5rem; margin: 1rem 0; background: var(--input); color: var(--text); }
+.markdown-editor { background: var(--input); color: var(--text); }
 .markdown-editor .cm-content { min-height: 16rem; padding: var(--note-padding); }
-.markdown-editor .cm-focused { outline: 2px solid var(--focus); }
+.markdown-editor .cm-focused { outline: none; }
 
 .note-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; }
 .note-toolbar [aria-pressed=true] { outline: 2px solid var(--focus); }
-/* La bordure transparente aligne le texte avec le cadre de l'éditeur sur écran étroit. */
+/* Les deux modes partagent exactement la même largeur utile et les mêmes marges. */
 .markdown-reading {
-  width: 100%; max-width: calc(var(--note-text-width) + 2 * var(--note-padding) + 2px);
-  margin: 1rem auto; border: 1px solid transparent;
+  width: 100%; max-width: calc(var(--note-text-width) + 2 * var(--note-padding));
+  margin: 0 auto;
   min-height: 16rem; overflow-wrap: anywhere; padding: var(--note-padding);
 }
 .markdown-reading img { max-width: 100%; }
@@ -408,11 +408,27 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .video-information .source-overview { grid-template-columns: 1fr; }
 .video-information .thumbnail { width: 100%; max-width: 320px; }
 .note-hidden-error { overflow-wrap: anywhere; }
+/* Les commandes restent hors du défilement ; seule la rédaction touche les bords. */
+.workspace-note { padding: 0; }
+.workspace-note > .video-tags { margin: 1rem; }
+.note-tabs { margin: 0 1rem; }
+.video-information { padding: 1rem; }
+.note-controls { padding: .75rem 1rem; background: var(--surface); }
+.note-controls [aria-label="Navigation temporelle"]:empty { display: none; }
+.note-content { background: var(--input); border-radius: 0 0 calc(.75rem - 1px) calc(.75rem - 1px); }
+.note-content > p, .note-content > .note-conflict { margin: 1rem; }
+.note-hidden-error { padding: 1rem; }
 @media (min-width: 1100px) {
-  /* Si les tags occupent beaucoup de place, le panneau entier reste parcourable. */
-  .workspace-note { display: flex; flex-direction: column; overflow: auto; }
+  /* Un minimum de rédaction fait grandir la page si les tags/commandes sont nombreux. */
+  .workspace-note { display: flex; flex-direction: column; overflow: visible; min-height: min-content; }
   .workspace-note > :not(.note-panel) { flex-shrink: 0; }
-  /* Réserver l'épaisseur du focus pour ne pas le couper au bord du défilement. */
-  .note-panel { overflow: auto; min-height: 16rem; flex: 1; padding: 3px; }
-  .note-hidden-error { max-height: 12rem; overflow: auto; }
+  .note-panel { min-height: 16rem; flex: 1; }
+  .video-information { overflow: auto; }
+  .video-note { display: flex; flex-direction: column; }
+  .note-controls { flex: none; }
+  .note-content { flex: 1; min-height: 16rem; overflow: auto; }
+}
+@media (max-width: 1099px) {
+  /* Le document reste l'unique défilement vertical sur mobile. */
+  .note-controls { position: sticky; top: 0; z-index: 3; }
 }
