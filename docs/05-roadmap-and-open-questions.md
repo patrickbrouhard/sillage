@@ -2027,9 +2027,9 @@ et un minimum de 38rem autorisant le défilement de page sur fenêtre basse.
 Les dimensions des lecteurs restent inchangées ; le 16:9 relève de la tranche B,
 après validation manuelle dans Brave.
 
-### Validation automatisée de la tranche A
+### Validation automatisée initiale de la tranche A
 
-Le build final passe les 372 tests Playwright, dont les nouveaux parcours
+Le build initial passe les 372 tests Playwright, dont les nouveaux parcours
 d'onglets, de citation depuis Informations, de capture en arrière-plan,
 de conflit et de chargement différé de l'éditeur. Les recettes couvrent les
 largeurs 320 à 1920 px, la fenêtre basse et les grands caractères.
@@ -2057,3 +2057,49 @@ Le build Vite passe également ; son avertissement de chunk supérieur à 500 kB
 La validation automatisée utilise l'API YouTube simulée et un vrai média local
 pour les scénarios de décodage. Elle ne remplace pas cette recette dans Brave.
 Aucun push ni passage au 16:9 n'est inclus dans la livraison de la tranche A.
+
+### Finitions de la tranche A — validation Brave attendue
+
+Les choix validés sont implémentés : onglets Line sans dépendance, en-tête
+transparent avec logo seul et séparateur, commandes fixes au-dessus du défilement,
+surface Markdown bord à bord, disquette et retour de sauvegarde fondé sur les
+confirmations réelles. La tranche B et le changement des dimensions média restent
+suspendus à la validation visuelle et fonctionnelle de cette tranche.
+
+Compléter la recette précédente dans Brave :
+
+- Vérifier le bandeau transparent, le séparateur et les titres très longs en
+  clair/sombre, à 1920 px puis 375/320 px ; le logo doit toujours ramener à l'accueil.
+- Parcourir les onglets au clavier (flèches, Home, End, Tab) : soulignement actif
+  et contour de focus doivent rester distincts.
+- Faire défiler une longue note en Édition puis Lecture : commandes visibles,
+  un seul défilement de rédaction, texte centré et mêmes marges. Vérifier la
+  barre sticky mobile, le zoom et une fenêtre basse avec beaucoup de tags.
+- Garder une sélection, changer d'onglet, revenir, puis Undo/Redo ; vérifier les
+  citations et une capture en cours sans remontage ou changement de focus indu.
+- Observer la disquette au repos et avec modifications, puis l'autosauvegarde et
+  Ctrl+S : spinner, coche cinq secondes, retour au repos. Un clic sans changement
+  ne doit pas produire ni prolonger une confirmation.
+- Ralentir le réseau puis continuer à écrire pendant un envoi : aucune coche
+  avant confirmation du texte courant. Ouvrir Informations pendant l'envoi puis
+  revenir : le délai de présentation ne doit pas repartir.
+- Couper le réseau : après les réessais existants, croix et message persistent
+  au-delà de cinq secondes. Rétablir puis réessayer ; vérifier la confirmation.
+- Provoquer un conflit depuis une seconde fenêtre : état distinct persistant,
+  accès clavier à la résolution, conservation locale et serveur explicites,
+  signalement également visible sous Informations.
+- Au clavier et au survol, vérifier l'infobulle (état, révision et date/heure),
+  sa fermeture par Échap et l'absence de dépendance à la couleur seule.
+
+Les tests automatisés simulent toujours YouTube ; cette recette Brave reste
+nécessaire. Aucun push ne fait partie de la livraison.
+
+Validation automatisée des finitions : 379 tests Playwright réussis, incluant
+les confirmations partielles, clics sans écriture, réponse perdue réconciliée,
+création explicite vide, erreurs persistantes, résolution de conflit et délai
+sous onglet masqué. Les tests de mise en page vérifient également la barre sticky
+mobile, le défilement unique et les dimensions média inchangées. make test et
+le build Vite passent ; l'avertissement préexistant de chunk > 500 kB demeure.
+Après la dernière finition des coins mobiles, les dix tests de workspace et de
+typographie repassent. Les captures desktop et mobile sont contrôlées ; la
+validation utilisateur Brave reste attendue.

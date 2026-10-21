@@ -1304,8 +1304,9 @@ Aucun changement de comportement des lecteurs ou du workspace.
 16 px en haut et en bas. La largeur maximale de 1720 px, les paddings latéraux
 de 32 px, l'écart de 16 px et le rapport 1.2/1 des pistes restent inchangés.
 Une hauteur minimale de workspace de 38rem permet le défilement de page sur
-fenêtre basse. Les onglets ont des défilements indépendants ; une accumulation
-de tags laisse également défiler leur panneau pour garder les commandes accessibles.
+fenêtre basse. Informations garde son défilement ; Note dispose d'une surface de défilement
+commune à Édition et Lecture, sous les commandes. Une accumulation de tags
+agrandit la page pour garder les commandes et un minimum de rédaction accessibles.
 Sous 1100 px, la page garde son flux normal Lecteur → Note → Transcription.
 
 Le budget nominal à viewport 1920 × 1080 est : en-tête 64 px, marge 16 px,
@@ -1313,3 +1314,41 @@ workspace 984 px et marge basse 16 px. Ce n'est pas une garantie liée à la
 résolution physique de l'écran : barres navigateur, zoom, police et messages
 modifient l'espace réellement disponible. Aucune règle de dimensions de média
 n'est modifiée : le passage au 16:9 reste réservé à la tranche B après Brave.
+
+## Fiche vidéo — finitions de la zone Note (tranche A)
+
+Sur les fiches seules, le bandeau est transparent et sans bordure horizontale.
+Le logo conserve son lien nommé « Sillage, accueil » ; le nom visible disparaît.
+Un séparateur vertical précède le titre. Sur mobile, logo et titre restent sur
+la même ligne, le sélecteur de thème passe dessous ; le titre garde deux lignes
+maximum. Les autres pages conservent leur identité et leur footer.
+
+Les onglets locaux sont transparents, soulignés lorsqu'ils sont sélectionnés,
+avec une séparation horizontale fine. Le contour de focus clavier est distinct
+du soulignement actif. Leur fonctionnement clavier ne change pas.
+
+La barre de commandes de Note reste au-dessus de la surface défilante desktop.
+Sur mobile, la page défile naturellement et les commandes sont sticky dans Note.
+Le fond de rédaction rejoint les bords intérieurs et les coins inférieurs du
+panneau, sans cadre d'éditeur intermédiaire. Le texte reste centré sur 700 px
+utiles maximum, avec 1rem de marges et la typographie existante. Édition et Lecture
+utilisent le même conteneur de défilement, sans scroll vertical CodeMirror imbriqué.
+Les messages d'erreur restent près des commandes ; la résolution détaillée du
+conflit est accessible par son bouton et reste dans le contenu.
+
+La disquette à droite demeure interactive au repos. Une disquette plus visible
+avec un point indique les modifications non confirmées. Le spinner accompagne
+les sauvegardes automatiques et manuelles, y compris les réessais existants.
+La coche dure cinq secondes seulement après une confirmation réelle de tout le
+texte courant. Une nouvelle modification ou sauvegarde l'efface immédiatement ;
+Undo ne la réactive pas. Une confirmation d'un ancien texte pendant une saisie
+affiche les modifications en attente, jamais une coche globale. Un clic sans
+écriture ne crée ni ne prolonge la coche. Une création explicite vide ou une
+normalisation LF explicite réellement confirmée peut en revanche la produire.
+
+L'échec affiche une croix rouge et un message persistant ; le conflit affiche
+un triangle et un accès à sa résolution. Ni l'un ni l'autre ne disparaît après
+cinq secondes. La couleur n'est pas le seul signal. L'infobulle accessible au
+survol et au focus annonce l'état, la dernière révision confirmée et sa date/heure
+serveur ; Échap la ferme. L'état est aussi annoncé dans une région status.
+Le retour dans Note ne relance pas la durée de confirmation.

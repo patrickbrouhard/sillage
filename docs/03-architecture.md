@@ -1439,8 +1439,8 @@ Il n'existe ni état miroir du titre ni requête d'en-tête.
 VideoDetail possède uniquement le choix Note/Informations et les boutons d'onglet.
 VideoNote reste monté ; son panneau est masqué avec hidden, tandis que le dialogue
 de départ et le signalement d'erreur restent hors de ce panneau. NoteSession garde
-les écritures, conflits et protections de navigation. Chaque panneau conserve son
-propre défilement desktop. Le mobile conserve le flux lecteur, note, transcription.
+les écritures, conflits et protections de navigation. Informations conserve son défilement desktop ; dans Note, note-content est
+le propriétaire commun du défilement des modes Édition et Lecture. Le mobile conserve le flux lecteur, note, transcription.
 
 MarkdownEditor contrôle l'admissibilité d'une citation avant d'appeler la révélation
 synchrone de Note. La transaction isolée et le focus s'appliquent ensuite à la même
@@ -1452,3 +1452,26 @@ La hauteur desktop est allouée par deux lignes CSS au niveau de la page :
 en-tête intrinsèque puis main avec minimum de 40rem (workspace 38rem + paddings).
 La grille des trois zones reste unique ; aucune colonne React supplémentaire,
 aucun observateur de taille ni hauteur d'en-tête codée en JavaScript.
+
+### Présentation de la note et confirmations observables
+
+VideoNote conserve son arborescence stable : note-controls contient la barre et
+les messages, note-content contient l'éditeur masquable, la lecture et la résolution
+du conflit. Le CSS affecte la hauteur et le défilement sans recréer EditorView.
+cm-scroller reste en overflow visible ; l'ancêtre note-content porte le défilement
+desktop. Le mobile conserve le flux de page avec commandes sticky. Le panneau
+extérieur ne découpe pas les infobulles et peut agrandir la page en cas de nombreux
+tags ou messages.
+
+NoteSnapshot expose confirmationCount, compteur de session en mémoire incrémenté
+uniquement par confirm : PUT réussi ou réconciliation d'une réponse perdue.
+Le GET initial et l'adoption explicite de la version serveur ne l'incrémentent pas.
+Aucun champ persistant ni contrat REST ne change.
+
+NoteSaveButton observe les publications de la session pour la rétroaction de
+cinq secondes. confirm publie avant la libération de running : le composant
+attend la publication finale et l'absence de toute modification non confirmée.
+Une confirmation partielle est consommée sans coche. Le compteur évite de déduire
+un succès de la résolution de save(), qui peut aussi terminer sans écriture,
+sur erreur ou conflit. Les règles, délais, réessais et protections de NoteSession
+restent inchangés ; le temporisateur de présentation est nettoyé au démontage.

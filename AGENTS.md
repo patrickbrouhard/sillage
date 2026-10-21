@@ -354,3 +354,19 @@ Desktop height uses the actual header row plus remaining viewport space, with
 16px vertical main padding and a 38rem workspace minimum allowing page overflow.
 Keep current grid widths and the 1100px breakpoint; mobile retains normal flow.
 Tranche A requires manual Brave validation before starting tranche B.
+
+## Video workspace — Note presentation refinements
+
+Video pages use a transparent header, home logo without visible brand text and a
+vertical title separator. Keep local line tabs and their keyboard behavior.
+Note controls stay outside the shared edit/read scroll surface on desktop; mobile
+uses page scrolling and sticky controls. Keep the 700px useful text width and
+CodeMirror identity. Do not restore nested editor frames or vertical scrollbars.
+
+NoteSession.confirmationCount is presentation-only and increments exclusively on
+actual PUT/reconciliation confirmations, never initial reads or server adoption.
+Save feedback waits until running is released and all current edits are confirmed.
+Partial confirmations and no-op saves never create success; success lasts five
+seconds and is invalidated by edits/new saves. Errors/conflicts remain persistent
+and accessible, including under Informations. Keep save rules/timing unchanged.
+Brave validation remains pending; no player sizing changes before tranche B.
