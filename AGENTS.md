@@ -340,8 +340,8 @@ The previous phase-1 padding freeze is superseded only for this presentation wor
 The title belongs in the main header, rendered from the existing VideoDetail data;
 retain first REST source semantics, one line desktop and up to two lines mobile.
 No title_override implementation. Only video pages omit the footer.
-Keep three grid children and mobile order player, note, transcript. Tags sit above
-local Note/Informations tabs. Keep VideoNote, NoteSession and CodeMirror mounted,
+Keep three grid children and mobile order player, note, transcript. Tags belong in the header, above the workspace; local Note/Informations tabs
+remain at the top of the note panel. Keep VideoNote, NoteSession and CodeMirror mounted,
 with mode, selection, history and independent panel scroll preserved. Autosave
 continues while hidden; errors/conflicts and the leave dialog stay accessible.
 An accepted citation reveals Note before insertion/focus; refusals never switch tabs.
@@ -370,3 +370,23 @@ Partial confirmations and no-op saves never create success; success lasts five
 seconds and is invalidated by edits/new saves. Errors/conflicts remain persistent
 and accessible, including under Informations. Keep save rules/timing unchanged.
 Brave validation remains pending; no player sizing changes before tranche B.
+
+
+## Header tags and global navigation
+
+Keep one stable VideoDetail portal for the first-REST-source title and loaded tags.
+No mirrored video state or extra header requests. Neutral tag pills preserve REST
+order; measure the longest fitting prefix plus the exact +n counter, without a
+fixed tag limit or skipping long names. Keep measurement copies inert, hidden and
+contained. Hidden tags use a native consultation-only popover; the existing
+management dialog retains mutations and its existing refreshes. Restore visible
+focus when resizing hides a focused link. Below 1100px tags use their own header
+row; the title remains capped at two lines on small mobile screens.
+
+SiteNavigation is global and independent of video data. Use a closed-by-default
+native modal overlay, without resizing the workspace or commanding players.
+Keep keyboard focus contained, Escape/outside dismissal, and stable scrollbar
+space. Close before router navigation can open the note leave guard. Keep the
+single theme selector in the navigation; no fake account/settings features or
+persisted drawer state. CodeMirror and player identities remain unchanged.
+Manual Brave validation is pending; no 16:9 work is authorized by this increment.

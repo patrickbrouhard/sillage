@@ -1431,9 +1431,9 @@ Les règles de ratio, hauteur et responsive sont conservées.
 
 ## Fiche vidéo — onglets locaux (tranche A)
 
-App fournit un emplacement DOM stable dans l'en-tête ; VideoDetail y rend son h1
+App fournit un emplacement DOM stable dans l'en-tête ; VideoDetail y rend son h1 et VideoTags
 par portail depuis son unique lecture REST. Le démontage de la fiche retire son
-titre, y compris lors d'une navigation avec requête précédente encore en cours.
+titre et ses tags, y compris lors d'une navigation avec requête précédente encore en cours.
 Il n'existe ni état miroir du titre ni requête d'en-tête.
 
 VideoDetail possède uniquement le choix Note/Informations et les boutons d'onglet.
@@ -1451,7 +1451,7 @@ et leur ancrage ; leur retour réseau ne révèle pas Note.
 La hauteur desktop est allouée par deux lignes CSS au niveau de la page :
 en-tête intrinsèque puis main avec minimum de 40rem (workspace 38rem + paddings).
 La grille des trois zones reste unique ; aucune colonne React supplémentaire,
-aucun observateur de taille ni hauteur d'en-tête codée en JavaScript.
+aucun observateur de hauteur ni hauteur d'en-tête codée en JavaScript.
 
 ### Présentation de la note et confirmations observables
 
@@ -1461,7 +1461,7 @@ du conflit. Le CSS affecte la hauteur et le défilement sans recréer EditorView
 cm-scroller reste en overflow visible ; l'ancêtre note-content porte le défilement
 desktop. Le mobile conserve le flux de page avec commandes sticky. Le panneau
 extérieur ne découpe pas les infobulles et peut agrandir la page en cas de nombreux
-tags ou messages.
+messages. Les tags sont désormais dans l'en-tête.
 
 NoteSnapshot expose confirmationCount, compteur de session en mémoire incrémenté
 uniquement par confirm : PUT réussi ou réconciliation d'une réponse perdue.
@@ -1483,3 +1483,37 @@ descendants absolus, notamment le libellé sr-only « nouvel onglet » des liens
 externes. Sans ce contenant, ce texte invisible peut échapper à overflow auto
 et augmenter le scrollHeight de la page. La correction conserve le défilement
 interne, le libellé accessible et le défilement de page des fenêtres basses.
+
+
+### Navigation globale et tags adaptatifs
+
+App monte SiteNavigation indépendamment des données vidéo. Le volet utilise
+dialog.showModal : fond inerte, boucle de focus locale, fermeture par Échap,
+bouton ou clic sur le fond. Le verrou de défilement conserve la gouttière
+réservée par scrollbar-gutter: stable, sans déplacement du workspace.
+Les liens ferment synchroniquement le dialogue avant React Router, afin de ne
+pas concurrencer le dialogue de protection de NoteSession. Un changement de
+location ferme aussi le volet. ThemeSelector reste son unique instance et
+conserve ses règles existantes. Aucun état de lecteur ou d'éditeur n'est déplacé.
+
+Le portail stable appartient toujours à VideoDetail : pas de contexte métier
+global, de copie de données ni de nouvelle requête de titre ou de tags.
+VideoTags conserve sa modale, TagEditor et les relectures existantes à l'ouverture
+de la gestion. VideoTagList ne reçoit que la liste chargée et un rappel de focus.
+
+VideoTagList mesure les pilules et les compteurs dans des copies non interactives,
+inert et aria-hidden, découpées dans un contenant positionné de hauteur nulle.
+ResizeObserver suit le conteneur disponible et ces copies, indépendamment des
+liens visibles. Le calcul teste les préfixes dans l'ordre REST avec la largeur
+exacte du compteur correspondant, y compris aux transitions +9/+10/+100.
+Il n'existe ni tri local ni nombre maximal fixe de tags. Les règles CSS gardent
+min-width: 0 et une piste racine minmax(0, 1fr), empêchant les noms longs de
+forcer la largeur de page.
+
+Le popover natif auto reste non modal et ne contient que des liens de filtre.
+Sa position est bornée au viewport, ses noms reviennent à la ligne et sa hauteur
+permet un défilement interne. Un défilement extérieur le ferme ; son propre
+défilement reste possible. Les changements de liste ou de préfixe visible
+ferment une consultation périmée et restaurent au besoin un focus visible.
+Les copies de mesure n'agrandissent jamais le document. Aucun appel réseau
+n'accompagne une ouverture du popover ou un redimensionnement.

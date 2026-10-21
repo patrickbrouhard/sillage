@@ -160,8 +160,8 @@ texte complet, sélectionnable. Aucun titre personnalisé n'est implémenté.
 La bibliothèque et la page d'ajout conservent leur bandeau et leur footer ;
 la fiche n'affiche plus de footer.
 
-Les tags de la vidéo restent au-dessus des deux onglets locaux Note et Informations,
-quel que soit l'onglet sélectionné. Note est sélectionné à l'ouverture d'une fiche.
+Les tags de la vidéo sont dans l'en-tête, indépendamment des deux onglets locaux
+Note et Informations. Note est sélectionné à l'ouverture d'une fiche.
 Les flèches gauche/droite, Home et End changent d'onglet et y gardent le focus.
 La session, le mode Édition/Lecture, la sélection, Undo/Redo, le défilement et
 l'autosauvegarde sont conservés. Une bascule seule ne provoque aucune écriture.
@@ -1305,8 +1305,8 @@ Aucun changement de comportement des lecteurs ou du workspace.
 de 32 px, l'écart de 16 px et le rapport 1.2/1 des pistes restent inchangés.
 Une hauteur minimale de workspace de 38rem permet le défilement de page sur
 fenêtre basse. Informations garde son défilement ; Note dispose d'une surface de défilement
-commune à Édition et Lecture, sous les commandes. Une accumulation de tags
-agrandit la page pour garder les commandes et un minimum de rédaction accessibles.
+commune à Édition et Lecture, sous les commandes. Les tags restent sur une ligne
+compacte dans l'en-tête, avec débordement dans un popover.
 Sous 1100 px, la page garde son flux normal Lecteur → Note → Transcription.
 
 Le budget nominal à viewport 1920 × 1080 est : en-tête 64 px, marge 16 px,
@@ -1320,8 +1320,8 @@ n'est modifiée : le passage au 16:9 reste réservé à la tranche B après Brav
 Sur les fiches seules, le bandeau est transparent et sans bordure horizontale.
 Le logo conserve son lien nommé « Sillage, accueil » ; le nom visible disparaît.
 Un séparateur vertical précède le titre. Sur mobile, logo et titre restent sur
-la même ligne, le sélecteur de thème passe dessous ; le titre garde deux lignes
-maximum. Les autres pages conservent leur identité et leur footer.
+la même ligne, les tags passent dessous ; le titre garde deux lignes maximum.
+Le sélecteur de thème appartient au volet de navigation global. Les autres pages conservent leur identité et leur footer.
 
 Les onglets locaux sont transparents, soulignés lorsqu'ils sont sélectionnés,
 avec une séparation horizontale fine. Le contour de focus clavier est distinct
@@ -1352,3 +1352,39 @@ cinq secondes. La couleur n'est pas le seul signal. L'infobulle accessible au
 survol et au focus annonce l'état, la dernière révision confirmée et sa date/heure
 serveur ; Échap la ferme. L'état est aussi annoncé dans une région status.
 Le retour dans Note ne relance pas la durée de confirmation.
+
+
+## En-tête, classement et navigation superposée
+
+Le hamburger précède le logo sur toutes les pages. Il ouvre un volet gauche
+superposé, fermé par défaut et sans état d'ouverture mémorisé. Il contient les
+liens Bibliothèque et Ajouter une vidéo, puis le choix Clair / Sombre / Système.
+Aucun emplacement interactif fictif pour les paramètres ou le compte.
+Le volet ne redimensionne pas les panneaux et ne commande pas les lecteurs.
+Son ouverture rend l'arrière-plan inerte ; Tab reste dans le volet, Échap,
+le bouton de fermeture et un clic extérieur le ferment. Une navigation ferme
+d'abord le volet pour laisser les protections de départ de la note s'afficher.
+
+Sur les fiches, le bandeau transparent contient hamburger, logo, séparateur,
+titre et tags. Le titre conserve la première source REST et sa troncature CSS.
+Sur desktop, il prend sa largeur naturelle jusqu'à 70ch et au plus 62 % de
+l'espace partagé ; les tags prennent le reste. Un titre court libère donc plus
+de place. Sous 1100 px, les tags occupent une ligne distincte sur toute la largeur
+du bandeau ; à 600 px et moins, le titre garde deux lignes maximum.
+Le titre complet reste consultable et copiable dans Informations.
+
+Les tags sont des pilules neutres, sans icône ni suppression intégrée.
+Chaque lien ouvre le filtre existant de la bibliothèque. Le nombre visible
+dépend des largeurs réelles, sans quota : conserver le plus long préfixe de
+l'ordre REST qui tient avec le compteur +n. Ne pas sauter un nom long pour
+afficher un tag court suivant. Si aucun tag ne tient, afficher seulement +n
+et le bouton de gestion. Sans tags, conserver le bouton Ajouter des tags.
+
++n ouvre un popover de consultation des tags masqués, avec leurs noms complets
+pouvant revenir à la ligne. Les liens sont accessibles par Tab ; Échap ferme
+le popover et rend le focus au compteur. Le clic extérieur le ferme également.
+Un changement de liste ou du nombre visible ferme cette consultation ; un lien
+focalisé qui disparaît de la ligne rend le focus à un accès encore visible.
+Le bouton distinct Gérer les tags ouvre la modale existante, seule responsable
+des ajouts et retraits. Les tags ne prennent plus de place au-dessus des onglets
+Note / Informations. Les couleurs individuelles restent une évolution future.

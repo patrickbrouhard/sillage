@@ -2103,3 +2103,51 @@ le build Vite passent ; l'avertissement préexistant de chunk > 500 kB demeure.
 Après la dernière finition des coins mobiles, les dix tests de workspace et de
 typographie repassent. Les captures desktop et mobile sont contrôlées ; la
 validation utilisateur Brave reste attendue.
+
+
+### En-tête, tags et navigation — implémentés, validation Brave attendue
+
+Les arbitrages validés sont implémentés : navigation globale superposée avec
+sélecteur de thème, tags dans l'en-tête, pilules neutres et débordement mesuré
+derrière +n. La modale de gestion et les filtres restent ceux de l'application.
+Aucun changement de contrat REST, de sauvegarde ou de dimensions média.
+
+Recette complémentaire dans Brave :
+
+- À 1920 × 1080 puis en 4K, essayer des titres courts et longs, zéro tag,
+  plusieurs tags puis des noms très longs : le titre garde une largeur confortable,
+  les pilules restent ordonnées et +n correspond exactement aux tags masqués.
+- Redimensionner progressivement autour de 1100 px, puis à 375/320 px et avec
+  zoom : tags sous le titre, titre sur deux lignes au maximum sur petit mobile,
+  aucune largeur de page excessive ni espace vide ajouté sous le workspace.
+- Vérifier le cas où le premier tag ne tient pas : +n conserve tous les noms,
+  sans faire passer un tag court devant lui. Essayer des compteurs à deux et
+  trois chiffres ; contrôler les thèmes clair, sombre et système.
+- Parcourir +n, ses liens et Gérer les tags au clavier. Échap rend le focus au
+  compteur ; un clic extérieur ferme le popover. Vérifier noms complets,
+  défilement interne et fermeture lors du défilement de page.
+- Ajouter puis retirer des tags dans la modale : mise à jour immédiate du
+  bandeau, filtres inchangés et session de note conservée.
+- Ouvrir le volet sur desktop et mobile pendant une lecture YouTube puis Local :
+  pas de déplacement des panneaux, de redémarrage ni de commande au lecteur.
+  Vérifier Tab/Shift+Tab, Échap, clic extérieur et retour au hamburger.
+- Changer de thème dans le volet puis naviguer vers Bibliothèque et Ajouter une
+  vidéo : volet fermé à l'arrivée, préférence de thème conservée, aucun titre
+  ou classement de la fiche précédente affiché dans le nouveau bandeau.
+- Avec une note modifiée dont la sauvegarde échoue, utiliser un lien du volet
+  puis un tag masqué : le dialogue de départ reste accessible, sans superposition
+  concurrente ; Rester conserve le brouillon et permet de poursuivre l'édition.
+- Garder une sélection de note, son défilement et une capture en cours pendant
+  ces interactions ; vérifier Undo/Redo, autosauvegarde et onglets. Les tags ne
+  doivent plus occuper l'espace au-dessus des onglets.
+
+La validation automatisée ne remplace pas ces contrôles dans Brave, notamment
+avec le vrai lecteur YouTube. Aucun push ; le 16:9 reste une tranche distincte.
+
+Validation : build Vite, vérification TypeScript, tests Go, go vet et go build
+réussis. La suite complète Playwright passe 388 scénarios sur 389 ; le seul échec
+était un sélecteur de test devenu ambigu entre « Tags de la vidéo » et « Autres
+tags de la vidéo ». Après précision du sélecteur, les 23 tests des fichiers vidéo,
+tags d'en-tête et navigation passent, incluant le scénario concerné. Les captures
+du bandeau, du popover et du volet desktop/mobile ont été inspectées.
+L'avertissement Vite préexistant de chunk supérieur à 500 kB demeure.
