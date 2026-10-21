@@ -390,7 +390,8 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .video-player .player-surface > [role="alert"] { margin-bottom: .75rem; }
 
 /* Le titre complet reste dans le DOM et dans les informations de la fiche. */
-.header-video-title { flex: 1; min-width: 0; }
+.site-header-compact { background: transparent; border-bottom: 0; }
+.header-video-title { flex: 1; min-width: 0; border-left: 1px solid var(--border); padding-left: 16px; }
 .header-video-title h1 { margin: 0; font-size: 1.2rem; line-height: 1.4; letter-spacing: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 600px) {
   .header-video-title { order: 1; flex-basis: 100%; }
@@ -398,8 +399,10 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 }
 
 /* Les deux panneaux gardent chacun leur défilement et leur identité. */
-.note-tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
-.note-tabs [aria-selected=true] { outline: 2px solid var(--focus); }
+.note-tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.note-tabs .button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: .65rem .25rem; color: var(--muted); }
+.note-tabs [aria-selected=true] { border-bottom-color: var(--label); color: var(--text); }
+.note-tabs .button:focus-visible { outline: 2px solid var(--focus); outline-offset: -4px; }
 .note-panel[hidden] { display: none; }
 .full-video-title { overflow-wrap: anywhere; }
 .video-information .source-overview { grid-template-columns: 1fr; }

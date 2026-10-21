@@ -23,7 +23,7 @@ export function App() {
       <a className="skip-link" href="#main">Aller au contenu</a>
       <header className={`site-header${videoPage ? ' site-header-compact' : ''}`}>
         <Link className="brand" to="/" aria-label="Sillage, accueil">
-          <span className="brand-mark" aria-hidden="true">≈</span>Sillage
+          <span className="brand-mark" aria-hidden="true">≈</span>{!videoPage && 'Sillage'}
         </Link>
         {videoPage && <div className="header-video-title" ref={setTitleHost} />}
         {!videoPage && <span className="header-caption">Une trace de ce qui compte.</span>}
