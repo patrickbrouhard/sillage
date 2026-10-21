@@ -201,7 +201,7 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .transcript-block { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: .75rem; margin: 1rem 0; }
 .transcript-block p { margin: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
 .transcript-time { user-select: none; -webkit-user-select: none; font: inherit; font-variant-numeric: tabular-nums; color: var(--label); font-size: .85rem; padding: .2rem; border: 0; background: transparent; align-self: start; text-align: left; text-decoration: underline; cursor: pointer; }
-.player-toolbar { display: flex; align-items: center; justify-content: space-between; gap: .25rem; }
+.player-toolbar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: .25rem; }
 .youtube-frame:has(iframe) { width: 100%; aspect-ratio: 16 / 9; min-height: 200px; }
 .youtube-frame iframe { display: block; border: 0; width: 100%; height: 100%; min-height: 200px; }
 
@@ -359,7 +359,7 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .download-indicator.success { color: light-dark(#18713a, #6fe69c); }
 .download-indicator.failure { color: light-dark(#b3261e, #ff9a91); }
 @media (prefers-reduced-motion: reduce) { .download-indicator.progress { animation: none; } }
-.player-information { position: absolute; z-index: 10; top: 64px; right: 1rem; width: min(380px, calc(100% - 2rem)); max-height: min(65dvh, 540px); overflow: auto; padding: 1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); box-shadow: 0 8px 24px #0003; overflow-wrap: anywhere; }
+.player-information { position: absolute; z-index: 10; top: 100%; right: 0; width: min(380px, 100%); max-height: min(65dvh, 540px); overflow: auto; padding: 1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); box-shadow: 0 8px 24px #0003; overflow-wrap: anywhere; }
 .player-information .source-section { margin: 0; padding: 0; border: 0; }
 .player-information .metadata { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .6rem .75rem; margin-bottom: 1rem; font-size: .85rem; }
 .player-information .metadata dt { margin: 0; align-self: center; }
@@ -377,7 +377,7 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .video-player .player-surface :is(.local-video, .youtube-frame:has(iframe)) {
   width: calc(100% + 2rem);
   margin-inline: -1rem;
-  border-radius: 0 0 calc(.75rem - 1px) calc(.75rem - 1px);
+  border-radius: calc(.75rem - 1px);
 }
 .video-player .youtube-frame:has(iframe) { overflow: hidden; }
 .video-player .player-surface > [role="alert"] { margin-bottom: .75rem; }
@@ -410,7 +410,7 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .video-information { position: relative; padding: 1rem; }
 .note-controls { padding: .75rem 1rem; background: var(--surface); }
 /* clip respecte les coins mobiles sans créer un conteneur de défilement. */
-.note-content { overflow: clip; background: var(--input); border-radius: 0 0 calc(.75rem - 1px) calc(.75rem - 1px); }
+.note-content { overflow: clip; background: var(--input); border-radius: calc(.75rem - 1px); }
 .note-content > p, .note-content > .note-conflict { margin: 1rem; }
 .note-hidden-error { padding: 1rem; }
 @media (min-width: 1100px) {
@@ -510,4 +510,42 @@ html:has(.site-navigation[open]) { overflow: hidden; }
 }
 @media (max-width: 1099px) {
   .site-header-compact .header-navigation { display: contents; }
+}
+
+/* Tranche B : deux cadres jointifs, sans conteneur ou session supplémentaire. */
+@media (min-width: 1100px) {
+  .video-workspace:has(> .video-transcript) {
+    row-gap: 0;
+    grid-template-rows: auto minmax(auto, 1fr);
+    min-height: min-content;
+  }
+  .video-workspace:has(> .video-transcript) > .video-player {
+    border-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .video-transcript {
+    border-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    padding-top: 0;
+    min-height: auto;
+    overflow: visible;
+  }
+  /* Les commandes et messages contribuent au minimum ; seul le texte défile.
+     Le workspace grandit si ce minimum dépasse la fenêtre, sans réduire la vidéo. */
+  .transcript-content { flex: 1 1 0; min-height: 12rem; overflow: auto; }
+  .video-player:has(.player-toolbar) { padding-top: 0; }
+  .player-toolbar { min-height: 56px; padding-block: 8px; margin-bottom: 0; flex-wrap: wrap; }
+  .player-segments { padding: 0; }
+  .player-segments button { min-height: 40px; }
+  .transcript-heading { min-height: 56px; padding-block: 8px; margin-bottom: 0; }
+  .transcript-search { margin-bottom: 8px; }
+  .video-player:has(.player-toolbar):not(:has(.player-error, .local-empty, .player-surface:not([hidden]) :is(video, iframe, [role=alert], [role=status]), .player-switch-status:not(:empty))) { padding-bottom: 0; }
+}
+
+@media (min-width: 1100px) {
+  /* Les longs documents ne participent pas au minimum intrinsèque de la grille.
+     Leurs minima explicites et leurs ascenseurs restent inchangés. */
+  .note-content, .video-information, .transcript-content { contain: size; }
 }

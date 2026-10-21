@@ -220,7 +220,7 @@ for (const failure of ['conflict', 'error']) {
   })
 }
 
-test('budget vertical, dimensions vidéo inchangées et responsive sans débordement', async ({ page, request }, info) => {
+test('budget vertical, vidéo 16:9 et responsive sans débordement', async ({ page, request }, info) => {
   const video = await (await request.post('/api/v1/videos', {
     data: { url: 'https://youtu.be/trLayoutA00' },
   })).json()

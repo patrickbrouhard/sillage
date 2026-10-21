@@ -21,7 +21,7 @@ Le lecteur reste un outil de travail : notes et transcription conservent leur pl
   await expect(page.getByRole('textbox', { name: 'Note Markdown' })).toContainText('Une connaissance durable')
   await expect.poll(() => media.evaluate((v: HTMLVideoElement) => v.readyState)).toBe(4)
   const panel = page.getByRole('region', { name: 'Lecteur', exact: true })
-  for (const width of [1440, 375, 320]) {
+  for (const width of [1920, 1440, 1100, 1099, 900, 375, 320]) {
     for (const theme of ['light', 'dark']) {
       await page.setViewportSize({ width, height: 900 })
       await selectTheme(page, theme)
@@ -29,6 +29,7 @@ Le lecteur reste un outil de travail : notes et transcription conservent leur pl
       await expect(panel).toHaveCSS('padding-right', '16px')
       await expect(panel).toHaveCSS('padding-bottom', '0px')
       await checkEdges(panel, media)
+      const localBox = await media.boundingBox()
       await expect(page.locator('.download-summary')).toHaveCount(0)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       await page.screenshot({ path: info.outputPath(`local-${width}-${theme}.png`), fullPage: true })
@@ -43,10 +44,11 @@ Le lecteur reste un outil de travail : notes et transcription conservent leur pl
       const iframe = page.locator('.youtube-frame iframe')
       await expect(iframe).toBeVisible()
       await checkEdges(panel, iframe)
+      expect(await iframe.boundingBox()).toEqual(localBox)
       await page.screenshot({ path: info.outputPath(`youtube-${width}-${theme}.png`), fullPage: true })
       await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
       await expect(iframe).toBeHidden()
-      await expect(panel).toHaveCSS('padding-bottom', '16px')
+      await expect(panel).toHaveCSS('padding-bottom', width >= 1100 ? '0px' : '16px')
       await page.getByRole('button', { name: 'Informations', exact: true }).click()
       await expect(popover).toBeVisible()
       // Le popover dépasse volontairement un panneau masqué ; aucun ancêtre ne le découpe.
@@ -113,7 +115,7 @@ test('recette visuelle : téléchargement en cours et modale sans interruption',
   }
 })
 
-/** Vérifie les bords réels sans imposer une nouvelle règle de hauteur. */
+/** Vérifie le ratio commun, les bords réels et les quatre coins de la surface. */
 async function checkEdges(panel: Locator, surface: Locator) {
   const p = (await panel.boundingBox())!
   const v = (await surface.boundingBox())!
@@ -121,12 +123,15 @@ async function checkEdges(panel: Locator, surface: Locator) {
   expect(v.height).toBeCloseTo(Math.max(200, v.width * 9 / 16), 1)
   expect(v.x).toBeCloseTo(p.x + 1, 1)
   expect(v.x + v.width).toBeCloseTo(p.x + p.width - 1, 1)
-  expect(v.y + v.height).toBeCloseTo(p.y + p.height - 1, 1)
+  const bottomBorder = await panel.evaluate(el => parseFloat(getComputedStyle(el).borderBottomWidth))
+  expect(v.y + v.height).toBeCloseTo(p.y + p.height - bottomBorder, 1)
   const rounded = surface.locator('..')
   if (await surface.evaluate(n => n.tagName === 'VIDEO')) {
     await expect(surface).toHaveCSS('border-bottom-left-radius', '11px')
+    await expect(surface).toHaveCSS('border-top-left-radius', '11px')
   } else {
     await expect(rounded).toHaveCSS('border-bottom-left-radius', '11px')
+    await expect(rounded).toHaveCSS('border-top-left-radius', '11px')
     await expect(rounded).toHaveCSS('overflow', 'hidden')
   }
 }

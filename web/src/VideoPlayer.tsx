@@ -141,17 +141,16 @@ export function VideoPlayer({ videoID, source, download, ref }: {
           label={visibility.hidden ? 'Afficher la vidéo' : visibility.hiding ? 'Mise en pause…' : 'Masquer la vidéo'}
           onClick={() => player.current?.toggleVisibility()} />
       </div>
+      {information && selection && <div ref={popover} id={popoverID} role="dialog" aria-label="Informations vidéo"
+        tabIndex={-1} className="player-information">
+        <button className="button information-close" onClick={() => {
+          setInformation(false)
+          informationButton.current?.focus()
+        }}>Fermer les informations</button>
+        <PlayerInformation mode={selection.mode} source={source} download={download} onDelete={showDelete} onDownload={showDownload} />
+      </div>}
     </div>
-    {information && selection && <div ref={popover} id={popoverID} role="dialog" aria-label="Informations vidéo"
-      tabIndex={-1} className="player-information">
-      <button className="button information-close" onClick={() => {
-        setInformation(false)
-        informationButton.current?.focus()
-      }}>Fermer les informations</button>
-      <PlayerInformation mode={selection.mode} source={source} download={download} onDelete={showDelete} onDownload={showDownload} />
-    </div>}
     <span className="sr-only" role="status">{announcement}</span>
-    <p className="player-switch-status" role="status">{message}</p>
     {error && <div className="player-error" role="alert"><p>{error}</p>
       <button className="button" onClick={showDownload}>Consulter le téléchargement</button></div>}
     {!selection ? <p role="status">Consultation du fichier local…</p> :
@@ -166,6 +165,7 @@ export function VideoPlayer({ videoID, source, download, ref }: {
           {file && file.id === unloaded && <button className="button" onClick={() => setUnloaded(undefined)}>Recharger le lecteur local</button>}
           <LocalPlayer ref={player} onVisibility={setVisibility} url={url} initialStartMs={selection.startMs} />
         </>}
+    <p className="player-switch-status" role="status">{message}</p>
     <VideoDownload download={download} ref={downloadDialog} onDelete={showDelete} onClose={() => {
       if (!deleteDialog.current?.open) returnFocus.current?.focus()
     }} />
