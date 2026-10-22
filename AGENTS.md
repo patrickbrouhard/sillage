@@ -172,7 +172,6 @@ Before considering a code change complete:
 4. verify that the affected binaries build;
 5. report any validation step that could not be performed.
 
-
 ## UX 1.1 — Markdown citation callouts
 
 Reading recognizes only unescaped lowercase quote and quote:tr headers on the first
@@ -186,7 +185,6 @@ Markdown behavior. QuoteCallout shares presentation only; reuse TimeButton and 6
 navigation. Preserve raw notes, GFM, shared definitions, URL filtering, editor session
 and autosave. No migration, new domain entity or generic callout registry.
 Editor presentation follows UX 1.2a below.
-
 
 ## UX 1.2a — Markdown editor presentation
 
@@ -210,7 +208,6 @@ Markdown copy, insertion, history, autosave and editor identity. Suspend replace
 during IME composition. No new tab stops or dependencies. UX 1.2b.2 below extends
 this baseline with eligible quote:tr URI compaction and protected navigation.
 
-
 ## UX 1.2b.2 — Editor temporal navigation
 
 UX 1.2b.1 is manually validated. Compact the URI only in eligible quote:tr headers,
@@ -223,7 +220,6 @@ Reuse VideoNote.onNavigate and all 6.5 identity/player/scroll guards. No navigat
 transactions, remount, autosave, tab stops or iframe focus. Report refusals in a
 stable accessible status near the editor. Invalid/nested headers and literal titles
 remain inert. No domain, persistence or REST changes.
-
 
 ## Step 7.1 — Corrective policy (implemented)
 
@@ -241,7 +237,6 @@ Expose downloading until finalization releases activity; available must allow de
 One server per data directory, application-owned jobs, 6h default timeout, no queue.
 Screenshots and local playback are implemented in later increments below; imports and interactive storage maintenance remain future.
 
-
 ## Step 7.1 — Acquisition metadata (implemented)
 
 Use one yt-dlp invocation with native identity/finished filters before acquisition
@@ -252,7 +247,6 @@ audio_language. ffprobe measures technical properties; yt-dlp alone supplies
 selected audio language (never the aggregate language, probe tags or source original).
 No startup backfill. Share download state with the distinct local-file metadata
 section; no extra polling, player commands or editor remounts.
-
 
 ## Structured logging
 
@@ -280,7 +274,6 @@ Pause on hide, keep notes/transcript mounted, and preserve the server capture fa
 Playback errors remain Local without conversion, deletion or automatic fallback.
 Confirmed deletion unloads the local element first and leaves Local empty on success.
 Reservations protect HTTP requests, not entire viewing sessions.
-
 
 ## Player panel — phase 1, visual approval required before phase 2
 
@@ -371,7 +364,6 @@ seconds and is invalidated by edits/new saves. Errors/conflicts remain persisten
 and accessible, including under Informations. Keep save rules/timing unchanged.
 Brave validation remains pending; no player sizing changes before tranche B.
 
-
 ## Header tags and global navigation
 
 Keep one stable VideoDetail portal for the first-REST-source title and loaded tags.
@@ -391,7 +383,6 @@ single theme selector in the navigation; no fake account/settings features or
 persisted drawer state. CodeMirror and player identities remain unchanged.
 Manual Brave validation is pending; no 16:9 work is authorized by this increment.
 
-
 ## Compact header and conditional centering
 
 Desktop video headers use a 56px minimum, 8px vertical padding and no title
@@ -405,7 +396,6 @@ navigation, independently of placement. Center the actual title/tag group only
 when it fits without collisions or reducing visible content; otherwise align
 left. Never feed the centered width back into the tag budget. Keep the portal,
 CodeMirror, players, focus protections and existing API reads unchanged.
-
 
 ## Video workspace — tranche B authorized and implemented, Brave validation pending
 

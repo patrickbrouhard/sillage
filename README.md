@@ -859,8 +859,8 @@ curl http://127.0.0.1:8080/api/v1/videos/42
 L'URL est obligatoire ; les champs inconnus et le contenu JSON supplémentaire
 sont rejetés.
 
-- Création : `201 Created`, avec `Location: /api/v1/videos/{id}`.
-- Vidéo déjà présente : `200 OK`, sans `Location` et sans refresh.
+* Création : `201 Created`, avec `Location: /api/v1/videos/{id}`.
+* Vidéo déjà présente : `200 OK`, sans `Location` et sans refresh.
 
 Les deux réponses et `GET /api/v1/videos/{id}` utilisent exactement la même
 représentation :
@@ -1046,18 +1046,18 @@ ne supprime jamais le tag partagé.
 
 Limites et erreurs des nouvelles routes :
 
-- corps JSON de note : 1 Mio maximum ; ajout de tags : 64 Kio maximum,
+* corps JSON de note : 1 Mio maximum ; ajout de tags : 64 Kio maximum,
   enveloppe et échappements compris (`413 payload_too_large`) ;
-- `application/json` requis pour PUT/POST, paramètres MIME acceptés
+* `application/json` requis pour PUT/POST, paramètres MIME acceptés
   (`415 unsupported_media_type` sinon) ;
-- objet JSON unique, sans champs inconnus ; UTF-8 invalide ou échappements Unicode
+* objet JSON unique, sans champs inconnus ; UTF-8 invalide ou échappements Unicode
   non appariés refusés, sans remplacement silencieux (`400 bad_request`) ;
-- `expected_revision` obligatoire pour une note, entier non négatif ;
-- `content_md` obligatoire, chaîne non nulle ; `names` obligatoire, tableau non vide
+* `expected_revision` obligatoire pour une note, entier non négatif ;
+* `content_md` obligatoire, chaîne non nulle ; `names` obligatoire, tableau non vide
   de chaînes non nulles ; noms non vides après trim et limités à 200 points de code ;
-- identifiants strictement positifs ; `tag_id` vide, invalide ou répété refusé par `400` ;
-- vidéo absente : `404 video_not_found` ; note absente sur vidéo existante : `404 note_not_found` ;
-- erreur locale : `500 internal_error`, sans diagnostic technique exposé.
+* identifiants strictement positifs ; `tag_id` vide, invalide ou répété refusé par `400` ;
+* vidéo absente : `404 video_not_found` ; note absente sur vidéo existante : `404 note_not_found` ;
+* erreur locale : `500 internal_error`, sans diagnostic technique exposé.
 
 Aucun quota métier de tags par vidéo. Les notes sont protégées par révision depuis
 5.2. Suppression de note, historique, renommage/suppression globale des tags,
@@ -1246,30 +1246,30 @@ Ces documents constituent la référence détaillée du projet.
 
 L'étape Web est découpée en jalons validables :
 
-- **5.1 — bibliothèque utilisable et distribuable** : liste, ajout et détail,
+* **5.1 — bibliothèque utilisable et distribuable** : liste, ajout et détail,
   tags vidéo et filtre unique, navigation, build servi par Go ; distribution
   Docker et consolidation terminés ; les quatre jalons sont testés et validés ;
-- **5.2 — éditeur Markdown et sauvegarde fiable** : implémenté et testé localement,
+* **5.2 — éditeur Markdown et sauvegarde fiable** : implémenté et testé localement,
   périmètre fonctionnel validé manuellement ; édition/lecture GFM,
   autosauvegarde 2 s/20 s, conflits et navigation protégée ;
-- **5.3 — lecteur et transcription** : terminée, testée localement et fusionnée
+* **5.3 — lecteur et transcription** : terminée, testée localement et fusionnée
   après retours manuels positifs ; note principale, transcription
   indépendante du lecteur, paragraphes fluides et thèmes clair/sombre/système ;
-- **6.1 — navigation transcription → lecteur** : implémentée, testée et validée
+* **6.1 — navigation transcription → lecteur** : implémentée, testée et validée
   manuellement ; aucun démarrage automatique ni commande différée ;
-- **6.2 — insertion du temps courant** : implémentée, testée et validée
+* **6.2 — insertion du temps courant** : implémentée, testée et validée
   manuellement ; lien Markdown avec vidéo, source et millisecondes explicites ;
-- **6.3 — recherche dans la transcription** : implémentée et testée localement,
+* **6.3 — recherche dans la transcription** : implémentée et testée localement,
   validation manuelle complète confirmée ; recherche continue entre fragments et blocs,
   navigation circulaire et surlignages, sans action automatique sur le lecteur ;
   regroupement fixé à 10 secondes ;
-- **6.4 — sélection et citation de transcription** : implémentée et testée localement,
+* **6.4 — sélection et citation de transcription** : implémentée et testée localement,
   retours manuels satisfaisants et correctifs de clôture livrés ; copie continue et citation au premier fragment
   retenu, insertion contrôlée dans la note et Undo/Redo isolé ;
-- **6.5 — références Markdown vers le lecteur** : terminée et validée manuellement
+* **6.5 — références Markdown vers le lecteur** : terminée et validée manuellement
   pour son périmètre fonctionnel ; boutons en Lecture, URI strictes, identité
   vidéo/source contrôlée et défilement conditionnel partagé avec la transcription ;
-- **Suite de 6 — interactions temporelles** : plages éventuelles et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
+* **Suite de 6 — interactions temporelles** : plages éventuelles et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
 
 La gestion complète des publishers et personnes reste hors de 5.1. La première
 source REST sert provisoirement à présenter une carte, sans créer de source
@@ -1426,7 +1426,6 @@ Le projet privilégie :
 * une architecture modulaire sans surarchitecture ;
 * une approche local-first ;
 * un produit pleinement utilisable sans IA.
-
 
 ## Téléchargement local — étape 7.1
 
@@ -1603,7 +1602,6 @@ ffprobe ni de VideoSource.original_audio_language. Les inférences internes de y
 sont acceptées ; une différence avec l'original ne bloque pas le téléchargement.
 Aucun formulaire d'édition, filtre de recherche ou lecteur local n'est ajouté.
 
-
 ### Journalisation structurée
 
 Le serveur accepte SILLAGE_LOG_LEVEL=DEBUG|INFO|WARN|ERROR (INFO par défaut)
@@ -1613,7 +1611,6 @@ en DEBUG ; les anomalies restent visibles. X-Request-ID est généré côté ser
 et permet de retrouver le bilan HTTP. Aucun corps ni stderr brut d'outil n'est
 journalisé ; les catégories techniques et codes de sortie restent disponibles.
 
-
 Les événements capture.started et download.started portent operation_id et,
 si l'appel vient de HTTP, origin_request_id. Une capture conserve l'identité
 capture:<asset_id> ; chaque nouveau téléchargement reçoit sa propre identité.
@@ -1622,13 +1619,12 @@ Les événements completed, failed, interrupted ou finalization_uncertain
 décrivent le résultat serveur ; un POST 202 ne confirme pas la fin du traitement.
 Les fichiers publiés restent conservés lors d'une finalisation incertaine.
 
-
 #### Exploitation Docker des journaux
 
 L'image choisit JSON par défaut ; Compose expose les variables suivantes :
 
 | Variable | Défaut Compose | Usage |
-|---|---|---|
+| --- | --- | --- |
 | SILLAGE_LOG_LEVEL | INFO | DEBUG, INFO, WARN ou ERROR |
 | SILLAGE_LOG_FORMAT | json | json ou text |
 | SILLAGE_CONTAINER_NAME | sillage | Nom unique sur ce daemon Docker |
@@ -1666,46 +1662,43 @@ Les panics récupérés dans HTTP omettent leur valeur arbitraire ; seuls des
 emplacements de code sont conservés. Un crash du runtime peut encore produire
 une sortie fatale sur stderr. Les logs ne constituent pas un journal d'audit.
 
-
 ### Validation manuelle du decluttering — partie 1
 
-- Sur une fiche, le logo rejoint la bibliothèque sans filtre et précédent retrouve
+* Sur une fiche, le logo rejoint la bibliothèque sans filtre et précédent retrouve
   le contexte de navigation ; aucun lien de retour dédié n'occupe une ligne.
-- Masquer/réafficher la vidéo avec l'œil ; vérifier la pause et la conservation
+* Masquer/réafficher la vidéo avec l'œil ; vérifier la pause et la conservation
   de la note. Le titre visible « Lecteur » et le lien YouTube redondant sont retirés.
-- Vérifier l'en-tête compact de transcription, la récupération/actualisation,
+* Vérifier l'en-tête compact de transcription, la récupération/actualisation,
   l'aide au survol et au focus, et les erreurs toujours visibles.
-- Ouvrir la recherche, parcourir les occurrences, la replier puis la rouvrir :
+* Ouvrir la recherche, parcourir les occurrences, la replier puis la rouvrir :
   requête et résultat actif sont conservés. Échap revient à la loupe ; effacer
   retire les surlignages. Un changement de vidéo réinitialise la recherche.
-- Sélectionner un extrait puis activer les guillemets à la souris ou au clavier :
+* Sélectionner un extrait puis activer les guillemets à la souris ou au clavier :
   citation, Undo/Redo et autosauvegarde gardent leurs garanties habituelles.
-- Vérifier ces parcours en mode nuit et sur écran étroit. Les commandes actuelles
+* Vérifier ces parcours en mode nuit et sur écran étroit. Les commandes actuelles
   de fichier local restent disponibles ; aucune lecture locale n'est ajoutée.
-
 
 ### Validation manuelle du decluttering — partie 2
 
-- Vérifier la barre unique : YouTube, résumé format/taille/durée si disponible,
+* Vérifier la barre unique : YouTube, résumé format/taille/durée si disponible,
   icône téléchargement ou corbeille, puis œil à droite. Aucun séparateur.
-- Vérifier les états chargement, téléchargement, erreur et fichier disponible,
+* Vérifier les états chargement, téléchargement, erreur et fichier disponible,
   ainsi que la confirmation de suppression et son annulation.
-- Survoler puis cliquer l'œil et la loupe, sortir le pointeur, et répéter les
+* Survoler puis cliquer l'œil et la loupe, sortir le pointeur, et répéter les
   ouvertures/fermetures : aucune infobulle ne doit rester affichée à cause du
   focus souris. Tester également le focus clavier, Échap et un nouveau survol.
-- Vérifier la barre sur écran étroit, sans débordement ni bouton écrasé.
+* Vérifier la barre sur écran étroit, sans débordement ni bouton écrasé.
   La partie 3 et la lecture locale restent différées.
-
 
 ### Validation manuelle de la typographie des notes
 
-- Comparer Édition et Lecture : police système 16 px, interligne 24 px pour la
+* Comparer Édition et Lecture : police système 16 px, interligne 24 px pour la
   prose, colonne utile plafonnée à 700 px hors padding, réduite sur écran étroit.
-- Vérifier code inline, blocs clôturés (avec et sans langage), code indenté,
+* Vérifier code inline, blocs clôturés (avec et sans langage), code indenté,
   listes imbriquées, citations, tableaux et captures. Le code reste monospace.
-- Vérifier caret, sélections et retours visuels à la ligne, références compactes
+* Vérifier caret, sélections et retours visuels à la ligne, références compactes
   et révélées, navigation temporelle, Undo/Redo et stabilité lors des bascules.
-- Une ouverture, bascule de mode ou redimensionnement sans édition ne doit pas
+* Une ouverture, bascule de mode ou redimensionnement sans édition ne doit pas
   déclencher d'enregistrement. Le panneau et les commandes gardent leur largeur.
 
 ## Lecture locale dans le workspace
@@ -1724,23 +1717,22 @@ accessibles. Aucun changement automatique à la fin d'un téléchargement.
 
 ### Contenu média
 
-- GET /api/v1/videos/{video_id}/media-files/{media_file_id}/content
-- HEAD sur la même URL, sans corps.
-- GET complet : 200 ; plages satisfaites : 206 avec Content-Range ; hors limites : 416.
-- IDs invalides : 400 ; vidéo/média absent ou mauvaise appartenance : 404 ;
+* GET /api/v1/videos/{video_id}/media-files/{media_file_id}/content
+* HEAD sur la même URL, sans corps.
+* GET complet : 200 ; plages satisfaites : 206 avec Content-Range ; hors limites : 416.
+* IDs invalides : 400 ; vidéo/média absent ou mauvaise appartenance : 404 ;
   fichier connu mais indisponible : 409 local_media_unavailable.
-- URL fondée sur l'identité exacte, jamais sur un chemin du disque.
-- Cache-Control: no-store pour le contenu, MIME du conteneur, nosniff.
-- Un DELETE peut recevoir 503 download_busy tant qu'une lecture HTTP ou capture
+* URL fondée sur l'identité exacte, jamais sur un chemin du disque.
+* Cache-Control: no-store pour le contenu, MIME du conteneur, nosniff.
+* Un DELETE peut recevoir 503 download_busy tant qu'une lecture HTTP ou capture
   réserve le média. Arrêter/décharger le lecteur puis réessayer explicitement.
-- Un fichier conservé n'est pas nécessairement décodable par le navigateur.
+* Un fichier conservé n'est pas nécessairement décodable par le navigateur.
   Aucune conversion ni modification de la politique yt-dlp.
 
 La suppression conserve notes, transcriptions et captures. Elle laisse le panneau
 Local vide ; un rafraîchissement recalcule le choix et revient à YouTube sans fichier.
 
-Voir [la recette de validation locale](docs/06-local-playback-validation.md).
-
+Voir [la recette de validation locale](docs/07-local-playback-validation.md).
 
 ### Panneau vidéo : phase 1
 
