@@ -32,7 +32,7 @@ test('téléchargement réel, rechargement et suppression préservent la connais
   const downloaded = (await (await request.get(downloadURL)).json()).media_file
   expect(downloaded).toMatchObject({ format: 'mkv', video_codec: 'h264', audio_codec: 'aac', width: 640, height: 360, audio_language: 'fr-FR' })
   expect(downloaded.fps).toBeCloseTo(30000 / 1001)
-  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
   const metadata = page.getByRole('region', { name: 'Fichier local', exact: true })
   await expect(metadata).toContainText('640 × 360')
   await expect(metadata).toContainText('fr-FR')
@@ -306,7 +306,7 @@ test('métadonnées inconnues des anciens médias sans deuxième consultation', 
   await expect(page.getByRole('dialog', { name: 'Informations vidéo' })).toContainText('Inconnues')
   await expect(page.getByRole('dialog', { name: 'Informations vidéo' })).toContainText('Inconnu')
   await page.keyboard.press('Escape')
-  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Fichier local', exact: true })).toContainText('Inconnues')
   expect(gets).toBe(count)
 })

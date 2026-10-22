@@ -269,9 +269,9 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
   }
 
   return <div className="player-surface" hidden={hidden}>
-      {!ready && !message && <p role="status">Chargement du lecteur YouTube…</p>}
       {message && <div role="alert"><p>{message}</p><button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}
-      {autoplayBlocked && <p role="status">Le navigateur a bloqué le démarrage. Utilisez le bouton Lecture du lecteur.</p>}
       <div className="youtube-frame" ref={host} />
+      {!ready && !message && <p role="status">Chargement du lecteur YouTube…</p>}
+      {autoplayBlocked && <p role="status">Le navigateur a bloqué le démarrage. Utilisez le bouton Lecture du lecteur.</p>}
     </div>
 }

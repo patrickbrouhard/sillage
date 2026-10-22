@@ -1,3 +1,4 @@
+import { selectTheme } from './navigationHelpers'
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { findTranscriptMatches, highlightTranscript } from '../src/transcriptSearch'
@@ -84,7 +85,7 @@ test('surligne à travers les blocs, boucle et défile sans réseau ni commande 
   expect(requests).toEqual([])
   await expect(page.locator('mark[aria-current=true]')).toBeInViewport()
   await page.screenshot({ path: info.outputPath('search-desktop.png') })
-  await page.getByLabel('Thème', { exact: true }).selectOption('dark')
+  await selectTheme(page, 'dark')
   await page.locator('.video-workspace').evaluate(element => element.scrollIntoView({ block: 'start' }))
   await page.screenshot({ path: info.outputPath('search-dark.png') })
   // Le timestamp conserve son chemin explicite vers le lecteur.

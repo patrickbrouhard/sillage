@@ -1,3 +1,4 @@
+import { selectTheme } from './navigationHelpers'
 import { expect, test } from './fixtures'
 
 test('le caret natif suit les thèmes sans remonter l’éditeur ni perdre son historique', async ({ page, request }, info) => {
@@ -12,7 +13,7 @@ test('le caret natif suit les thèmes sans remonter l’éditeur ni perdre son h
     ['light', 'rgb(36, 52, 77)', 'rgb(255, 255, 255)'],
     ['dark', 'rgb(224, 232, 245)', 'rgb(16, 28, 48)'],
   ]) {
-    await page.getByLabel('Thème', { exact: true }).selectOption(theme)
+    await selectTheme(page, theme)
     await editor.focus()
     // L'éditeur utilise le caret natif : sa couleur effective doit contraster avec le fond.
     await expect(editor).toHaveCSS('caret-color', color)
@@ -26,7 +27,7 @@ test('le caret natif suit les thèmes sans remonter l’éditeur ni perdre son h
   await page.keyboard.press('Control+Shift+Z')
   await expect(editor).toHaveText('Texte')
   await page.keyboard.press('Shift+Home')
-  await page.getByLabel('Thème', { exact: true }).selectOption('system')
+  await selectTheme(page, 'system')
   await page.emulateMedia({ colorScheme: 'light' })
   await expect(editor).toHaveCSS('caret-color', 'rgb(36, 52, 77)')
   await page.emulateMedia({ colorScheme: 'dark' })
@@ -46,18 +47,19 @@ test('suit le système et mémorise les choix explicites sans dépendre du syst�
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(16, 24, 39)')
   await page.emulateMedia({ colorScheme: 'light' })
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(242, 245, 250)')
-  await theme.selectOption('dark')
+  await selectTheme(page, 'dark')
   await page.reload()
   await expect(theme).toHaveValue('dark')
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(16, 24, 39)')
-  await theme.selectOption('light')
+  await selectTheme(page, 'light')
   await page.emulateMedia({ colorScheme: 'dark' })
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(242, 245, 250)')
-  await theme.selectOption('system')
+  await selectTheme(page, 'system')
   await page.reload()
   await expect(theme).toHaveValue('system')
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(16, 24, 39)')
   await page.setViewportSize({ width: 320, height: 800 })
+  await page.getByRole('button', { name: 'Ouvrir la navigation' }).click()
   await expect(theme).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
@@ -69,7 +71,7 @@ test('reste utilisable lorsque le stockage local est interdit', async ({ page })
   await page.emulateMedia({ colorScheme: 'light' })
   await page.goto('/')
   await expect(page.getByLabel('Thème', { exact: true })).toHaveValue('system')
-  await page.getByLabel('Thème', { exact: true }).selectOption('dark')
+  await selectTheme(page, 'dark')
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(16, 24, 39)')
 })
 

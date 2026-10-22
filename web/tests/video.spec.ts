@@ -34,7 +34,7 @@ test('ajout et doublon via Go/SQLite, fiche directe et historique navigateur', a
   const detailURL = page.url()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une nouvelle vidéo pour apprendre')
   await expect(page.getByText('Une description conservée dans SQLite.')).toBeHidden()
-  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
   await page.getByText('Description', { exact: true }).click()
   await expect(page.getByText('Une description conservée dans SQLite.')).toBeVisible()
   await page.reload()
@@ -98,7 +98,7 @@ test('affiche toutes les sources, les tags directs et le texte brut sur écran �
   }))
   await page.goto('/videos/42')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une fiche de test')
-  await page.getByText('Métadonnées et sources', { exact: true }).click()
+  await page.getByRole('tab', { name: 'Informations', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Source 1 · YouTube' })).toContainText('Un compte')
   const second = page.getByRole('region', { name: 'Source 2 · autre' })
   await expect(second).toContainText('Autre provenance')
@@ -106,7 +106,7 @@ test('affiche toutes les sources, les tags directs et le texte brut sur écran �
   await expect(second).toContainText('Inconnue')
   await expect(second.getByRole('link')).toHaveCount(0)
   await expect(second).toContainText('<script>contenu source</script>')
-  await expect(page.getByLabel('Tags de la vidéo')).toHaveText('Connaissances')
+  await expect(page.getByLabel('Tags de la vidéo', { exact: true })).toHaveText('Connaissances')
   await expect(page.getByRole('link', { name: /Ouvrir la source/ })).toHaveAttribute('href', fixture.sources[0].canonical_url!)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
 })
@@ -223,4 +223,30 @@ test('permet de relire une fiche après une erreur serveur', async ({ page }) =>
   await page.getByRole('button', { name: 'Réessayer' }).click()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une fiche de test')
   await expect(page).toHaveTitle('Une fiche de test · Sillage')
+})
+
+test('titre du bandeau, requête unique et footer ciblé', async ({ page }) => {
+  let reads = 0
+  const title = 'Un très long titre de vidéo '.repeat(25).trim()
+  await page.route('**/api/v1/videos/42', route => {
+    reads++
+    return route.fulfill({ json: { ...fixture, sources: [{ ...fixture.sources[0], title }] } })
+  })
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.goto('/videos/42')
+  const heading = page.locator('header h1')
+  await expect(heading).toHaveText(title)
+  await expect(page).toHaveTitle(title + ' · Sillage')
+  expect(reads).toBe(1)
+  await expect(page.locator('footer')).toHaveCount(0)
+  expect(await heading.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
+  expect((await heading.boundingBox())!.height).toBeLessThan(30)
+  for (const width of [375, 320]) {
+    await page.setViewportSize({ width, height: 812 })
+    expect((await heading.boundingBox())!.height).toBeLessThan(55)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  await page.getByRole('link', { name: 'Sillage, accueil' }).click()
+  await expect(page.locator('header h1')).toHaveCount(0)
+  await expect(page.locator('footer')).toBeVisible()
 })

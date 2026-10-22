@@ -2008,3 +2008,252 @@ erreur, état vide, téléchargement et modale. YouTube reste simulé dans ces t
 L'utilisateur a validé manuellement le rendu bord à bord dans Brave.
 La validation visuelle de cette phase est donc acquise ; les scénarios de la
 recette restent disponibles pour les vérifications de non-régression ultérieures.
+
+## Refonte de la fiche — tranche A, validation Brave attendue
+
+L'en-tête principal accueille le titre issu de la première source REST (repli
+« Vidéo sans titre »), sur une ligne desktop et deux lignes maximum sur mobile.
+La fiche alimente directement cet emplacement depuis ses données chargées :
+aucune requête supplémentaire ni état miroir du titre. Chargement et erreurs
+ont leur propre titre. Le footer reste réservé aux pages hors fiche.
+Les tags sont communs aux onglets Note/Informations ; toutes les informations de
+l'ancienne section sous la grille sont transférées. La session reste montée,
+les refus de citation ne changent pas d'onglet et les insertions acceptées révèlent
+Note avant le focus. Les captures acceptées et l'autosauvegarde continuent sous
+Informations ; erreurs, conflits et dialogue de départ restent accessibles.
+La grille utilise la hauteur restante sous l'en-tête réel, avec 16 px en haut/bas
+et un minimum de 38rem autorisant le défilement de page sur fenêtre basse.
+À viewport 1920 × 1080, la recette mesure 984 px pour le workspace.
+Les dimensions des lecteurs restent inchangées ; le 16:9 relève de la tranche B,
+après validation manuelle dans Brave.
+
+### Validation automatisée initiale de la tranche A
+
+Le build initial passe les 372 tests Playwright, dont les nouveaux parcours
+d'onglets, de citation depuis Informations, de capture en arrière-plan,
+de conflit et de chargement différé de l'éditeur. Les recettes couvrent les
+largeurs 320 à 1920 px, la fenêtre basse et les grands caractères.
+Les captures desktop et mobile ont été inspectées.
+make test passe : tests Go, go vet, go build et vérification TypeScript.
+Le build Vite passe également ; son avertissement de chunk supérieur à 500 kB
+était déjà présent avant cette tranche. La validation manuelle Brave reste attendue.
+
+### Recette manuelle avant la tranche B
+
+- Dans Brave, vérifier une fiche à 1920 × 1080 puis dans une fenêtre plus basse :
+  titre compact, workspace proche du bandeau, trois zones et transcription confortable.
+- Essayer un titre long, de nombreux tags et les deux thèmes ; consulter/copier
+  le titre complet et parcourir toutes les sources/descriptions dans Informations.
+- Éditer puis sélectionner du texte, ouvrir Informations et revenir : vérifier
+  sélection, Undo/Redo, défilement, mode Lecture/Édition et sauvegarde.
+- Depuis Informations, citer un extrait après avoir choisi une position : seule
+  une insertion admissible révèle Note. En Lecture ou sans position choisie dans
+  une note non vide, Informations doit rester ouvert avec un refus explicite.
+- Vérifier les commandes et le popover YouTube/Local, la conservation/suppression,
+  les captures en cours et les liens temporels ; aucune dimension média n'a changé.
+- Réduire la largeur sous 1100 px, puis à 375/320 px : Lecteur, Note, Transcription
+  restent dans cet ordre et la page défile normalement sans débordement horizontal.
+
+La validation automatisée utilise l'API YouTube simulée et un vrai média local
+pour les scénarios de décodage. Elle ne remplace pas cette recette dans Brave.
+Aucun push ni passage au 16:9 n'est inclus dans la livraison de la tranche A.
+
+### Finitions de la tranche A — validation Brave attendue
+
+Les choix validés sont implémentés : onglets Line sans dépendance, en-tête
+transparent avec logo seul et séparateur, commandes fixes au-dessus du défilement,
+surface Markdown bord à bord, disquette et retour de sauvegarde fondé sur les
+confirmations réelles. La tranche B et le changement des dimensions média restent
+suspendus à la validation visuelle et fonctionnelle de cette tranche.
+
+Compléter la recette précédente dans Brave :
+
+- Vérifier le bandeau transparent, le séparateur et les titres très longs en
+  clair/sombre, à 1920 px puis 375/320 px ; le logo doit toujours ramener à l'accueil.
+- Parcourir les onglets au clavier (flèches, Home, End, Tab) : soulignement actif
+  et contour de focus doivent rester distincts.
+- Faire défiler une longue note en Édition puis Lecture : commandes visibles,
+  un seul défilement de rédaction, texte centré et mêmes marges. Vérifier la
+  barre sticky mobile, le zoom et une fenêtre basse avec beaucoup de tags.
+- Garder une sélection, changer d'onglet, revenir, puis Undo/Redo ; vérifier les
+  citations et une capture en cours sans remontage ou changement de focus indu.
+- Observer la disquette au repos et avec modifications, puis l'autosauvegarde et
+  Ctrl+S : spinner, coche cinq secondes, retour au repos. Un clic sans changement
+  ne doit pas produire ni prolonger une confirmation.
+- Ralentir le réseau puis continuer à écrire pendant un envoi : aucune coche
+  avant confirmation du texte courant. Ouvrir Informations pendant l'envoi puis
+  revenir : le délai de présentation ne doit pas repartir.
+- Couper le réseau : après les réessais existants, croix et message persistent
+  au-delà de cinq secondes. Rétablir puis réessayer ; vérifier la confirmation.
+- Provoquer un conflit depuis une seconde fenêtre : état distinct persistant,
+  accès clavier à la résolution, conservation locale et serveur explicites,
+  signalement également visible sous Informations.
+- Au clavier et au survol, vérifier l'infobulle (état, révision et date/heure),
+  sa fermeture par Échap et l'absence de dépendance à la couleur seule.
+
+Les tests automatisés simulent toujours YouTube ; cette recette Brave reste
+nécessaire. Aucun push ne fait partie de la livraison.
+
+Validation automatisée des finitions : 379 tests Playwright réussis, incluant
+les confirmations partielles, clics sans écriture, réponse perdue réconciliée,
+création explicite vide, erreurs persistantes, résolution de conflit et délai
+sous onglet masqué. Les tests de mise en page vérifient également la barre sticky
+mobile, le défilement unique et les dimensions média inchangées. make test et
+le build Vite passent ; l'avertissement préexistant de chunk > 500 kB demeure.
+Après la dernière finition des coins mobiles, les dix tests de workspace et de
+typographie repassent. Les captures desktop et mobile sont contrôlées ; la
+validation utilisateur Brave reste attendue.
+
+
+### En-tête, tags et navigation — implémentés, validation Brave attendue
+
+Les arbitrages validés sont implémentés : navigation globale superposée avec
+sélecteur de thème, tags dans l'en-tête, pilules neutres et débordement mesuré
+derrière +n. La modale de gestion et les filtres restent ceux de l'application.
+Aucun changement de contrat REST, de sauvegarde ou de dimensions média.
+
+Recette complémentaire dans Brave :
+
+- À 1920 × 1080 puis en 4K, essayer des titres courts et longs, zéro tag,
+  plusieurs tags puis des noms très longs : le titre garde une largeur confortable,
+  les pilules restent ordonnées et +n correspond exactement aux tags masqués.
+- Redimensionner progressivement autour de 1100 px, puis à 375/320 px et avec
+  zoom : tags sous le titre, titre sur deux lignes au maximum sur petit mobile,
+  aucune largeur de page excessive ni espace vide ajouté sous le workspace.
+- Vérifier le cas où le premier tag ne tient pas : +n conserve tous les noms,
+  sans faire passer un tag court devant lui. Essayer des compteurs à deux et
+  trois chiffres ; contrôler les thèmes clair, sombre et système.
+- Parcourir +n, ses liens et Gérer les tags au clavier. Échap rend le focus au
+  compteur ; un clic extérieur ferme le popover. Vérifier noms complets,
+  défilement interne et fermeture lors du défilement de page.
+- Ajouter puis retirer des tags dans la modale : mise à jour immédiate du
+  bandeau, filtres inchangés et session de note conservée.
+- Ouvrir le volet sur desktop et mobile pendant une lecture YouTube puis Local :
+  pas de déplacement des panneaux, de redémarrage ni de commande au lecteur.
+  Vérifier Tab/Shift+Tab, Échap, clic extérieur et retour au hamburger.
+- Changer de thème dans le volet puis naviguer vers Bibliothèque et Ajouter une
+  vidéo : volet fermé à l'arrivée, préférence de thème conservée, aucun titre
+  ou classement de la fiche précédente affiché dans le nouveau bandeau.
+- Avec une note modifiée dont la sauvegarde échoue, utiliser un lien du volet
+  puis un tag masqué : le dialogue de départ reste accessible, sans superposition
+  concurrente ; Rester conserve le brouillon et permet de poursuivre l'édition.
+- Garder une sélection de note, son défilement et une capture en cours pendant
+  ces interactions ; vérifier Undo/Redo, autosauvegarde et onglets. Les tags ne
+  doivent plus occuper l'espace au-dessus des onglets.
+
+La validation automatisée ne remplace pas ces contrôles dans Brave, notamment
+avec le vrai lecteur YouTube. Aucun push ; le 16:9 reste une tranche distincte.
+
+Validation : build Vite, vérification TypeScript, tests Go, go vet et go build
+réussis. La suite complète Playwright passe 388 scénarios sur 389 ; le seul échec
+était un sélecteur de test devenu ambigu entre « Tags de la vidéo » et « Autres
+tags de la vidéo ». Après précision du sélecteur, les 23 tests des fichiers vidéo,
+tags d'en-tête et navigation passent, incluant le scénario concerné. Les captures
+du bandeau, du popover et du volet desktop/mobile ont été inspectées.
+L'avertissement Vite préexistant de chunk supérieur à 500 kB demeure.
+
+Retouche après premier retour Brave : hamburger agrandi à 24 px (trait 2 px),
+cible conservée à 40 px, marges latérales de l'en-tête fixées à 16 px sur toutes
+les pages. Vérifier le résultat à 1920 px, en 4K et sur mobile. L'alignement du
+groupe de tags à droite reste une proposition non implémentée.
+
+Retour visuel suivant : abandon de la proposition de tags alignés à droite.
+Le bouton de gestion suit désormais les tags ou +n avec 6 px d'écart.
+La signature [Logo] Sillage revient sur les fiches, avec symbole 29 × 20 px,
+texte 20 px et écart 4 px, proche de l'encombrement de la signature YouTube.
+Vérifier cet ensemble à 320/375 px, 1920 px et en 4K, ainsi que le calcul des
+tags visibles après redimensionnement. Les lecteurs restent inchangés.
+
+
+### Bandeau compact et centrage conditionnel — validation Brave attendue
+
+Choix validés implémentés : minimum desktop 56 px, marge workspace supérieure
+8 px, séparateur supprimé. Titre intégral prioritaire, plafonds 70ch/62 % retirés,
++n préservé et centrage réel seulement s'il ne diminue pas le contenu visible.
+Le repli à gauche récupère l'espace après la signature. Aucun ratio de lecteur
+ni minimum de workspace n'est changé.
+
+Recette Brave :
+- À 1920, 1440 et 1100 px, comparer titre court, long, zéro tag et nombreux tags.
+  Le groupe est centré sur la surface de page ou entièrement à gauche, sans
+  collision avec la signature ; la gestion suit toujours les tags ou +n.
+- Réduire puis agrandir progressivement la fenêtre près du basculement :
+  aucun tremblement à largeur fixe, même préfixe et même placement au retour
+  à une largeur donnée. Le centrage ne doit jamais cacher un tag supplémentaire.
+- Tester les transitions de compteur +9/+10, un premier tag très long et le
+  popover ouvert pendant le redimensionnement.
+- Vérifier le zoom 125/150/200 %, les thèmes et les fenêtres basses. À viewport
+  CSS 1920 × 1080 et police standard, le workspace nominal mesure 1000 px.
+  La page défile lorsque son minimum de 38rem ne tient plus.
+- Sous 1100 px puis à 375/320 px, conserver tags sur leur rangée, titre limité
+  à deux lignes sur petit mobile et ordre Lecteur, Note, Transcription.
+- Vérifier sélection, Undo/Redo, défilement de note, volet et modale de tags,
+  lecteur YouTube/Local et capture en cours pendant ces interactions.
+
+Cette recette remplace les anciennes attentes de séparateur et de budget
+984 px. Le passage au 16:9 reste hors périmètre ; aucun push.
+
+Validation automatisée : build Vite et make test réussis (tests Go, vet, build,
+TypeScript). La suite complète passe 391 tests. Après ajout du cas où un tag
+est plus court que +1 et affinage du balayage au pixel près, les 36 tests ciblés
+du bandeau, de la navigation, de la fiche et du workspace passent également.
+Le parcours progressif contrôle 85 étapes de 1920 à 1100 px et retour, puis
+82 étapes au pixel près autour d'une transition ; plusieurs frames à largeur
+fixe doivent donner le même résultat, ainsi que le trajet inverse.
+Les captures à 1920, 1440, 1100 et 375 px, plus un cas effectivement centré,
+ont été inspectées. L'avertissement Vite préexistant de chunk > 500 kB demeure.
+Le vrai zoom navigateur et les lecteurs réels restent à valider dans Brave.
+
+
+## Workspace tranche B — validation Brave attendue
+
+Les recommandations et trois arbitrages ont été validés : surfaces 16:9 avec
+exception commune de 200 px sur petit mobile, texte de transcription desktop
+d'au moins 12rem hors outils et messages, informations non bloquantes après la
+surface. Cette tranche remplace les anciennes contraintes de hauteur et autorise
+les quatre coins arrondis, sans recadrage. Les trois composants restent séparés,
+avec un cadre droit jointif sur desktop et les trois cadres habituels sur mobile.
+
+Incréments : règles de surface communes ; barres compactes et cadre jointif ;
+répartition verticale, tests et documentation. Le masquage récupère l'espace,
+les erreurs restent près du lecteur et les popovers peuvent dépasser les panneaux.
+Le système global de notifications flash reste une tranche indépendante, sans
+abstraction préparatoire ici.
+
+Recette Brave :
+- À 1920 × 1080, 1920 × 800, 1440 × 900 et 1100 px, vérifier le cadre droit
+  continu, ses barres compactes, le bord à bord horizontal et les quatre coins.
+- Comparer YouTube et Local : mêmes dimensions et position en situation normale,
+  aucune déformation. Essayer de vrais contenus 16:9, 4:3 et portrait, leurs bandes
+  noires, les commandes natives, le plein écran et le retour au workspace.
+- À 1099, 900, 375 et 320 px, vérifier les surfaces identiques, le minimum de
+  200 px sur petit mobile et l'ordre Lecteur, Note, Transcription avec trois cadres.
+- Afficher recherche, résultats, messages et une erreur de transcription puis
+  réduire la hauteur : 12rem de texte restent accessibles, la page peut défiler,
+  sans second ascenseur dans le panneau de transcription.
+- Avec de longues notes et transcriptions, vérifier leurs défilements indépendants,
+  puis Note/Informations : pas de page agrandie par le document masqué.
+- Masquer un lecteur en cours de lecture puis le révéler : pause respectée,
+  espace rendu à la transcription. Ouvrir Informations lorsque la vidéo est
+  masquée : popover visible au-dessus de la transcription, focus et Échap corrects.
+- Vérifier transfert de position, références temporelles, citations, captures
+  en cours, Undo/Redo et autosauvegarde. Un message de démarrage bloqué ou de
+  transfert incertain apparaît après la surface ; un réessai reste accessible.
+- Tester clair/sombre, zoom 125/150/200 % et navigation clavier des commandes,
+  infobulles, recherche et dialogues.
+
+La séparation déplaçable reste future. À largeur constante, le 16:9 pleine
+largeur impose une hauteur unique : son futur réglage demandera un arbitrage
+sur la largeur de la surface ou le ratio de son contenant. Aucun mécanisme de
+redimensionnement, préférence persistée ou nouvelle API n'est ajouté.
+
+Validation automatisée de la tranche B : 394 tests Playwright réussis ; make test
+réussi (Go, vet, build, TypeScript) et build Vite réussi. Les bascules comparent
+les rectangles Local/YouTube à 1920, 1440, 1100, 1099, 900, 375 et 320 px, avec
+un vrai média local et YouTube simulé. Les nouveaux parcours vérifient les 12rem
+avec recherche et erreur, le défilement sur fenêtre basse, le cadre jointif,
+l'ancrage du popover masqué et la stabilité de la surface lors d'un message
+informatif. Les régressions de longue note et d'onglet Informations passent.
+Captures desktop/mobile et fenêtres basses inspectées. L'avertissement Vite
+préexistant de chunk > 500 kB subsiste. Brave reste requis pour les médias réels
+4:3/portrait, YouTube, plein écran et zoom. Aucun push effectué.

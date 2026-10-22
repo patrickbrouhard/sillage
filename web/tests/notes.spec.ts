@@ -105,6 +105,7 @@ test('note historique : lecture et départ sans écriture, sauvegarde explicite 
   await expect.poll(() => writes).toBe(1)
   await page.clock.runFor(5_000)
   await expect(page.getByLabel('État de la note')).toHaveText('Enregistré')
+  await expect(page.locator('.note-save button')).toHaveAttribute('data-save-state', 'success')
   await page.clock.runFor(25_000)
   expect(writes).toBe(1)
   expect(stored.revision).toBe(8)

@@ -12,6 +12,8 @@ export interface NoteSnapshot {
   message: string
   remote: Note | null | undefined
   editorVersion: number
+  /** Compte les écritures confirmées, y compris après réconciliation ; exclut les lectures. */
+  confirmationCount: number
 }
 
 interface Sent { content: string; revision: number }
@@ -25,7 +27,7 @@ function normalizeLineEndings(content: string): string {
 export class NoteSession {
   private state: NoteSnapshot = {
     loaded: false, content: '', confirmed: null, phase: 'loading', message: '',
-    remote: undefined, editorVersion: 0,
+    remote: undefined, editorVersion: 0, confirmationCount: 0,
   }
   private listeners = new Set<() => void>()
   private lifetime = new AbortController()
@@ -137,7 +139,13 @@ export class NoteSession {
   private confirm(note: Note) {
     this.uncertain = null
     // Ne jamais réinjecter la réponse dans CodeMirror : la saisie peut avoir avancé.
-    this.publish({ confirmed: note, phase: 'ready', message: '', remote: undefined })
+    this.publish({
+      confirmed: note,
+      phase: 'ready',
+      message: '',
+      remote: undefined,
+      confirmationCount: this.state.confirmationCount + 1,
+    })
   }
 
   private async write(sent: Sent) {

@@ -144,8 +144,8 @@ transcription à droite. La hauteur du workspace est adaptée à l'espace dispon
 note et transcription défilent indépendamment. Masquer le lecteur libère la place
 pour la transcription. Sur écran étroit, la page défile normalement dans l'ordre
 lecteur, note, transcription. Le responsive et les interactions des autres panneaux
-ne démontent jamais la session de note. Les métadonnées complètes restent dans une
-section secondaire repliable. Aucun panneau redimensionnable ou détachable ici.
+ne démontent jamais la session de note. Les métadonnées complètes restent accessibles dans l'onglet Informations
+de la zone Note. Aucun panneau redimensionnable ou détachable ici.
 
 La première source YouTube exploitable dans l'ordre REST est la source de travail
 commune : identité externe pour le lecteur, ID Sillage pour la transcription.
@@ -153,12 +153,30 @@ Elle est identifiée dans l'interface. Ce choix de présentation ne persiste auc
 source principale et ne nécessite pas de sélecteur. Sans source compatible, note
 et métadonnées restent accessibles.
 
-L'en-tête de la fiche est compact : bandeau Sillage réduit sans slogan, titre
-puis tags et action de classement sur une même ligne lorsque la largeur le permet.
-La date d'ajout est consultable dans « Métadonnées et sources ». La provenance
-YouTube figure discrètement dans la barre du lecteur ; la source de travail et son identifiant
-externe sont détaillés dans les métadonnées, sans répéter le titre au-dessus du
-workspace. La bibliothèque et la page d'ajout conservent leur bandeau habituel.
+L'en-tête principal compact accueille le titre de la première source REST,
+indépendamment de la source de travail du lecteur. Le titre est tronqué sur une
+ligne desktop et deux lignes maximum sur mobile ; Informations en présente le
+texte complet, sélectionnable. Aucun titre personnalisé n'est implémenté.
+La bibliothèque et la page d'ajout conservent leur bandeau et leur footer ;
+la fiche n'affiche plus de footer.
+
+Les tags de la vidéo sont dans l'en-tête, indépendamment des deux onglets locaux
+Note et Informations. Note est sélectionné à l'ouverture d'une fiche.
+Les flèches gauche/droite, Home et End changent d'onglet et y gardent le focus.
+La session, le mode Édition/Lecture, la sélection, Undo/Redo, le défilement et
+l'autosauvegarde sont conservés. Une bascule seule ne provoque aucune écriture.
+Erreurs de note et conflits restent signalés lorsque Informations est ouvert ;
+le dialogue de départ reste accessible et les captures acceptées se terminent.
+
+Une citation depuis Informations conserve toutes les conditions d'admissibilité :
+lecture et absence de position choisie dans une note non vide restent des refus.
+Seule une insertion acceptée révèle Note puis focalise l'insertion ; aucun refus
+ne change l'onglet et aucune commande n'est envoyée au lecteur.
+
+Informations reprend la date d'ajout Sillage, toutes les sources et leurs
+descriptions, la source de travail et les propriétés du fichier local actuellement
+consulté. Le popover du lecteur reste contextuel à YouTube/Local avec ses actions
+existantes. Les nouvelles fonctions de gestion ne sont pas incluses.
 
 ### 5.2 Comptes de publication et personnes
 
@@ -1205,7 +1223,7 @@ Après fermeture de la confirmation, le focus revient à Informations.
 Seule une suppression confirmée depuis Local décharge le média ; depuis YouTube,
 le lecteur distant reste intact. Une suppression refusée permet de recharger le local.
 
-La section Métadonnées et sources reste intégralement accessible : toutes les sources,
+L'onglet Informations de la zone Note conserve intégralement les métadonnées : toutes les sources,
 leurs descriptions et les informations internes à Sillage ne sont pas remplacées
 par le popover de la source de travail.
 
@@ -1266,16 +1284,151 @@ prépare désormais un départ. Les commandes refusées avant disponibilité ne 
 toujours pas différées. Masquage en cours, erreurs, identités vidéo/source et
 conservation de la session de note restent protégés.
 
-## Panneau vidéo — phase 2 bord à bord
+## Panneau vidéo — surfaces 16:9 et tranche B
 
-Les surfaces YouTube et Local rejoignent les bords intérieurs gauche, droit et
-inférieur du panneau Lecteur. L'en-tête et les messages gardent leur espacement
-de 1rem, avec la séparation existante de .75rem avant la surface. Les coins
-inférieurs de la vidéo suivent ceux du panneau.
+Les surfaces YouTube et Local rejoignent les bords intérieurs gauche et droit
+du panneau Lecteur. Elles ont la même largeur et une hauteur de largeur × 9/16,
+sans plafond lié au viewport. Le minimum commun de 200 px demeure sur petit
+mobile pour respecter le minimum du lecteur YouTube : sous environ 356 px de
+largeur de surface, le contenant n'est donc pas strictement 16:9.
+Local utilise object-fit: contain sur fond noir ; aucune déformation ni recadrage.
+YouTube conserve le rendu interne de son iframe.
 
-Les ratios, hauteurs minimales, limites de hauteur et seuils responsive restent
-inchangés. Une largeur accrue ne garantit pas une image agrandie sur desktop :
-les bandes noires restent possibles, sans recadrage. Le popover Informations
-peut dépasser le panneau, notamment lorsque le lecteur est masqué.
-Les états sans surface retrouvent le padding inférieur normal.
-Aucun changement de comportement des lecteurs ou du workspace.
+Les quatre coins de la surface sont arrondis au rayon intérieur du cadre.
+Seule la surface YouTube découpe son iframe ; le panneau garde overflow visible
+pour le popover Informations, ancré sous sa barre de commandes.
+
+Sur desktop à partir de 1100 px, Lecteur et Transcription partagent un cadre
+apparent : pas de gap vertical, pas de bordure à leur jonction, fond commun,
+arrondis supérieurs du Lecteur et inférieurs de Transcription. Les composants et
+les trois enfants de la grille restent séparés. Le ratio des colonnes 1.2/1 est
+conservé. Sans source exploitable, le panneau d'information garde son cadre complet.
+Sur mobile, les trois cadres distincts et l'ordre Lecteur, Note, Transcription
+restent inchangés.
+
+Les commandes desktop conservent des cibles de 40 px, 16 px d'espacement latéral
+et environ 8 px au-dessus/dessous. La barre Lecteur mesure normalement 58 px
+avec la bordure du switch ; celle de Transcription a un minimum de 56 px.
+Elles peuvent grandir avec leurs contenus. La recherche reste une rangée distincte.
+
+Le texte de transcription dispose d'un minimum desktop de 12rem, en plus de
+ses commandes, recherche et messages. Lui seul défile dans le panneau ; les
+contenus longs n'agrandissent pas la grille. Lorsque les minima des panneaux ne
+tiennent plus, la page défile. Une transcription absente n'impose pas de surface
+de texte vide. Masquer la vidéo conserve les commandes et libère sa hauteur
+pour la transcription, avec les règles de pause existantes.
+
+Les messages informatifs non bloquants du lecteur sont placés après la surface,
+notamment transfert indisponible et démarrage bloqué. Les erreurs avec action
+restent près du lecteur. Aucun système global de notifications n'est introduit.
+Une erreur ou un état sans média peut modifier la hauteur du panneau ; aucune
+réserve noire artificielle n'est imposée.
+
+## Fiche vidéo — budget vertical de la tranche A
+
+À partir de 1100 px, le workspace occupe l'espace sous l'en-tête réel avec
+8 px en haut et 16 px en bas. La largeur maximale de 1720 px, les paddings latéraux
+de 32 px, l'écart de 16 px et le rapport 1.2/1 des pistes restent inchangés.
+Une hauteur minimale de workspace de 38rem permet le défilement de page sur
+fenêtre basse. Informations garde son défilement ; Note dispose d'une surface de défilement
+commune à Édition et Lecture, sous les commandes. Les tags restent sur une ligne
+compacte dans l'en-tête, avec débordement dans un popover.
+Sous 1100 px, la page garde son flux normal Lecteur → Note → Transcription.
+
+Le budget nominal à viewport 1920 × 1080 est : en-tête 56 px, marge 8 px,
+workspace 1000 px et marge basse 16 px. Ce n'est pas une garantie liée à la
+résolution physique de l'écran : barres navigateur, zoom, police et messages
+modifient l'espace réellement disponible. La tranche B applique désormais les règles 16:9 décrites ci-dessus.
+
+## Fiche vidéo — finitions de la zone Note (tranche A)
+
+Sur les fiches seules, le bandeau est transparent et sans bordure horizontale.
+La signature compacte « [Logo] Sillage » conserve son lien nommé « Sillage, accueil ».
+Le symbole mesure 29 × 20 px, le texte 20 px, avec un espacement de 4 px et
+une hauteur cliquable minimale de 40 px.
+Aucun séparateur vertical ne précède le titre. Sur mobile, logo et titre restent sur
+la même ligne, les tags passent dessous ; le titre garde deux lignes maximum.
+Le sélecteur de thème appartient au volet de navigation global. Les autres pages conservent leur identité et leur footer.
+
+Les onglets locaux sont transparents, soulignés lorsqu'ils sont sélectionnés,
+avec une séparation horizontale fine. Le contour de focus clavier est distinct
+du soulignement actif. Leur fonctionnement clavier ne change pas.
+
+La barre de commandes de Note reste au-dessus de la surface défilante desktop.
+Sur mobile, la page défile naturellement et les commandes sont sticky dans Note.
+Le fond de rédaction rejoint les bords intérieurs et les coins inférieurs du
+panneau, sans cadre d'éditeur intermédiaire. Le texte reste centré sur 700 px
+utiles maximum, avec 1rem de marges et la typographie existante. Édition et Lecture
+utilisent le même conteneur de défilement, sans scroll vertical CodeMirror imbriqué.
+Les messages d'erreur restent près des commandes ; la résolution détaillée du
+conflit est accessible par son bouton et reste dans le contenu.
+
+La disquette à droite demeure interactive au repos. Une disquette plus visible
+avec un point indique les modifications non confirmées. Le spinner accompagne
+les sauvegardes automatiques et manuelles, y compris les réessais existants.
+La coche dure cinq secondes seulement après une confirmation réelle de tout le
+texte courant. Une nouvelle modification ou sauvegarde l'efface immédiatement ;
+Undo ne la réactive pas. Une confirmation d'un ancien texte pendant une saisie
+affiche les modifications en attente, jamais une coche globale. Un clic sans
+écriture ne crée ni ne prolonge la coche. Une création explicite vide ou une
+normalisation LF explicite réellement confirmée peut en revanche la produire.
+
+L'échec affiche une croix rouge et un message persistant ; le conflit affiche
+un triangle et un accès à sa résolution. Ni l'un ni l'autre ne disparaît après
+cinq secondes. La couleur n'est pas le seul signal. L'infobulle accessible au
+survol et au focus annonce l'état, la dernière révision confirmée et sa date/heure
+serveur ; Échap la ferme. L'état est aussi annoncé dans une région status.
+Le retour dans Note ne relance pas la durée de confirmation.
+
+
+## En-tête, classement et navigation superposée
+
+Le hamburger précède le logo sur toutes les pages. Son icône mesure 24 × 24 px
+avec un trait de 2 px dans une cible de 40 × 40 px. L'en-tête utilise toute la
+largeur disponible avec 16 px de marge intérieure latérale, sans marge en vw. Il ouvre un volet gauche
+superposé, fermé par défaut et sans état d'ouverture mémorisé. Il contient les
+liens Bibliothèque et Ajouter une vidéo, puis le choix Clair / Sombre / Système.
+Aucun emplacement interactif fictif pour les paramètres ou le compte.
+Le volet ne redimensionne pas les panneaux et ne commande pas les lecteurs.
+Son ouverture rend l'arrière-plan inerte ; Tab reste dans le volet, Échap,
+le bouton de fermeture et un clic extérieur le ferment. Une navigation ferme
+d'abord le volet pour laisser les protections de départ de la note s'afficher.
+
+Sur les fiches, le bandeau transparent contient hamburger, signature Sillage,
+titre et tags. Le titre conserve la première source REST et sa troncature CSS.
+Sur desktop, le titre intégral est prioritaire, sans plafond de 70ch ou de 62 %.
+L'accès minimal aux tags (+n et gestion) reste réservé avant sa troncature.
+Les tags utilisent l'espace restant ; un titre très long peut tous les masquer
+derrière +n. Le groupe titre/tags est centré sur la surface de page hors gouttière
+lorsque sa largeur réelle le permet sans perdre de contenu. Sinon, il est aligné
+à gauche après la signature. Le texte du titre reste toujours aligné à gauche. Sous 1100 px, les tags occupent une ligne distincte sur toute la largeur
+du bandeau ; à 600 px et moins, le titre garde deux lignes maximum.
+Le titre complet reste consultable et copiable dans Informations.
+
+Les tags sont des pilules neutres, sans icône ni suppression intégrée.
+Chaque lien ouvre le filtre existant de la bibliothèque. Le nombre visible
+dépend des largeurs réelles, sans quota : conserver le plus long préfixe de
+l'ordre REST qui tient avec le compteur +n. Ne pas sauter un nom long pour
+afficher un tag court suivant. Si aucun tag ne tient, afficher seulement +n
+et le bouton de gestion. Sans tags, conserver le bouton Ajouter des tags.
+
++n ouvre un popover de consultation des tags masqués, avec leurs noms complets
+pouvant revenir à la ligne. Les liens sont accessibles par Tab ; Échap ferme
+le popover et rend le focus au compteur. Le clic extérieur le ferme également.
+Un changement de liste ou du nombre visible ferme cette consultation ; un lien
+focalisé qui disparaît de la ligne rend le focus à un accès encore visible.
+Le bouton distinct Gérer les tags ouvre la modale existante, seule responsable
+des ajouts et retraits. Les tags ne prennent plus de place au-dessus des onglets
+Note / Informations. Les couleurs individuelles restent une évolution future.
+
+Le bouton de gestion suit directement la dernière pilule ou le compteur +n,
+avec 6 px d'espacement. Le budget de largeur du groupe
+est indépendant de la largeur du préfixe visible.
+
+Le bandeau vidéo desktop a une hauteur minimale de 56 px et 8 px de padding
+vertical autour des commandes de 40 px ; il peut grandir avec la typographie.
+Le calcul des tags utilise toujours la largeur disponible après la navigation,
+jamais la zone centrée plus étroite. Le placement ne change donc ni le titre
+visible ni le préfixe de tags retenu. Le centrage n'est pas garanti sur les
+fiches très chargées, même sur grand écran. La disposition sous 1100 px demeure
+celle du bandeau à plusieurs rangées, sans hauteur fixe.

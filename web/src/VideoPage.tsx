@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { createPortal, flushSync } from 'react-dom'
 import { useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
@@ -56,13 +57,25 @@ function SourceDetails({ source, index, working }: { source: VideoSource; index:
 }
 
 /** Relit une fiche par son identité Sillage, sans dépendre de la navigation précédente. */
-function VideoDetail({ id }: { id: string }) {
+function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | null }) {
   const note = useRef<VideoNoteHandle>(null)
   const player = useRef<PlayerHandle>(null)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const [tab, setTab] = useState<'note' | 'information'>('note')
+  const tabButtons = useRef<Array<HTMLButtonElement | null>>([])
+
+  /** Révèle la note avant que l'insertion acceptée mesure et focalise CodeMirror. */
+  function revealNote() {
+    flushSync(() => setTab('note'))
+    tabButtons.current[0]?.focus({ preventScroll: true })
+  }
   const source = state.status === 'ready' ? workSource(state.video.sources) : undefined
   const download = useVideoDownload(Number(id), source?.id)
+  // Le titre suit la première source REST, indépendamment de la source de travail.
+  const title = state.status === 'ready' ? state.video.sources[0]?.title || 'Vidéo sans titre'
+    : state.status === 'error' ? state.missing ? 'Vidéo introuvable' : 'Impossible d’ouvrir cette vidéo'
+    : 'Fiche vidéo'
   /** Point d'entrée commun : le lecteur décide de la disponibilité et du défilement. */
   function navigate(startMs: number): string {
     return player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.'
@@ -95,11 +108,18 @@ function VideoDetail({ id }: { id: string }) {
 
   return (
     <>
-      <title>{`${state.status === 'ready' ? state.video.sources[0]?.title || 'Vidéo' : 'Fiche vidéo'} · Sillage`}</title>
+      <title>{title + ' · Sillage'}</title>
+      {/* Le portail garde les données dans la fiche : aucun titre miroir ni requête supplémentaire. */}
+      {titleHost && createPortal(<>
+        <div className="header-video-title">
+          <h1 id="video-title" title={title}>{title}</h1>
+          <span className="header-title-measure" aria-hidden="true" inert>{title}</span>
+        </div>
+        {state.status === 'ready' && <VideoTags title={title} videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />}
+      </>, titleHost)}
       {state.status === 'loading' && <div className="state-panel" role="status">Chargement de la vidéo…</div>}
       {state.status === 'error' && (
         <div className="state-panel error" role="alert">
-          <h1>{state.missing ? 'Vidéo introuvable' : 'Impossible d’ouvrir cette vidéo'}</h1>
           <p>{state.message}</p>
           {!state.missing && <button className="button" onClick={() => {
             setState({ status: 'loading' })
@@ -109,27 +129,83 @@ function VideoDetail({ id }: { id: string }) {
       )}
       {state.status === 'ready' && (
         <>
-          <h1 className="video-title">{state.video.sources[0]?.title || 'Vidéo sans titre'}</h1>
-          <VideoTags videoID={state.video.id} tags={state.video.tags} onChange={updateTags} />
           <div className={`video-workspace${source ? '' : ' without-source'}`}>
             {source ? <VideoPlayer key={`player-${source.id}`} videoID={state.video.id} source={source} download={download} ref={player} />
               : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
-              <Suspense fallback={<p role="status">Chargement de l’éditeur…</p>}><VideoNote ref={note} videoID={state.video.id}
-                onNavigate={reference => {
-                  if (reference.videoID !== state.video.id) return 'Cette référence concerne une autre vidéo. Aucune navigation effectuée.'
-                  if (!source) return 'Navigation non effectuée : aucun lecteur disponible pour cette vidéo.'
-                  if (reference.sourceID !== source.id) return 'Cette référence concerne une autre source de cette vidéo. Aucune navigation effectuée.'
-                  return navigate(reference.startMs)
-                }}
-                getCaptureTarget={() => {
-                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
-                  return { videoID: state.video.id, sourceID: source.id, timestampMs: player.current.getCurrentTimeMs() }
-                }}
-                getTimeReference={() => {
-                  if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
-                  return temporalReference(state.video.id, source.id, player.current.getCurrentTimeMs())
-                }} /></Suspense>
+              <div className="note-tabs" role="tablist" aria-label="Contenu de la vidéo">
+                {(['note', 'information'] as const).map((value, index) => (
+                  <button
+                    key={value}
+                    ref={element => { tabButtons.current[index] = element }}
+                    className="button"
+                    role="tab"
+                    id={value + '-tab'}
+                    aria-controls={value + '-panel'}
+                    aria-selected={tab === value}
+                    tabIndex={tab === value ? 0 : -1}
+                    onClick={() => setTab(value)}
+                    onKeyDown={event => {
+                      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+                      event.preventDefault()
+                      const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index
+                      setTab(next === 0 ? 'note' : 'information')
+                      tabButtons.current[next]?.focus()
+                    }}
+                  >{value === 'note' ? 'Note' : 'Informations'}</button>
+                ))}
+              </div>
+              <Suspense fallback={
+                <section id="note-panel" className="note-panel" role="tabpanel"
+                  aria-labelledby="note-tab" tabIndex={0} hidden={tab !== 'note'}>
+                  <p role="status">Chargement de l’éditeur…</p>
+                </section>
+              }>
+                <VideoNote
+                  ref={note}
+                  videoID={state.video.id}
+                  visible={tab === 'note'}
+                  onReveal={revealNote}
+                  onNavigate={reference => {
+                    if (reference.videoID !== state.video.id) return 'Cette référence concerne une autre vidéo. Aucune navigation effectuée.'
+                    if (!source) return 'Navigation non effectuée : aucun lecteur disponible pour cette vidéo.'
+                    if (reference.sourceID !== source.id) return 'Cette référence concerne une autre source de cette vidéo. Aucune navigation effectuée.'
+                    return navigate(reference.startMs)
+                  }}
+                  getCaptureTarget={() => {
+                    if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
+                    return { videoID: state.video.id, sourceID: source.id, timestampMs: player.current.getCurrentTimeMs() }
+                  }}
+                  getTimeReference={() => {
+                    if (!source || !player.current) throw new Error('Temps indisponible : aucun lecteur disponible.')
+                    return temporalReference(state.video.id, source.id, player.current.getCurrentTimeMs())
+                  }}
+                />
+              </Suspense>
+              <section
+                id="information-panel"
+                className="note-panel video-information"
+                role="tabpanel"
+                aria-labelledby="information-tab"
+                tabIndex={0}
+                hidden={tab !== 'information'}
+              >
+                <h2>Titre complet</h2>
+                <p className="full-video-title">{title}</p>
+                <p className="muted">Ajoutée le <time dateTime={state.video.created_at}>
+                  {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
+                </time></p>
+                {source && <LocalFileDetails download={download} />}
+                {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
+                {state.video.sources.map((videoSource, index) => (
+                  <SourceDetails
+                    key={videoSource.id}
+                    source={videoSource}
+                    index={index}
+                    working={videoSource.id === source?.id}
+                  />
+                ))}
+              </section>
             </div>
             {source && <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id}
               onCite={excerpt => {
@@ -138,22 +214,6 @@ function VideoDetail({ id }: { id: string }) {
               }}
               onNavigate={navigate} />}
           </div>
-          <details className="video-metadata">
-            <summary>Métadonnées et sources</summary>
-            <p className="muted">Ajoutée le <time dateTime={state.video.created_at}>
-              {new Date(state.video.created_at).toLocaleDateString('fr-FR')}
-            </time></p>
-            {source && <LocalFileDetails download={download} />}
-            {state.video.sources.length === 0 && <p>Aucune source disponible.</p>}
-            {state.video.sources.map((videoSource, index) => (
-              <SourceDetails
-                key={videoSource.id}
-                source={videoSource}
-                index={index}
-                working={videoSource.id === source?.id}
-              />
-            ))}
-          </details>
         </>
       )}
     </>
@@ -161,7 +221,7 @@ function VideoDetail({ id }: { id: string }) {
 }
 
 /** Réinitialise la fiche au changement d'identité pour ne jamais afficher l'ancienne vidéo. */
-export function VideoPage() {
+export function VideoPage({ titleHost }: { titleHost: HTMLElement | null }) {
   const { videoId = '' } = useParams()
-  return <VideoDetail key={videoId} id={videoId} />
+  return <VideoDetail key={videoId} id={videoId} titleHost={titleHost} />
 }

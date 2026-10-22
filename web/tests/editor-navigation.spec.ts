@@ -225,7 +225,7 @@ for (const mac of [false, true]) {
         await expect(target).toHaveCSS('cursor', normalCursor)
 
         // Entrée avec le modificateur déjà maintenu, sans nouveau keydown dans l'éditeur.
-        await page.getByRole('heading', { name: 'Note', exact: true }).hover()
+        await page.getByRole('tab', { name: 'Note', exact: true }).hover()
         await page.keyboard.down(modifier)
         await expect(target).toHaveCSS('cursor', normalCursor)
         await target.hover()

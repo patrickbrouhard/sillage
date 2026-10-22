@@ -334,3 +334,95 @@ Keep header/messages padded, panel overflow visible for popovers, and rounded
 lower media corners. Existing ratios, height limits and responsive breakpoints
 remain unchanged. No player behavior, workspace structure or persistence changes.
 The previous phase-1 padding freeze is superseded only for this presentation work.
+
+## Video workspace — tranche A
+
+The title belongs in the main header, rendered from the existing VideoDetail data;
+retain first REST source semantics, one line desktop and up to two lines mobile.
+No title_override implementation. Only video pages omit the footer.
+Keep three grid children and mobile order player, note, transcript. Tags belong in the header, above the workspace; local Note/Informations tabs
+remain at the top of the note panel. Keep VideoNote, NoteSession and CodeMirror mounted,
+with mode, selection, history and independent panel scroll preserved. Autosave
+continues while hidden; errors/conflicts and the leave dialog stay accessible.
+An accepted citation reveals Note before insertion/focus; refusals never switch tabs.
+Capture completion must not reveal the note or steal focus. Move all existing
+metadata into Informations, retaining the contextual player popover and one shared
+download consultation. No generic tabs, domain/API changes or title editing.
+Player dimensions remain unchanged; 16:9 is tranche B after manual Brave validation.
+
+Desktop height uses the actual header row plus remaining viewport space, with
+8px top and 16px bottom main padding and a 38rem workspace minimum allowing page overflow.
+Keep current grid widths and the 1100px breakpoint; mobile retains normal flow.
+Tranche A requires manual Brave validation before starting tranche B.
+
+## Video workspace — Note presentation refinements
+
+Video pages use a transparent header, compact home logo with visible Sillage wordmark and no
+vertical title separator. Keep local line tabs and their keyboard behavior.
+Note controls stay outside the shared edit/read scroll surface on desktop; mobile
+uses page scrolling and sticky controls. Keep the 700px useful text width and
+CodeMirror identity. Do not restore nested editor frames or vertical scrollbars.
+
+NoteSession.confirmationCount is presentation-only and increments exclusively on
+actual PUT/reconciliation confirmations, never initial reads or server adoption.
+Save feedback waits until running is released and all current edits are confirmed.
+Partial confirmations and no-op saves never create success; success lasts five
+seconds and is invalidated by edits/new saves. Errors/conflicts remain persistent
+and accessible, including under Informations. Keep save rules/timing unchanged.
+Brave validation remains pending; no player sizing changes before tranche B.
+
+
+## Header tags and global navigation
+
+Keep one stable VideoDetail portal for the first-REST-source title and loaded tags.
+No mirrored video state or extra header requests. Neutral tag pills preserve REST
+order; measure the longest fitting prefix plus the exact +n counter, without a
+fixed tag limit or skipping long names. Keep measurement copies inert, hidden and
+contained. Hidden tags use a native consultation-only popover; the existing
+management dialog retains mutations and its existing refreshes. Restore visible
+focus when resizing hides a focused link. Below 1100px tags use their own header
+row; the title remains capped at two lines on small mobile screens.
+
+SiteNavigation is global and independent of video data. Use a closed-by-default
+native modal overlay, without resizing the workspace or commanding players.
+Keep keyboard focus contained, Escape/outside dismissal, and stable scrollbar
+space. Close before router navigation can open the note leave guard. Keep the
+single theme selector in the navigation; no fake account/settings features or
+persisted drawer state. CodeMirror and player identities remain unchanged.
+Manual Brave validation is pending; no 16:9 work is authorized by this increment.
+
+
+## Compact header and conditional centering
+
+Desktop video headers use a 56px minimum, 8px vertical padding and no title
+separator. Keep the workspace minimum at 38rem; main reserves 24px total vertical
+padding and continues to overflow naturally on short windows. Player sizes do
+not change. Keep mobile layout below 1100px and the two-line small-mobile title.
+
+Prioritize the full title without 70ch/62% caps; reserve tag management and +n
+before truncating it. Compute the maximal tag prefix using all space after the
+navigation, independently of placement. Center the actual title/tag group only
+when it fits without collisions or reducing visible content; otherwise align
+left. Never feed the centered width back into the tag budget. Keep the portal,
+CodeMirror, players, focus protections and existing API reads unchanged.
+
+
+## Video workspace — tranche B authorized and implemented, Brave validation pending
+
+This supersedes earlier freezes on player dimensions and the lower-corners-only
+presentation. YouTube and Local share full-width 16:9 surfaces without viewport
+height clamps, retaining a common 200px minimum on small mobile. Use contain for
+local video, black bars for nonmatching formats, and four rounded media corners.
+Keep the player panel overflow visible and anchor its information popover below
+the actual toolbar. Nonblocking informational messages follow the surface; errors
+with actions remain near the player. No global notifications or preparatory bus.
+
+Keep the three React/grid children, desktop column ratio 1.2/1 and mobile order.
+Join the right-panel borders only on desktop with a transcript, without a row gap
+or horizontal divider. Keep full standalone borders when no transcript exists.
+Desktop controls remain about 40px, with flexible 56–58px bars. Transcript text
+keeps a 12rem minimum excluding controls/search/messages; only text scrolls.
+Allow page overflow when these minima exceed the viewport. Size containment on
+desktop scrolling documents excludes their text length from intrinsic sizing,
+without changing sessions or minimum writing space. Hiding releases media space.
+Do not add a resizable separator or persist dimensions in this slice.

@@ -1,3 +1,4 @@
+import { selectTheme } from './navigationHelpers'
 import { test, expect } from './fixtures'
 
 test('typographie commune, largeur utile et code monospace sans écriture ni remontage', async ({ page, request }, info) => {
@@ -22,7 +23,7 @@ test('typographie commune, largeur utile et code monospace sans écriture ni rem
   page.on('request', req => { if (req.method() === 'PUT' && req.url().endsWith('/note')) writes++ })
   await page.setViewportSize({ width: 1920, height: 1200 })
   await page.goto(`/videos/${video.id}`)
-  await page.getByLabel('Thème', { exact: true }).selectOption('dark')
+  await selectTheme(page, 'dark')
   const editor = page.getByRole('textbox', { name: 'Note Markdown' })
   await expect(editor).toBeVisible()
   const node = await editor.elementHandle()

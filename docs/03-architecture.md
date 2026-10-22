@@ -1418,13 +1418,145 @@ polling, relance, changement de mode ou coupure du son. L'API ne cite pas
 explicitement seekTo parmi les appels couverts par ce signal ; son absence
 n'est pas une preuve de démarrage. Les erreurs fatales restent distinctes.
 
-### Présentation bord à bord du lecteur
+### Présentation du lecteur et panneau droit — tranche B
 
-La classe player-surface identifie les deux conteneurs déjà existants ; aucun
-nouvel arbre React ni changement de cycle de vie. Le CSS étend seulement video
-et youtube-frame de 2rem avec marges latérales négatives. Le padding inférieur
-du panneau est retiré uniquement lorsqu'une surface non masquée contient le média.
-Le panneau reste en overflow visible ; seule la youtube-frame découpe son iframe
-aux coins inférieurs. video porte directement son arrondi. Le rayon intérieur
-soustrait le pixel de bordure au rayon du panneau.
-Les règles de ratio, hauteur et responsive sont conservées.
+player-surface conserve son cycle de vie. Les règles de hauteur clamp liées au
+viewport, y compris l'ancien seuil Local à 900 px, sont supprimées. local-video
+et youtube-frame suivent la largeur avec aspect-ratio: 16 / 9 et min-height: 200px.
+L'iframe remplit ce contenant ; Local utilise object-fit: contain. Les marges
+latérales négatives existantes conservent le bord à bord, avec quatre coins
+arrondis. Le panneau ne découpe pas les popovers.
+
+Le popover Informations est enfant de player-toolbar, positionnée relativement :
+top: 100% suit la hauteur réelle des commandes, y compris lors d'un retour à la
+ligne. Son contenu, focus, fermeture et opérations restent inchangés.
+Les statuts de transfert et de démarrage sont rendus après le média ; les erreurs
+avec réessai restent à proximité. Aucun bus de notification ou abstraction flash.
+
+La grille desktop conserve ses trois enfants et ses pistes 1.2fr/1fr. En présence
+de Transcription, row-gap: 0 et les bordures jointives créent un cadre unique.
+Les lignes sont auto / minmax(auto, 1fr), avec un minimum intrinsèque du workspace.
+Le plancher de la ligne main conserve 38rem + 24px ; les minima réels peuvent
+l'excéder sur fenêtre basse. Sans transcription, le cadre du Lecteur reste complet.
+
+La transcription garde ses commandes et messages non réductibles ; son texte
+utilise flex: 1 1 0, min-height: 12rem et overflow: auto. Le panneau externe est
+en overflow visible. contain: size sur les surfaces défilantes desktop
+note-content, video-information et transcript-content exclut la longueur des
+documents du minimum intrinsèque de la grille ; leurs minima explicites restent
+pris en compte. Aucun éditeur ou lecteur n'est remonté. Les styles de continuité
+du cadre, de minimum de transcription et de containment sont limités au desktop.
+
+## Fiche vidéo — onglets locaux (tranche A)
+
+App fournit un emplacement DOM stable dans l'en-tête ; VideoDetail y rend son h1 et VideoTags
+par portail depuis son unique lecture REST. Le démontage de la fiche retire son
+titre et ses tags, y compris lors d'une navigation avec requête précédente encore en cours.
+Il n'existe ni état miroir du titre ni requête d'en-tête.
+
+VideoDetail possède uniquement le choix Note/Informations et les boutons d'onglet.
+VideoNote reste monté ; son panneau est masqué avec hidden, tandis que le dialogue
+de départ et le signalement d'erreur restent hors de ce panneau. NoteSession garde
+les écritures, conflits et protections de navigation. Informations conserve son défilement desktop ; dans Note, note-content est
+le propriétaire commun du défilement des modes Édition et Lecture. Le mobile conserve le flux lecteur, note, transcription.
+
+MarkdownEditor contrôle l'admissibilité d'une citation avant d'appeler la révélation
+synchrone de Note. La transaction isolée et le focus s'appliquent ensuite à la même
+vue visible. Une bascule ordinaire demande seulement une nouvelle mesure CodeMirror,
+sans prendre le focus du bouton d'onglet. Les captures en cours gardent leur handle
+et leur ancrage ; leur retour réseau ne révèle pas Note.
+
+La hauteur desktop est allouée par deux lignes CSS au niveau de la page :
+en-tête intrinsèque puis main avec minimum de calc(38rem + 24px) (workspace 38rem + paddings).
+La grille des trois zones reste unique ; aucune colonne React supplémentaire,
+aucun observateur de hauteur ni hauteur d'en-tête codée en JavaScript.
+
+### Présentation de la note et confirmations observables
+
+VideoNote conserve son arborescence stable : note-controls contient la barre et
+les messages, note-content contient l'éditeur masquable, la lecture et la résolution
+du conflit. Le CSS affecte la hauteur et le défilement sans recréer EditorView.
+cm-scroller reste en overflow visible ; l'ancêtre note-content porte le défilement
+desktop. Le mobile conserve le flux de page avec commandes sticky. Le panneau
+extérieur ne découpe pas les infobulles et peut agrandir la page en cas de nombreux
+messages. Les tags sont désormais dans l'en-tête.
+
+NoteSnapshot expose confirmationCount, compteur de session en mémoire incrémenté
+uniquement par confirm : PUT réussi ou réconciliation d'une réponse perdue.
+Le GET initial et l'adoption explicite de la version serveur ne l'incrémentent pas.
+Aucun champ persistant ni contrat REST ne change.
+
+NoteSaveButton observe les publications de la session pour la rétroaction de
+cinq secondes. confirm publie avant la libération de running : le composant
+attend la publication finale et l'absence de toute modification non confirmée.
+Une confirmation partielle est consommée sans coche. Le compteur évite de déduire
+un succès de la résolution de save(), qui peut aussi terminer sans écriture,
+sur erreur ou conflit. Les règles, délais, réessais et protections de NoteSession
+restent inchangés ; le temporisateur de présentation est nettoyé au démontage.
+
+### Débordement des informations — contenant des textes accessibles
+
+Le panneau video-information est positionné relativement pour contenir les
+descendants absolus, notamment le libellé sr-only « nouvel onglet » des liens
+externes. Sans ce contenant, ce texte invisible peut échapper à overflow auto
+et augmenter le scrollHeight de la page. La correction conserve le défilement
+interne, le libellé accessible et le défilement de page des fenêtres basses.
+
+
+### Navigation globale et tags adaptatifs
+
+App monte SiteNavigation indépendamment des données vidéo. Le volet utilise
+dialog.showModal : fond inerte, boucle de focus locale, fermeture par Échap,
+bouton ou clic sur le fond. Le verrou de défilement conserve la gouttière
+réservée par scrollbar-gutter: stable, sans déplacement du workspace.
+Les liens ferment synchroniquement le dialogue avant React Router, afin de ne
+pas concurrencer le dialogue de protection de NoteSession. Un changement de
+location ferme aussi le volet. ThemeSelector reste son unique instance et
+conserve ses règles existantes. Aucun état de lecteur ou d'éditeur n'est déplacé.
+
+Le portail stable appartient toujours à VideoDetail : pas de contexte métier
+global, de copie de données ni de nouvelle requête de titre ou de tags.
+VideoTags conserve sa modale, TagEditor et les relectures existantes à l'ouverture
+de la gestion. VideoTagList ne reçoit que la liste chargée et un rappel de focus.
+
+VideoTagList mesure les pilules et les compteurs dans des copies non interactives,
+inert et aria-hidden, découpées dans un contenant positionné de hauteur nulle.
+ResizeObserver suit le groupe de classement, le bouton de gestion et ces copies.
+Le budget soustrait la largeur du bouton et son espacement ; la liste visible
+prend seulement sa largeur de contenu, sans rétroaction sur le budget disponible. Le calcul teste les préfixes dans l'ordre REST avec la largeur
+exacte du compteur correspondant, y compris aux transitions +9/+10/+100.
+Il n'existe ni tri local ni nombre maximal fixe de tags. Les règles CSS gardent
+min-width: 0 et une piste racine minmax(0, 1fr), empêchant les noms longs de
+forcer la largeur de page.
+
+Le popover natif auto reste non modal et ne contient que des liens de filtre.
+Sa position est bornée au viewport, ses noms reviennent à la ligne et sa hauteur
+permet un défilement interne. Un défilement extérieur le ferme ; son propre
+défilement reste possible. Les changements de liste ou de préfixe visible
+ferment une consultation périmée et restaurent au besoin un focus visible.
+Les copies de mesure n'agrandissent jamais le document. Aucun appel réseau
+n'accompagne une ouverture du popover ou un redimensionnement.
+
+
+### Centrage conditionnel du bandeau compact
+
+Sur desktop, App regroupe la navigation et la signature dans header-navigation.
+Une grille réserve deux pistes latérales symétriques quand le portail tient au
+centre ; en repli, celui-ci occupe les deux dernières pistes et s'aligne à gauche.
+Le portail DOM reste identique. Sur mobile, display: contents restitue la grille
+existante et l'ordre du titre et des tags.
+
+measureHeaderLayout mesure la surface intérieure du bandeau, la navigation et
+une copie inerte du titre en largeur naturelle. Cette copie est cachée et découpée,
+sans contribution au débordement du document. Le budget disponible après la
+navigation réserve d'abord la gestion et, si nécessaire, le compteur de tous les
+tags, ou les tags eux-mêmes lorsque leur totalité est moins large que le compteur.
+Le titre prend le reste au maximum de sa largeur naturelle.
+
+VideoTagList conserve le calcul du plus long préfixe dans ce budget indépendant.
+Il en déduit la largeur réellement occupée, puis le choix centré/gauche et les
+variables CSS de taille. Aucun calcul n'utilise la largeur du groupe rendu pour
+décider de son propre budget desktop. ResizeObserver suit les entrées, notamment
+la copie du titre et la navigation. Les mesures sont nettoyées au démontage ;
+aucune requête, persistance ou modification de session métier n'est ajoutée.
+Un popover ouvert est repositionné même si seul le placement change.

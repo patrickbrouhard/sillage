@@ -471,3 +471,43 @@ for (const platform of ['Win32', 'Linux x86_64']) {
     await expect(editor).toHaveText('')
   })
 }
+
+for (const content of ['', 'Avant']) {
+  test('citation acceptée depuis Informations révèle la même note : ' + (content || 'vide'), async ({ page, request }) => {
+    const { editor, noteURL } = await openWorkspace(page, request, content)
+    const node = await editor.elementHandle()
+    if (content) {
+      await editor.click()
+      await page.keyboard.press('Control+End')
+    }
+    await page.getByRole('tab', { name: 'Informations', exact: true }).click()
+    await selectText(page)
+    await page.getByRole('button', { name: 'Citer dans la note' }).click()
+    await expect(page.getByRole('tab', { name: 'Note', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(editor).toBeFocused()
+    await expect(editor).toContainText('onjour')
+    expect(await node!.evaluate(element => element === document.querySelector('.cm-content'))).toBe(true)
+    await page.keyboard.press('Control+z')
+    await expect(editor).toHaveText(content)
+    await page.keyboard.press('Control+Shift+Z')
+    await page.keyboard.press('Control+s')
+    await expect.poll(() => saved(request, noteURL)).toContain('onjour')
+    expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
+  })
+}
+
+for (const reading of [false, true]) {
+  test('citation refusée laisse Informations ouvert : lecture ' + reading, async ({ page, request }) => {
+    const { editor, noteURL } = await openWorkspace(page, request, 'Note inchangée')
+    if (reading) {
+      await editor.click()
+      await page.getByRole('button', { name: 'Lecture', exact: true }).click()
+    }
+    await page.getByRole('tab', { name: 'Informations', exact: true }).click()
+    await selectText(page)
+    await page.getByRole('button', { name: 'Citer dans la note' }).click()
+    await expect(page.getByRole('tab', { name: 'Informations', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('status').filter({ hasText: reading ? 'Passez en Édition' : 'Placez le curseur' })).toBeVisible()
+    expect(await saved(request, noteURL)).toBe('Note inchangée')
+  })
+}
