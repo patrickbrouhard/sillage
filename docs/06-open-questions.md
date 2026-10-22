@@ -401,7 +401,7 @@ Questions ouvertes :
 - Comment exporter les notes en conservant ou en adaptant les références propres à Sillage ?
 - Faut-il distinguer un export Markdown de consultation et une sauvegarde complète réimportable ?
 - Comment garantir la portabilité des notes, assets, clips et métadonnées ?
-- Comment restaurer l'ensemble des données sur une autre installation ?
+- Quelle procédure guidée ou automatisée proposer pour restaurer l'ensemble des données sur une autre installation ? La [restauration manuelle à froid](../README.md#sauvegarde-à-froid-sous-docker) est déjà documentée.
 - Faut-il proposer un outil de migration ou d'import depuis d'autres applications ?
 
 ### 8.3 Distribution et intégrations

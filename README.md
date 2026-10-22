@@ -50,21 +50,24 @@ docker compose -f deployments/docker/compose.yaml down
 
 ### Configuration Docker
 
-Le fichier `deployments/docker/.env` permet de conserver la configuration locale. Exemple, à adapter :
+Depuis la racine du dépôt, copier [l'exemple commenté](deployments/docker/.env.example), puis adapter ses valeurs :
 
-```dotenv
-SILLAGE_DATA_DIR=/home/utilisateur/.local/share/sillage
-SILLAGE_UID=1000
-SILLAGE_GID=1000
-SILLAGE_PORT=8080
-SILLAGE_CONTAINER_NAME=sillage
-SILLAGE_LOG_LEVEL=INFO
-SILLAGE_LOG_FORMAT=json
-SILLAGE_POST_TIMEOUT=60s
-SILLAGE_DOWNLOAD_TIMEOUT=6h
+```bash
+cp deployments/docker/.env.example deployments/docker/.env
 ```
 
-`SILLAGE_DATA_DIR` doit être un **chemin absolu vers un dossier déjà existant** et accessible à l'UID/GID du conteneur. Compose ne crée pas ce dossier automatiquement. Le fichier `.env` de ce répertoire est ignoré par Git ; des variables déjà exportées dans le shell peuvent prévaloir sur son contenu.
+Compose lit automatiquement `deployments/docker/.env` avec les commandes `-f deployments/docker/compose.yaml` ci-dessus. Seule **`SILLAGE_DATA_DIR` est obligatoire** ; toutes les autres variables disposent de valeurs par défaut dans le [fichier Compose](deployments/docker/compose.yaml).
+
+La configuration minimale recommandée comprend :
+
+| Variable | Valeur par défaut | Usage |
+| --- | --- | --- |
+| `SILLAGE_DATA_DIR` | Aucune (obligatoire) | Chemin absolu du répertoire de données |
+| `SILLAGE_UID` | `1000` | UID du processus dans le conteneur ; adapter avec `id -u` |
+| `SILLAGE_GID` | `1000` | GID du processus dans le conteneur ; adapter avec `id -g` |
+| `SILLAGE_PORT` | `8080` | Port HTTP sur l'hôte |
+
+Le répertoire de données doit **exister avant le démarrage** et permettre la lecture, l'écriture et la traversée à l'UID/GID configuré. Compose ne le crée pas automatiquement. Le fichier `.env` est ignoré par Git ; les variables déjà exportées dans le shell prévalent sur son contenu.
 
 Par défaut, les données sont montées dans `/app/data` ; le processus s'exécute sans privilèges root, et le service HTTP écoute sur le port `8080` dans le conteneur. Pour une deuxième installation sur le même hôte, choisir des valeurs distinctes pour le port, le nom du conteneur et le répertoire de données.
 
@@ -127,7 +130,12 @@ data/
 
 ### Sauvegarde à froid sous Docker
 
+Compose lit le `.env`, mais n'exporte pas ses variables dans le shell. Pour `tar`, définir `SILLAGE_DATA_DIR` dans le terminal avec **le même chemin que celui utilisé par Compose** :
+
 ```bash
+export SILLAGE_DATA_DIR="/home/utilisateur/.local/share/sillage"  # À adapter
+test -d "${SILLAGE_DATA_DIR:?Définir le répertoire de données}" || exit 1
+
 docker compose -f deployments/docker/compose.yaml stop
 tar -C "$SILLAGE_DATA_DIR" -czf "$HOME/sillage-backup-$(date +%Y%m%d-%H%M%S).tar.gz" .
 docker compose -f deployments/docker/compose.yaml start
