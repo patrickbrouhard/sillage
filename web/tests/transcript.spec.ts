@@ -1,6 +1,7 @@
 import { expect, test } from './fixtures'
+import { selectTheme } from './navigationHelpers'
 import { groupTranscript } from '../src/transcriptPresentation'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 /** Prépare une fiche dont la source est indépendante du contenu de la base de tests. */
 async function mockVideo(page: Page, id = 42) {
@@ -9,6 +10,14 @@ async function mockVideo(page: Page, id = 42) {
     sources: [{ id: id + 10, provider: 'youtube', external_id: 'abcdefghijk', title: `Vidéo ${id}` }],
   } }))
   await page.route(`**/api/v1/videos/${id}/note`, route => route.fulfill({ status: 404, json: { error: { code: 'note_not_found' } } }))
+}
+
+/** Mesure le document pour ne pas confondre défilement du viewport et déplacement de barre. */
+async function documentBox(locator: Locator) {
+  return locator.evaluate(element => {
+    const box = element.getBoundingClientRect()
+    return { x: box.x + scrollX, y: box.y + scrollY, width: box.width, height: box.height }
+  })
 }
 
 const localTranscript = {
@@ -184,6 +193,7 @@ for (const [code, status, message] of [
     await expect(page.getByText('Texte conservé', { exact: true })).toBeVisible()
     release()
     await expect(page.getByRole('alert')).toContainText(message)
+    await expect(page.locator('.transcript-acquisition.failure')).toBeVisible()
     await expect(page.getByText('Texte conservé', { exact: true })).toBeVisible()
     expect(reads).toBe(1)
   })
@@ -251,6 +261,7 @@ test('réponse tardive d’une autre fiche ignorée pendant une acquisition', as
   await expect(page.getByText('Contenu enregistré')).toBeVisible()
   release()
   await expect(page.getByText('Ancien résultat')).toHaveCount(0)
+  await expect(page.locator('.transcript-acquisition.success, .transcript-acquisition.failure')).toHaveCount(0)
   expect(posts).toBe(1)
 })
 
@@ -260,4 +271,195 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/download', route => route.fulfill({
     json: { status: 'not_downloaded', media_file: null, error: null },
   }))
+})
+
+for (const hasContent of [false, true]) {
+  for (const outcome of ['success', 'failure'] as const) {
+    test(`retour d’acquisition cinq secondes : contenu ${hasContent}, ${outcome}`, async ({ page }) => {
+      await mockVideo(page)
+      let release!: () => void
+      const pending = new Promise<void>(resolve => { release = resolve })
+      let posts = 0
+      await page.route('**/transcript', async route => {
+        if (route.request().method() === 'POST') {
+          posts++
+          await pending
+          return route.fulfill(outcome === 'success' ? { json: localTranscript }
+            : { status: 502, json: { error: { code: 'transcript_fetch_failed' } } })
+        }
+        return route.fulfill(hasContent ? { json: localTranscript }
+          : { status: 404, json: { error: { code: 'transcript_not_found' } } })
+      })
+      await page.goto('/videos/42')
+      const command = page.locator('.transcript-acquisition')
+      await expect(command).toBeEnabled()
+      await expect(command).not.toHaveClass(/success|failure|progress/)
+      await page.clock.install()
+      await page.clock.pauseAt(new Date(Date.now() + 1000))
+      const initialBox = await command.boundingBox()
+      await command.focus()
+      await page.keyboard.press('Enter')
+      await expect(command).toHaveClass(/progress/)
+      await expect(command).toHaveAttribute('aria-busy', 'true')
+      await expect(command).toHaveAccessibleDescription(/Acquisition en cours/)
+      expect(await command.boundingBox()).toEqual(initialBox)
+      if (hasContent) await expect(page.getByText('Contenu enregistré', { exact: true })).toBeVisible()
+      release()
+      await expect(command).toHaveClass(new RegExp(outcome))
+      await expect(command).toBeEnabled()
+      await expect(command).toHaveAttribute('aria-busy', 'false')
+      await expect(command).toHaveAccessibleDescription(outcome === 'success' ? /confirmée/ : /Échec/)
+      if (outcome === 'success') await expect(page.getByRole('status').filter({ hasText: 'Acquisition de la transcription confirmée.' })).toBeAttached()
+      const completedBox = await command.boundingBox()
+      if (hasContent) expect(completedBox).toEqual(initialBox)
+      await page.clock.runFor(4900)
+      await expect(command).toHaveClass(new RegExp(outcome))
+      await page.clock.runFor(200)
+      await expect(command).not.toHaveClass(/success|failure|progress/)
+      expect(await command.boundingBox()).toEqual(completedBox)
+      await expect(command).toHaveAccessibleName(hasContent || outcome === 'success' ? 'Actualiser la transcription' : 'Récupérer la transcription')
+      if (outcome === 'failure') await expect(page.getByRole('alert')).toContainText('auprès de YouTube')
+      expect(posts).toBe(1)
+    })
+  }
+}
+
+for (const kind of ['saved', 'absent', 'read-error', 'malformed', 'unknown-error']) {
+  test(`réponse incertaine sans symbole de résultat : ${kind}`, async ({ page }) => {
+    await mockVideo(page)
+    let posts = 0
+    let reads = 0
+    let release!: () => void
+    const pending = new Promise<void>(resolve => { release = resolve })
+    await page.route('**/transcript', async route => {
+      if (route.request().method() === 'POST') {
+        posts++
+        if (kind === 'malformed') return route.fulfill({ json: { language: 'fr', items: [] } })
+        if (kind === 'unknown-error') return route.fulfill({ status: 503, json: { error: { code: 'unknown' } } })
+        return route.abort()
+      }
+      reads++
+      if (reads === 1) return route.fulfill({ json: localTranscript })
+      await pending
+      return route.fulfill(kind === 'absent'
+        ? { status: 404, json: { error: { code: 'transcript_not_found' } } }
+        : kind === 'read-error' ? { status: 500, json: { error: { code: 'internal_error' } } }
+        : { json: localTranscript })
+    })
+    await page.goto('/videos/42')
+    const command = page.locator('.transcript-acquisition')
+    await expect(command).toBeEnabled()
+    await command.click()
+    await expect(page.getByText('Résultat incertain : vérification de la transcription locale…')).toBeVisible()
+    await expect(command).toHaveClass(/progress/)
+    await expect(page.getByText('Contenu enregistré', { exact: true })).toBeVisible()
+    release()
+    await expect(page.getByRole('alert')).toBeVisible()
+    await expect(command).toBeEnabled()
+    await expect(command).not.toHaveClass(/success|failure|progress/)
+    await expect(page.getByRole('button', { name: 'Relire la transcription locale' })).toBeVisible()
+    expect(posts).toBe(1)
+    expect(reads).toBe(2)
+  })
+}
+
+test('lecture locale et nouvelle action ne réutilisent aucun ancien retour', async ({ page }) => {
+  await mockVideo(page)
+  let reads = 0
+  let posts = 0
+  let release!: () => void
+  let pending = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/transcript', async route => {
+    if (route.request().method() === 'POST') {
+      posts++
+      if (posts === 1) return route.fulfill({ status: 502, json: { error: { code: 'transcript_fetch_failed' } } })
+      await pending
+      return route.fulfill({ json: localTranscript })
+    }
+    reads++
+    if (reads === 1) await pending
+    return route.fulfill({ json: localTranscript })
+  })
+  await page.goto('/videos/42')
+  const command = page.locator('.transcript-acquisition')
+  await expect(page.getByText('Chargement de la transcription locale…')).toBeVisible()
+  await expect(command).toBeDisabled()
+  await expect(command).not.toHaveClass(/success|failure|progress/)
+  release()
+  await expect(command).toBeEnabled()
+  await expect(command).not.toHaveClass(/success|failure|progress/)
+  await command.click()
+  await expect(command).toHaveClass(/failure/)
+  await page.getByRole('button', { name: 'Relire la transcription locale' }).click()
+  await expect(command).toBeEnabled()
+  await expect(command).not.toHaveClass(/success|failure|progress/)
+  await command.click()
+  await expect(command).toHaveClass(/success/)
+  await page.clock.install()
+  await page.clock.pauseAt(new Date(Date.now() + 1000))
+  pending = new Promise<void>(resolve => { release = resolve })
+  await command.click()
+  await expect(command).toHaveClass(/progress/)
+  await expect(command).not.toHaveClass(/success|failure/)
+  await page.clock.runFor(5100)
+  release()
+  await expect(command).toHaveClass(/success/)
+  await page.clock.runFor(4900)
+  await expect(command).toHaveClass(/success/)
+  await page.clock.runFor(200)
+  await expect(command).not.toHaveClass(/success|failure|progress/)
+  expect(posts).toBe(3)
+  expect(reads).toBe(2)
+})
+
+test('rendu stable des retours en clair/sombre, desktop/mobile et mouvement réduit', async ({ page }, info) => {
+  await mockVideo(page)
+  let outcome = 'success'
+  let release!: () => void
+  let pending = Promise.resolve()
+  await page.route('**/transcript', async route => {
+    if (route.request().method() === 'POST') {
+      await pending
+      return route.fulfill(outcome === 'success' ? { json: localTranscript }
+        : { status: 502, json: { error: { code: 'transcript_fetch_failed' } } })
+    }
+    return route.fulfill({ json: localTranscript })
+  })
+  await page.goto('/videos/42')
+  const command = page.locator('.transcript-acquisition')
+  await expect(command).toBeEnabled()
+  await page.clock.install()
+  await page.clock.pauseAt(new Date(Date.now() + 1000))
+  for (const width of [1440, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    for (const theme of ['light', 'dark']) {
+      await selectTheme(page, theme)
+      await command.scrollIntoViewIfNeeded()
+      const initial = await documentBox(command)
+      const heading = page.locator('.transcript-heading')
+      const initialHeading = await documentBox(heading)
+      for (const result of ['success', 'failure']) {
+        outcome = result
+        pending = new Promise<void>(resolve => { release = resolve })
+        await command.click()
+        await expect(command).toHaveClass(/progress/)
+        await page.emulateMedia({ reducedMotion: 'reduce' })
+        await expect(command.locator('svg')).toHaveCSS('animation-name', 'none')
+        await page.emulateMedia({ reducedMotion: 'no-preference' })
+        await expect(command.locator('svg')).toHaveCSS('animation-name', 'capture-spin')
+        await heading.screenshot({ path: info.outputPath(`transcript-${width}-${theme}-progress-${result}.png`) })
+        release()
+        await expect(command).toHaveClass(new RegExp(result))
+        expect(await documentBox(command)).toEqual(initial)
+        expect(await documentBox(heading)).toEqual(initialHeading)
+        await heading.screenshot({ path: info.outputPath(`transcript-${width}-${theme}-${result}.png`) })
+        await page.clock.runFor(5100)
+        await expect(command).not.toHaveClass(/success|failure|progress/)
+        expect(await documentBox(command)).toEqual(initial)
+        expect(initial!.width).toBe(40)
+        expect(initial!.height).toBe(40)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      }
+    }
+  }
 })

@@ -1064,6 +1064,18 @@ L'en-tête regroupe « Transcription · LANGUE · automatique » et trois comman
 à icône : recherche, acquisition/actualisation et citation. La citation est la
 dernière action avant le contenu lorsque la recherche est repliée, afin de
 conserver le transfert clavier direct de la sélection vers son bouton.
+La commande d'acquisition garde sa cible de 40 px et son emplacement : téléchargement
+sans contenu, actualisation avec contenu, spinner pendant le POST et sa vérification
+locale éventuelle. Un succès confirmé par une réponse POST valide affiche une coche
+verte pendant cinq secondes ; une erreur serveur confirmée affiche une croix rouge
+pendant cinq secondes. Le bouton revient ensuite à l'icône correspondant au contenu
+réel, sans déplacement ni nouvelle requête. Une nouvelle action efface le retour
+précédent. Le chargement local initial et les lectures locales ne produisent aucun
+résultat d'acquisition ; une réponse incertaine, même suivie d'une relecture réussie,
+ne produit ni coche ni croix. Les erreurs et actions de reprise restent accessibles
+après disparition du symbole. Le nom accessible conserve l'action proposée,
+aria-busy signale l'acquisition et l'infobulle décrit le résultat ; le succès est
+également annoncé sans ajout de texte visible. Le spinner respecte le mouvement réduit.
 La date d'acquisition figure dans l'infobulle d'actualisation, accessible au
 survol et au focus ; Échap ferme les infobulles. Sans transcription, seul le
 titre est affiché et le panneau indique comment lancer la récupération.

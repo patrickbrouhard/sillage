@@ -355,12 +355,12 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 
 .video-player { position: relative; }
 .player-toolbar-actions { display: flex; flex-shrink: 0; gap: 0; }
-.download-command.progress svg { animation: capture-spin 1s linear infinite; }
-.download-command.success { color: light-dark(#18713a, #6fe69c); }
-.download-command.failure { color: light-dark(#b3261e, #ff9a91); }
+.download-command.progress svg, .transcript-acquisition.progress svg { animation: capture-spin 1s linear infinite; }
+.download-command.success, .transcript-acquisition.success { color: light-dark(#18713a, #6fe69c); }
+.download-command.failure, .transcript-acquisition.failure { color: light-dark(#b3261e, #ff9a91); }
 @media (prefers-reduced-motion: reduce) {
   .player-segments button { transition: none; }
-  .download-command.progress svg { animation: none; }
+  .download-command.progress svg, .transcript-acquisition.progress svg { animation: none; }
 }
 /* À 320 px, les trois icônes gardent leurs cibles de 40 px sur la même ligne. */
 @media (max-width: 359px) {
