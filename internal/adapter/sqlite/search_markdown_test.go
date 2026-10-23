@@ -32,3 +32,15 @@ func TestSearchMarkdownBlockSeparations(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchMarkdownCalloutBeforeSetext(t *testing.T) {
+	for _, underline := range []string{"---", "==="} {
+		got := markdownSearchText("> [!quote:tr](sillage://videos/1/sources/2?start_ms=3) Titre conservé\n> " + underline + "\n> Corps conservé\n")
+		if !strings.Contains(got, "Titre conservé") || !strings.Contains(got, "Corps conservé") {
+			t.Fatalf("lost callout text: %q", got)
+		}
+		if strings.Contains(got, "sillage://") || strings.Contains(got, "quote:tr") {
+			t.Fatalf("leaked callout metadata: %q", got)
+		}
+	}
+}

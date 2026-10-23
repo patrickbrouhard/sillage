@@ -20,6 +20,7 @@ func markdownSearchText(markdown string) string {
 	root := searchMarkdown.Parser().Parse(text.NewReader(source))
 	// Les en-têtes Sillage sont des métadonnées littérales, pas des liens Markdown.
 	// On les remplace avant la seconde analyse, uniquement dans un blockquote et hors code.
+	// Un soulignement setext peut donner un Heading au premier bloc avant ce retrait.
 	var headers []string
 	var ranges [][2]int
 	ast.Walk(root, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
@@ -27,7 +28,7 @@ func markdownSearchText(markdown string) string {
 			return ast.WalkContinue, nil
 		}
 		first := n.FirstChild()
-		if first == nil || first.Kind() != ast.KindParagraph || first.Lines().Len() == 0 {
+		if first == nil || first.Kind() == ast.KindCodeBlock || first.Kind() == ast.KindFencedCodeBlock || first.Kind() == ast.KindHTMLBlock || first.Lines().Len() == 0 {
 			return ast.WalkContinue, nil
 		}
 		line := first.Lines().At(0)
