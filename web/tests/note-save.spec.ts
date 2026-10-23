@@ -45,10 +45,21 @@ for (const automatic of [false, true]) {
     await editor.fill('Suite')
     await save.click()
     await expect(save).toHaveAttribute('data-save-state', 'success')
+    expect(stored).toMatchObject({ content_md: 'Suite', revision: 9 })
+    expect(writes).toBe(2)
+    // Dépasser les 500 ms de regroupement Undo sans faire de la sauvegarde une frontière d'historique.
+    await page.clock.runFor(600)
+    await expect(save).toHaveAttribute('data-save-state', 'success')
     await editor.fill('Encore')
     await expect(save).toHaveAttribute('data-save-state', 'pending')
     await editor.press('Control+z')
+    await expect(editor).toHaveText('Suite')
     await expect(save).toHaveAttribute('data-save-state', 'idle')
+    expect(writes).toBe(2)
+    await page.clock.runFor(2_100)
+    await expect(save).toHaveAttribute('data-save-state', 'idle')
+    expect(writes).toBe(2)
+    expect(stored).toMatchObject({ content_md: 'Suite', revision: 9 })
   })
 }
 

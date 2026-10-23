@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { test, expect } from './fixtures'
+import { selectTheme } from './navigationHelpers'
 
 const file = { id: 17, format: 'mkv', size: 2_000_000, duration_ms: 125_000, added_at: '2026-10-15T12:00:00.000Z', video_codec: 'av1', audio_codec: 'opus', width: 1080, height: 1920, fps: 29.97003, audio_language: 'en-US' }
 const absent = { status: 'not_downloaded', media_file: null, error: null }
@@ -27,7 +28,7 @@ test('téléchargement réel, rechargement et suppression préservent la connais
   await local(page)
   await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
   await expect.poll(async () => (await (await request.get(downloadURL)).json()).status).toBe('available')
-  await expect(page.locator('.download-indicator.success')).toBeVisible()
+  await expect(page.locator('.download-command.success')).toBeVisible()
   await expect(page.getByRole('button', { name: 'YouTube', exact: true })).toHaveAttribute('aria-pressed', 'true')
   const downloaded = (await (await request.get(downloadURL)).json()).media_file
   expect(downloaded).toMatchObject({ format: 'mkv', video_codec: 'h264', audio_codec: 'aac', width: 640, height: 360, audio_language: 'fr-FR' })
@@ -38,7 +39,7 @@ test('téléchargement réel, rechargement et suppression préservent la connais
   await expect(metadata).toContainText('fr-FR')
   await page.reload()
   await expect(page.getByRole('button', { name: 'Local', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.download-indicator.success')).toHaveCount(0)
+  await expect(page.locator('.download-command.success')).toHaveCount(0)
   await remove(page)
   await expect(page.getByRole('dialog')).toContainText('les notes, les transcriptions et les captures restent conservées')
   await page.getByRole('button', { name: 'Annuler', exact: true }).click()
@@ -78,14 +79,14 @@ test('modale, annulation et acquisition conservent lecture YouTube, focus, note 
   await local(page)
   await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).dblclick()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.locator('.download-indicator.progress')).toBeVisible()
+  await expect(page.locator('.download-command.progress')).toBeVisible()
   await local(page)
   await expect(page.getByRole('dialog')).toContainText('Téléchargement en cours')
   await expect(page.getByRole('button', { name: 'Fermer', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Télécharger le fichier local', exact: true })).toHaveCount(0)
   await page.keyboard.press('Escape')
   status = available
-  await expect(page.locator('.download-indicator.success')).toBeVisible()
+  await expect(page.locator('.download-command.success')).toBeVisible()
   expect(posts).toBe(1)
   expect(await iframe!.evaluate(n => n === document.querySelector('iframe'))).toBe(true)
   expect(await editorNode!.evaluate(n => n === document.querySelector('.cm-content'))).toBe(true)
@@ -104,10 +105,10 @@ test('réponse POST perdue relue sans nouvelle acquisition ; spinner retrouvé a
   await page.goto(`/videos/${video.id}`)
   await local(page)
   await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
-  await expect(page.locator('.download-indicator.progress')).toBeVisible()
+  await expect(page.locator('.download-command.progress')).toBeVisible()
   await page.reload()
-  await expect(page.locator('.download-indicator.progress')).toBeVisible()
-  await expect(page.locator('.download-indicator.failure')).toHaveCount(0)
+  await expect(page.locator('.download-command.progress')).toBeVisible()
+  await expect(page.locator('.download-command.failure')).toHaveCount(0)
   expect(posts).toBe(1)
 })
 
@@ -154,7 +155,7 @@ test('serveur occupé et suppression refusée restent visibles sans réessai aut
   await remove(page)
   await page.getByRole('button', { name: 'Confirmer la suppression' }).click()
   await expect(page.getByRole('alert').filter({ hasText: 'Une erreur interne empêche cette opération' })).toBeVisible()
-  await expect(page.locator('.download-indicator.failure')).toHaveCount(0)
+  await expect(page.locator('.download-command.failure')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Recharger le lecteur local' })).toBeVisible()
 })
 
@@ -163,20 +164,20 @@ test('résultats cinq secondes, anciens résultats neutres et erreur consultable
   let status: typeof absent | typeof failed = active
   await page.route('**/download', route => route.fulfill({ json: status }))
   await page.goto(`/videos/${video.id}`)
-  await expect(page.locator('.download-indicator.progress')).toBeVisible()
+  await expect(page.locator('.download-command.progress')).toBeVisible()
   await page.clock.install({ time: new Date('2030-01-01T00:00:00Z') })
   await page.clock.pauseAt(new Date('2030-01-01T00:00:01Z'))
   status = failed
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
-  await expect(page.locator('.download-indicator.failure')).toBeVisible()
+  await expect(page.locator('.download-command.failure')).toBeVisible()
   await page.clock.runFor(4_900)
-  await expect(page.locator('.download-indicator.failure')).toBeVisible()
+  await expect(page.locator('.download-command.failure')).toBeVisible()
   await page.clock.runFor(200)
-  await expect(page.locator('.download-indicator.failure')).toHaveCount(0)
+  await expect(page.locator('.download-command.failure')).toHaveCount(0)
   await expect(page.getByRole('alert')).toContainText('Le téléchargement du média a échoué')
   await page.reload()
   await expect(page.getByRole('button', { name: 'YouTube', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.download-indicator.failure')).toHaveCount(0)
+  await expect(page.locator('.download-command.failure')).toHaveCount(0)
   await local(page)
   await expect(page.getByRole('button', { name: 'Réessayer le téléchargement' })).toBeVisible()
 })
@@ -263,12 +264,12 @@ test('succès confirmé après POST perdu, durée cinq secondes et largeur const
   await page.clock.pauseAt(new Date('2030-01-01T00:00:01Z'))
   const width = (await page.getByRole('button', { name: 'Local', exact: true }).boundingBox())!.width
   await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
-  await expect(page.locator('.download-indicator.success')).toBeVisible()
+  await expect(page.locator('.download-command.success')).toBeVisible()
   expect((await page.getByRole('button', { name: 'Local', exact: true }).boundingBox())!.width).toBe(width)
   await page.clock.runFor(4_900)
-  await expect(page.locator('.download-indicator.success')).toBeVisible()
+  await expect(page.locator('.download-command.success')).toBeVisible()
   await page.clock.runFor(200)
-  await expect(page.locator('.download-indicator.success')).toHaveCount(0)
+  await expect(page.locator('.download-command.success')).toHaveCount(0)
   expect(posts).toBe(1)
 })
 
@@ -281,11 +282,11 @@ test('perte de consultation pendant activité : pas de résultat inventé ni de 
     return broken ? route.abort() : route.fulfill({ json: active })
   })
   await page.goto(`/videos/${video.id}`)
-  await expect(page.locator('.download-indicator.progress')).toBeVisible()
+  await expect(page.locator('.download-command.progress')).toBeVisible()
   broken = true
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await expect(page.getByRole('alert')).toContainText('Impossible')
-  await expect(page.locator('.download-indicator.success, .download-indicator.failure')).toHaveCount(0)
+  await expect(page.locator('.download-command.success, .download-command.failure')).toHaveCount(0)
   await local(page)
   await expect(page.getByRole('button', { name: 'Actualiser l’état' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Télécharger le fichier local', exact: true })).toHaveCount(0)
@@ -309,4 +310,147 @@ test('métadonnées inconnues des anciens médias sans deuxième consultation', 
   await page.getByRole('tab', { name: 'Informations', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Fichier local', exact: true })).toContainText('Inconnues')
   expect(gets).toBe(count)
+})
+
+for (const modalOpen of [false, true]) {
+  test(`commande indépendante : clavier et disparition avec modale ${modalOpen}`, async ({ page, request }) => {
+    const video = await (await request.post('/api/v1/videos', { data: { url: `https://youtu.be/trdlpolish${Number(modalOpen)}` } })).json()
+    let status: typeof absent | typeof available = absent
+    let posts = 0
+    await page.route('**/download', route => {
+      if (route.request().method() === 'POST') { posts++; status = active }
+      return route.fulfill({ json: status })
+    })
+    await page.goto(`/videos/${video.id}`)
+    const localButton = page.getByRole('button', { name: 'Local', exact: true })
+    const command = page.locator('.download-command')
+    const segments = page.getByRole('group', { name: 'Mode de lecture' })
+    await expect(command).toHaveAccessibleName('Télécharger la vidéo')
+    await expect(segments.locator('svg, .download-command')).toHaveCount(0)
+    await expect(segments.getByRole('button')).toHaveText(['YouTube', 'Local'])
+    const initialBox = await segments.boundingBox()
+    await localButton.focus()
+    await page.keyboard.press('Tab')
+    await expect(command).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('button', { name: 'Annuler', exact: true })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(command).toBeFocused()
+    expect(posts).toBe(0)
+    await page.keyboard.press('Space')
+    await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
+    await expect(command).toHaveClass(/progress/)
+    await expect(command).toBeFocused()
+    await page.clock.install()
+    await page.clock.pauseAt(new Date(Date.now() + 1000))
+    status = available
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect(command).toHaveClass(/success/)
+    if (modalOpen) {
+      await page.keyboard.press('Enter')
+      await expect(page.getByRole('dialog')).toContainText('Le fichier local est disponible')
+    }
+    await page.clock.runFor(4900)
+    await expect(command).toBeVisible()
+    await page.clock.runFor(200)
+    await expect(command).toHaveCount(0)
+    if (modalOpen) {
+      await expect(page.getByRole('button', { name: 'Fermer', exact: true })).toBeFocused()
+      await page.keyboard.press('Escape')
+    }
+    await expect(localButton).toBeFocused()
+    expect(await segments.boundingBox()).toEqual(initialBox)
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Informations', exact: true })).toBeFocused()
+    await expect(page.getByRole('button', { name: 'YouTube', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    expect(posts).toBe(1)
+  })
+}
+
+test('succès sans vol de focus et disparition externe sans faux résultat', async ({ page, request }) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trdlpolish2' } })).json()
+  let status: typeof absent | typeof available = active
+  await page.route('**/download', route => route.fulfill({ json: status }))
+  await page.goto(`/videos/${video.id}`)
+  await expect(page.locator('.download-command.progress')).toBeVisible()
+  const editor = page.getByRole('textbox', { name: 'Note Markdown' })
+  await editor.fill('Session conservée')
+  await page.clock.install()
+  await page.clock.pauseAt(new Date(Date.now() + 1000))
+  status = available
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.locator('.download-command.success')).toBeVisible()
+  await page.clock.runFor(5100)
+  await expect(page.locator('.download-command')).toHaveCount(0)
+  await expect(editor).toBeFocused()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Local', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.download-command')).toHaveCount(0)
+  status = absent
+  await page.reload()
+  const command = page.locator('.download-command')
+  await expect(command).toBeVisible()
+  await command.focus()
+  status = available
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(command).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Local', exact: true })).toBeFocused()
+  await expect(page.getByRole('button', { name: 'YouTube', exact: true })).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('barre stable : thèmes, mobile, transitions et mouvement réduit', async ({ page, request }, info) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trdlpolish3' } })).json()
+  let status: typeof absent | typeof available | typeof failed = absent
+  let posts = 0
+  await page.route('**/download', route => {
+    if (route.request().method() === 'POST') posts++
+    return route.fulfill({ json: status })
+  })
+  await page.goto(`/videos/${video.id}`)
+  const segments = page.getByRole('group', { name: 'Mode de lecture' })
+  const command = page.locator('.download-command')
+  await page.clock.install()
+  await page.clock.pauseAt(new Date(Date.now() + 1000))
+  for (const width of [1440, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    for (const theme of ['light', 'dark']) {
+      await selectTheme(page, theme)
+      const initial = await segments.boundingBox()
+      for (const next of [absent, active, failed, available]) {
+        status = next
+        await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+        if (next === active) await expect(command).toHaveClass(/progress/)
+        else if (next === failed) await expect(command).toHaveClass(/failure/)
+        else if (next === absent) await expect(command).toBeVisible()
+        else await expect(command).toHaveCount(0)
+        expect(await segments.boundingBox()).toEqual(initial)
+        const group = (await segments.boundingBox())!
+        const eye = (await page.getByRole('button', { name: 'Masquer la vidéo' }).boundingBox())!
+        const toolbar = (await page.locator('.player-toolbar').boundingBox())!
+        expect(eye.x + eye.width).toBeLessThanOrEqual(toolbar.x + toolbar.width)
+        expect(Math.abs(group.y + group.height / 2 - eye.y - eye.height / 2)).toBeLessThan(1)
+        if (await command.count()) {
+          const button = (await command.boundingBox())!
+          expect(button.x).toBeGreaterThan(group.x + group.width)
+          expect(button.x + button.width).toBeLessThan(eye.x)
+          expect(button.height).toBeGreaterThanOrEqual(40)
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+        await page.locator('.player-toolbar').screenshot({ path: info.outputPath(`polish-${width}-${theme}-${next.status}.png`) })
+        if (next === failed) {
+          await command.focus()
+          await page.clock.runFor(5100)
+          await expect(command).toHaveAccessibleName('Consulter le téléchargement')
+          await expect(command).toBeFocused()
+        }
+      }
+    }
+  }
+  status = active
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(command).toHaveClass(/progress/)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(command.locator('svg')).toHaveCSS('animation-name', 'none')
+  await expect(segments.getByRole('button').first()).toHaveCSS('transition-duration', '0s')
+  expect(posts).toBe(0)
 })

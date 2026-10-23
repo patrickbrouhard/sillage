@@ -13,6 +13,8 @@ test('affiche la bibliothèque persistée par Go et SQLite après redémarrage',
   await expect(card.getByText('Les ateliers du code')).toBeVisible()
   await expect(card.getByLabel('Tags').getByText('SQLite', { exact: true })).toBeVisible()
   await expect(card.getByText('2:05', { exact: true })).toBeVisible()
+  // Le chargement différé de l’image attend la carte si les autres tests l’ont repoussée hors écran.
+  await card.scrollIntoViewIfNeeded()
   await expect(card.getByText('Aucun aperçu disponible')).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { name: seed.sources[0].title })).toBeVisible()

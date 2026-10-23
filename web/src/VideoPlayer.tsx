@@ -1,4 +1,4 @@
-import { useEffect, useId, useImperativeHandle, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from 'react'
 import type { Ref } from 'react'
 import type { VideoSource } from './api'
 import type { useVideoDownload } from './useVideoDownload'
@@ -26,6 +26,12 @@ export function VideoPlayer({ videoID, source, download, ref }: {
   const [information, setInformation] = useState(false)
   const informationButton = useRef<HTMLButtonElement>(null)
   const localButton = useRef<HTMLButtonElement>(null)
+  const downloadButton = useRef<HTMLButtonElement | null>(null)
+  // React détache la ref avant de retirer le bouton : le focus ne tombe pas sur body.
+  const attachDownloadButton = useCallback((node: HTMLButtonElement | null) => {
+    if (!node && downloadButton.current === document.activeElement) localButton.current?.focus()
+    downloadButton.current = node
+  }, [])
   const popover = useRef<HTMLDivElement>(null)
   const downloadDialog = useRef<HTMLDialogElement>(null)
   const deleteDialog = useRef<HTMLDialogElement>(null)
@@ -82,7 +88,7 @@ export function VideoPlayer({ videoID, source, download, ref }: {
 
   /** Réutilise la même fenêtre depuis les segments, les informations et le panneau vide. */
   function showDownload() {
-    returnFocus.current = localButton.current
+    returnFocus.current = downloadButton.current === document.activeElement ? downloadButton.current : localButton.current
     setInformation(false)
     if (!downloadDialog.current?.open) downloadDialog.current?.showModal()
   }
@@ -121,17 +127,25 @@ export function VideoPlayer({ videoID, source, download, ref }: {
   const indicator = activity ? 'progress' : download.result
   const announcement = activity ? 'Téléchargement en cours sur le serveur…' :
     indicator === 'success' ? 'Téléchargement terminé.' : indicator === 'failure' ? 'Échec du téléchargement.' : ''
+  const showDownloadCommand = activity || Boolean(download.result) || download.state?.status !== 'available'
+  const downloadLabel = announcement || (download.error || download.state?.status === 'failed'
+    ? 'Consulter le téléchargement' : 'Télécharger la vidéo')
   const error = download.error || (download.state?.error ? downloadMessage(download.state.error.code) : '')
 
   return <section className="video-player" aria-label="Lecteur">
     <div className="player-toolbar">
-      <div className="player-segments" role="group" aria-label="Mode de lecture">
-        <button type="button" aria-pressed={selection?.mode === 'youtube'} disabled={!selection} onClick={() => selectMode('youtube')}>YouTube</button>
-        <button type="button" ref={localButton} aria-pressed={selection?.mode === 'local'} disabled={!selection}
-          onClick={() => selectMode('local')}>
-          <span aria-hidden="true" className={`download-indicator ${indicator ?? ''}`}>{indicator === 'success' ? '✓' : indicator === 'failure' ? '×' : ''}</span>
-          Local
-        </button>
+      <div className="player-mode-controls">
+        <div className="player-segments segmented-control" role="group" aria-label="Mode de lecture">
+          <button className="segmented-button" type="button" aria-pressed={selection?.mode === 'youtube'} disabled={!selection} onClick={() => selectMode('youtube')}>YouTube</button>
+          <button className="segmented-button" type="button" ref={localButton} aria-pressed={selection?.mode === 'local'} disabled={!selection}
+            onClick={() => selectMode('local')}>
+            Local
+          </button>
+        </div>
+        {showDownloadCommand && <IconButton ref={attachDownloadButton}
+          icon={activity ? 'spinner' : indicator === 'success' ? 'check' : indicator === 'failure' ? 'clear' : 'download'}
+          label={downloadLabel} className={`download-command ${indicator ?? ''}`} disabled={!selection}
+          aria-haspopup="dialog" onClick={showDownload} />}
       </div>
       <div className="player-toolbar-actions">
         <IconButton icon="info" label="Informations" ref={informationButton} disabled={!selection}
@@ -167,7 +181,12 @@ export function VideoPlayer({ videoID, source, download, ref }: {
         </>}
     <p className="player-switch-status" role="status">{message}</p>
     <VideoDownload download={download} ref={downloadDialog} onDelete={showDelete} onClose={() => {
-      if (!deleteDialog.current?.open) returnFocus.current?.focus()
+      // Le retour peut disparaître après un succès pendant que la modale est ouverte.
+      if (!deleteDialog.current?.open) {
+        const target = returnFocus.current
+        if (target?.isConnected) target.focus()
+        else localButton.current?.focus()
+      }
     }} />
     <dialog ref={deleteDialog} className="tag-dialog media-dialog" aria-labelledby={deleteTitleID}
       onClose={() => informationButton.current?.focus()}>

@@ -27,7 +27,7 @@ for (const state of [0, 1, 2]) {
     const node = await editor.elementHandle()
     await editor.click()
     await page.keyboard.press('Control+End')
-    await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+    await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
     await expect(editor).toBeFocused()
     await expect(editor.locator('.cm-temporal-reference')).toHaveText('◷12:42')
     await page.keyboard.type('Suite')
@@ -39,7 +39,7 @@ for (const state of [0, 1, 2]) {
       return { state: player.state, position: player.position, pauses: player.pauseCalls, calls: player.navigationCalls }
     })).toEqual({ state, position: 762.3454, pauses: 0, calls: [] })
     await page.getByRole('button', { name: 'Lecture', exact: true }).click()
-    await expect(page.getByRole('button', { name: '+ Temps', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Insérer le temps actuel', exact: true })).toBeDisabled()
     await expect(page.getByLabel('Lecture de la note')).toContainText('12:42')
     await expect(page.getByLabel('Lecture de la note').locator('a')).toHaveCount(0)
     await expect(page.getByLabel('Lecture de la note').getByRole('button', { name: '12:42', exact: true })).toBeVisible()
@@ -65,7 +65,7 @@ for (const backwards of [false, true]) {
     } else {
       for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowRight')
     }
-    const button = page.getByRole('button', { name: '+ Temps', exact: true })
+    const button = page.getByRole('button', { name: 'Insérer le temps actuel', exact: true })
     await button.focus()
     await button.press('Enter')
     const reference = `[1:01:01](sillage://videos/${video.id}/sources/${video.sources[0].id}?start_ms=3661790)`
@@ -89,8 +89,8 @@ test('lecteur masqué, zéro valide et clics répétés sans réafficher ni repr
   await expect(page.getByText('Chargement du lecteur YouTube…')).toHaveCount(0)
   await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
   await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
-  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
-  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+  await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
+  await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
   const reference = `[0:00](sillage://videos/${video.id}/sources/${video.sources[0].id}?start_ms=0) `
   await expect(editor).toHaveText('◷0:00 ◷0:00 ')
   await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(reference.repeat(2))
@@ -113,7 +113,7 @@ test('états refusés, valeurs invalides et exception sans insertion ni commande
       player.position = 762.345
       player.emitState(state)
     }, state)
-    await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+    await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
     await expect(page.getByRole('alert')).toContainText('Temps indisponible')
     await expect(editor).toHaveText('Intact')
   }
@@ -123,13 +123,13 @@ test('états refusés, valeurs invalides et exception sans insertion ni commande
       player.position = position
       player.emitState(2)
     }, position)
-    await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+    await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
     await expect(editor).toHaveText('Intact')
   }
   await page.evaluate(() => {
     window.youtubeTest.players.at(-1)!.getCurrentTime = () => { throw new Error('Unavailable') }
   })
-  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+  await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
   await expect(editor).toHaveText('Intact')
   expect((await (await request.get(noteURL)).json()).revision).toBe(1)
   expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
@@ -138,7 +138,7 @@ test('états refusés, valeurs invalides et exception sans insertion ni commande
 test('avant onReady puis erreur : aucun temps fictif ni insertion tardive après réessai', async ({ page, request }) => {
   await page.addInitScript(() => { window.youtubeTest = { players: [], autoReady: false, confirmPause: true } })
   const { editor } = await openNote(page, request, 'Intact')
-  const button = page.getByRole('button', { name: '+ Temps', exact: true })
+  const button = page.getByRole('button', { name: 'Insérer le temps actuel', exact: true })
   await button.click()
   await expect(page.getByRole('alert')).toContainText('Temps indisponible')
   await page.evaluate(() => {
@@ -166,10 +166,10 @@ test('masquage non confirmé puis destruction refusent l’insertion', async ({ 
     window.youtubeTest.players.at(-1)!.emitState(1)
   })
   await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
-  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+  await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
   await expect(editor).toHaveText('Intact')
   await page.clock.runFor(1100)
-  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+  await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
   await expect(editor).toHaveText('Intact')
   await expect(page.locator('.youtube-frame iframe')).toHaveCount(0)
 })

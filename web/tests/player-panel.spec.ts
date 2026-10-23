@@ -101,7 +101,7 @@ test('recette visuelle : téléchargement en cours et modale sans interruption',
   await page.goto('/videos/' + video.id)
   await page.getByRole('button', { name: 'Local', exact: true }).click()
   await page.getByRole('button', { name: 'Télécharger le fichier local', exact: true }).click()
-  await expect(page.locator('.download-indicator.progress')).toBeVisible()
+  await expect(page.locator('.download-command.progress')).toBeVisible()
   for (const width of [1440, 375, 320]) {
     for (const theme of ['light', 'dark']) {
       await page.setViewportSize({ width, height: 900 })

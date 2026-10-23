@@ -161,6 +161,9 @@ détachement du lecteur sont des pistes futures, pas des fonctions existantes.
   exécuter de HTML brut. Il n'existe pas de WYSIWYG généralisé.
 - Les fins de ligne sauvegardées sont canoniques **LF (`\n`)** ; les anciennes formes CRLF/CR sont normalisées à
   la sauvegarde uniquement, sans migration ni écriture provoquée par la lecture.
+- Le sélecteur à icônes utilise un crayon pour **Édition** et un livre ouvert pour **Lecture**. Ces noms
+  accessibles sont aussi les infobulles au repos. Le groupe « Mode de la note » contient deux boutons natifs
+  avec `aria-pressed` exclusifs ; un fond distinct indique le segment actif, avec un focus clavier visible.
 - La bascule Édition/Lecture ne modifie pas le document et ne détruit pas la session d'édition. Les interactions
   visuelles n'écrivent pas de contenu implicite.
 
@@ -204,13 +207,22 @@ La commande de sauvegarde reste visible et interactive au repos.
 
 ### 3.4 Présentation de la note
 
+- La barre permanente place les insertions Temps (`clock-plus`) et Capture (`camera`) à gauche ; la sauvegarde
+  puis le sélecteur Édition/Lecture à l'extrémité droite. Aucune commande ne flotte au survol du texte.
+- Les commandes à icônes conservent des cibles **40 × 40 px**, sur mobile aussi. Les insertions sont espacées de
+  4 px, le sélecteur et la sauvegarde de 8 px, les deux groupes d'au moins 12 px. Le sélecteur partage le fond
+  commun, les segments arrondis et l'état actif du sélecteur YouTube/Local. Celui de la note mesure **42 px**
+  de haut, bordure de 1 px comprise, sans padding extérieur ni ombre sur le segment actif ; le focus reste visible.
+- À 320/375 px, les commandes tiennent sur une ligne et les infobulles restent dans le viewport ; celles des
+  insertions sont alignées à gauche. Si de futurs outils nécessitent plus de place, les insertions peuvent se
+  répartir ; le groupe droit reste indivisible et peut passer entier à la ligne, aligné à droite.
 - Édition et Lecture utilisent la **police système, 16 px CSS, interligne 1,5**, avec une colonne de texte
   centrée de **700 px utiles maximum**, sans inclure les marges/paddings.
 - Le code inline et les blocs de code restent monospace dans les deux modes ; les styles du code, citations,
   listes et tableaux ne doivent pas altérer le Markdown source.
 - Sur desktop, les commandes restent hors du défilement du contenu et les deux modes partagent la même zone
   défilante, sans second ascenseur CodeMirror. Sur mobile, la page suit son flux naturel et les commandes Note
-  peuvent rester sticky.
+  restent sticky.
 - Les changements d'affichage, de largeur, de thème ou d'onglet ne doivent pas provoquer de remontage de
   l'éditeur, de déplacement intempestif du curseur ni d'enregistrement.
 
@@ -231,8 +243,8 @@ prise en charge aujourd'hui.
 
 ### 4.2 Insérer le temps courant
 
-- Le bouton **`+ Temps`**, disponible en Édition, relève immédiatement le temps admissible du **lecteur actif**,
-  sans lui envoyer de commande de lecture ni déclencher de bascule.
+- Le bouton **« Insérer le temps actuel »**, disponible en Édition, relève immédiatement le temps admissible
+  du **lecteur actif**, sans lui envoyer de commande de lecture ni déclencher de bascule.
 - La référence est insérée au curseur ou après la sélection sans la remplacer, suivie d'un espace ; le focus et
   le curseur reviennent après cet espace. Une insertion constitue une seule étape Undo/Redo et suit
   l'autosauvegarde normale.
@@ -316,8 +328,16 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 
 - La fiche consulte par défaut **le contenu local déjà acquis** ; elle ne lance ni découverte distante ni POST
   automatique.
-- Sans transcription, l'UI propose **Récupérer** ; si un contenu existe, **Actualiser**. Seule une action
-  explicite lance l'acquisition depuis YouTube.
+- Sans transcription, la commande **Récupérer** affiche une icône de téléchargement ; avec un contenu,
+  **Actualiser** affiche une icône d'actualisation. Seule une action explicite lance l'acquisition depuis YouTube.
+- Pendant l'acquisition et son éventuelle vérification locale, l'icône devient un spinner. Une réponse POST
+  valide confirme le succès (coche verte) ; une erreur serveur confirmée produit une croix rouge. Ces résultats
+  durent **5 s**, puis l'icône normale revient selon le contenu réellement disponible. Une nouvelle action
+  efface le retour précédent ; les lectures locales, dont celle d'ouverture, ne produisent aucun de ces résultats.
+- La commande conserve sa cible de **40 × 40 px** et sa place pendant les retours visuels. Son nom accessible
+  conserve l'action proposée ; l'infobulle indique l'activité ou le résultat et, avec un contenu, la date
+  d'acquisition. L'activité est exposée par `aria-busy`, le succès est annoncé sans texte visible supplémentaire
+  et les erreurs/actions de reprise restent accessibles après les 5 s. Le spinner respecte `prefers-reduced-motion`.
 - La sélection actuelle privilégie la piste automatique originale admissible à partir des signaux audio, avec
   des replis déterministes. La langue affichée est celle du contenu (sans suffixe technique `-orig`) et le
   libellé utilisateur indique « Transcription automatique ».
@@ -326,8 +346,9 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 - L'acquisition peut conserver l'ancien contenu pendant une actualisation ou après un échec. Absence, erreur de
   lecture locale, erreur distante, sélection ambiguë, délai dépassé et opération en cours ne sont pas présentés
   comme un seul état.
-- Une réponse POST incertaine peut être réconciliée par une nouvelle consultation locale, **sans relancer
-  automatiquement** l'acquisition.
+- Après une réponse POST incertaine, une nouvelle consultation locale peut retrouver le contenu enregistré,
+  **sans confirmer l'actualisation** : ni coche ni croix, même si cette lecture réussit, et aucun POST automatique.
+  Les réponses tardives d'une ancienne fiche sont ignorées, y compris pour les retours visuels.
 - L'interface actuelle n'offre pas de sélection manuelle de pistes, de sous-titres manuels, de traduction ou de
   STT.
 
@@ -424,8 +445,8 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
   instance**, puis prépare la nouvelle **sans autoplay**. La note, la transcription, les sélections et
   l'autosauvegarde ne sont pas démontées.
 - Une position seulement **préparée** après bascule peut être transférée de nouveau pendant la même session tant
-  qu'elle reste valable. Elle n'est pas un temps de visionnage confirmé et ne suffit jamais pour `+ Temps` ou `+
-  Capture`.
+  qu'elle reste valable. Elle n'est pas un temps de visionnage confirmé et ne suffit jamais pour
+  « Insérer le temps actuel » ou « Capturer une image de la vidéo ».
 - Une référence temporelle acceptée depuis YouTube `cued` remplace le départ préparé et constitue une vraie
   navigation. Une commande refusée n'est pas différée.
 - L'absence normale de temps avant première lecture n'est pas une erreur. En revanche, une position
@@ -445,9 +466,10 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 - Si le navigateur signale un blocage du démarrage, afficher un message non fatal invitant à cliquer Lecture ;
   supprimer ce message à la reprise. L'absence de signal de blocage ne doit pas donner lieu à une détection par
   délai ou à une nouvelle commande automatique.
-- Pour `+ Temps` et `+ Capture` avec YouTube, utiliser le temps **réellement annoncé par l'API dans un état
-  admissible**, jamais la cible d'un ancien `seekTo`. Une valeur momentanément ancienne reste possible : ne pas
-  attendre une égalité exacte, une tolérance arbitraire ou un événement de confirmation durable.
+- Pour « Insérer le temps actuel » et « Capturer une image de la vidéo » avec YouTube, utiliser le temps
+  **réellement annoncé par l'API dans un état admissible**, jamais la cible d'un ancien `seekTo`. Une valeur
+  momentanément ancienne reste possible : ne pas attendre une égalité exacte, une tolérance arbitraire ou un
+  événement de confirmation durable.
 - Local suit les contrôles du navigateur. L'affectation de `currentTime` ne lance pas la lecture ; pendant
   `seeking`, avant disponibilité des données ou après erreur, le temps ne doit pas être présenté comme confirmé.
 - Les commandes refusées restent sans effet différé. Après une erreur de lecture locale, rester en mode Local
@@ -457,7 +479,13 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 ### 6.4 Panneau et présentation du lecteur
 
 - Le panneau Lecteur reste monté pendant les bascules ; seules les surfaces de lecture propres aux modes
-  changent. La barre permanente comprend le sélecteur YouTube/Local, **Informations** et l'œil de masquage.
+  changent. La barre permanente comprend le sélecteur YouTube/Local, une commande de téléchargement indépendante
+  lorsque nécessaire (voir §6.5), **Informations** et l'œil de masquage.
+- Le sélecteur segmenté contient uniquement les libellés **YouTube** et **Local**, sans icône ni place réservée
+  à un indicateur. Ses boutons natifs exposent le choix actif par `aria-pressed` ; fond commun légèrement
+  contrasté, fond distinct pour le segment actif, segment inactif neutre et coins arrondis. Les cibles mesurent
+  **40 px** de haut. Les transitions ne déplacent pas le sélecteur ; elles respectent `prefers-reduced-motion`,
+  comme le spinner de téléchargement.
 - Informations ouvre un popover non modal contextualisé : source/titre/compte/durée/description pour YouTube,
   détails techniques et opérations de conservation pour Local. Il ne remplace pas l'onglet Informations complet
   de la fiche.
@@ -487,8 +515,18 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 - Le suivi reprend à l'ouverture, au retour sur la page et pendant une acquisition. Une réponse POST perdue
   conduit à une consultation GET, **sans second POST automatique**. La fin de traitement ne change pas le mode
   sélectionné.
-- Le retour de téléchargement peut montrer un spinner puis un succès/échec pendant **5 s** ; ces indications
-  transitoires ne remplacent pas les erreurs persistantes ni les annonces accessibles.
+- La commande indépendante se trouve **immédiatement à droite du sélecteur** et ouvre la même modale que Local
+  sans fichier. Elle affiche une icône de téléchargement en l'absence de fichier, remplacée par un spinner
+  pendant la demande ou l'activité serveur ; l'état reste consultable. Après succès confirmé, une coche verte
+  reste **5 s**, puis la commande disparaît. Après échec confirmé d'une activité suivie, une croix rouge reste
+  **5 s**, puis l'icône de téléchargement revient. Un fichier déjà disponible n'affiche aucune commande.
+- Une consultation initiale disponible/échouée ne crée pas de résultat transitoire ; une activité serveur
+  retrouvée rétablit le spinner. Après POST perdu, une relecture confirmant la disponibilité peut confirmer le
+  succès ; un ancien échec sans activité observée ne prouve pas celui de la demande. Erreurs de consultation,
+  de suppression ou de décodage ne produisent pas de croix. Les symboles complètent les annonces accessibles
+  et ne remplacent pas les erreurs persistantes ni leurs actions de reprise.
+- Si la commande disparaît alors qu'elle détient le focus, celui-ci revient à **Local**, sans le voler ailleurs.
+  Fermer la modale rend le focus à son déclencheur, ou à Local si ce déclencheur a disparu.
 - Un média disponible affiche ses informations : conteneur, taille, durée, dimensions, cadence, codecs et langue
   audio déclarée lorsque connues. Les inconnues restent explicites ; ces informations sont relatives au fichier,
   pas à une nouvelle source.
@@ -502,8 +540,8 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 
 ### 6.6 Captures vidéo
 
-- **`+ Capture`** est disponible en Édition et lit le temps admissible du lecteur actif. Une capture concerne
-  **la source courante**, jamais une autre source de la même vidéo substituée silencieusement.
+- **« Capturer une image de la vidéo »** est disponible en Édition et lit le temps admissible du lecteur actif.
+  Une capture concerne **la source courante**, jamais une autre source de la même vidéo substituée silencieusement.
 - L'extraction utilise d'abord le média complet local exploitable, puis le flux distant YouTube selon les règles
   de repli applicables. Elle n'entraîne pas de téléchargement permanent du média complet.
 - Le résultat est un **PNG** sans réduction volontaire de résolution. La capture vise la première image
@@ -521,6 +559,10 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
   L'insertion est une seule étape Undo/Redo et suit l'autosauvegarde. Si le curseur est resté au marqueur, le
   placer après la référence ; sinon préserver le focus et la sélection courants. Undo ne supprime pas l'`Asset`,
   Redo ne relance pas l'extraction.
+- Pendant l'acceptation et la génération, Capture est désactivée et expose `aria-busy`. Le spinner remplace
+  la caméra sans changer la cible ; le nom accessible reste « Capturer une image de la vidéo », l'infobulle
+  indique « Capture en cours… » et un statut accessible distinct annonce cette activité. Aucun succès
+  transitoire n'est ajouté. Une erreur de consultation ne signifie pas la fin de génération.
 - Le passage en Lecture est bloqué uniquement pendant l'acceptation initiale. Une génération acceptée continue
   côté serveur après navigation ; quitter avant acceptation abandonne l'insertion locale sans prétendre annuler
   le serveur.

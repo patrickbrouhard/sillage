@@ -17,14 +17,21 @@ export function VideoTranscript({ videoID, sourceID, onNavigate, onCite }: {
   const [busy, setBusy] = useState<'read' | 'fetch' | null>('read')
   const [message, setMessage] = useState('')
   const [failed, setFailed] = useState(false)
+  const [result, setResult] = useState<'success' | 'failure' | null>(null)
   const operation = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    if (!result) return
+    const timer = window.setTimeout(() => setResult(null), 5_000)
+    return () => window.clearTimeout(timer)
+  }, [result])
 
   /** Relit localement sans effacer le contenu déjà affiché pendant la requête. */
   async function read() {
     operation.current?.abort()
     const controller = new AbortController()
     operation.current = controller
-    setBusy('read'); setMessage(''); setFailed(false)
+    setBusy('read'); setMessage(''); setFailed(false); setResult(null)
     try {
       const result = await getTranscript(videoID, sourceID, controller.signal)
       if (!controller.signal.aborted) setContent(result)
@@ -50,10 +57,13 @@ export function VideoTranscript({ videoID, sourceID, onNavigate, onCite }: {
     operation.current?.abort()
     const controller = new AbortController()
     operation.current = controller
-    setBusy('fetch'); setMessage(''); setFailed(false)
+    setBusy('fetch'); setMessage(''); setFailed(false); setResult(null)
     try {
       const result = await fetchTranscript(videoID, sourceID, controller.signal)
-      if (!controller.signal.aborted) setContent(result)
+      if (!controller.signal.aborted && result) {
+        setContent(result)
+        setResult('success')
+      }
     } catch (error) {
       if (controller.signal.aborted) return
       let description = error instanceof Error ? error.message : 'L’acquisition a échoué.'
@@ -71,7 +81,12 @@ export function VideoTranscript({ videoID, sourceID, onNavigate, onCite }: {
           description += ' La vérification locale a également échoué.'
         }
       }
-      if (!controller.signal.aborted) { setFailed(true); setMessage(description) }
+      if (!controller.signal.aborted) {
+        // Une relecture après réponse perdue ne confirme ni succès ni échec du POST.
+        if (error instanceof TranscriptError && !error.uncertain) setResult('failure')
+        setFailed(true)
+        setMessage(description)
+      }
     } finally {
       if (!controller.signal.aborted) setBusy(null)
     }
@@ -80,13 +95,20 @@ export function VideoTranscript({ videoID, sourceID, onNavigate, onCite }: {
   const heading = <h2 id="transcript-title">Transcription{content &&
     <span className="transcript-provenance"> · {content.language.toUpperCase()} · automatique</span>}
   </h2>
-  const acquisition = <IconButton icon={content ? 'refresh' : 'download'}
-    label={content ? 'Actualiser la transcription' : 'Récupérer la transcription'}
-    tooltip={content
-      ? `Actualiser la transcription — Acquisition du ${new Date(content.last_fetched_at).toLocaleString('fr-FR')}`
-      : 'Récupérer la transcription'}
+  const actionLabel = content ? 'Actualiser la transcription' : 'Récupérer la transcription'
+  const acquisitionStatus = busy === 'fetch' ? 'Acquisition en cours…'
+    : result === 'success' ? 'Acquisition de la transcription confirmée.'
+    : result === 'failure' ? 'Échec de l’acquisition de la transcription.' : ''
+  const acquisitionTooltip = content
+    ? `${actionLabel} — Acquisition du ${new Date(content.last_fetched_at).toLocaleString('fr-FR')}`
+    : actionLabel
+  const acquisition = <IconButton
+    icon={busy === 'fetch' ? 'spinner' : result === 'success' ? 'check' : result === 'failure' ? 'clear' : content ? 'refresh' : 'download'}
+    label={actionLabel} tooltip={acquisitionStatus ? `${acquisitionStatus} ${acquisitionTooltip}` : acquisitionTooltip}
+    className={`transcript-acquisition ${busy === 'fetch' ? 'progress' : result ?? ''}`}
     disabled={busy !== null} aria-busy={busy === 'fetch'} onClick={() => void acquire()} />
   const feedback = <>
+    <span className="sr-only" role="status">{result === 'success' ? acquisitionStatus : ''}</span>
     {navigationMessage && <p role="status">{navigationMessage}</p>}
     {failed && <button className="button" disabled={busy !== null} onClick={() => void read()}>Relire la transcription locale</button>}
     {busy && <p role="status">{busy === 'read' ? 'Chargement de la transcription locale…'

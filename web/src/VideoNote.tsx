@@ -10,6 +10,7 @@ import type { MarkdownEditorHandle } from './MarkdownEditor'
 import type { TemporalReference } from './temporalReference'
 import { NoteSession } from './noteSession'
 import { NoteSaveButton } from './NoteSaveButton'
+import { IconButton } from './IconButton'
 
 const MarkdownReading = lazy(() => import('./MarkdownReading').then(module => ({ default: module.MarkdownReading })))
 
@@ -151,17 +152,29 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
         {state.message && <button className="button" onClick={() => void session.start()}>Relire la note</button>}
       </> : <>
         <div className="note-controls">
-          <div className="note-toolbar" aria-label="Mode de la note">
-            <button className="button" aria-pressed={!reading} onClick={() => setReading(false)}>Édition</button>
-            <button className="button" aria-pressed={reading} disabled={accepting} onClick={() => setReading(true)}>Lecture</button>
-            <button className="button" disabled={reading || initial === null} onClick={insertTime}>+ Temps</button>
-            <button className="button capture-button" disabled={reading || initial === null || captureBusy}
-              aria-busy={captureBusy} onClick={() => void insertCapture()}>{captureBusy ? 'Capture en cours…' : '+ Capture'}</button>
-            <NoteSaveButton session={session} state={state} status={status} onResolve={() => {
-              conflict.current?.focus({ preventScroll: true })
-              conflict.current?.scrollIntoView({ block: 'nearest' })
-            }} />
+          <div className="note-toolbar note-main-toolbar">
+            <div className="note-insertions">
+              <IconButton icon="clock-plus" label="Insérer le temps actuel"
+                disabled={reading || initial === null} onClick={insertTime} />
+              <IconButton icon={captureBusy ? 'spinner' : 'camera'} label="Capturer une image de la vidéo"
+                tooltip={captureBusy ? 'Capture en cours…' : undefined} className="capture-button"
+                disabled={reading || initial === null || captureBusy}
+                aria-busy={captureBusy} onClick={() => void insertCapture()} />
+            </div>
+            <div className="note-primary-actions">
+              <NoteSaveButton session={session} state={state} status={status} onResolve={() => {
+                conflict.current?.focus({ preventScroll: true })
+                conflict.current?.scrollIntoView({ block: 'nearest' })
+              }} />
+              <div className="segmented-control note-mode-control" role="group" aria-label="Mode de la note">
+                <IconButton icon="pencil" label="Édition" className="segmented-button"
+                  aria-pressed={!reading} onClick={() => setReading(false)} />
+                <IconButton icon="book-open" label="Lecture" className="segmented-button"
+                  aria-pressed={reading} disabled={accepting} onClick={() => setReading(true)} />
+              </div>
+            </div>
           </div>
+          <p role="status" aria-label="Activité de capture" className="sr-only">{captureBusy ? 'Capture en cours…' : ''}</p>
           {captureError && <p role="alert">{captureError}</p>}
           {captureState.error && <p role="status">{captureState.error}</p>}
           {captureState.asset?.status === 'failed' && <p role="alert">La génération de la capture a échoué ou a été interrompue. Sa référence est conservée dans la note.</p>}
