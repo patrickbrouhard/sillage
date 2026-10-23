@@ -21,7 +21,7 @@ func markdownSearchText(markdown string) string {
 	// Les en-têtes Sillage sont des métadonnées littérales, pas des liens Markdown.
 	// On les remplace avant la seconde analyse, uniquement dans un blockquote et hors code.
 	// Un soulignement setext peut donner un Heading au premier bloc avant ce retrait.
-	var headers []string
+	headers := map[int]string{}
 	var ranges [][2]int
 	ast.Walk(root, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering || n.Kind() != ast.KindBlockquote {
@@ -45,7 +45,7 @@ func markdownSearchText(markdown string) string {
 			}
 		}
 		if ok {
-			headers = append(headers, strings.TrimSpace(rest))
+			headers[line.Start] = strings.TrimSpace(rest)
 			ranges = append(ranges, [2]int{line.Start, line.Stop})
 		}
 		return ast.WalkContinue, nil
@@ -56,15 +56,14 @@ func markdownSearchText(markdown string) string {
 				source[i] = ' '
 			}
 		}
+		// Un caractère neutre conserve le paragraphe et ses continuations ; sa position
+		// permettra de restituer l’en-tête littéral sans le réinterpréter comme Markdown.
+		source[r[0]] = 'x'
 	}
 	if len(ranges) > 0 {
 		root = searchMarkdown.Parser().Parse(text.NewReader(source))
 	}
 	var out strings.Builder
-	for _, header := range headers {
-		out.WriteString(header)
-		out.WriteString("\n\n")
-	}
 	ast.Walk(root, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			if n.Type() == ast.TypeBlock {
@@ -74,6 +73,11 @@ func markdownSearchText(markdown string) string {
 		}
 		switch node := n.(type) {
 		case *ast.Text:
+			if header, ok := headers[node.Segment.Start]; ok {
+				out.WriteString(header)
+				out.WriteString("\n\n")
+				return ast.WalkContinue, nil
+			}
 			value := node.Segment.Value(source)
 			if node.IsRaw() || (node.Parent() != nil && node.Parent().Kind() == ast.KindCodeSpan) {
 				out.Write(value)

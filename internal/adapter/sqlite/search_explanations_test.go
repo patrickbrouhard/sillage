@@ -110,3 +110,50 @@ func TestSearchExcerptBoundsHugeTokensWithoutBreakingUnicode(t *testing.T) {
 		t.Fatalf("length=%d highlighted=%t: %+v", runes, highlighted, got)
 	}
 }
+
+func TestSearchCalloutOrderAfterProjectionUpgrade(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "upgrade.db")
+	db := openTestDB(t, path)
+	v := searchFixture(t, db, "Document")
+	content := "Avant\n\n> [!quote] Alice\n> Kubernetes simplifie le déploiement.\n\nEntre\n\n> [!quote:tr](sillage://videos/1/sources/2?start_ms=3) Bob\n> PostgreSQL conserve les données.\n\nAprès"
+	saved, err := NewNoteRepository(db).Save(ctx, v.ID, content, 0, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Reproduire la projection précédente, sans modifier la note métier.
+	if _, err := db.Exec("UPDATE video_search SET note = ? WHERE rowid = ?", "Alice Bob Avant Kubernetes simplifie le déploiement. Entre PostgreSQL conserve les données. Après", v.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("UPDATE search_projection SET version = 3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	got, err := NewNoteRepository(reopened).Get(ctx, v.ID)
+	if err != nil || got != saved.Note {
+		t.Fatalf("note changed: %+v, %v", got, err)
+	}
+	page, err := search.NewService(NewSearchRepository(reopened)).Search(ctx, "Alice Kubernetes", 1)
+	if err != nil || len(page.Results) != 1 {
+		t.Fatalf("page = %+v, err = %v", page, err)
+	}
+	var excerpt strings.Builder
+	for _, segment := range page.Results[0].NoteExcerpt {
+		excerpt.WriteString(segment.Text)
+	}
+	want := "Avant Alice Kubernetes simplifie le déploiement. Entre Bob PostgreSQL conserve les données. Après"
+	if text := strings.Join(strings.Fields(excerpt.String()), " "); text != want {
+		t.Fatalf("excerpt = %q, want %q", text, want)
+	}
+	var version int
+	if err := reopened.QueryRow("SELECT version FROM search_projection WHERE id = 1").Scan(&version); err != nil || version != searchProjectionVersion {
+		t.Fatalf("version = %d, err = %v", version, err)
+	}
+}

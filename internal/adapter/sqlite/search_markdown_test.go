@@ -44,3 +44,28 @@ func TestSearchMarkdownCalloutBeforeSetext(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchMarkdownPreservesCalloutOrder(t *testing.T) {
+	for _, content := range []string{
+		"Avant\n\n> [!quote] Alice\n> Kubernetes\n\nEntre\n\n> [!quote:tr](sillage://videos/1/sources/2?start_ms=3) Bob\n> PostgreSQL\n\nAprès",
+		"Avant\n\n> [!quote] Alice\nKubernetes\n\nEntre\n\n> [!quote] Bob\nPostgreSQL\n\nAprès",
+		"Avant\n\n> [!quote] Alice\n> Kubernetes\n>\n> > [!quote] Bob\n> > PostgreSQL\n\nAprès",
+	} {
+		got := strings.Join(strings.Fields(markdownSearchText(content)), " ")
+		want := "Avant Alice Kubernetes Entre Bob PostgreSQL Après"
+		if !strings.Contains(content, "Entre") {
+			want = "Avant Alice Kubernetes Bob PostgreSQL Après"
+		}
+		if got != want {
+			t.Errorf("extraction = %q, want %q", got, want)
+		}
+	}
+}
+
+func TestSearchMarkdownKeepsCalloutHeadersLiteral(t *testing.T) {
+	got := strings.Join(strings.Fields(markdownSearchText("> [!quote] **Alice** &amp; [profil](https://example.org)\n> Corps\n\n> [!quote]\n> Suite")), " ")
+	want := "**Alice** &amp; [profil](https://example.org) Corps Suite"
+	if got != want {
+		t.Fatalf("extraction = %q, want %q", got, want)
+	}
+}

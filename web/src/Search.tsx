@@ -48,7 +48,9 @@ export function Search() {
   const params = new URLSearchParams(location.search)
   const query = params.get('q') ?? ''
   const invitation = !query.trim() && params.getAll('q').length <= 1 && !params.has('page')
-  const key = location.search
+  // Une soumission identique crée une nouvelle navigation et doit relire la bibliothèque.
+  const key = location.key
+  const search = location.search
   const [attempt, setAttempt] = useState(0)
   const [result, setResult] = useState<{ key: string; state: State }>({ key, state: { status: 'loading' } })
   const state: State = result.key === key ? result.state : { status: 'loading' }
@@ -56,13 +58,13 @@ export function Search() {
     if (invitation) return
     const controller = new AbortController()
     setResult({ key, state: { status: 'loading' } })
-    void searchVideos(key.replace(/^\?/, ''), controller.signal).then(page => {
+    void searchVideos(search.replace(/^\?/, ''), controller.signal).then(page => {
       if (!controller.signal.aborted) setResult({ key, state: { status: 'ready', page } })
     }, error => {
       if (!controller.signal.aborted) setResult({ key, state: { status: 'error', message: errorMessage(error) } })
     })
     return () => controller.abort()
-  }, [key, attempt, invitation])
+  }, [key, search, attempt, invitation])
   function pageURL(page: number): string {
     const next = new URLSearchParams(location.search)
     next.set('page', String(page))

@@ -164,3 +164,35 @@ test('bandeau desktop de même hauteur sur bibliothèque, recherche et fiche', a
   }
   expect(heights).toEqual([56, 56, 56])
 })
+
+
+test('soumettre une recherche identique actualise les données avec Entrée et la loupe', async ({ page, request }) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trsearch004' } })).json()
+  const noteURL = '/api/v1/videos/' + video.id + '/note'
+  expect((await request.put(noteURL, { data: { content_md: 'actualisationunique Ancien', expected_revision: 0 } })).ok()).toBe(true)
+  await page.goto('/search?q=actualisationunique')
+  await expect(page.locator('.search-excerpt')).toContainText('Ancien')
+  // Une mutation par un autre client ne change pas l’URL de la recherche ouverte.
+  expect((await request.put(noteURL, { data: { content_md: 'actualisationunique Nouveau', expected_revision: 1 } })).ok()).toBe(true)
+  await page.getByRole('searchbox').press('Enter')
+  await expect(page.locator('.search-excerpt')).toContainText('Nouveau')
+  expect((await request.put(noteURL, { data: { content_md: '', expected_revision: 2 } })).ok()).toBe(true)
+  await page.getByRole('button', { name: 'Lancer la recherche' }).click()
+  await expect(page.getByRole('heading', { name: 'Aucun résultat' })).toBeVisible()
+  await expect(page).toHaveURL('/search?q=actualisationunique')
+})
+
+test('la loupe réessaie une recherche identique après une erreur', async ({ page }) => {
+  let requests = 0
+  await page.route('**/api/v1/search?**', route => {
+    requests++
+    return requests === 1
+      ? route.fulfill({ status: 500, json: { error: { code: 'internal_error' } } })
+      : route.fulfill({ json: { results: [result('Résultat retrouvé')], page: 1, has_more: false } })
+  })
+  await page.goto('/search?q=identique')
+  await expect(page.getByRole('alert')).toBeVisible()
+  await page.getByRole('button', { name: 'Lancer la recherche' }).click()
+  await expect(page.getByRole('heading', { name: 'Résultat retrouvé' })).toBeVisible()
+  expect(requests).toBe(2)
+})
