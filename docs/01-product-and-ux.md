@@ -316,8 +316,16 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 
 - La fiche consulte par défaut **le contenu local déjà acquis** ; elle ne lance ni découverte distante ni POST
   automatique.
-- Sans transcription, l'UI propose **Récupérer** ; si un contenu existe, **Actualiser**. Seule une action
-  explicite lance l'acquisition depuis YouTube.
+- Sans transcription, la commande **Récupérer** affiche une icône de téléchargement ; avec un contenu,
+  **Actualiser** affiche une icône d'actualisation. Seule une action explicite lance l'acquisition depuis YouTube.
+- Pendant l'acquisition et son éventuelle vérification locale, l'icône devient un spinner. Une réponse POST
+  valide confirme le succès (coche verte) ; une erreur serveur confirmée produit une croix rouge. Ces résultats
+  durent **5 s**, puis l'icône normale revient selon le contenu réellement disponible. Une nouvelle action
+  efface le retour précédent ; les lectures locales, dont celle d'ouverture, ne produisent aucun de ces résultats.
+- La commande conserve sa cible de **40 × 40 px** et sa place pendant les retours visuels. Son nom accessible
+  conserve l'action proposée ; l'infobulle indique l'activité ou le résultat et, avec un contenu, la date
+  d'acquisition. L'activité est exposée par `aria-busy`, le succès est annoncé sans texte visible supplémentaire
+  et les erreurs/actions de reprise restent accessibles après les 5 s. Le spinner respecte `prefers-reduced-motion`.
 - La sélection actuelle privilégie la piste automatique originale admissible à partir des signaux audio, avec
   des replis déterministes. La langue affichée est celle du contenu (sans suffixe technique `-orig`) et le
   libellé utilisateur indique « Transcription automatique ».
@@ -326,8 +334,9 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 - L'acquisition peut conserver l'ancien contenu pendant une actualisation ou après un échec. Absence, erreur de
   lecture locale, erreur distante, sélection ambiguë, délai dépassé et opération en cours ne sont pas présentés
   comme un seul état.
-- Une réponse POST incertaine peut être réconciliée par une nouvelle consultation locale, **sans relancer
-  automatiquement** l'acquisition.
+- Après une réponse POST incertaine, une nouvelle consultation locale peut retrouver le contenu enregistré,
+  **sans confirmer l'actualisation** : ni coche ni croix, même si cette lecture réussit, et aucun POST automatique.
+  Les réponses tardives d'une ancienne fiche sont ignorées, y compris pour les retours visuels.
 - L'interface actuelle n'offre pas de sélection manuelle de pistes, de sous-titres manuels, de traduction ou de
   STT.
 
@@ -457,7 +466,13 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 ### 6.4 Panneau et présentation du lecteur
 
 - Le panneau Lecteur reste monté pendant les bascules ; seules les surfaces de lecture propres aux modes
-  changent. La barre permanente comprend le sélecteur YouTube/Local, **Informations** et l'œil de masquage.
+  changent. La barre permanente comprend le sélecteur YouTube/Local, une commande de téléchargement indépendante
+  lorsque nécessaire (voir §6.5), **Informations** et l'œil de masquage.
+- Le sélecteur segmenté contient uniquement les libellés **YouTube** et **Local**, sans icône ni place réservée
+  à un indicateur. Ses boutons natifs exposent le choix actif par `aria-pressed` ; fond commun légèrement
+  contrasté, fond distinct pour le segment actif, segment inactif neutre et coins arrondis. Les cibles mesurent
+  **40 px** de haut. Les transitions ne déplacent pas le sélecteur ; elles respectent `prefers-reduced-motion`,
+  comme le spinner de téléchargement.
 - Informations ouvre un popover non modal contextualisé : source/titre/compte/durée/description pour YouTube,
   détails techniques et opérations de conservation pour Local. Il ne remplace pas l'onglet Informations complet
   de la fiche.
@@ -487,8 +502,18 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 - Le suivi reprend à l'ouverture, au retour sur la page et pendant une acquisition. Une réponse POST perdue
   conduit à une consultation GET, **sans second POST automatique**. La fin de traitement ne change pas le mode
   sélectionné.
-- Le retour de téléchargement peut montrer un spinner puis un succès/échec pendant **5 s** ; ces indications
-  transitoires ne remplacent pas les erreurs persistantes ni les annonces accessibles.
+- La commande indépendante se trouve **immédiatement à droite du sélecteur** et ouvre la même modale que Local
+  sans fichier. Elle affiche une icône de téléchargement en l'absence de fichier, remplacée par un spinner
+  pendant la demande ou l'activité serveur ; l'état reste consultable. Après succès confirmé, une coche verte
+  reste **5 s**, puis la commande disparaît. Après échec confirmé d'une activité suivie, une croix rouge reste
+  **5 s**, puis l'icône de téléchargement revient. Un fichier déjà disponible n'affiche aucune commande.
+- Une consultation initiale disponible/échouée ne crée pas de résultat transitoire ; une activité serveur
+  retrouvée rétablit le spinner. Après POST perdu, une relecture confirmant la disponibilité peut confirmer le
+  succès ; un ancien échec sans activité observée ne prouve pas celui de la demande. Erreurs de consultation,
+  de suppression ou de décodage ne produisent pas de croix. Les symboles complètent les annonces accessibles
+  et ne remplacent pas les erreurs persistantes ni leurs actions de reprise.
+- Si la commande disparaît alors qu'elle détient le focus, celui-ci revient à **Local**, sans le voler ailleurs.
+  Fermer la modale rend le focus à son déclencheur, ou à Local si ce déclencheur a disparu.
 - Un média disponible affiche ses informations : conteneur, taille, durée, dimensions, cadence, codecs et langue
   audio déclarée lorsque connues. Les inconnues restent explicites ; ces informations sont relatives au fichier,
   pas à une nouvelle source.
