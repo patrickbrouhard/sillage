@@ -133,7 +133,7 @@ FTS5 utilise `unicode61 remove_diacritics 2 tokenchars '+#'` ; le point sépare 
 
 La segmentation de la saisie passe par le même tokenizer réel dans une table FTS temporaire et `fts5vocab(instance)`, sur une connexion réservée. Chaque token est cité séparément ; seuls les tokens entièrement composés de lettres/chiffres Unicode et de longueur au moins quatre prennent un astérisque contrôlé. Les termes sont combinés par ET, sans stop words, stemming ou syntaxe publique.
 
-Les accents latins composés et décomposés courants sont équivalents. unicode61 applique les règles Unicode de SQLite, pas une normalisation linguistique universelle : ni translittération générale, ni équivalence garantie entre toutes les écritures ou ligatures. La ponctuation conservée empêche le préfixe automatique sur les termes techniques.
+Les accents latins composés et décomposés courants sont équivalents. unicode61 applique les règles Unicode de SQLite, pas une normalisation linguistique universelle : ni translittération générale, ni équivalence garantie entre toutes les écritures ou ligatures. En particulier, `Straße` ne correspond pas à `STRASSE`, `œuvre` à `oeuvre`, ni les caractères pleine chasse à leurs équivalents ASCII. La ponctuation conservée empêche le préfixe automatique sur les termes techniques.
 
 Goldmark avec GFM extrait le texte serveur des notes : blocs séparés, liens par libellé, images par alternatif, tableaux et code conservés ; destinations, langages des blocs, marqueurs et URI d'en-têtes Sillage exclus. Le HTML brut est ignoré comme dans le rendu sécurisé ; le texte entre balises inline reste lisible. Le Markdown original n'est jamais réécrit.
 

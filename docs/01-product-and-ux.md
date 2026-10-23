@@ -590,7 +590,7 @@ La galerie, la réinsertion, l'import d'images et les clips vidéo sont des pist
 
 ## 7. Recherche, IA et pistes non livrées
 
-- **Recherche globale** : future étape distincte de la recherche locale dans une transcription. La direction prévue va d'une recherche simple sur titres/tags/notes à une recherche plein texte pouvant retrouver un passage horodaté ; voir [Roadmap](05-roadmap.md).
+- **Extensions de recherche** : passages de transcription, navigation temporelle, filtres avancés et recherche sémantique restent distincts de la V1 globale décrite en section 1.4 ; voir [Roadmap](05-roadmap.md).
 - **MCP** : interface future pour exposer les cas d'usage métier à un agent, sans accès direct aux primitives de
   persistance ; outils et permissions restent à décider.
 - **IA intégrée** : facultative, postérieure aux primitives métier ; candidates : résumés, tags suggérés,

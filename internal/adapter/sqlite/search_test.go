@@ -54,7 +54,7 @@ func TestSearchTokenizerAndBooleanRules(t *testing.T) {
 		queries []string
 		absent  []string
 	}{
-		{"Kubernetes Google API SQL net", []string{"kube", "API SQL net", "node OR", "\"kube\""}, []string{"Go", "AP", "SQ", "ne"}},
+		{"Kubernetes Google API SQL net", []string{"kube", "API SQL net", "\"kube\""}, []string{"Go", "AP", "SQ", "ne"}},
 		{"Go node.js", []string{"Go", "node.js", "node js"}, []string{"Google", "nodes"}},
 		{"C++", []string{"C++"}, []string{"C#", "C"}},
 		{"C#", []string{"C#"}, []string{"C++", "C"}},
@@ -65,9 +65,6 @@ func TestSearchTokenizerAndBooleanRules(t *testing.T) {
 	for _, f := range fixtures {
 		v := searchFixture(t, db, f.title)
 		for _, q := range f.queries {
-			if q == "node OR" {
-				continue
-			} // OR est un terme littéral, testé ci-dessous.
 			ids := searchIDs(t, db, q)
 			found := false
 			for _, id := range ids {

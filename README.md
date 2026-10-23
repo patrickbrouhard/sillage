@@ -460,6 +460,6 @@ Les instructions de travail propres au dépôt sont dans [AGENTS.md](AGENTS.md).
 
 ## Prochaines étapes
 
-La prochaine grande étape planifiée est la **recherche globale** dans la bibliothèque, avec une première recherche transversale puis, selon son cadrage, une recherche plein texte avec SQLite FTS5 et des résultats reliés aux passages temporels. MCP et IA intégrée viendront ensuite, sans calendrier fixé.
+La recherche globale SQLite FTS5 est disponible dans la bibliothèque. Les prochaines directions sont MCP et l’IA intégrée, sans calendrier fixé. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
 
 La [roadmap](docs/05-roadmap.md) donne l'état des jalons et leurs objectifs ; [les questions ouvertes](docs/06-open-questions.md) recensent les choix qui ne sont pas encore tranchés. Leur présence dans ces fichiers ne signifie pas qu'ils sont implémentés ou approuvés.

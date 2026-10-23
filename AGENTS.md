@@ -2,7 +2,7 @@
 
 ## Purpose and environment
 
-Sillage is a self-hosted video knowledge base. It combines video sources, local media, Markdown notes, transcripts, timestamps, screenshots and tags; search, MCP and AI are planned extensions.
+Sillage is a self-hosted video knowledge base. It combines video sources, local media, Markdown notes, transcripts, timestamps, screenshots and tags; global search is available; MCP and AI are planned extensions.
 
 - Work with Linux paths, shells and tooling (native Linux or WSL2). Use Windows-specific commands only when the task requires them.
 - Follow the toolchain versions declared in `go.mod` and `web/package.json`.
