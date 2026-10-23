@@ -23,7 +23,7 @@ Documents complémentaires :
                     │
                     ▼
           Services applicatifs Go
-       video · note · transcript · media · asset
+       video · note · transcript · media · asset · search
                     │
           ports et interfaces ciblés
              ┌──────┴─────────┐
@@ -98,6 +98,14 @@ Le navigateur dispose d'une session locale d'édition ; elle n'est pas l'autorit
 Le port de provider retourne un contenu normalisé et les octets source opaques ; la connaissance de JSON3 et des formats `yt-dlp` reste dans l'adapter. La langue audio de la source ne doit jamais être déduite de la caption. La sélection originale est une préférence explicite, **pas une garantie** d'identité avec la piste audio.
 
 Publication d'un snapshot : écriture d'un nouveau temporaire, synchronisation, fermeture et renommage, **puis transaction SQLite courte**. Aucune transaction SQL n'est maintenue pendant le réseau ou l'écriture du fichier. L'ancien snapshot reste disponible pour les lecteurs ; un crash ou un échec SQL peut laisser un fichier orphelin, qui n'est pas effacé arbitrairement. Le `GET` lit et parse le snapshot référencé ; son absence/corruption est une erreur locale, sans réacquisition implicite.
+
+### 2.7 Recherche globale
+
+`search.Service` expose un port spécialisé réutilisable directement par le futur MCP. L'adapter SQLite possède une table FTS ordinaire, une ligne par ID vidéo et cinq colonnes : titres, tags directs, note extraite, publishers, descriptions. Sources et tags sont lus séparément, ordonnés et dédupliqués strictement.
+
+La création vidéo/sources, la sauvegarde effective de note, les mutations de tags directs et le changement de publisher reconstruisent le document dans leur transaction métier immédiate. Un échec d'indexation annule l'écriture ; conflits et sauvegardes identiques ne publient rien. Les futurs renommages de tags/publishers et rafraîchissements de sources devront réindexer toutes les vidéos affectées.
+
+Après les migrations SQL, `Open` initialise la projection en Go. La version est contrôlée sous verrou immédiat et validée avec tous les documents dans la même transaction ; une ouverture concurrente relit ce marqueur. La maintenance explicite réutilise ce chemin et le même extracteur, sans toucher aux données originales. Les recherches utilisent un court instantané différé, chargé par lots, afin de lire index et relations ensemble sans prendre le verrou immédiat d'écriture.
 
 ## 3. Stockage SQLite et filesystem
 
@@ -389,7 +397,7 @@ La CI déterministe couvre services/SQLite, REST/Postman, React/Playwright et Do
 
 ## 11. Extensions futures et règles de maintenance
 
-La recherche globale (éventuellement FTS5), MCP, IA/STT, imports locaux, autres providers, sauvegarde avancée et desktop doivent conserver les **frontières métier** ci-dessus. Leur existence dans la roadmap ou dans les questions ouvertes **n'autorise pas** à créer immédiatement ports, routes, jobs ou tables anticipés.
+Les extensions de recherche, MCP, IA/STT, imports locaux, autres providers, sauvegarde avancée et desktop doivent conserver les **frontières métier** ci-dessus. Leur existence dans la roadmap ou dans les questions ouvertes **n'autorise pas** à créer immédiatement ports, routes, jobs ou tables anticipés.
 
 Lorsque le code change :
 

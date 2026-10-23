@@ -21,6 +21,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/note"
+	"github.com/patrickbrouhard/sillage/internal/search"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -162,6 +163,7 @@ func run(ctx context.Context, cfg config) (result error) {
 		cfg.postTimeout,
 		captures,
 	)
+	handler = api.WithSearch(handler, search.NewService(sqlite.NewSearchRepository(db)))
 	// Le build est facultatif pour garder le lancement API seul indépendant de Node.
 	phase = "frontend"
 	if cfg.webDir != "" {

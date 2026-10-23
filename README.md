@@ -169,6 +169,22 @@ Sur une fiche vidéo, le lecteur et la transcription s'appuient sur la même **s
 
 Le comportement détaillé des lecteurs, de l'éditeur et des interactions est spécifié dans [Product & UX](docs/01-product-and-ux.md). Une [recette manuelle ciblée](docs/07-local-playback-validation.md) couvre les interactions que les simulations de navigateur ne suffisent pas à confirmer.
 
+## Recherche globale et maintenance
+
+`GET /api/v1/search?q=kube&page=1` recherche les titres et descriptions de toutes les sources, leurs publishers, les tags directement associés aux vidéos et le texte dérivé des notes. Une vidéo apparaît une seule fois. Les transcriptions et tags indirects sont exclus.
+
+Les termes sont combinés par ET, même entre champs ou sources. Les tokens de quatre lettres ou chiffres Unicode ou plus utilisent un préfixe ; les termes courts et techniques (`C++`, `C#`) restent entiers. Les guillemets et opérateurs ne donnent accès à aucune syntaxe FTS. La recherche ignore la casse et les accents latins pris en charge par SQLite unicode61.
+
+La réponse contient `results`, `page` et `has_more`, avec 20 résultats par page. Chaque résultat contient `video`, `note_excerpt` et `source_matches`. Les paramètres inconnus ou répétés, pages hors de 1 à 1000, saisies UTF-8 invalides ou de plus de 1024 octets et saisies de plus de 32 tokens sont refusés (400). Une saisie sans token exploitable retourne une page vide. Aucun total ni instantané entre pages n'est garanti.
+
+L'ouverture de la base applique la migration additive puis initialise la projection versionnée depuis les données originales dans une transaction atomique. Pour régénérer explicitement cette projection, arrêter le serveur puis lancer depuis la racine :
+
+```bash
+go run ./cmd/search-rebuild -db data/sillage.db
+```
+
+Cette opération réextrait les notes sans modifier leur Markdown, dates ou révisions. Un échec ou une interruption annule la reconstruction ; la prochaine ouverture reprend l'initialisation nécessaire. Il ne s'agit pas de la commande interne FTS `rebuild`.
+
 ## API REST
 
 Le serveur expose l'API sous **`/api/v1`**. Les exemples suivants utilisent `http://127.0.0.1:8080`. L'API est actuellement **sans authentification** ; elle n'est pas destinée à une exposition publique directe.

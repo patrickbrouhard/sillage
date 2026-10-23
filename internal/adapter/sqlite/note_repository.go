@@ -99,6 +99,11 @@ func (r *NoteRepository) Save(ctx context.Context, id video.VideoID, content str
 	if err != nil {
 		return note.SaveResult{}, err
 	}
+	if isNew || previous != content {
+		if err := rebuildSearchVideo(ctx, tx, id); err != nil {
+			return note.SaveResult{}, err
+		}
+	}
 	saved, err := storedNote(id, content, created, updated, revision)
 	if err != nil {
 		return note.SaveResult{}, err

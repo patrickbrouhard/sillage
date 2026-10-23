@@ -41,5 +41,9 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("migrate SQLite: %w", err)
 	}
+	if err := initializeSearch(ctx, db, false); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("initialize search: %w", err)
+	}
 	return db, nil
 }

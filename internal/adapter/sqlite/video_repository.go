@@ -119,6 +119,9 @@ func (r *VideoRepository) Create(ctx context.Context, v video.Video) (video.Vide
 		source.VideoID = created.ID
 		created.Sources = append(created.Sources, source)
 	}
+	if err := rebuildSearchVideo(ctx, tx, created.ID); err != nil {
+		return video.Video{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return video.Video{}, fmt.Errorf("commit video creation: %w", err)
 	}
@@ -169,7 +172,17 @@ func (r *VideoRepository) read(ctx context.Context, predicate string, args ...an
 // query regroupe les lignes jointes dans l'ordre du contrat de bibliothèque.
 // predicate est exclusivement fourni par les méthodes du repository.
 func (r *VideoRepository) query(ctx context.Context, predicate string, args ...any) ([]video.Video, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	return queryVideos(ctx, r.db, predicate, args...)
+}
+
+// videoReader permet une lecture par lots dans le même instantané que la recherche.
+type videoReader interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
+// queryVideos regroupe sources et relations dans un nombre constant de lectures.
+func queryVideos(ctx context.Context, reader videoReader, predicate string, args ...any) ([]video.Video, error) {
+	rows, err := reader.QueryContext(ctx, `
 		SELECT
 			v.id,
 			v.created_at,
@@ -298,7 +311,7 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 	for i, v := range videos {
 		indices[v.ID] = i
 	}
-	tagRows, err := r.db.QueryContext(ctx, `
+	tagRows, err := reader.QueryContext(ctx, `
 		SELECT
 			vt.video_id,
 			t.id,
@@ -334,7 +347,7 @@ func (r *VideoRepository) query(ctx context.Context, predicate string, args ...a
 		return nil, err
 	}
 	// Les personnes directes sont chargées séparément pour éviter le produit sources × tags × personnes.
-	personRows, err := r.db.QueryContext(ctx, `
+	personRows, err := reader.QueryContext(ctx, `
 		SELECT
 			vp.video_id,
 			vp.person_id

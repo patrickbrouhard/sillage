@@ -32,7 +32,7 @@ Documents complémentaires :
 | Lecteurs | IFrame Player API YouTube + `<video>` HTML5 natif, sans bibliothèque de lecteur | Acté et implémenté |
 | Distribution | Docker multi-stage, frontend statique servi par Go, dépendances externes épinglées | Acté et implémenté |
 | Journalisation | `log/slog`, sortie standard, texte local ou JSON en Docker, rotation Docker | Acté et implémenté |
-| Recherche globale | SQLite FTS5 après un éventuel premier incrément plus simple | Orientation privilégiée |
+| Recherche globale | SQLite FTS5, projection transactionnelle par vidéo | Acté et implémenté |
 | MCP | Serveur Go s'appuyant directement sur les services applicatifs ; SDK Go officiel privilégié | Architecture envisagée, non livrée |
 | IA / STT | Fournisseurs et moteurs à choisir ; pas de dépendance du domaine à un fournisseur | Ouvert |
 | Desktop | Éventuelle application Wails, sans engagement | Ouvert |
@@ -126,6 +126,18 @@ Un tag est identifié après suppression des espaces aux extrémités, normalisa
 L'implémentation utilise `golang.org/x/text` et une `identity_key` unique en SQL ; la casse d'affichage initiale est conservée. Ainsi `DevOps` et `devops` sont identiques, mais `Café` et `Cafe` sont distincts ; le repli peut aussi rapprocher `Straße` et `STRASSE`. Une modification future de l'algorithme doit vérifier **les collisions possibles entre tags déjà persistés**.
 
 Les tags inutilisés demeurent dans le catalogue. Les associations avec vidéos, publishers et personnes ne s'héritent pas ; leurs ajouts multiples et retraits respectent transactions et unicité.
+
+### 3.7 Recherche : projection et tokenisation
+
+FTS5 utilise `unicode61 remove_diacritics 2 tokenchars '+#'` ; le point sépare les tokens. `C++`, `C#` et `C` sont distincts. `node.js` donne deux termes indépendants ; `.NET` donne `net`. La conservation de ponctuation s'applique aussi à `#devops` et `a+b`, qui restent des tokens entiers distincts de `devops` ou `a b`. Des symboles seuls ne sont pas une recherche exploitable.
+
+La segmentation de la saisie passe par le même tokenizer réel dans une table FTS temporaire et `fts5vocab(instance)`, sur une connexion réservée. Chaque token est cité séparément ; seuls les tokens entièrement composés de lettres/chiffres Unicode et de longueur au moins quatre prennent un astérisque contrôlé. Les termes sont combinés par ET, sans stop words, stemming ou syntaxe publique.
+
+Les accents latins composés et décomposés courants sont équivalents. unicode61 applique les règles Unicode de SQLite, pas une normalisation linguistique universelle : ni translittération générale, ni équivalence garantie entre toutes les écritures ou ligatures. La ponctuation conservée empêche le préfixe automatique sur les termes techniques.
+
+Goldmark avec GFM extrait le texte serveur des notes : blocs séparés, liens par libellé, images par alternatif, tableaux et code conservés ; destinations, langages des blocs, marqueurs et URI d'en-têtes Sillage exclus. Le HTML brut est ignoré comme dans le rendu sécurisé ; le texte entre balises inline reste lisible. Le Markdown original n'est jamais réécrit.
+
+BM25 pondère titres 8, tags 10, note 3, publishers 2 et descriptions 0,5, puis départage par ID vidéo. Ces poids ne promettent pas une priorité absolue de champ.
 
 ## 4. `yt-dlp` : sources et métadonnées
 
