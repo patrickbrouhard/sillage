@@ -1,0 +1,95 @@
+package sqlite
+
+import (
+	"context"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/patrickbrouhard/sillage/internal/search"
+	"github.com/patrickbrouhard/sillage/internal/video"
+)
+
+func TestSearchExcerptsAndMultipleSourceContributions(t *testing.T) {
+	db := openTestDB(t, filepath.Join(t.TempDir(), "explain.db"))
+	ctx := context.Background()
+	input := video.Video{CreatedAt: time.Now(), Sources: []video.VideoSource{
+		{Provider: "local", Title: "Alpha", Description: "Café description"},
+		{Provider: "local", Title: "Kubernetes", Publisher: &video.Publisher{Provider: "local", ExternalID: "p", Name: "Gamma"}},
+	}}
+	v, err := NewVideoRepository(db).Create(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := "⟦sillage-search-0-start⟧ <script>danger</script> " + strings.Repeat("remplissage ", 100) + "café " + strings.Repeat("séparation ", 100) + "Kubernetes"
+	if _, err := NewNoteRepository(db).Save(ctx, v.ID, content, 0, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	service := search.NewService(NewSearchRepository(db))
+	page, err := service.Search(ctx, "alpha cafe kube gamma", 1)
+	if err != nil || len(page.Results) != 1 {
+		t.Fatalf("%+v %v", page, err)
+	}
+	got := page.Results[0]
+	if len(got.Sources) != 2 || !got.Sources[0].Title || !got.Sources[0].Description || !got.Sources[1].Title || !got.Sources[1].Publisher {
+		t.Fatalf("%+v", got.Sources)
+	}
+	found := false
+	for _, s := range got.NoteExcerpt {
+		if s.Highlight {
+			found = true
+			if s.Text != "café" && s.Text != "Kubernetes" {
+				t.Fatalf("bad highlight: %+v", s)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no note match")
+	}
+	page, err = service.Search(ctx, "alpha", 1)
+	if err != nil || len(page.Results[0].NoteExcerpt) != 0 {
+		t.Fatalf("%+v %v", page, err)
+	}
+	page, err = service.Search(ctx, "cafe\u0301", 1)
+	if err != nil || len(page.Results[0].NoteExcerpt) == 0 {
+		t.Fatalf("%+v %v", page, err)
+	}
+	// Une sous-chaîne n'est jamais une preuve : Go ne doit pas expliquer Google.
+	other := searchFixture(t, db, "Go", "Google")
+	page, err = service.Search(ctx, "Go", 1)
+	if err != nil || len(page.Results) != 1 || page.Results[0].Video.ID != other.ID || len(page.Results[0].Sources) != 1 || page.Results[0].Sources[0].SourceID != other.Sources[0].ID {
+		t.Fatalf("%+v %v", page, err)
+	}
+}
+
+func TestSearchMarkerCollisionsAndLiteralHTML(t *testing.T) {
+	text := "⟦sillage-search-0-start⟧ ⟦sillage-search-1-end⟧ <b>café</b>"
+	start, end := searchMarkers(text)
+	if strings.Contains(text, start) || strings.Contains(text, end) {
+		t.Fatal("collision")
+	}
+	segments := searchSegments("<b>"+start+"café"+end+"</b>", start, end)
+	if len(segments) != 3 || segments[0].Text != "<b>" || segments[1].Text != "café" || !segments[1].Highlight || segments[2].Text != "</b>" {
+		t.Fatalf("%+v", segments)
+	}
+}
+
+func TestSearchBatchLoadsWithOneConnection(t *testing.T) {
+	db := openTestDB(t, filepath.Join(t.TempDir(), "batch.db"))
+	db.SetMaxOpenConns(1)
+	for range 23 {
+		searchFixture(t, db, "batch", "secondary")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "batch secondary", 1)
+	if err != nil || len(page.Results) != 20 || !page.HasMore {
+		t.Fatalf("%+v %v", page, err)
+	}
+	for _, r := range page.Results {
+		if len(r.Sources) != 2 {
+			t.Fatalf("%+v", r)
+		}
+	}
+}

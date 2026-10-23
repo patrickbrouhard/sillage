@@ -107,6 +107,10 @@ La création vidéo/sources, la sauvegarde effective de note, les mutations de t
 
 Après les migrations SQL, `Open` initialise la projection en Go. La version est contrôlée sous verrou immédiat et validée avec tous les documents dans la même transaction ; une ouverture concurrente relit ce marqueur. La maintenance explicite réutilise ce chemin et le même extracteur, sans toucher aux données originales. Les recherches utilisent un court instantané différé, chargé par lots, afin de lire index et relations ensemble sans prendre le verrou immédiat d'écriture.
 
+Les explications réutilisent le tokenizer FTS5, avec une disjonction des termes pour reconnaître les contributions partielles. Les sources de la page sont projetées en une seule insertion SELECT dans une table FTS temporaire ; chaque champ contributeur est identifié sans test de sous-chaîne. Plusieurs sources peuvent expliquer une vidéo sans qu'une seule soit désignée comme origine de toute la requête.
+
+L'extrait de note n'est fourni que si sa colonne contient une correspondance. SQLite sélectionne une fenêtre courte (32 tokens), qui ne prétend pas montrer tous les termes. Des marqueurs choisis absents des textes sont convertis en segments texte/surlignage ; aucun HTML n'est retourné pour injection. Index, données, provenance et extrait sont lus dans le même instantané, avec un nombre constant de lectures SQL par page.
+
 ## 3. Stockage SQLite et filesystem
 
 ### 3.1 SQLite

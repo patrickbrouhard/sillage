@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -147,8 +146,8 @@ func (r *SearchRepository) Search(ctx context.Context, query string, page int) (
 	for _, id := range ids {
 		result.Results = append(result.Results, search.Result{Video: byID[id], NoteExcerpt: []search.Segment{}, Sources: []search.SourceMatch{}})
 	}
+	if err := explainSearch(ctx, conn, result.Results, terms, strings.Join(placeholders, ","), args); err != nil {
+		return result, err
+	}
 	return result, nil
 }
-
-// searchRowID fournit un identifiant sûr pour les documents temporaires de provenance.
-func searchRowID(id video.VideoSourceID) string { return strconv.FormatInt(int64(id), 10) }
