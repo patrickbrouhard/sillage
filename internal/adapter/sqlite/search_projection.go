@@ -9,7 +9,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
-const searchProjectionVersion = 1
+const searchProjectionVersion = 2
 
 // initializeSearch relit le marqueur sous verrou ; un échec ne publie aucun index partiel.
 func initializeSearch(ctx context.Context, db *sql.DB, force bool) error {

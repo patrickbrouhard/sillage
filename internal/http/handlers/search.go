@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/search"
 )
 
@@ -23,6 +24,7 @@ func NewSearchHandler(service SearchService) *SearchHandler { return &SearchHand
 
 // Get retourne une page fixe sans publier scores SQLite ni expression FTS.
 func (h *SearchHandler) Get(w http.ResponseWriter, r *http.Request) {
+	requestlog.Route(r, "/api/v1/search")
 	params, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
 		writeError(w, r, 400, "bad_request", "invalid search parameters")

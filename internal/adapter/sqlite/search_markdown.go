@@ -8,6 +8,7 @@ import (
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 )
 
 var searchMarkdown = goldmark.New(goldmark.WithExtensions(extension.GFM))
@@ -72,7 +73,12 @@ func markdownSearchText(markdown string) string {
 		}
 		switch node := n.(type) {
 		case *ast.Text:
-			out.WriteString(html.UnescapeString(string(node.Segment.Value(source))))
+			value := node.Segment.Value(source)
+			if node.IsRaw() || (node.Parent() != nil && node.Parent().Kind() == ast.KindCodeSpan) {
+				out.Write(value)
+			} else {
+				out.WriteString(html.UnescapeString(string(util.UnescapePunctuations(value))))
+			}
 			if node.SoftLineBreak() || node.HardLineBreak() {
 				out.WriteByte('\n')
 			}
