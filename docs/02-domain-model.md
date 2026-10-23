@@ -1,411 +1,134 @@
-# Domain model
+# Domain model — Sillage
 
-## 1. Principes
+Ce document définit **les concepts métier et les invariants actuellement applicables** dans Sillage. Il distingue les objets persistés des extensions simplement envisagées. Il ne retrace pas les étapes de développement et ne constitue pas une spécification des écrans, des endpoints ou des adapters.
 
-Le modèle métier est organisé autour de `Video`.
+Documents complémentaires : [Product & UX](01-product-and-ux.md), [Architecture](03-architecture.md), [Tech stack & decisions](04-tech-stack-and-decisions.md), [Roadmap](05-roadmap.md) et [Open questions](06-open-questions.md).
 
-`Video` représente l'objet de connaissance interne à Sillage.
+**Convention :** sauf mention **futur / non implémenté**, les règles décrivent le modèle en vigueur. Les noms précis des colonnes, contraintes et migrations restent vérifiables dans les migrations SQL ; les types Go et les services constituent la référence pour les API internes.
 
-Une vidéo peut être accessible depuis plusieurs provenances. Ces provenances sont représentées par des `VideoSource`.
+## 1. Principes et relations
 
-Les métadonnées issues d'une plateforme, les transcriptions, les fichiers locaux, les notes, les annotations et les autres éléments sont associés à ces objets sans définir l'identité de `Video`.
+`Video` est l'objet de connaissance central, indépendant de la plateforme ou du fichier par lequel on y accède. Les métadonnées de provenance appartiennent à `VideoSource` ; le contenu utilisateur et les représentations conservées sont rattachés à l'identité Sillage appropriée.
 
-Schéma conceptuel cible (il inclut aussi des objets futurs) :
-
-```text
-                               ┌──────────────────┐
-                               │      VIDEO       │
-                               │──────────────────│
-                               │ id               │
-                               │ title_override?  │
-                               │ created_at       │
-                               │ updated_at?      │
-                               └────────┬─────────┘
-                                        │
-          ┌─────────────────────────────┼──────────────────────────────┐
-          │                             │                              │
-          │ 1:N                         │ 1:N                          │ 1 → 0..1
-          ▼                             ▼                              ▼
-┌────────────────────┐        ┌──────────────────┐          ┌──────────────────┐
-│    VIDEO_SOURCE    │        │    MEDIA_FILE    │          │       NOTE       │
-│────────────────────│        │──────────────────│          │──────────────────│
-│ id                 │        │ id               │          │ video_id PK/FK   │
-│ video_id           │        │ video_id         │          │ content_md       │
-│ provider           │        │ path             │          │ created_at       │
-│ external_id?       │        │ format           │          │ updated_at       │
-│ canonical_url?     │        │ size             │          └──────────────────┘
-│ title              │        │ added_at         │
-│ description?       │        └──────────────────┘
-│ publisher_id?      │
-│ duration_ms?       │
-│ thumbnail_url?     │
-│ published_at?      │
-│ ...                │
-└─────────┬──────────┘
-          │
-          │ 1:N
-          ▼
-┌────────────────────┐
-│     TRANSCRIPT     │
-│────────────────────│
-│ id                 │
-│ video_source_id    │
-│ language           │
-│ provenance         │
-│ local_path?        │
-│ last_fetched_at    │
-└────────────────────┘
-
-
-            ┌──────────────────┐        ┌──────────────────┐
-            │    ANNOTATION    │        │      ASSET       │
-            │──────────────────│        │──────────────────│
-            │ id               │        │ id               │
-            │ video_id         │        │ video_id         │
-            │ timestamp_ms     │        │ type             │
-            │ content_md       │        │ path             │
-            │ created_at       │        │ timestamp_ms?    │
-            │ updated_at       │        │ created_at       │
-            └──────────────────┘        └──────────────────┘
-
-
-          ┌───────────────┐                          ┌───────────────┐
-          │     VIDEO     │ N                      N │      TAG      │
-          │               ├─────── VIDEO_TAG ────────┤               │
-          └───────────────┘                          └───────────────┘
-```
-
-Ce schéma reste volontairement simple et inclut des concepts futurs.
-Les objets `Note` et `Tag` de l'étape 4 sont implémentés et persistés.
-L'étape 4 bis implémente `Publisher`, `Person`, les associations vidéo–personne
-et les tags des publishers et personnes. `MediaFile` est implémenté en 7.1.
-`Asset` est implémenté en 7.2 pour les screenshots ; `Annotation`,
-`title_override` et les artefacts IA restent futurs.
-
-Relations complémentaires implémentées :
+### 1.1 Vue du modèle implémenté
 
 ```text
-VideoSource → Publisher : zéro ou un publisher par source
-Publisher → VideoSource : zéro à plusieurs sources par publisher
-Publisher → Person      : zéro ou une personne de référence
-Person → Publisher      : zéro à plusieurs publishers
-Video ↔ Person          : N:N via VIDEO_PERSON, sans rôle
-Publisher ↔ Tag         : N:N via PUBLISHER_TAG
-Person ↔ Tag            : N:N via PERSON_TAG
+Video (id, created_at)
+├── VideoSource [1:N] (id, video_id, provider, external_id?, ...)
+│   ├── Publisher [0..1] (compte de publication de la même plateforme)
+│   └── Transcript [0:N] (source + langue + provenance)
+├── MediaFile [0:N] (représentation physique locale)
+│   └── origin_source_id? → VideoSource (obligatoire pour un téléchargement YouTube)
+├── Note [0..1] (video_id PK/FK, content_md, revision, dates)
+├── Asset [0:N] (captures PNG ; source_id et timestamp_ms pour screenshot)
+├── Person [N:N] (associations directes, sans rôle)
+└── Tag [N:N] (associations directes)
+
+Publisher (id, provider, external_id, name?, person_id?)
+├── VideoSource [0:N]
+├── Person [0..1] (personne de référence, association facultative)
+└── Tag [N:N]
+
+Person (id, name)
+├── Publisher [0:N] (dont elle est la référence)
+└── Tag [N:N]
 ```
 
-Les concepts doivent être ajoutés ou enrichis uniquement lorsqu'un besoin réel apparaît.
+Dans cette vue, les relations `Video`–`Person`, `Video`–`Tag`, `Publisher`–`Tag` et `Person`–`Tag` passent par des tables associatives explicites. Le `Publisher` d'une source n'implique ni auteur identifié ni personne automatiquement associée à la vidéo.
+
+Une `Video` possède au moins une source dans le parcours d'import actuel ; le modèle relationnel permet d'en accueillir plusieurs. **`Annotation`, `AIArtifact`, une véritable `VideoSource` locale et les clips durables ne sont pas implémentés.** Ils ne doivent pas être traités comme des entités existantes dans les schémas ou les APIs.
+
+### 1.2 Règles de séparation
+
+- **`Video`** : identité de la connaissance dans Sillage, indépendante de ses accès et représentations.
+- **`VideoSource`** : provenance et métadonnées issues de cette provenance.
+- **`MediaFile`** : octets physiques conservés localement, sans nouvelle identité de vidéo.
+- **`Transcript`** : transcription acquise pour une source et sa timeline.
+- **`Note`** : document Markdown libre lié à la vidéo, indépendant de la source.
+- **`Asset`** : donnée visuelle durable, rattachée à la vidéo et, pour les captures, à la source et au temps demandés.
+- **`Publisher`** : compte de publication ; **`Person`** : personne physique ; leurs identités et relations ne sont pas interchangeables.
+- **`Tag`** : catalogue partagé, associations explicites sans propagation automatique.
+
+Les données des sources, les modifications utilisateur et les représentations dérivées ne sont jamais confondues. Le rafraîchissement d'une source ne doit pas écraser les connaissances utilisateur.
 
 ## 2. `Video`
 
-### 2.1 Responsabilité
+### 2.1 Responsabilité et identité
 
-`Video` est l'agrégat conceptuel principal.
-
-Il ne signifie pas « vidéo YouTube ».
-
-Il signifie :
-
-> cette vidéo telle qu'elle existe dans la base de connaissances de l'utilisateur.
-
-Elle peut avoir :
-
-- une ou plusieurs sources ;
-- zéro ou plusieurs fichiers locaux ;
-- zéro ou une note principale pour l'étape 4 ;
-- des annotations ;
-- des tags ;
-- zéro à plusieurs personnes explicitement associées au contenu ;
-- des assets ;
-- des transcriptions accessibles par ses sources ;
-- plus tard, des artefacts IA.
-
-### 2.2 Identité
-
-`Video` possède son propre identifiant interne Sillage.
-
-Décision actuelle :
-
-```text
-Video.id = entier 64 bits généré par SQLite
-```
-
-La persistance utilise :
-
-```sql
-INTEGER PRIMARY KEY AUTOINCREMENT
-```
-
-Cet identifiant :
-
-- n'est pas l'identifiant YouTube ;
-- n'est pas dérivé d'une URL ;
-- reste stable indépendamment des sources associées ;
-- n'est pas réutilisé par SQLite après suppression.
-
-Le domaine peut représenter cette identité par un type dédié tel que :
+`Video` représente « cette vidéo dans la base de connaissances de l'utilisateur », pas « cette URL YouTube ». Elle possède un identifiant interne stable :
 
 ```go
 type VideoID int64
 ```
 
-### 2.3 Métadonnées et titre affiché
+SQLite utilise `INTEGER PRIMARY KEY AUTOINCREMENT` ; l'identifiant n'est ni une URL ni un `external_id`, et les identifiants supprimés ne sont pas réattribués. Une vidéo peut avoir plusieurs sources et représentations physiques sans changer d'identité.
 
-Les métadonnées de la vidéo provenant d'une plateforme appartiennent à
-`VideoSource`. Les informations du compte de publication appartiennent à
-`Publisher`.
+Le type Go courant regroupe l'identité, `created_at`, les sources, les tags et les IDs des personnes directement associées. La note, les transcriptions, les assets et les médias sont accessibles par leurs propres modèles ; ce ne sont pas des champs obligatoirement embarqués dans `Video`.
 
-Ainsi, le titre récupéré auprès de YouTube n'est pas le titre propre de `Video` : il s'agit du titre observé auprès de cette source.
+### 2.2 Métadonnées et titre
 
-Un champ tel que :
+Les titres, descriptions, durées et miniatures provenant d'une plateforme appartiennent à ses `VideoSource`. Les informations de publication appartiennent à `Publisher`.
 
-```text
-title_override
-```
+Le titre présenté actuellement dans le Web peut provenir de la première source REST. Ce choix d'affichage **ne crée pas de source principale persistée**. Un futur `title_override` utilisateur ou une politique de sélection entre sources reste à définir ; aucun tel champ n'est implémenté dans `Video`.
 
-peut permettre à l'utilisateur de définir son propre titre pour la vidéo sans modifier le titre provenant de la source.
+De même, un éventuel `updated_at` de vidéo exige une sémantique explicite : modification utilisateur, nouvelle acquisition ou rafraîchissement distant ne sont pas nécessairement équivalents. Ne pas introduire cette donnée par simple commodité technique.
 
-Le comportement visé est conceptuellement :
+## 3. `VideoSource`, `Publisher` et `Person`
 
-```text
-title_override présent
-        ↓
-titre affiché = title_override
+### 3.1 `VideoSource` : provenance et identité
 
-sinon
-        ↓
-titre affiché = titre de la source utilisée pour l'affichage
-```
+Une `VideoSource` décrit une provenance et ses métadonnées observées. Le seul provider opérationnel actuellement est `youtube` ; une source `local` ou un provider supplémentaire relèvent d'évolutions futures.
 
-Dans le MVP, où une vidéo possède généralement une seule source YouTube, ce choix est trivial.
+Champs et conventions principales :
 
-La politique métier de sélection du titre par défaut lorsqu'une `Video`
-possède plusieurs sources reste ouverte. En 5.1, la première source retournée
-par REST est utilisée provisoirement pour présenter une carte ; cette convention
-ne crée pas de source principale persistée.
+| Champ | Sens |
+| --- | --- |
+| `id` | Identité interne `VideoSourceID` (entier SQLite AUTOINCREMENT) |
+| `video_id` | `Video` à laquelle appartient la source |
+| `provider` | Espace de provenance, par exemple `youtube` |
+| `external_id` | Identifiant dans cet espace ; nullable au niveau générique |
+| `canonical_url` | Localisateur canonique ; nullable au niveau générique |
+| `title` | Titre provenant de la source |
+| `description` | Description facultative |
+| `publisher_id` | Référence facultative au compte de publication |
+| `duration_ms` | Durée facultative, non négative |
+| `thumbnail_url` | Miniature facultative |
+| `original_audio_language` | Langue audio originale déclarée lorsqu'elle est déterminable |
 
-La sémantique exacte d'un éventuel `updated_at` reste également à préciser : un rafraîchissement de source, l'ajout d'une transcription ou une modification utilisateur ne doivent pas être assimilés implicitement.
+Le couple `(provider, external_id)` est unique lorsque `external_id` existe. L'identité d'une source ne découle **pas** de son URL. Pour YouTube, `external_id` et `canonical_url` sont obligatoires au niveau applicatif. `provider` sert également à sélectionner l'adapter approprié ; il n'impose pas de sous-types SQL.
 
-## 3. `VideoSource`
-
-### 3.1 Responsabilité
-
-`VideoSource` représente une **provenance** de la vidéo ainsi que les métadonnées observées ou fournies par cette provenance.
-
-Une source n'est pas nécessairement une plateforme en ligne.
-
-Exemple initial :
+Un exemple canonique YouTube est :
 
 ```text
 provider      = youtube
-external_id   = <youtube-video-id>
-canonical_url = https://www.youtube.com/watch?v=...
+external_id   = IgKU8xCgbjc
+canonical_url = https://www.youtube.com/watch?v=IgKU8xCgbjc
 ```
 
-Plus tard, d'autres valeurs de `provider` pourront être ajoutées, par exemple :
+Les durées et propriétés provenant d'une plateforme sont distinctes des mesures du fichier réellement téléchargé. `VideoSource` ne contient pas les codecs, dimensions, taille ni chemin du `MediaFile`.
+
+Le champ historique `creator` n'existe plus. Le compte de publication est représenté par `publisher_id` ; l'API peut en exposer la projection `{id, name}` ou `null`, sans dupliquer le nom dans la source persistée.
+
+### 3.2 Métadonnées externes
+
+Sillage conserve les champs utiles explicitement normalisés, **pas de `raw_metadata` yt-dlp permanent par défaut**. Une nouvelle extraction peut alimenter de futurs champs, mais aucun rafraîchissement implicite n'accompagne le réajout d'une source existante.
+
+Cette décision ne s'oppose pas à la conservation de documents sources spécifiques tels que le JSON3 d'une transcription : il s'agit alors du contenu acquis, non d'une copie générique de toutes les métadonnées.
+
+### 3.3 Sources multiples et timelines
+
+Conceptuellement : `Video 1:N VideoSource`. Deux sources peuvent représenter le même contenu avec un décalage ou un montage différent. Leurs timestamps ne sont donc **pas automatiquement interchangeables**.
+
+`AddVideo` retrouve une source déjà connue par son identité externe et ne rafraîchit pas au passage titre, description, publisher ou associations explicites. La détection automatique d'une équivalence entre sources de plateformes différentes n'est pas implémentée.
+
+Une véritable `VideoSource(provider=local)` reste à concevoir. Son éventuel chemin, hash ou ID généré ne doit pas être imposé avant le workflow d'import local. Elle ne se confond pas avec un `MediaFile` téléchargé depuis YouTube.
+
+### 3.4 `Publisher` : compte de publication
+
+`Publisher` est un compte identifié sur une plateforme, **pas nécessairement l'auteur, une personne physique ou le titulaire de droits**.
 
 ```text
-vimeo
-local
-...
-```
-
-Seul YouTube est pris en charge dans l'implémentation actuelle.
-
-### 3.2 Identité interne
-
-`VideoSource` possède son propre identifiant interne Sillage :
-
-```text
-VideoSource.id = entier 64 bits généré par SQLite
-```
-
-La persistance utilise :
-
-```sql
-INTEGER PRIMARY KEY AUTOINCREMENT
-```
-
-`video_id` est la clé étrangère qui rattache la source à l'objet `Video`.
-
-Il ne faut pas confondre :
-
-```text
-video_id
-```
-
-qui désigne une `Video` interne à Sillage, avec :
-
-```text
-external_id
-```
-
-qui désigne éventuellement la vidéo dans l'espace de noms du `provider`.
-
-### 3.3 `provider`
-
-`provider` identifie le système ou la catégorie de provenance de la source.
-
-Il sert notamment à interpréter les informations qui lui sont spécifiques.
-
-Exemple :
-
-```text
-provider    = youtube
-external_id = IgKU8xCgbjc
-```
-
-L'identifiant externe n'a pas de signification suffisante sans le contexte du provider.
-
-`provider` joue également le rôle de discriminant permettant à l'application de choisir le comportement ou l'adapter approprié.
-
-Le nom `provider` est conservé.
-
-### 3.4 `external_id`
-
-`external_id` est l'identifiant de la vidéo dans l'espace de noms défini par le `provider`.
-
-Au niveau du modèle générique, `external_id` est facultatif : toutes les futures provenances ne fourniront pas nécessairement un identifiant externe stable.
-
-Lorsqu'il est présent, l'identité externe d'une source est le couple :
-
-```text
-(provider, external_id)
-```
-
-La persistance impose donc l'unicité de ce couple uniquement lorsque `external_id` n'est pas `NULL`.
-
-Pour YouTube, `external_id` est obligatoire au niveau applicatif.
-
-### 3.5 `canonical_url`
-
-`canonical_url` est un localisateur canonique permettant d'accéder à la source lorsqu'une telle URL existe.
-
-Il ne définit pas l'identité de `VideoSource`.
-
-Pour YouTube, l'adapter normalise les différentes formes d'URL et fournit une URL canonique telle que :
-
-```text
-https://www.youtube.com/watch?v=IgKU8xCgbjc
-```
-
-Même lorsqu'une URL pourrait être reconstruite à partir du `provider` et de `external_id`, la conserver reste utile :
-
-- elle évite de disperser la logique de reconstruction ;
-- elle fournit directement un localisateur utilisable ;
-- toutes les futures sources ne suivront pas nécessairement les mêmes conventions.
-
-Au niveau générique, `canonical_url` est facultatif.
-
-Pour YouTube, il est obligatoire au niveau applicatif.
-
-### 3.6 Métadonnées
-
-`VideoSource` contient les métadonnées provenant de cette source et dont l'application a réellement besoin.
-
-Champs actuels :
-
-- titre ;
-- description ;
-- référence facultative au publisher ;
-- durée ;
-- miniature ;
-- URL canonique ;
-- identifiant externe ;
-- langue audio originale facultative (`original_audio_language`).
-
-Des champs supplémentaires pourront être ajoutés à partir de besoins réels, par exemple une date de publication.
-
-Ces métadonnées restent génériques : un fichier local peut lui aussi fournir
-un titre ou une durée via ses tags, son nom ou une analyse du média.
-
-Les propriétés techniques d'un fichier concret — chemin, taille, conteneur, codecs, résolution, etc. — appartiennent en revanche à `MediaFile`.
-
-L'ancien champ `creator` contenait `channel`, avec repli sur `uploader`, sans
-garantir une attribution d'auteur. L'étape 4 bis le supprime et le remplace par
-`publisher_id`, facultatif. Aucun nom de secours n'est stocké dans la source.
-Le REST restitue un objet minimal `publisher: {id, name}`, ou `null` ; il s'agit
-d'une projection du compte partagé, pas d'une duplication en persistance.
-
-### 3.7 Pas de `raw_metadata` par défaut
-
-Le modèle ne prévoit pas de conserver systématiquement le JSON brut complet des métadonnées renvoyées par `yt-dlp`.
-
-Décision actuelle :
-
-- identifier explicitement les métadonnées utiles ;
-- les normaliser ;
-- réinterroger la source si le modèle évolue.
-
-Un cache ou une trace brute pourra être ajouté plus tard si un besoin concret de debug, d'audit ou de résilience apparaît.
-
-Cette décision concerne les métadonnées générales de `VideoSource`.
-
-Elle n'interdit pas de conserver ponctuellement un fichier source tel qu'un JSON3 de transcription lorsque celui-ci constitue lui-même le contenu acquis.
-
-### 3.8 Multiples sources
-
-La relation conceptuelle est :
-
-```text
-Video 1:N VideoSource
-```
-
-Dans le MVP, une vidéo aura probablement une seule source YouTube.
-
-La relation 1:N permet toutefois de représenter plusieurs provenances de la même vidéo sans faire dépendre l'identité de `Video` d'une plateforme particulière.
-
-Deux sources représentant le même contenu conceptuel ne sont pas nécessairement parfaitement synchronisées.
-
-Exemple :
-
-```text
-Source A
-00:00 début du contenu
-
-Source B
-00:00 intro ou logo
-00:10 début du même contenu
-```
-
-Les deux sources peuvent appartenir à la même `Video`, tout en possédant des timelines différentes.
-
-Cette propriété est importante pour les données temporelles telles que les transcriptions.
-
-La détection automatique qu'une source d'une autre plateforme correspond à une `Video` déjà existante reste une question ouverte.
-
-### 3.9 Source locale
-
-Une source locale est une possibilité prévue, mais son identité exacte n'est pas encore définie.
-
-Exemple conceptuel :
-
-```text
-provider      = local
-external_id   = NULL
-canonical_url = NULL
-```
-
-Il ne faut pas décider prématurément si une future identité locale doit être fondée sur :
-
-- un chemin ;
-- un hash ;
-- un identifiant généré ;
-- une autre propriété.
-
-Cette question sera traitée lors de l'implémentation réelle de l'import de fichiers locaux.
-
-Aucun héritage ou sous-type SQL `OnlineVideoSource` / `LocalVideoSource` n'est introduit à ce stade.
-
-### 3.10 `Publisher` — compte de publication
-
-Décision validée et implémentée à l'étape 4 bis : un publisher représente un
-compte ou une entité de publication sur une plateforme, indépendamment des
-vidéos. Ce n'est pas nécessairement un auteur, une personne physique ou un
-propriétaire juridique.
-
-```text
-PUBLISHER
+Publisher
   id
   provider
   external_id
@@ -413,171 +136,90 @@ PUBLISHER
   person_id?
 ```
 
-- `id` est une identité interne Sillage.
-- `(provider, external_id)` identifie le compte externe ; le nom ne sert jamais
-  à identifier ou fusionner les comptes.
-- `name` est facultatif et affichable. Il n'est pas un historique du nom observé
-  à chaque import. Une future actualisation affectera toutes les sources liées.
-- Un publisher peut exister sans vidéo et sans personne de référence.
-- Une personne peut être la référence de plusieurs publishers. Cette association
-  n'exprime pas de propriété juridique.
-- Une source ne peut référencer qu'un publisher du même provider.
+- `(provider, external_id)` constitue son identité externe, distincte de celle des vidéos et de leurs sources ; le nom ne sert jamais à fusionner des comptes.
+- Le nom est facultatif, partagé entre les sources liées, et peut rester inconnu.
+- La personne de référence est facultative ; elle ne signifie ni propriété du compte ni auteur automatique de son contenu.
+- Le provider du publisher doit être compatible avec celui de la source liée ; SQLite renforce cette cohérence.
+- Une personne peut être référencée par plusieurs publishers ; un publisher peut exister sans vidéo.
 
-Pour YouTube, `external_id` est obligatoirement un `channel_id` fiable, jamais
-un handle ni un nom. L'adapter utilise le nom `channel`, puis `uploader` si
-nécessaire, uniquement comme libellé d'un compte déjà identifié.
+Pour YouTube, l'identifiant fiable est le `channel_id`, **jamais** un handle ou un nom de chaîne. `channel`, puis éventuellement `uploader`, ne sont utilisés que comme libellés d'un compte déjà identifié. L'URL d'un compte peut être résolue explicitement par yt-dlp ; sans ID fiable, la résolution échoue sans créer d'entité. Lors d'un import vidéo, l'absence de publisher fiable laisse simplement la source sans publisher.
 
-Une création manuelle résout une URL de chaîne via yt-dlp, par exemple
-`https://www.youtube.com/@LexClips`. Si l'identité ne peut pas être obtenue,
-l'opération échoue sans création. L'absence du nom n'empêche pas la création.
+Un publisher existant n'est pas rafraîchi automatiquement lors de sa réutilisation, même si son nom est absent. L'association source–publisher peut être ajoutée, remplacée ou retirée explicitement. Une collaboration ou un nom crédité par YouTube ne crée automatiquement ni publisher supplémentaire ni personne.
 
-À l'import vidéo, sans identifiant de compte fiable, aucun publisher n'est créé
-et la source reste sans référence. Cela n'invalide pas à soi seul l'import.
-L'utilisateur peut ensuite associer, remplacer ou retirer explicitement un
-publisher identifié. Aucun rapprochement par nom ni champ `publisher_name`
-de secours n'est introduit.
-
-La réutilisation d'un publisher ne rafraîchit ni son nom ni ses associations,
-même lorsque son nom est absent. Aucun cas d'usage de rafraîchissement n'est
-inclus dans cette tranche. Le réajout d'une vidéo ne répare pas implicitement
-ses associations. Les règles des autres providers restent à définir lors de
-leur prise en charge ; seul YouTube peut actuellement être résolu.
-
-Le publisher YouTube est le compte principal de publication. Une collaboration
-ne crée pas plusieurs `VideoSource`. Les noms de chaînes créditées ne deviennent
-automatiquement ni des publishers ni des personnes. Leur modélisation est différée.
-
-### 3.11 `Person` et associations au contenu
+### 3.5 `Person` : personne physique et associations
 
 ```text
-PERSON
-  id
-  name
-
-VIDEO_PERSON
-  video_id
-  person_id
+Person (id, name)
+VideoPerson (video_id, person_id)
 ```
 
-Une personne représente une personne physique identifiable, indépendante des
-plateformes. Son nom est obligatoire après suppression des espaces aux extrémités,
-mais non unique. Les homonymes restent distincts et aucune fusion n'est automatique.
-Une personne peut exister sans publisher ni vidéo. Son nom peut être corrigé.
+Le nom d'une personne est obligatoire après suppression des espaces aux extrémités, mais **non unique**. Deux homonymes restent deux identités indépendantes. Une personne peut être renommée, exister sans compte ni vidéo, et être liée explicitement à une vidéo.
 
-`VideoPerson` exprime uniquement une association explicite au contenu, sans rôle.
-Le couple `(video_id, person_id)` est unique. Aucun `primary_person_id`, `Creator`,
-`Author`, `Contributor` ou `Organisation` distinct n'est introduit.
+La relation `VideoPerson` est N:N, avec unicité du couple et **sans rôle**. Aucune importation de métadonnées ne crée automatiquement une personne.
 
-Les chemins suivants sont différents et ne se propagent pas :
+Deux chemins de navigation demeurent distincts :
 
-- direct : `Video → VideoPerson → Person` ;
-- indirect : `Video → VideoSource → Publisher → Person`.
+```text
+Direct   : Video → VideoPerson → Person
+Indirect : Video → VideoSource → Publisher → Person
+```
 
-Lex Fridman peut être la référence des publishers Lex Fridman et Lex Clips.
-La navigation depuis sa fiche retrouve alors les vidéos de ces comptes sans
-créer de liens directs. ThePrimeagen peut être associé directement à une interview
-publiée sur une autre chaîne, en plus de sa relation avec son propre publisher.
-L'union des deux chemins déduplique les vidéos par leur identité Sillage.
+La navigation peut réunir ces chemins en dédupliquant les vidéos par ID, mais **ne matérialise jamais un lien direct à partir d'un lien indirect**. Les associations de personnes et leurs tags ne se propagent pas non plus aux sources, comptes ou vidéos.
 
-L'association d'une personne à un publisher ou une vidéo est modifiable et
-retirable. Aucun import ne crée automatiquement de personne. La suppression des
-entités Person et Publisher est hors périmètre de cette tranche.
+La suppression des publishers/personnes, les rôles, les organisations et la modélisation des collaborateurs restent à cadrer ; ils n'appartiennent pas au modèle actuel.
 
 ## 4. `Transcript`
 
-### 4.1 Identité et responsabilité
+### 4.1 Identité et appartenance
 
-`Transcript` représente une transcription effectivement acquise et exploitable.
-Il appartient à une `VideoSource`, dont il partage la timeline :
-`VideoSource 1:N Transcript`. Il ne référence pas directement `Video`.
-La découverte distante seule ne crée aucune ligne.
+`Transcript` représente un contenu textuel horodaté **effectivement acquis**. Une simple découverte de pistes distantes ne crée aucune transcription en base.
 
-Deux sources d'une même vidéo peuvent être décalées dans le temps. Cette
-relation ne prétend pas synchroniser leurs timelines et ne crée aucune
-abstraction générique de timeline.
-
-### 4.2 Attributs persistants
+La relation est `VideoSource 1:N Transcript`, **pas** `Video 1:N Transcript` : la transcription conserve la timeline de la source précise dont elle provient. Son identité persistante est :
 
 ```text
-id
-video_source_id
-language
-provenance
-local_path?
-last_fetched_at
+UNIQUE(video_source_id, language, provenance)
 ```
 
-L'identité initiale est `UNIQUE(video_source_id, language, provenance)`.
-Une réacquisition actualise le même ID, sans historique métier.
-Les champs d'identité sont obligatoires ; `local_path` reste nullable
-(chaîne Go vide pour l'absence).
+Champs persistants :
 
-`language` désigne la langue du contenu : `en`, `fr`, `pt-BR`.
-Le suffixe yt-dlp `-orig` ne fait pas partie de la langue métier.
-Aucun `provider_track_id` n'est persisté.
+| Champ | Sens |
+| --- | --- |
+| `id` | Identité de transcription stable |
+| `video_source_id` | Provenance et timeline |
+| `language` | Langue du contenu, sans suffixe technique `-orig` |
+| `provenance` | Origine de l'acquisition : actuellement `youtube_auto` |
+| `local_path` | Chemin nullable du snapshot source |
+| `last_fetched_at` | Date de dernière acquisition effectivement publiée |
 
-`provenance` décrit la production de la transcription. La seule valeur
-implémentée est `youtube_auto`. Les valeurs futures telles que
-`youtube_manual` ou `local_stt` ne sont pas des fonctionnalités présentes.
+Une nouvelle acquisition de même identité actualise la ligne existante ; il n'existe pas d'historique métier de versions. Un identifiant de piste propre au provider n'est pas persisté.
 
-`last_fetched_at` date la dernière acquisition réussie publiée en base.
-Le service fournit un `time.Time` UTC tronqué à la milliseconde ; SQLite
-le stocke au format fixe `YYYY-MM-DDTHH:MM:SS.mmmZ`.
+Les provenances hypothétiques `youtube_manual` et `local_stt` ne correspondent pas à des fonctions déjà implémentées.
 
-### 4.3 Langue originale et sélection
+### 4.2 Sélection YouTube et langue
 
-`VideoSource.original_audio_language` décrit facultativement la langue de
-l'audio original. Elle reste absente lorsque les signaux ne permettent pas
-de la déterminer et n'est pas exposée par le DTO vidéo actuel.
+La politique actuelle privilégie les captions automatiques portant `-orig` et disponibles en **JSON3**. `VideoSource.original_audio_language` est une information facultative, alimentée uniquement par un signal original audio suffisamment fiable de yt-dlp ; les captions, les titres et les pistes audio « par défaut » ne prouvent pas l'originalité.
 
-L'adapter utilise exclusivement un signal audio original explicite de yt-dlp ;
-une piste audio par défaut, le titre, la description ou une caption `*-orig`
-ne permettent pas de renseigner cette information. Des signaux audio
-contradictoires la laissent inconnue.
+Pour sélectionner une caption admissible :
 
-La langue audio enregistrée donne priorité à sa clé originale exacte si elle
-est admissible. À défaut, une langue de forme simple `langue-région` (région
-de deux lettres ou trois chiffres) cible la clé générique : `en-US` → `en-orig`.
-Les écritures, variantes et étiquettes complexes ne sont pas simplifiées.
-Sinon, une unique clé `*-orig` admissible est sélectionnée,
-même si sa langue diffère. Sans candidat, la transcription est indisponible ;
-avec plusieurs candidats sans correspondance exacte ou régionale, la sélection est ambiguë.
-Une clé admissible a une langue exploitable et un format JSON3 avec URL HTTPS
-valide, sans identifiants. Plusieurs formats d'une clé ne sont pas plusieurs
-candidats. La langue redétectée pendant l'acquisition ne départage pas les pistes.
-Aucune traduction de captions n'est demandée, ni sous-titre manuel ni STT.
-Cette politique privilégie l'audio original sans le garantir : une piste
-`-orig` peut transcrire un audio doublé. Le repli sur une piste unique reste
-accepté même dans une autre langue. La provenance `youtube_auto` et l'identité
-existante ne constituent pas une preuve de correspondance avec l'audio original.
+1. privilégier la clé `*-orig` correspondant exactement à la langue audio originale connue ;
+2. sinon, pour une étiquette simple `langue-région` (région de deux lettres ou trois chiffres), essayer la clé originale générique : `en-US` → `en-orig` ;
+3. sinon, accepter un **unique** candidat original admissible ; s'il n'y en a aucun, refuser l'acquisition ; s'il en existe plusieurs sans correspondance prioritaire, signaler l'ambiguïté.
 
-La langue audio et celle de la transcription décrivent des informations distinctes
-et peuvent diverger. L'acquisition ne modifie jamais la langue audio, même inconnue.
-Les valeurs déjà enregistrées sont conservées : leur origine historique n'est
-pas persistée et ne permet pas une correction automatique fiable.
+Les écritures ou étiquettes complexes ne sont pas simplifiées. Plusieurs formats d'une même clé ne constituent pas plusieurs candidats. Une piste admissible exige une langue exploitable et une URL HTTPS JSON3 valide ; aucune traduction ni piste manuelle n'est demandée. Une redétection audio au cours de l'acquisition ne départage pas les candidats.
 
-### 4.4 Acquisition et snapshot
+**Limite acceptée :** `-orig` peut aussi décrire les captions d'un doublage. Une piste unique de langue différente peut être choisie. La langue audio originale et celle de la transcription demeurent distinctes ; aucune acquisition de transcript ne modifie `original_audio_language`. L'UI parle de « Transcription automatique », sans affirmer qu'elle reproduit nécessairement l'audio original.
 
-Une acquisition réussie comprend récupération, parsing, validation du contenu,
-publication du fichier et persistance. Un échec préserve le dernier chemin,
-le contenu et la date d'acquisition.
+### 4.3 Publication et disponibilité du snapshot
 
-Pour cette tranche, chaque acquisition conserve le JSON3 source localement.
-Le chemin est relatif à la racine de snapshots. Un nouveau fichier est publié
-avant de changer la référence SQL ; les fichiers précédents ne sont pas
-immédiatement supprimés, pour préserver les GET concurrents.
-Une interruption peut laisser un fichier non référencé. La rétention durable
-et le nettoyage restent ouverts.
+Une acquisition réussie valide le JSON3, publie un fichier unique complet puis met à jour la référence SQLite. Elle remplace le contenu courant sans changer l'identité de transcription. En cas d'échec, l'ancien contenu, son chemin et sa date restent inchangés.
 
-La nullabilité de `local_path` sépare l'identité du contenu local. Cependant,
-une ligne sans snapshot lisible est une anomalie locale dans le workflow
-actuel : le GET ne refait jamais d'acquisition distante.
+Le snapshot est stocké sous un chemin relatif. Les anciens fichiers peuvent rester pendant une transition ; un crash ou un échec SQL peut laisser un fichier sans référence. Leur rétention à long terme et leur nettoyage ne sont pas encore définis.
 
-Les URLs directes de captions ne sont pas persistées ; le prochain POST
-redécouvre une URL fraîche. Le dump général yt-dlp n'est pas archivé.
-Aucun format JSON propriétaire n'est introduit.
+`local_path` est nullable au niveau du modèle, mais **le workflow actuel exige un snapshot lisible** après acquisition. Un GET ne recontacte jamais YouTube. Un snapshot absent ou corrompu constitue donc aujourd'hui une anomalie locale, et non une invitation à réacquérir silencieusement le contenu.
 
-### 4.5 Contenu en mémoire
+Les URL signées des captions, les dumps généraux yt-dlp et un catalogue des pistes ne sont pas persistés comme données durables.
+
+### 4.4 Contenu indépendant du format source
 
 ```go
 type TranscriptItem struct {
@@ -588,636 +230,272 @@ type TranscriptItem struct {
 type TranscriptContent []TranscriptItem
 ```
 
-Les items sont des fragments ordonnés, pas nécessairement des mots. Ils n'ont
-ni identité propre, ni `end_ms`, ni locuteur. Ils ne sont pas persistés
-individuellement dans SQLite.
+Les items sont des fragments **ordonnés**, non nécessairement des mots, sans ID propre, `end_ms` ou interlocuteur. Ils ne sont pas stockés individuellement dans SQLite.
 
-Le parser calcule notamment `event.tStartMs + seg.tOffsetMs`, avec offset
-absent égal à zéro. Il refuse les temps textuels invalides et les débordements,
-ignore les événements sans texte, préserve les blancs et l'ordre source,
-et matérialise les séparations entre blocs autonomes dans les items.
-Un document sans texte exploitable est rejeté.
+Le parseur JSON3 calcule les positions notamment à partir de `event.tStartMs + seg.tOffsetMs` (offset absent égal à zéro), rejette les valeurs invalides et débordements, ignore les événements sans texte, préserve les blancs et l'ordre des fragments, et encode les séparations nécessaires entre blocs autonomes. Un document sans texte exploitable est refusé.
 
-`TranscriptContent.PlainText()` concatène les items puis normalise les blancs.
-Ce texte n'est pas persisté séparément. Une correction utilisateur ou IA future
-devra rester une donnée dérivée distincte, sans écraser la source.
+`TranscriptContent.PlainText()` concatène les textes puis normalise les blancs : il s'agit d'une **représentation dérivée en mémoire**. L'affichage et la recherche peuvent aussi s'appuyer sur la concaténation exacte des fragments pour préserver leurs indices et leurs espaces. Aucun texte intégral ni résultat de regroupement visuel n'est persisté séparément.
 
-### 4.6 Vue singulière
+### 4.5 Consultation actuelle
 
-Le GET choisit, parmi les acquisitions `youtube_auto` de la source,
-`last_fetched_at DESC, id DESC`. La relation reste 1:N sans interface
-multi-transcriptions ni sélection manuelle dans cette tranche.
+La consultation courante sélectionne la transcription `youtube_auto` la plus récemment acquise pour la source, par `last_fetched_at DESC, id DESC`. Il n'existe ni sélection manuelle de piste ni interface multi-transcriptions dans la version actuelle. Les corrections utilisateur et les productions IA devront, si elles sont introduites, rester distinctes du contenu source.
 
 ## 5. `Note`
 
-### 5.1 Responsabilité
+### 5.1 Document principal et persistance
 
-`Note` est le document Markdown de travail associé à une vidéo.
-
-Décision actée et implémentée pour l'étape 4 : `Video 1 → 0..1 Note`.
-La note appartient directement à `Video`, jamais à une `VideoSource`.
-
-| Champ | Rôle |
-| --- | --- |
-| `video_id` | Clé primaire et référence vers `Video` ; aucun identifiant propre |
-| `content_md` | Contenu Markdown brut, stocké en `TEXT` dans SQLite |
-| `created_at` | Date de création de la note |
-| `updated_at` | Date de dernière modification effective |
-| `revision` | Entier positif de version ; migration 0005 : 1 pour les notes existantes, texte et dates préservés |
-
-Aucune note n'est créée automatiquement à l'ajout d'une vidéo. Le premier
-enregistrement la crée ; les suivants remplacent son contenu. Une chaîne vide
-est acceptée, y compris à la création : note absente et note vide sont distinctes.
-
-LF est le séparateur canonique : le service applicatif normalise CRLF et CR en LF
-avant persistance, indépendamment du client (Web, REST ou futur MCP). Les autres
-caractères, espaces, indentations, lignes vides et syntaxes sont conservés.
-Aucun parsing, rendu HTML ou interprétation des timestamps n'intervient dans la persistance.
-Cette décision remplace explicitement la préservation des séparateurs de 5.2.
-Les notes existantes ne sont pas migrées ; leur lecture retourne le contenu stocké
-sans normalisation ni écriture. Un enregistrement ultérieur peut les normaliser.
-Cette représentation laisse possibles de futures syntaxes internes et leur export.
-
-À la création, `created_at` et `updated_at` sont identiques. `created_at` reste
-stable ensuite et un contenu strictement inchangé ne modifie pas `updated_at`.
-Un changement d'espace ou l'ajout d'un saut de ligne est une modification effective.
-Les variantes LF/CRLF/CR soumises donnent le même contenu canonique : une fois
-enregistré en LF, leur sauvegarde conserve révision et dates. La première
-normalisation d'une ancienne note est une modification effective. Une précondition
-obsolète reste refusée même si le contenu normalisé serait identique.
-Les dates suivent la convention UTC à précision milliseconde.
-
-La dernière écriture gagnante était le compromis historique de l'étape 4.
-En 5.2, chaque sauvegarde exige une révision attendue : 0 signifie une note
-absente, une valeur positive désigne la version lue. Comparaison et écriture
-sont atomiques en persistance, pour tous les clients des services applicatifs.
-Une révision obsolète provoque un conflit, même si le contenu proposé est identique.
-Une création reçoit la révision 1 ; une modification effective l'incrémente.
-Une sauvegarde identique avec précondition valide conserve révision et dates.
-La migration des notes existantes initialise leur révision sans transformer le texte.
-
-Ni plusieurs notes, ni ajout partiel, ni suppression explicite, ni historique
-ne sont introduits en 5.2.
-
-### 5.2 Références temporelles — format acté en 6.2
-
-Les références restent du texte opaque pour la persistance. Le Markdown brut
-peut accueillir des extensions propres à Sillage, sans compatibilité
-fonctionnelle obligatoire avec les applications Markdown externes.
-
-Une référence a un début obligatoire et une fin facultative. Insertion rapide
-et citation enrichie peuvent partager cette notion sans nécessiter chacune une
-entité `Annotation`. La provenance temporelle doit être conservée lorsque
-nécessaire : les timelines de plusieurs sources ne sont pas interchangeables.
-
-Le format produit est `[12:42](sillage://videos/5/sources/5?start_ms=762345)`.
-`videos` est l'autorité logique, `/5/sources/5` le chemin ; les deux identifiants
-sont internes à Sillage et présents même si la note appartient déjà à cette vidéo.
-La source est celle effectivement utilisée par le lecteur, sans déduire une
-timeline de référence ni une source principale persistée. Les identifiants générés
-sont des entiers positifs représentables exactement par le frontend ; `start_ms`
-est un entier non négatif. Le libellé est une présentation, jamais une position
-à parser. `end_ms` est réservé pour une fin future strictement postérieure au début ;
-aucune plage n'est produite en 6.2. La relation aux annotations reste ouverte.
-
-La référence reste autonome après copie de son Markdown dans une autre note de
-la même base. Les identifiants ne sont pas universels : aucune résolution entre
-bases indépendantes n'est garantie. La copie du seul libellé rendu ne garantit
-pas la conservation de l'URI. Aucun identifiant d'installation, versionnement,
-nouvelle entité ou mécanisme de résolution n'est introduit.
-
-La copie ordinaire doit préserver les informations utiles. Copie adaptée et
-export pourront convertir les références. Un export Markdown de consultation
-est distinct d'une sauvegarde réimportable de l'ensemble des données métier.
-
-## 6. `Annotation`
-
-### 6.1 Responsabilité
-
-`Annotation` est une référence temporelle structurée et forte.
-
-Ancienne esquisse conceptuelle, non implémentée et à réexaminer avec les plages et leur provenance :
+Une `Note` est le document Markdown de travail **de la vidéo**, non d'une de ses sources :
 
 ```text
-id
-video_id
-timestamp_ms
-content_md
+Video 1 → 0..1 Note
 ```
 
-Elle peut plus tard recevoir d'autres propriétés.
+| Champ | Sens |
+| --- | --- |
+| `video_id` | Clé primaire et étrangère ; la note n'a pas d'ID autonome |
+| `content_md` | Markdown brut enregistré en SQLite `TEXT` |
+| `created_at` | Date de première création |
+| `updated_at` | Date de la dernière modification effective |
+| `revision` | Entier strictement positif utilisé par les écritures conditionnelles |
 
-### 6.2 Pourquoi garder `Note` et `Annotation`
+Aucune note n'est créée lors du seul import ou de l'ouverture d'une vidéo. La première sauvegarde crée la note ; une note vide enregistrée et une note absente sont deux états différents. Une modification des métadonnées, du publisher, des sources ou d'une transcription ne remplace jamais son contenu.
 
-Les deux concepts servent des besoins différents.
+Le service applicatif stocke le Markdown **sans interpréter son contenu** : il ne parse ni les liens temporels ni les images, et ne génère pas de HTML pour la persistance. Les seules transformations sont les fins de ligne `CRLF` et `CR`, normalisées en `LF` lors d'une sauvegarde. Tous les autres caractères et espacements sont conservés.
 
-`Note` :
+La lecture d'une ancienne note n'effectue ni normalisation ni écriture. Une sauvegarde ultérieure peut normaliser son texte ; la première normalisation réelle est une modification, tandis qu'une sauvegarde déjà identique au contenu canonique ne change ni la révision ni les dates.
 
-- document libre ;
-- prise de notes rapide ;
-- organisation personnelle ;
-- références temporelles informelles.
+### 5.2 Concurrence et cycle de révision
 
-`Annotation` :
+Chaque écriture exige une **révision attendue** :
 
-- identité propre ;
-- timestamp canonique ;
-- requêtes structurées ;
-- marqueur de timeline ;
-- usage MCP ;
-- future catégorisation ou liens.
+- `0` signifie « je m'attends à l'absence de note » ;
+- une valeur positive désigne une version déjà lue ;
+- une révision périmée est un **conflit**, même si le texte proposé serait identique après normalisation.
 
-### 6.3 Relation encore ouverte
+La comparaison et l'écriture sont atomiques en persistance, quel que soit le client. Une création commence à la révision `1` ; une modification effective l'incrémente ; un contenu identique avec précondition correcte ne déclenche pas de mise à jour. `created_at` reste stable. Les anciennes notes ont reçu une révision initiale `1` sans modification de leur texte ni de leurs dates lors de l'introduction de ce mécanisme.
 
-La synchronisation éventuelle entre :
+La stratégie historique « dernière écriture gagnante » **n'est plus applicable**. Il n'existe actuellement ni suppression explicite, ni ajout partiel, ni historique de versions métier, ni plusieurs notes principales pour une vidéo.
+
+### 5.3 Références temporelles dans le Markdown
+
+Les références temporelles sont du **Markdown source** ; leur présence ne crée ni annotation structurée ni autre entité SQL.
+
+Format canonique actuellement produit :
 
 ```markdown
-[12:42]
+[12:42](sillage://videos/5/sources/5?start_ms=762345)
 ```
 
-dans la note et une `Annotation` structurée n'est pas encore décidée.
+- `videos` est l'autorité logique de l'URI ; `video_id` et `source_id` sont explicites.
+- `start_ms` est un entier non négatif ; son unité canonique est la milliseconde.
+- Le libellé `12:42` est uniquement une présentation, **pas** la source de la position.
+- Les IDs doivent pouvoir être représentés exactement par le frontend pour les références qu'il génère.
+- `end_ms` est réservé à une éventuelle plage future, strictement postérieure au début ; les plages ne sont pas implémentées.
 
-Options à tester :
+Les identifiants sont propres à une base Sillage : copier le Markdown dans une autre note de **la même base** préserve la référence ; une autre installation indépendante ne garantit pas sa résolution. Copier seulement le libellé rendu ne conserve pas nécessairement l'URI.
 
-- indépendance totale ;
-- transformation explicite d'une référence faible en annotation ;
-- représentation d'une annotation dans le Markdown ;
-- parsing automatique de certaines syntaxes.
+Les callouts de citation de transcription (`quote:tr`) utilisent la même provenance temporelle sans nouvelle table de citations. Une citation transcrite reste un contenu Markdown que l'utilisateur peut modifier ; elle n'est pas garantie authentique ni synchronisée avec la transcription source.
 
-Ne pas figer ce comportement avant de tester l'UX.
+La représentation enrichie, l'édition et la navigation sont décrites dans [Product & UX](01-product-and-ux.md). Les formats d'export et les liens temporels couvrant plusieurs sources restent des questions ouvertes.
 
-### 6.4 Plusieurs timelines de source
+## 6. `Annotation` — concept futur, non implémenté
 
-`Annotation` reste pour l'instant rattachée directement à `Video`.
+Une `Annotation` serait une référence temporelle **structurée et identifiable**, distincte du texte libre d'une `Note` : elle pourrait servir des listes, marqueurs de timeline, recherches ciblées, API/MCP et catégories.
 
-Cependant, plusieurs `VideoSource` d'une même vidéo peuvent théoriquement avoir des timelines différentes.
+L'ancienne esquisse `id`, `video_id`, `timestamp_ms`, `content_md` n'est **pas un schéma acté**. Elle ne résout pas à elle seule la question des sources multiples ni celle des plages début/fin.
 
-Si ce scénario devient réellement supporté dans l'UX, il faudra déterminer si une annotation temporelle doit également référencer :
+Les questions à trancher avant de créer cette entité sont notamment :
 
-- une `VideoSource` ;
-- un `MediaFile` ;
-- une timeline de référence ;
-- ou une autre abstraction.
+- indépendance ou lien explicite avec une référence Markdown ;
+- création directe, depuis une sélection de transcription ou depuis une référence existante ;
+- source ou timeline à laquelle s'applique la position ;
+- éventuelles plages temporelles et types d'annotations ;
+- éventuelle représentation et modification depuis la note.
 
-Cette question est volontairement laissée ouverte.
+Aucune conversion automatique de `[12:42]` ni analyse systématique du Markdown en entités `Annotation` n'est décidée. Voir [Open questions — notes, annotations et temps](06-open-questions.md).
 
 ## 7. `Asset`
 
-`Asset` représente une connaissance visuelle conservée autour d'une `Video`.
-La tranche 7.2 implémente uniquement le type `screenshot`.
+### 7.1 Identité, provenance et états
 
-| Attribut | Contrat implémenté |
-|---|---|
-| `id` | Identité persistante indépendante du nom physique |
-| `video_id` | Obligatoire |
-| `source_id` | Nullable en général, obligatoire pour un screenshot |
-| `timestamp_ms` | Nullable en général, entier non négatif obligatoire pour un screenshot |
-| `type` | `screenshot` |
-| `status` | `pending`, `available`, `failed` |
-| `path`, `size` | Nom physique interne nullable et taille ; requis pour `available` |
-| `error_code` | Motif technique d'échec, sans détails sensibles |
-| `request_id` | Clé unique de commande, réutilisée après réponse HTTP incertaine |
-| `created_at` | Instant de création |
+Un `Asset` conserve une donnée visuelle **indépendamment de son éventuelle insertion dans une note**. L'implémentation actuelle ne prend en charge que le type `screenshot` (PNG). L'identité persistante de l'asset est distincte de son chemin physique.
 
-`source_id` désigne la timeline de référence, pas l'origine physique des octets.
-Une clé étrangère composée garantit que source et asset appartiennent à la même
-vidéo. La migration 0009 exige source et timestamp pour le type screenshot ;
-elle n'introduit pas d'import d'autres types.
+| Champ | Sens actuel |
+| --- | --- |
+| `id` | Identité persistante, attribuée avant l'extraction |
+| `video_id` | Vidéo obligatoire |
+| `source_id` | Référence à la `VideoSource` ; obligatoire pour `screenshot` |
+| `timestamp_ms` | Position demandée ; obligatoire et non négative pour `screenshot` |
+| `type` | Actuellement `screenshot` seulement |
+| `status` | `pending`, `available` ou `failed` |
+| `path` | Chemin interne du PNG, nullable |
+| `size` | Taille des octets, positive lorsque `available` |
+| `error_code` | Catégorie d'échec sans diagnostic sensible brut |
+| `request_id` | Clé unique d'idempotence de la commande |
+| `created_at` | Date de création de l'intention |
 
-Chaque nouvelle commande crée un nouvel Asset, même au même timestamp.
-La même clé de commande avec les mêmes paramètres retrouve cet Asset ; avec
-des paramètres différents, elle est refusée. Il s'agit d'idempotence de transport,
-pas de déduplication fonctionnelle.
+Le couple `(source_id, video_id)` est protégé en base : une capture ne peut pas être rattachée à la vidéo d'une autre source. **`source_id` qualifie la timeline demandée, pas nécessairement le flux physique qui a fourni les pixels.** Le service peut extraire depuis le média local de cette source ou depuis la source distante, sans changer cette provenance métier.
 
-L'Asset est persisté `pending` avant l'extraction. La publication complète
-précède `available`. Un échec/interruption mène à `failed` ; le démarrage
-clôt les anciennes intentions `pending`, sans reprise automatique.
-Un Asset échoué peut conserver le chemin d'un PNG publié avant un incident SQL :
-l'état de génération n'autorise aucune suppression implicite.
+### 7.2 Acceptation, génération et conservation
 
-Aucun rattachement de conservation à `MediaFile` ni à une occurrence Markdown :
-supprimer un média ou une référence ne supprime pas l'Asset. Le nom sûr contient
-l'identité et le timestamp en millisecondes, mais n'est jamais parsé pour retrouver
-la donnée temporelle. Les notes utilisent `/api/v1/assets/<id>/content`.
+Une demande valide crée un asset `pending` avant l'extraction. La publication d'un PNG complet précède la transition vers `available`. Une extraction refusée, échouée ou interrompue conduit à `failed` ; les anciennes intentions `pending` sont clôturées au redémarrage sans régénération automatique.
 
-La galerie, l'import d'images sans source et la suppression explicite restent
-des évolutions futures, sans hiérarchie de provenance anticipée.
+- La même `request_id` avec les mêmes paramètres retrouve la même intention/identité ; avec d'autres paramètres, la commande est refusée.
+- Deux demandes différentes au même timestamp peuvent créer deux assets : il ne s'agit pas d'une déduplication fonctionnelle.
+- Un échec SQL après publication peut laisser des octets non référencés ou un chemin enregistré malgré un statut `failed` ; ce n'est pas une permission de les supprimer automatiquement.
+- Un asset `available` ne garantit pas que le fichier soit encore lisible après une suppression ou une corruption extérieure : **identité/état et disponibilité effective sont distincts**.
+- Les références Markdown utilisent l'URL publique `/api/v1/assets/{id}/content`, jamais un nom de fichier comme identifiant métier.
+
+Retirer une image d'une note, annuler son insertion ou supprimer son `MediaFile` d'origine **ne supprime pas l'asset**. Les fichiers publiés et orphelins ne sont pas automatiquement nettoyés au démarrage. Galerie, import, suppression explicite et types supplémentaires nécessiteront un nouveau cadrage ; aucune hiérarchie d'assets futurs n'est anticipée.
 
 ## 8. `MediaFile`
 
-### 8.1 Responsabilité
+### 8.1 Représentation physique locale
 
-`MediaFile` représente une **représentation physique locale** de la vidéo ou éventuellement d'une piste média associée.
+`MediaFile` répond à la question « quels octets de cette vidéo sont conservés localement ? » ; `VideoSource` répond à « d'où provient-elle ? ». Télécharger une vidéo ne crée **ni nouvelle `Video` ni nouvelle `VideoSource`**.
 
-Il répond à une question différente de `VideoSource` :
+Attributs persistants actuels :
 
-```text
-VideoSource = d'où vient cette vidéo ?
-MediaFile   = quels octets de cette vidéo sont disponibles localement ?
-```
+| Champ | Sens |
+| --- | --- |
+| `id` | Identité physique durable du fichier conservé |
+| `video_id` | Vidéo propriétaire |
+| `origin_source_id` | `VideoSource` d'origine, facultative dans le modèle général |
+| `path` | Chemin interne relatif, unique et non exposé dans l'API |
+| `format` | Conteneur réel, non limité à MP4/WebM |
+| `size` | Taille positive en octets |
+| `duration_ms` | Durée mesurée, strictement positive |
+| `added_at` | Date de conservation |
+| `video_codec`, `audio_codec` | Codecs déclarés par `ffprobe`, nullable |
+| `width`, `height` | Dimensions encodées positives, nullable |
+| `fps` | Cadence moyenne exploitable, nullable |
+| `audio_language` | Langue de la piste audio effectivement choisie, nullable |
 
-Attributs persistés en 7.1 (`media.File` en Go) :
+Les champs techniques nullable permettent de conserver les médias antérieurs à leur introduction **sans analyse rétroactive implicite**. `fps` est une moyenne ; les dimensions encodées ne garantissent ni rotation, ni ratio de pixels, ni rendu exact dans le navigateur.
 
-```text
-id
-video_id
-origin_source_id?
-path
-format
-size
-duration_ms
-added_at
-video_codec?
-audio_codec?
-width?
-height?
-fps?
-audio_language?
-```
+Pour les téléchargements YouTube actuels, `audio_language` provient de la représentation sélectionnée par yt-dlp, pas des tags ffprobe ni de `VideoSource.original_audio_language`. Elle peut différer de l'audio original ou de la transcription. Une valeur inconnue reste absente : aucune langue n'est inventée.
 
-La migration additive 0008 conserve ces six nouveaux attributs nullable, sans
-réanalyse des anciens fichiers. ffprobe fournit les noms de codecs, les dimensions
-encodées et la cadence moyenne exploitable (fps), sinon NULL. Les nouvelles
-acquisitions renseignent les codecs et dimensions nécessaires à leur validation.
-Les dimensions ne décrivent pas une éventuelle rotation ou un rapport de pixels.
+### 8.2 Provenance et cardinalité
 
-Pour YouTube, audio_language provient exclusivement du format audio effectivement
-sélectionné par yt-dlp : membre audio de requested_formats ou format combiné.
-Ce champ déclaratif peut être inconnu et ne décrit pas nécessairement l'original.
-Ni tag ffprobe ni original_audio_language ne le complètent. Les inférences internes
-de yt-dlp sont acceptées ; une différence avec la source ne bloque pas l'acquisition.
-L'édition manuelle, la réanalyse et les métadonnées des imports locaux restent futures.
+Le lien général `origin_source_id → VideoSource.id` est facultatif, mais **obligatoire pour les téléchargements YouTube actuels**. La base garantit que le fichier et la source d'origine appartiennent à la même `Video`.
 
-Le fichier local n'est pas une nouvelle `Video`.
+Un index unique partiel impose actuellement **au plus un média conservé par source d'origine**. Plusieurs qualités, représentations parallèles ou audio seul ne sont pas encore implémentés. Cette restriction locale ne doit pas devenir une hypothèse définitive du modèle général.
 
-Exemple :
+Une source `local` future pourrait décrire la provenance d'un fichier importé, tandis que `MediaFile` en représenterait les octets ; son identité et son cycle d'import restent à décider. Le stockage du fichier ne détermine pas à lui seul la source ni l'identité de la vidéo.
 
-```text
-Video #42
-├── VideoSource: YouTube
-└── MediaFile: media-<identifiant aléatoire>.webm (sous data/media)
-```
+### 8.3 Publication, suppression et disponibilité
 
-Une même vidéo peut théoriquement avoir plusieurs fichiers locaux :
+La conservation téléchargée est **volontaire et durable jusqu'à suppression explicite**. Le fichier n'est déclaré disponible qu'après acquisition, validation, publication physique et référence SQLite cohérente. La publication et la suppression utilisent des étapes récupérables ; aucun mécanisme ne les présente comme une transaction unique SQLite + filesystem.
 
-- formats différents ;
-- audio seul ;
-- version basse résolution ;
-- fichier temporaire.
+La validation technique du fichier et de sa durée ne constitue pas une preuve d'égalité parfaite image par image avec la source. Le conteneur et les codecs admissibles à la conservation ne garantissent pas la compatibilité de lecture Web. Un échec de décodage navigateur ne supprime pas le `MediaFile` et n'altère pas les connaissances.
 
-Pour 7.1, la conservation est volontaire et durable jusqu'à suppression explicite.
-Un seul fichier par source est retenu pour cette tranche ; plusieurs représentations
-restent possibles conceptuellement, sans être implémentées.
+Le statut de téléchargement (`not_downloaded`, `downloading`, `available`, `failed`) est **une vue applicative de la disponibilité et de l'activité**, pas un champ durable de `MediaFile`. L'état d'une opération en cours ou de son dernier échec peut être éphémère ; seule la référence publiée et le fichier constituent la conservation durable.
 
-### 8.2 Source locale et fichier local
+Supprimer un `MediaFile` ne supprime pas sa `Video`, ses `VideoSource`, transcriptions, notes, tags ou `Asset`. Les fichiers complets non référencés, temporaires abandonnés et suppressions interrompues ne sont pas effacés automatiquement lors d'un rapprochement, notamment après restauration d'une ancienne base. Une maintenance future devra être explicite et conservatrice.
 
-Pour une vidéo importée à partir d'un fichier déjà présent localement, le même objet physique peut jouer deux rôles conceptuels distincts :
-
-```text
-Video
-├── VideoSource
-│   provider = local
-└── MediaFile
-    path = /data/media/sqlite-tutorial.mp4
-```
-
-La `VideoSource` décrit la provenance connue par Sillage.
-
-Le `MediaFile` décrit le fichier concret et ses caractéristiques techniques.
-
-Il n'est donc pas nécessaire de fusionner les deux entités ni d'introduire des sous-types de `VideoSource`.
-
-### 8.3 Provenance d'un `MediaFile`
-
-Le lien facultatif général `origin_source_id -> VideoSource.id` est acté.
-Il est obligatoire pour tout téléchargement YouTube de 7.1. La source appartient
-à la même vidéo que le fichier ; la base doit renforcer cet invariant.
-Le modèle minimal persiste les champs ci-dessus. `format` désigne le conteneur réel et `size` les octets.
-Le chemin est interne et relatif, jamais une URL distante ou un titre YouTube.
-
-La durée locale est mesurée ; l'équivalence temporelle avec la source est présumée,
-sans preuve d'identité parfaite. Une divergence significative empêche la publication.
-Aucun rafraîchissement implicite des métadonnées ou contrôle périodique YouTube.
-Supprimer le fichier ne supprime aucune vidéo, source, note, transcription ou Asset.
-La migration 0006 crée media_files : identité AUTOINCREMENT, chemin unique,
-taille et durée strictement positives, date UTC milliseconde. La migration 0007 ouvre le modèle : format non vide sans liste fermée, données et compteur
-AUTOINCREMENT préservés. Le conteneur ne dépend pas de la provenance.
-Une FK composée (origin_source_id, video_id) garantit la cohérence source–vidéo ;
-un index unique partiel sur origin_source_id impose une représentation par source
-dans cette tranche. La provenance facultative permet le modèle général mais aucune
-API d'import local ou de création sans source n'est exposée.
-L'état de téléchargement n'est pas un attribut persistant du MediaFile.
-Le schéma conceptuel en tête du document reste une vue simplifiée.
+La lecture locale réserve temporairement **une requête de fichier**, non une session de lecture persistante : une suppression peut réussir entre deux requêtes Range. Aucun objet « lecture en cours » n'est ajouté au domaine. Les règles de transport, concurrence et récupération relèvent de [l'architecture](03-architecture.md).
 
 ## 9. `Tag`
 
-Les tags forment un catalogue unique partagé entre vidéos, publishers et personnes.
-Les associations vidéo sont implémentées depuis l'étape 4 ; les associations aux
-publishers et personnes le sont depuis l'étape 4 bis.
+### 9.1 Catalogue partagé et identité
 
-Relation :
+`Tag` appartient à un **catalogue unique**, réutilisable pour vidéos, publishers et personnes. Les associations sont explicites :
 
 ```text
-Video N:N Tag
-Publisher N:N Tag
-Person N:N Tag
+Video     N:N Tag  via video_tags
+Publisher N:N Tag  via publisher_tags
+Person    N:N Tag  via person_tags
 ```
 
-via une table associative :
+Le tag possède `id` (identifiant entier stable) et `name` (nom d'affichage). Son identité de comparaison est distincte de sa casse affichée.
 
-```text
-VIDEO_TAG
-PUBLISHER_TAG
-PERSON_TAG
-```
+Règles contractuelles :
 
-Le modèle suivant est acté et implémenté pour l'étape 4 :
+- retirer les espaces en début et fin ; refuser un nom vide et les valeurs non UTF-8 ;
+- limiter un nom à 200 points de code Unicode après trim ;
+- identifier par **NFC + repli complet de casse Unicode**, indépendant de la locale ;
+- conserver les accents et ne pas appliquer NFKC, suppression d'accents ni synonymie ;
+- réutiliser un tag équivalent sans modifier sa graphie d'affichage initiale.
 
-| Champ | Rôle |
-| --- | --- |
-| `id` | Identifiant entier stable, généré par SQLite |
-| `name` | Nom d'affichage |
+Exemples :
 
-### 9.1 Identité
-
-- Supprimer les espaces en début et fin de nom ; un nom vide est invalide.
-- Établir l'identité avec une normalisation canonique Unicode NFC et une
-  comparaison Unicode insensible à la casse.
-- Conserver les accents significatifs et la casse d'affichage lors de la création.
-- Réutiliser un tag équivalent sans modifier son nom d'affichage.
-- Ne pas appliquer NFKC, supprimer les accents ou rapprocher synonymes et concepts.
-
-Exemples contractuels :
-
-| Saisies | Identité attendue |
+| Deux saisies | Résultat |
 | --- | --- |
 | `DevOps` / `devops` | Même tag |
 | `École` / `école` | Même tag |
-| `Café` avec `é` précomposé / `Café` avec accent combinant | Même tag |
+| `Café` (précomposé) / `Café` (accent combinant) | Même tag |
 | `Café` / `Cafe` | Tags distincts |
 | `Go` / `Golang` | Tags distincts |
 
-La persistance garantit l'unicité des identités de tags et des paires d'identifiants
-de chaque association, y compris lors d'écritures concurrentes. Les tables
-associatives explicites ont de vraies clés étrangères ; aucune table polymorphe
-`tag_assignments(target_type, target_id)` n'est introduite. La stratégie technique de
-comparaison et d'unicité SQL est décrite dans `04-tech-stack-and-decisions.md`,
-section 5.6.
+La clé normalisée est matérialisée en persistance et protégée par unicité SQL. Changer la stratégie d'identité exige de prévoir les collisions possibles entre tags déjà stockés.
 
-### 9.2 Associations et cycle de vie
+### 9.2 Associations et absence d'héritage
 
-L'ajout par noms retrouve ou crée les tags, puis les associe à l'entité ciblée sans
-doublons et sans retirer les associations préexistantes. Un ajout multiple est
-atomique, créations de tags et associations comprises : un échec ne laisse
-aucun tag nouvellement créé ni association partielle par cette opération.
+Un ajout par noms est **additif et atomique**, création de nouveaux tags comprise. Un échec n'autorise ni création ni association partielle ; les doublons de même identité sont fusionnés dans la demande.
 
-Le retrait supprime seulement l'association. Le tag reste dans le catalogue,
-même sans aucune entité associée. Aucun quota métier arbitraire de tags par entité
-n'est introduit.
+Le retrait supprime uniquement une association. Un tag devenu inutilisé reste dans le catalogue ; aucune suppression automatique ou quota métier arbitraire n'est prévu. Les tables associatives possèdent des clés étrangères et une unicité des paires d'IDs : aucune table polymorphe générique n'est introduite.
 
-Les tags ne se propagent pas entre entités liées. Taguer une personne ne tague
-ni ses publishers ni les vidéos associées. Le filtre REST vidéo `tag_id` continue
-de sélectionner exclusivement les associations directes `VideoTag`. Une recherche
-exploitant les autres chemins reste une évolution distincte.
+Les tags **ne sont pas hérités** : taguer une personne ou un publisher ne tague pas ses vidéos. Le filtre vidéo `tag_id` s'applique uniquement aux tags associés directement aux vidéos. Une recherche future traversant les relations devra le faire explicitement, sans modifier ces liens.
 
-Le remplacement complet des associations, le renommage, la suppression globale,
-les hiérarchies, alias, couleurs et catégories sont hors du périmètre de l'étape 4.
+Renommage, fusion, suppression globale, alias, hiérarchie, catégories et couleurs sont des évolutions ouvertes, pas des opérations existantes.
 
-## 10. Extension future : `AIArtifact`
+## 10. `AIArtifact` — concept futur, non implémenté
 
-Les résultats IA ne font pas partie du noyau MVP, mais peuvent être modélisés plus tard comme des artefacts associés à une vidéo ou à une autre donnée métier lorsque le besoin devient concret.
+Une sortie IA peut, si le besoin le justifie, être conservée comme artefact dérivé : résumé, chapitres, points clés, tags suggérés, transcription enrichie, etc.
 
-Exemple conceptuel :
+Aucun schéma `AIArtifact`, type de résultat, règle de provenance, modèle de régénération ni fournisseur n'est actuellement acté. Un éventuel artefact pourra être rattaché à une `Video` ou à une autre donnée pertinente après cadrage.
 
-```text
-VIDEO
-  │
-  │ 1:N
-  ▼
-┌────────────────────┐
-│    AI_ARTIFACT     │
-│────────────────────│
-│ id                 │
-│ video_id           │
-│ type               │
-│ content            │
-│ provider?          │
-│ model?             │
-│ created_at         │
-└────────────────────┘
-```
+**Invariant à préserver :** une production ou correction IA ne remplace pas silencieusement les données source. Les résultats générés et leur provenance doivent rester identifiables selon la politique future retenue. Voir [Open questions — IA](06-open-questions.md).
 
-Types possibles :
+## 11. Invariants transversaux
 
-```text
-summary
-chapters
-key_points
-tag_suggestions
-```
+Les invariants suivants s'appliquent à plusieurs entités et servent de garde-fous à toute évolution du modèle.
 
-Une transcription corrigée ou restructurée par IA pourrait également devenir une donnée dérivée distincte si ce besoin apparaît.
+### 11.1 Identités et provenance
 
-Aucun modèle précis n'est acté pour cela.
+- Une `Video` est indépendante de ses `VideoSource`, `MediaFile`, comptes de publication et chemins locaux.
+- `(provider, external_id)` d'une source vidéo et celui d'un publisher appartiennent à **deux espaces d'identité distincts**.
+- Une source n'est pas un fichier ; un compte n'est pas une personne ; une association indirecte ne crée pas automatiquement un lien direct.
+- Une représentation locale, un chemin ou une URL ne devient pas l'identifiant métier d'une vidéo.
+- La présence, l'absence ou l'indisponibilité d'octets locaux ne fait pas disparaître les identités métier.
 
-Une production IA ne doit pas remplacer silencieusement une donnée source.
+### 11.2 Données temporelles
 
-## 11. Invariants actuels
+Les **positions et durées média** sont des entiers exprimés en millisecondes : `start_ms`, `timestamp_ms`, `duration_ms`, généralement `int64` en Go et `INTEGER` en SQLite.
 
-### 11.1 `Video` n'est pas sa source
+Les **dates d'événements** utilisent `time.Time` en Go et une chaîne UTC RFC 3339 à précision milliseconde fixe en SQLite, par exemple `2026-10-06T18:00:00.000Z` pour `created_at`, `updated_at`, `last_fetched_at`, `added_at`. Ne pas employer `_ms` pour ces dates.
 
-Une vidéo conserve la même identité lorsqu'une source supplémentaire est ajoutée.
+Les timestamps provenant d'une source ne sont pas automatiquement transposables à une autre source de la même vidéo. `Transcript` et les captures conservent explicitement leur référence à la source. Les annotations futures devront résoudre la même question avant toute implémentation.
 
-`Video` représente l'objet de connaissance.
+### 11.3 Source, dérivé et connaissance utilisateur
 
-`VideoSource` représente une provenance concrète.
+- Le JSON de métadonnées yt-dlp et le JSON3 ne définissent pas les entités métier : ils sont interprétés aux frontières techniques.
+- Un snapshot JSON3 peut être conservé intégralement, sans persistance mot par mot dans SQLite.
+- Le texte continu d'une transcription et son regroupement d'affichage restent des représentations dérivables ; une future indexation peut ajouter une copie dérivée clairement identifiée.
+- Les notes, tags, assets, associations de personnes/publishers et futures surcharges utilisateur sont protégés contre les rafraîchissements externes.
+- L'existence d'un `Transcript`, `MediaFile` ou `Asset` ne prouve pas, à elle seule, que les octets sont encore disponibles et intègres.
 
-### 11.2 Les timelines appartiennent aux représentations concrètes
+### 11.4 Persistance et effets de bord
 
-Deux `VideoSource` représentant le même contenu peuvent avoir des timelines différentes.
+Les contraintes de clés étrangères, d'unicité et les transactions SQL renforcent les règles métier : une vérification préalable en mémoire ne les remplace pas.
 
-Une donnée temporelle provenant directement d'une source ne doit donc pas être supposée automatiquement synchronisée avec toutes les autres sources de la même `Video`.
+Les opérations qui associent une source, un publisher ou des tags doivent rester cohérentes et atomiques dans leur périmètre SQL. Une publication filesystem puis SQLite n'est pas une transaction globale ; les fichiers potentiellement orphelins et les résultats incertains exigent une politique **de conservation prudente**, pas un nettoyage silencieux.
 
-C'est notamment la raison pour laquelle :
+## 12. Concepts différés et maintenance du modèle
 
-```text
-VideoSource 1:N Transcript
-```
+Ne pas introduire avant besoin concret :
 
-est préféré à :
+- `Annotation` persistée, plages temporelles et timeline générique ;
+- `VideoSource` locale et déduplication inter-providers automatique ;
+- clips durables et autres variantes d'assets ;
+- plusieurs `MediaFile` par source, stockage multiqualité ou audio seul ;
+- `Job` persistant, historique métier complet ou audit log ;
+- catalogue de pistes, sous-titres manuels, diarisation, chapitres structurés ou STT ;
+- `AIArtifact` défini, embeddings et base vectorielle ;
+- collections, playlists, taxonomie de tags complexe et rôles de personnes ;
+- permissions multi-utilisateur, organisations et relations de propriété ;
+- suppression globale et propagation automatique de tags, personnes ou publishers.
 
-```text
-Video 1:N Transcript
-```
+Les raisons et questions encore ouvertes sont rassemblées dans [06-open-questions.md](06-open-questions.md), notamment les [clips vidéo durables](06-open-questions.md#34-clips-vidéo-durables). La planification appartient à [05-roadmap.md](05-roadmap.md). Les détails de transport des `MediaFile`, de récupération après interruption et de publication des captures restent dans [03-architecture.md](03-architecture.md).
 
-### 11.3 `VideoSource` n'est pas `MediaFile`
-
-`VideoSource` décrit une provenance et ses métadonnées.
-
-`MediaFile` décrit une représentation physique locale.
-
-Télécharger une source distante crée un `MediaFile`, pas une nouvelle `VideoSource` ni une nouvelle `Video`.
-
-### 11.4 Positions temporelles et dates calendaires
-
-Sillage distingue deux catégories de données temporelles.
-
-Les positions ou durées à l'intérieur d'un média sont représentées en millisecondes entières :
-
-```text
-start_ms
-timestamp_ms
-duration_ms
-```
-
-En Go, elles utilisent typiquement un `int64`.
-
-En SQLite :
-
-```text
-INTEGER
-```
-
-Les dates et heures correspondant à des événements du système ou du domaine sont représentées comme des dates UTC :
-
-```text
-created_at
-updated_at
-last_fetched_at
-added_at
-```
-
-En Go, elles utilisent `time.Time`.
-
-En SQLite, elles sont stockées sous forme de texte UTC au format RFC 3339 à précision milliseconde fixe :
-
-```text
-2026-10-06T18:00:00.000Z
-```
-
-Les suffixes `_ms` sont donc réservés aux positions ou durées exprimées en millisecondes dans un média, et ne sont pas utilisés pour les dates calendaires.
-
-### 11.5 Le format source n'est pas le modèle métier
-
-Pour une transcription YouTube :
-
-```text
-json3
-  ↓
-parser
-  ↓
-TranscriptContent
-  ↓
-[]TranscriptItem
-```
-
-Un fichier JSON3 brut peut être conservé comme snapshot de la source sans devenir pour autant le modèle métier de Sillage.
-
-De même :
-
-```text
-yt-dlp metadata JSON
-        ↓
-adapter
-        ↓
-champs VideoSource normalisés
-```
-
-### 11.6 Les représentations dérivables ne doivent pas être dupliquées sans besoin
-
-Le texte brut d'une transcription peut être reconstruit à partir de son contenu temporel.
-
-Il n'est donc pas persisté séparément par défaut.
-
-Une duplication peut être introduite plus tard pour des raisons mesurées de performance ou d'indexation, mais elle doit alors être explicitement considérée comme une représentation dérivée.
-
-### 11.7 Les données utilisateur ou dérivées doivent être séparées des données source
-
-Le rafraîchissement d'une source ne doit pas écraser :
-
-- notes ;
-- annotations ;
-- tags ;
-- titre personnalisé ;
-- assets ;
-- autres données créées par l'utilisateur.
-
-Cela inclut les personnes, leurs associations aux vidéos et publishers, les
-rattachements explicites source–publisher et les tags de chaque type d'entité.
-
-De la même manière, une correction ou réécriture produite par une IA ne doit pas modifier silencieusement la transcription source.
-
-### 11.8 Disponibilité locale et identité sont distinctes
-
-La présence d'un fichier local ne définit pas l'identité d'une `Video`, d'une `VideoSource` ou d'un `Transcript`.
-
-Pour un `Transcript` :
-
-```text
-local_path != NULL
-```
-
-signifie qu'une représentation locale du contenu est disponible.
-
-```text
-local_path = NULL
-```
-
-ne signifie pas que le `Transcript` cesse d'exister.
-
-### 11.9 Identités de publication et associations
-
-L'identité externe d'une vidéo et celle d'un compte occupent des espaces distincts,
-même si toutes deux utilisent `(provider, external_id)`. Une chaîne n'est pas une
-personne. Les relations directes et indirectes ne se matérialisent pas mutuellement.
-La création automatique du publisher participe à la transaction vidéo/source :
-un échec ne laisse pas de création partielle par cet import.
-
-## 12. Concepts volontairement différés
-
-Ne pas ajouter prématurément au modèle :
-
-- `Job` persistant ;
-- historique complet ;
-- audit log ;
-- collections/playlists ;
-- embeddings ;
-- vector store ;
-- permissions multi-utilisateur ;
-- graphe de relations complexe ;
-- provenance IA détaillée ;
-- taxonomie de tags avancée ;
-- hiérarchie de sous-types `VideoSource` online/offline ;
-- format canonique propriétaire de transcription ;
-- diarisation ou identité de locuteurs ;
-- chapitres comme entité persistante dédiée ;
-- modèle générique de timeline ;
-- synchronisation automatique entre timelines de différentes sources.
-- rôles des personnes et personne principale d'une vidéo ;
-- organisations, hiérarchies et relations de propriété complexes ;
-- modélisation des chaînes collaboratrices YouTube ;
-- propagation automatique des tags ou des personnes ;
-- suppression des personnes et publishers et rafraîchissement de leurs métadonnées.
-
-Ces concepts pourront être introduits lorsqu'un besoin réel apparaîtra.
-
-### Lecture du MediaFile dans le workspace
-
-La lecture locale ne crée aucune entité et ne requiert aucune migration.
-Elle choisit uniquement le fichier de la source de travail commune au lecteur,
-à la transcription et aux références temporelles. La ressource HTTP vise le
-couple vidéo / identité exacte du MediaFile ; un nouveau téléchargement ne
-remplace pas les octets servis par une ancienne URL.
-
-La disponibilité persistée/disque et le décodage par le navigateur sont distincts.
-Une erreur du lecteur n'altère ni la référence du média ni les connaissances.
-La réservation de lecture est éphémère et limitée au transfert HTTP, sans objet
-de session persistant. La suppression n'efface toujours ni source ni Asset.
-
-
-### Question exploratoire : clips durables
-
-La roadmap décrit un parcours de clips conservés indépendamment du média complet
-après génération. Le choix entre Asset, MediaFile ou une autre entité reste ouvert.
-Ce renvoi ne modifie ni le modèle existant ni ses invariants de suppression.
-Voir « Piste exploratoire — clips vidéo durables » dans 05-roadmap-and-open-questions.md.
+**Règle de maintenance :** mettre à jour ici le concept ou l'invariant affecté lorsqu'une décision métier change. Ne pas ajouter de comptes rendus de réalisation ou de validation à la fin du document ; Git et les PR conservent ces traces. Avant de déclarer une nouvelle entité « implémentée », vérifier ses types et migrations effectifs.

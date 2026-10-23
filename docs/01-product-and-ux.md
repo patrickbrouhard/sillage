@@ -1,1455 +1,564 @@
-# Product & UX
-
-## 1. Objet de ce document
-
-Ce document décrit l'expérience utilisateur visée.
-
-Il ne définit pas le schéma de données ni l'architecture logicielle. Les concepts métier nécessaires à cette UX sont détaillés dans `02-domain-model.md`.
-
-### Confort d'affichage
-
-Un sélecteur dans l'en-tête propose Clair, Sombre et Système (par défaut).
-Système suit les changements du système d'exploitation. Le choix est mémorisé
-localement dans ce navigateur ; si le stockage est indisponible, le changement
-reste utilisable pour la page courante. Cette seule préférence d'affichage fait
-exception au report des préférences persistantes : aucun compte ni stockage serveur.
-Les panneaux, formulaires, dialogues, états de focus, l'éditeur et la lecture
-Markdown suivent le thème sans remonter la session de note. Le contenu intégré
-par YouTube conserve son apparence propre.
-
-La réalisation utilise des variables CSS et les contrôles natifs, sans refonte
-graphique ni ajout d'un framework CSS.
-La palette de confort est bleue : fonds bleu nuit en mode sombre, fonds clairs
-bleutés en mode clair, avec icône d'en-tête, accents et sélections assortis.
-Les erreurs gardent une couleur chaude distincte. Cette palette reste révisable.
-
-## 2. Vue d'ensemble du workflow
-
-Le workflow principal est :
-
-```text
-Ajouter une vidéo
-      ↓
-Naviguer dans la bibliothèque
-      ↓
-Ouvrir la page de travail
-      ↓
-Regarder + prendre des notes
-      ↓
-Ajouter timestamps / annotations / captures / tags
-      ↓
-Relire et structurer
-      ↓
-Rechercher / exploiter / interroger avec une IA
-```
-
-Le produit doit privilégier la continuité entre ces étapes.
-
-## 3. Ajouter une vidéo
-
-### 3.1 Interaction initiale
-
-Dans l'interface Web, l'utilisateur dispose d'un champ permettant de coller une URL.
-
-Exemple :
-
-```text
-https://www.youtube.com/watch?v=...
-```
-
-Après validation, l'application crée la vidéo ou détecte qu'elle existe déjà.
-
-Pendant le développement initial, la même opération peut être exposée uniquement par API.
-
-### 3.2 Informations récupérées
-
-Pour YouTube, `yt-dlp` fournit les métadonnées nécessaires.
-
-La liste exacte des champs sera affinée au cours du développement, mais elle doit couvrir les besoins d'affichage, d'identification et de recherche de l'application.
-
-L'application ne conserve pas par défaut un dump brut complet des métadonnées `yt-dlp`. Les champs utiles doivent être explicitement modélisés.
-
-Si le modèle évolue, la source peut être réinterrogée.
-
-Depuis l'étape 4 bis, l'import peut créer ou retrouver le compte de publication
-YouTube grâce à son `channel_id`. Sans identité fiable, la vidéo reste disponible
-sans publisher. Le nom du compte peut être inconnu ; il n'est jamais utilisé pour
-fusionner des comptes ou créer une personne.
-
-### 3.3 Évolutions possibles
-
-Plus tard, l'ajout d'une vidéo pourra aussi provenir de :
-
-- extension navigateur ;
-- client CLI ;
-- MCP ;
-- autre application via API ;
-- fichier local ;
-- autre plateforme vidéo.
-
-Ces entrées doivent toutes aboutir au même cœur métier.
-
-## 4. Bibliothèque
-
-Pour 5.1, ajout et retrait des tags vidéo ainsi qu'un filtre par un seul tag
-sont retenus. La première source retournée par REST fournit provisoirement
-titre, miniature et provenance d'une carte. Ce choix de présentation n'ajoute
-aucune notion persistée de source principale. Les tags restent ceux de la vidéo,
-sans héritage depuis les publishers ou personnes.
-
-La bibliothèque est la vue de navigation principale.
-
-Elle doit pouvoir rappeler visuellement une bibliothèque vidéo moderne :
-
-```text
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│ thumbnail   │ │ thumbnail   │ │ thumbnail   │
-│             │ │             │ │             │
-├─────────────┤ ├─────────────┤ ├─────────────┤
-│ titre       │ │ titre       │ │ titre       │
-│ source      │ │ source      │ │ source      │
-│ tags        │ │ tags        │ │ tags        │
-└─────────────┘ └─────────────┘ └─────────────┘
-```
-
-Fonctions attendues progressivement :
-
-- liste/grille ;
-- recherche ;
-- filtres ;
-- sélection par tag ;
-- combinaison de tags ;
-- tri ;
-- accès rapide aux vidéos récemment ajoutées ou travaillées.
-
-L'interface n'a pas besoin d'être sophistiquée au début. La valeur principale se trouve dans le workflow de travail sur une vidéo.
-
-## 5. Page de travail vidéo
-
-### 5.1 Une page pleine, pas une modal
-
-La page de détail d'une vidéo est un **espace de travail durable**.
-
-La note Markdown constitue la zone principale et stable. Le lecteur est la
-partie flexible : masquable à l'étape 5.3, puis potentiellement redimensionnable
-ou détachable dans une autre fenêtre. Le détachement n'est pas requis en 5.3.
-
-La transcription est un panneau indépendant, consultable à côté de la note même
-quand le lecteur n'est pas visible. Le travail sans affichage vidéo doit rester
-possible, notamment pour les contenus principalement audio. Masquer le lecteur
-ne doit pas interrompre l'édition de la note.
-
-Pour 5.3, le desktop présente la note à gauche et le lecteur au-dessus de la
-transcription à droite. La hauteur du workspace est adaptée à l'espace disponible ;
-note et transcription défilent indépendamment. Masquer le lecteur libère la place
-pour la transcription. Sur écran étroit, la page défile normalement dans l'ordre
-lecteur, note, transcription. Le responsive et les interactions des autres panneaux
-ne démontent jamais la session de note. Les métadonnées complètes restent accessibles dans l'onglet Informations
-de la zone Note. Aucun panneau redimensionnable ou détachable ici.
-
-La première source YouTube exploitable dans l'ordre REST est la source de travail
-commune : identité externe pour le lecteur, ID Sillage pour la transcription.
-Elle est identifiée dans l'interface. Ce choix de présentation ne persiste aucune
-source principale et ne nécessite pas de sélecteur. Sans source compatible, note
-et métadonnées restent accessibles.
-
-L'en-tête principal compact accueille le titre de la première source REST,
-indépendamment de la source de travail du lecteur. Le titre est tronqué sur une
-ligne desktop et deux lignes maximum sur mobile ; Informations en présente le
-texte complet, sélectionnable. Aucun titre personnalisé n'est implémenté.
-La bibliothèque et la page d'ajout conservent leur bandeau et leur footer ;
-la fiche n'affiche plus de footer.
-
-Les tags de la vidéo sont dans l'en-tête, indépendamment des deux onglets locaux
-Note et Informations. Note est sélectionné à l'ouverture d'une fiche.
-Les flèches gauche/droite, Home et End changent d'onglet et y gardent le focus.
-La session, le mode Édition/Lecture, la sélection, Undo/Redo, le défilement et
-l'autosauvegarde sont conservés. Une bascule seule ne provoque aucune écriture.
-Erreurs de note et conflits restent signalés lorsque Informations est ouvert ;
-le dialogue de départ reste accessible et les captures acceptées se terminent.
-
-Une citation depuis Informations conserve toutes les conditions d'admissibilité :
-lecture et absence de position choisie dans une note non vide restent des refus.
-Seule une insertion acceptée révèle Note puis focalise l'insertion ; aucun refus
-ne change l'onglet et aucune commande n'est envoyée au lecteur.
-
-Informations reprend la date d'ajout Sillage, toutes les sources et leurs
-descriptions, la source de travail et les propriétés du fichier local actuellement
-consulté. Le popover du lecteur reste contextuel à YouTube/Local avec ses actions
-existantes. Les nouvelles fonctions de gestion ne sont pas incluses.
-
-### 5.2 Comptes de publication et personnes
-
-Les capacités suivantes sont disponibles par REST depuis l'étape 4 bis ; leur
-interface Web complète est différée et reste hors du périmètre 5.1.
-
-L'utilisateur peut créer ou retrouver une chaîne depuis son URL. La résolution
-peut échouer ; sans identité fiable, aucun publisher n'est créé. Il peut ensuite
-associer, remplacer ou retirer ce publisher sur une source vidéo.
-
-Une personne peut être créée indépendamment, renommée, associée directement à
-des vidéos et choisie comme personne de référence de plusieurs publishers.
-Les homonymes ne sont pas fusionnés.
-
-La navigation distingue les vidéos associées directement à une personne et les
-vidéos publiées par ses publishers. L'union des deux chemins ne duplique pas les
-vidéos. L'interface devra rendre cette distinction compréhensible et ne pas
-présenter automatiquement toutes les vidéos d'une chaîne comme ses œuvres.
-
-Les réponses vidéo fournissent directement `publisher: {id, name}` sur chaque
-source, ou `null`. Un compte identifié peut avoir un nom `null`. Le nom n'est
-pas dupliqué dans la source persistée.
-
-## 6. Prise de notes
-
-### 6.1 Note principale
-
-Chaque vidéo dispose d'un espace de note Markdown principal. Pour l'étape 4,
-le cadrage et l'implémentation sont terminés : une vidéo
-possède zéro ou une note persistée, créée au premier enregistrement seulement.
-Une note absente et une note enregistrée vide sont deux états distincts.
-
-LF (`\n`) est la convention canonique des notes Markdown : à l'enregistrement,
-CRLF et CR deviennent LF, sans modifier les autres caractères, espaces ou indentations.
-Cette décision remplace la conservation exacte des séparateurs décidée en 5.2.
-Aucune migration ni écriture à la lecture des anciennes notes n'est effectuée.
-Leur prochaine sauvegarde explicite, ou une édition suivie d'autosauvegarde,
-peut les normaliser. Une sauvegarde identique après normalisation ne change
-pas sa date de modification. Les notes appartiennent à la vidéo, indépendamment
-des métadonnées et transcriptions de ses sources.
-
-L'étape 4 utilisait provisoirement la dernière écriture gagnante. Pour 5.2,
-les décisions suivantes sont actées :
-
-- note principale en Markdown source enrichi, sans WYSIWYG ni Live Preview ;
-- bascule Édition/Lecture dans le même espace ; rendu GFM sécurisé sans HTML brut ;
-- conservation du Markdown hors normalisation des fins de ligne en LF ; aucune
-  écriture lors d'une bascule ; curseur, sélection et Undo/Redo préservés
-  autant que possible pendant la session ;
-- sauvegarde après 2 s d'inactivité ou 20 s depuis les premières modifications
-  non prises en charge ; aucune écriture périodique sans changement ;
-- Ctrl+S, une seule écriture en cours, saisie toujours possible ;
-- états distincts : en attente, en cours, contenu confirmé, erreur et conflit ;
-- réessais réseau bornés ; relecture après résultat incertain avant toute nouvelle
-  écriture ; une version distante plus récente n'est jamais écrasée automatiquement ;
-- conflit : texte local conservé, autosauvegarde suspendue, consultation des deux
-  versions et choix explicite ; garder le local reste une écriture conditionnelle ;
-- navigation interne (historique inclus) : tentative de sauvegarde puis choix de
-  rester ou quitter si le contenu n'est pas confirmé ; avertissement navigateur
-  disponible lors d'une fermeture/recharge, sans présumer une sauvegarde tardive ;
-- aucune création à l'ouverture, note vide autorisée, aucune suppression ;
-- une erreur de lecture n'est jamais assimilée à une note absente.
-
-CodeMirror 6 est intégré et vérifié automatiquement en 5.2 ; le périmètre
-fonctionnel de cette étape est validé manuellement.
-Les 20 s sont un objectif de déclenchement, pas une garantie en cas de requête
-en cours, onglet suspendu ou serveur indisponible. Sans brouillon persistant,
-la perte des dernières modifications après un crash brutal est une limite acceptée.
-
-Sont exclus : historique, File Recovery, brouillons navigateur persistants,
-fusion automatique, collaboration temps réel, lecteur et interactions temporelles.
-Aucune nouvelle étape de récupération historique n'est prévue.
-
-Le Markdown est choisi parce qu'il est :
-
-- simple ;
-- portable ;
-- lisible en texte brut ;
-- adapté aux liens, images et structures légères ;
-- cohérent avec une base de connaissances personnelle.
-
-### Retours de validation 5.2 — pistes UX révisables
-
-Ces observations ne bloquent pas la validation fonctionnelle et ne demandent
-aucune modification visuelle immédiate ni nouvelle étape de roadmap :
-
-- le bouton « Enregistrer la note » reste provisoirement disponible ; sa présence
-  définitive sera réévaluée avec l'autosauvegarde et Ctrl+S ;
-- la révision et l'heure du dernier contenu confirmé sont utiles au développement ;
-  un indicateur plus discret et des diagnostics facultatifs ou un mode développement
-  sont des pistes non actées ;
-- le rendu Édition/Lecture mérite une finition ultérieure : couleurs, espacements,
-  blocs de code, coloration syntaxique et présentation générale ;
-- la note précède actuellement la vignette et les informations ; la disposition
-  sera réexaminée avec l'arrivée du lecteur et de la transcription, sans figer
-  maintenant le workspace.
-
-### 6.2 Insertion du temps courant — tranche 6.2
-
-Le bouton `+ Temps` de la barre de note insère une référence en mode Édition,
-au curseur ou après le texte sélectionné, quel que soit le sens de sélection.
-Aucun texte sélectionné n'est remplacé. Un espace suit la référence ; le curseur
-et le focus reviennent après cet espace pour poursuivre immédiatement la rédaction.
-L'insertion forme une action Undo/Redo indépendante et suit l'autosauvegarde normale.
-Le lecteur et la session d'édition ne sont ni interrompus ni remontés.
-
-Pendant la lecture, l'utilisateur doit pouvoir noter une idée sans quitter mentalement la vidéo.
-
-Action centrale :
-
-```text
-[ + Temps ]
-```
-
-À l'instant courant, l'application insère par exemple :
+# Product & UX — Sillage
+
+Ce document décrit **le comportement produit et les contrats UX actuellement applicables** dans Sillage. Il ne
+retrace pas les étapes de développement et ne constitue ni une roadmap ni un journal de validation.
+
+- [Vision et principes du projet](00-project-brief.md)
+- [Modèle de domaine](02-domain-model.md)
+- [Architecture et contrats techniques](03-architecture.md)
+- [Choix techniques](04-tech-stack-and-decisions.md)
+- [Avancement et étapes prévues](05-roadmap.md)
+- [Questions non résolues et pistes futures](06-open-questions.md)
+- [Recette manuelle lecteur/workspace](07-local-playback-validation.md)
+
+Les descriptions ci-dessous portent sur l'interface actuelle, sauf lorsqu'un comportement est explicitement
+identifié comme **futur**. Les détails de persistance, algorithmes et erreurs REST relèvent prioritairement des
+documents 02 à 04.
+
+## 1. Parcours principal
+
+Le parcours central est : **ajouter une vidéo → la retrouver dans la bibliothèque → ouvrir sa fiche → regarder,
+annoter et capturer → retrouver les connaissances**.
+
+La fiche vidéo est un espace de travail durable, pas une modale. L'utilisateur doit pouvoir prendre des notes
+rapidement, sans devoir d'abord structurer ses connaissances, télécharger le média ou utiliser une IA. La
+structure plus forte (annotations, relations, recherche transversale) peut venir dans un second temps.
+
+### 1.1 Ajouter une vidéo
+
+- Un champ accepte une URL YouTube. L'ajout crée une `Video` et sa `VideoSource`, ou retrouve une source déjà
+  enregistrée sans dupliquer la vidéo.
+- Les états de chargement, succès, doublon et erreur doivent être explicites. Le formulaire n'implique ni
+  téléchargement du média ni acquisition de transcription.
+- L'import peut rattacher un `Publisher` YouTube identifié par `channel_id`. Une identité non fiable n'empêche
+  pas la création de la vidéo ; le nom du publisher peut être absent et n'identifie jamais une `Person`.
+- Les champs utiles sont normalisés. L'application ne conserve pas un dump brut intégral de `yt-dlp` par défaut.
+
+Les sources locales, autres plateformes et autres points d'entrée (extension, CLI, MCP) demeurent des évolutions distinctes ; voir [Open questions](06-open-questions.md).
+
+### 1.2 Bibliothèque
+
+- La bibliothèque présente les vidéos sous forme de cartes avec miniature, titre, provenance et tags. La
+  première source retournée par REST fournit actuellement les informations de présentation d'une carte ; ce
+  n'est pas une source principale persistée.
+- L'utilisateur peut ouvrir une fiche, ajouter une vidéo, gérer les tags des vidéos et filtrer la bibliothèque
+  par **un tag**. Le filtre est porté par l'URL (`/?tag_id=7`), réutilisable à la navigation.
+- Les tags des cartes sont informatifs ; ceux de la fiche sont des liens vers la bibliothèque filtrée.
+- Le bouton précédent du navigateur conserve l'historique et le filtre d'origine. Le logo Sillage mène à la
+  bibliothèque sans filtre. La fiche ne contient pas de lien « Revenir à la bibliothèque » dédié.
+- Bibliothèque vide, filtre sans résultat, chargement et erreur sont des états distincts. Une erreur API ne doit
+  pas être masquée par un repli SPA.
+
+La recherche **globale**, les filtres combinés, les tris personnalisés et les vues enregistrées ne sont pas assimilés au filtre existant ; voir [Roadmap](05-roadmap.md) et [Open questions](06-open-questions.md).
+
+### 1.3 Gestion des tags
+
+- Un bouton « Gérer les tags » ou « Ajouter des tags » ouvre la modale existante ; autocomplétion, flèches,
+  Entrée et Échap restent accessibles.
+- Chaque ajout ou retrait est enregistré immédiatement. Fermer la modale n'annule pas les changements déjà
+  confirmés ; il n'existe pas de sauvegarde globale de la modale.
+- Retirer un tag d'une vidéo ne supprime ni le tag du catalogue ni ses autres associations.
+- Les tags sont un catalogue partagé, associable aussi aux publishers et personnes via REST. Les associations
+  sont indépendantes, sans propagation automatique.
+- L'identité des tags est gérée par le backend (NFC, comparaison insensible à la casse, accents significatifs),
+  et non par l'autocomplétion UI.
+- La gestion Web complète des publishers et personnes reste future, bien que les capacités métier/REST existent
+  déjà. Les homonymes de personnes ne sont pas fusionnés, et une personne associée à un publisher n'est pas
+  automatiquement associée à toutes ses vidéos.
+
+## 2. Navigation générale et fiche vidéo
+
+### 2.1 En-tête et volet de navigation
+
+- Le bouton hamburger précède la signature Sillage sur toutes les pages. Il ouvre un **volet gauche superposé**,
+  fermé par défaut, sans redimensionner le workspace et sans agir sur les lecteurs.
+- Le volet contient actuellement Bibliothèque, Ajouter une vidéo et le choix de thème **Clair / Sombre /
+  Système**. Ne pas afficher de faux contrôles Paramètres ou Compte avant leur implémentation.
+- L'arrière-plan est rendu inerte pendant l'ouverture ; le focus reste dans le volet. Échap, le bouton Fermer et
+  le clic extérieur ferment le volet. Lors d'une navigation, le volet se ferme d'abord pour laisser apparaître
+  les éventuelles protections de départ de la note.
+- Le choix de thème est local au navigateur ; **Système** est le choix par défaut et suit les changements de
+  l'OS. Un refus de stockage n'empêche pas de changer le thème pour la page courante. Les changements de thème
+  ne démontent pas la session d'édition.
+- La palette actuelle est bleutée (bleu nuit en sombre), avec un signal d'erreur distinct. Le contenu intégré de
+  YouTube conserve son propre thème.
+
+Le hamburger utilise une cible de 40 × 40 px et une icône 24 px. L'en-tête utilise des marges latérales de 16 px
+et ne doit pas créer de débordement horizontal.
+
+### 2.2 En-tête compact de la fiche
+
+La fiche vidéo possède un bandeau transparent, sans séparateur horizontal ni footer, comprenant le hamburger, la
+signature Sillage, le titre et les tags. Les autres pages conservent leur propre bandeau et leur footer.
+
+- Le titre provient actuellement de la **première source REST**, sans requête supplémentaire ni titre
+  personnalisé. Chargement et erreur ont leurs propres libellés. Le titre intégral reste sélectionnable dans
+  l'onglet Informations.
+- Sur desktop, on privilégie le titre entier. Le groupe titre/tags est centré sur la page seulement lorsque cela
+  ne réduit pas l'information visible ; sinon il est aligné à gauche après la signature. Le texte du titre reste
+  aligné à gauche.
+- Les tags apparaissent en pilules neutres, sans commande de suppression intégrée. Ils conservent leur ordre
+  REST ; on affiche le **plus long préfixe qui tient**, sans sauter un tag long pour en montrer un plus court.
+- Les tags masqués sont accessibles par **`+n`** et son popover, avec noms complets et liens de filtre. Le
+  bouton de gestion suit les tags visibles ou `+n`, sans remplacer la modale d'édition.
+- Les interactions du popover sont accessibles au clavier : Tab vers les liens, Échap avec restitution du focus,
+  fermeture au clic extérieur et lorsque son contenu affiché devient obsolète. Les redimensionnements ne doivent
+  pas produire d'instabilité visible.
+- Sous 1 100 px, les tags occupent une ligne séparée. Sur petit mobile (600 px et moins), le titre est limité à
+  deux lignes. L'ordre des liens, l'accès à la gestion des tags et les états de focus restent utilisables à
+  320/375 px.
+
+Le bandeau desktop a une hauteur minimale de 56 px, susceptible d'augmenter avec le contenu ou le zoom ; ne pas
+considérer sa hauteur comme fixe.
+
+### 2.3 Organisation du workspace
+
+Sur desktop, à partir de **1 100 px** :
+
+- **Note** à gauche, **Lecteur** au-dessus de **Transcription** à droite ; rapport de colonnes actuel **1,2 /
+  1**, écart horizontal de 16 px.
+- Le lecteur et la transcription forment un **cadre visuel droit commun**, tout en restant des composants
+  distincts. La note et le texte de transcription défilent indépendamment.
+- Le workspace exploite la hauteur sous l'en-tête réel ; sa largeur maximale est de 1 720 px, ses marges
+  intérieures latérales de 32 px, avec 8 px au-dessus et 16 px en dessous. La hauteur minimale de 38 rem permet
+  le défilement de page sur fenêtre basse.
+- Le texte de transcription conserve au moins **12 rem** de hauteur utile hors commandes, recherche et messages,
+  lorsque le layout le permet. Les contenus longs ne doivent pas agrandir arbitrairement la grille.
+- Masquer la vidéo libère sa hauteur pour la transcription ; les commandes du lecteur restent accessibles. Un
+  contenu indisponible ne doit pas imposer artificiellement une surface vidéo noire vide.
+
+Sous **1 100 px**, le flux de page est **Lecteur → Note → Transcription**, dans trois cadres séparés. La page
+peut défiler naturellement, sans débordement horizontal ni destruction de la session Note.
+
+Les popovers doivent pouvoir déborder des panneaux. Le redimensionnement manuel des séparateurs et le
+détachement du lecteur sont des pistes futures, pas des fonctions existantes.
+
+### 2.4 Onglets Note et Informations
+
+- La zone de rédaction dispose de deux onglets locaux : **Note** (sélectionné initialement) et **Informations**.
+  Les tags restent dans l'en-tête global de la fiche.
+- Les onglets sont soulignés, avec un focus clavier visible distinct ; gauche/droite, Home et End permettent de
+  naviguer entre eux.
+- Les bascules préservent la session de note montée, son mode Édition/Lecture, son contenu, son historique
+  Undo/Redo, sa sélection, son défilement et l'autosauvegarde. Elles ne provoquent aucune écriture à elles
+  seules.
+- L'onglet Informations affiche les données complètes : date d'ajout à Sillage, toutes les sources, leurs
+  descriptions, la source de travail et les métadonnées du fichier local. Les descriptions longues sont
+  dépliables individuellement ; une description absente ne produit pas de volet vide.
+- Erreurs, conflits et protection de départ de la note demeurent accessibles quand Informations est actif. Les
+  captures acceptées continuent de se terminer.
+- Une citation depuis Informations ne révèle Note et ne focalise l'insertion **que si elle est admissible**. Un
+  refus laisse l'onglet inchangé et n'envoie aucune commande au lecteur.
+
+## 3. Note Markdown et sauvegarde
+
+### 3.1 Contenu et modes
+
+- Chaque `Video` possède **zéro ou une note principale**, créée au premier enregistrement, et indépendante des
+  sources, des transcriptions et des médias.
+- Une note absente et une note persistée vide sont différentes. Aucune note n'est créée à la simple ouverture.
+- Le contenu est du **Markdown source**. Édition utilise CodeMirror 6 ; Lecture rend du GFM sécurisé sans
+  exécuter de HTML brut. Il n'existe pas de WYSIWYG généralisé.
+- Les fins de ligne sauvegardées sont canoniques **LF (`\n`)** ; les anciennes formes CRLF/CR sont normalisées à
+  la sauvegarde uniquement, sans migration ni écriture provoquée par la lecture.
+- La bascule Édition/Lecture ne modifie pas le document et ne détruit pas la session d'édition. Les interactions
+  visuelles n'écrivent pas de contenu implicite.
+
+### 3.2 Édition, autosauvegarde et conflits
+
+- Autosauvegarde après **2 s d'inactivité** ou **20 s de modifications continues non prises en charge** ; cette
+  dernière durée est un objectif de déclenchement, pas une garantie pendant une écriture en cours ou un onglet
+  suspendu.
+- **Ctrl+S** et le bouton Enregistrer permettent la sauvegarde explicite. Il n'y a qu'une écriture en cours ; la
+  saisie reste possible pendant l'envoi. Les versions et réponses asynchrones ne doivent pas produire de
+  confirmation trompeuse.
+- Les écritures utilisent des révisions conditionnelles. Une réponse perdue ou un état réseau incertain doit
+  être réconcilié avant une nouvelle écriture ; une version distante plus récente n'est jamais écrasée
+  automatiquement.
+- En cas de conflit, le texte local est préservé, l'autosauvegarde suspendue et les versions locale/serveur sont
+  consultables. Le choix de conserver le texte local reste une écriture conditionnelle ; pas de fusion
+  silencieuse.
+- Les transitions internes et l'historique navigateur tentent de préserver le contenu non confirmé : sauvegarde
+  puis décision explicite de rester/quitter si nécessaire. La fermeture ou le rechargement peut afficher un
+  avertissement navigateur, sans garantie de sauvegarde tardive.
+- Une erreur de lecture de note n'est jamais confondue avec une note absente. Une sauvegarde identique confirmée
+  n'incrémente pas inutilement sa révision.
+- Aucun brouillon local persistant ni récupération après crash brutal n'est garanti actuellement.
+
+### 3.3 Retour visuel de sauvegarde
+
+La commande de sauvegarde reste visible et interactive au repos.
+
+- **Modifications en attente** : disquette avec marqueur distinct.
+- **Écriture en cours** : spinner, y compris pour les sauvegardes automatiques et réessais.
+- **Succès** : coche pendant **5 s**, uniquement lorsque le serveur a confirmé **tout le texte courant**. Une
+  modification ou nouvelle sauvegarde retire immédiatement la coche. Une réponse confirmant seulement une
+  ancienne version ne suffit pas.
+- **Échec** : croix et message persistants ; **conflit** : signal distinct et accès à la résolution. Ils ne
+  disparaissent pas automatiquement après cinq secondes.
+- Un clic sans écriture réelle ne crée ni ne prolonge de confirmation. Une création volontaire de note vide ou
+  une normalisation LF effectivement enregistrée peut, elle, être confirmée.
+- L'infobulle accessible au survol et au clavier indique l'état, la dernière révision confirmée et l'heure
+  serveur. Les états sont aussi annoncés aux technologies d'assistance, sans dépendre uniquement des couleurs.
+- Revenir depuis Informations ne redémarre pas artificiellement la durée d'affichage d'une confirmation.
+
+### 3.4 Présentation de la note
+
+- Édition et Lecture utilisent la **police système, 16 px CSS, interligne 1,5**, avec une colonne de texte
+  centrée de **700 px utiles maximum**, sans inclure les marges/paddings.
+- Le code inline et les blocs de code restent monospace dans les deux modes ; les styles du code, citations,
+  listes et tableaux ne doivent pas altérer le Markdown source.
+- Sur desktop, les commandes restent hors du défilement du contenu et les deux modes partagent la même zone
+  défilante, sans second ascenseur CodeMirror. Sur mobile, la page suit son flux naturel et les commandes Note
+  peuvent rester sticky.
+- Les changements d'affichage, de largeur, de thème ou d'onglet ne doivent pas provoquer de remontage de
+  l'éditeur, de déplacement intempestif du curseur ni d'enregistrement.
+
+## 4. Temps, références Markdown et citations
+
+### 4.1 Référence temporelle canonique
+
+Une référence temporelle Markdown identifie explicitement la vidéo et sa source et conserve le temps canonique
+en **millisecondes** :
 
 ```markdown
 [12:42](sillage://videos/5/sources/5?start_ms=762345)
 ```
 
-L'utilisateur écrit immédiatement :
+Le libellé (`m:ss` ou `h:mm:ss`) est destiné à l'affichage : **`start_ms` est seul faisant foi**. L'autorité
+logique de l'URI est `videos`. `end_ms` est réservé aux futures plages temporelles et n'est pas une fonction
+prise en charge aujourd'hui.
+
+### 4.2 Insérer le temps courant
+
+- Le bouton **`+ Temps`**, disponible en Édition, relève immédiatement le temps admissible du **lecteur actif**,
+  sans lui envoyer de commande de lecture ni déclencher de bascule.
+- La référence est insérée au curseur ou après la sélection sans la remplacer, suivie d'un espace ; le focus et
+  le curseur reviennent après cet espace. Une insertion constitue une seule étape Undo/Redo et suit
+  l'autosauvegarde normale.
+- Zéro est valable. Lecture, pause et fin de vidéo permettent l'opération lorsque le temps est disponible ; un
+  lecteur **masqué et effectivement en pause** peut aussi fournir ce temps.
+- Un départ uniquement préparé (`cued`), un état transitoire, le chargement, un masquage en cours ou une erreur
+  ne constituent pas une position annotable. Le refus est explicite, sans commande différée ni fausse insertion.
+- En Lecture, le bouton est désactivé. Dans un contexte de code, l'insertion reste textuelle et ne restructure
+  pas les blocs voisins.
+
+### 4.3 Navigation depuis les références
+
+- En Lecture, une référence canonique est interactive. En Édition, les références reconnues utilisent les gestes
+  spécifiques décrits plus bas ; une forme invalide reste du Markdown ordinaire.
+- La navigation est autorisée uniquement pour **la vidéo et la source de travail courantes**. Une autre identité
+  ne déclenche ni changement de fiche ni changement de lecteur : un message explique le refus.
+- Un lecteur indisponible ou en cours de masquage refuse la commande et invite à réessayer. Aucune navigation
+  n'est mise en attente.
+- Une navigation acceptée peut révéler un lecteur masqué et amener **la page** à sa hauteur, avec un défilement
+  minimal, sans faire défiler les zones Note ou Transcription ni modifier la session d'édition.
+- Les liens externes HTTP(S) des notes s'ouvrent dans un nouvel onglet protégé ; les liens internes utilisent la
+  navigation SPA, `mailto` son comportement natif. Les destinations dangereuses sont filtrées.
+
+### 4.4 Callouts en Lecture
+
+Deux formes de citation sont reconnues, sans moteur générique de callouts :
 
 ```markdown
-[12:42](sillage://videos/5/sources/5?start_ms=762345) Cette distinction pourrait être utile pour le projet X.
-```
-
-Cette opération doit être extrêmement rapide.
-
-Pas de modal.
-Pas de formulaire obligatoire.
-Pas de validation complexe.
-
-Le temps est lu au clic, arrondi à la milliseconde ; le libellé utilise `m:ss`
-ou `h:mm:ss` sans afficher la fraction. Lecture, pause et fin de vidéo permettent
-l'insertion si la position est valide, y compris zéro. Un lecteur masqué en pause
-reste masqué. Avant la première lecture, en état `cued`, en buffering, pendant
-le masquage, avant disponibilité ou après erreur/destruction, aucune référence
-n'est insérée : un message invite à réessayer. Aucune action n'est différée.
-Une exception de lecture du temps n'envoie aucune commande au lecteur.
-
-En mode Lecture, `+ Temps` est désactivé et le libellé reste sans interaction ;
-le Markdown source conserve l'URI complète. Le rendu enrichi et la navigation
-inverse attendent 6.5. Dans un contexte de code Markdown, l'insertion reste du
-texte de code : aucun déplacement automatique ni analyse générale du document.
-
-### 6.3 Références temporelles et citations — orientation pour l'étape 6
-
-Une référence possède un début obligatoire et une fin facultative. L'insertion
-rapide pendant la prise de notes et la citation enrichie d'un passage de
-transcription sont deux workflows pouvant utiliser cette même notion.
-La provenance temporelle doit être conservée lorsque nécessaire pour retrouver
-la bonne source ; sa représentation précise reste à expérimenter.
-
-Le format des liens est acté en 6.2 :
-`[12:42](sillage://videos/5/sources/5?start_ms=762345)`.
-La vidéo et la source sont toujours explicites ; `videos` est l'autorité logique
-de l'URI. `end_ms` est réservé aux plages futures, sans être produit ni interprété
-en 6.2. Le libellé ne détermine jamais la position structurée.
-
-Le Markdown brut peut contenir des extensions propres à Sillage. La compatibilité
-fonctionnelle avec des applications externes n'est pas prioritaire. La copie
-ordinaire doit préserver les informations utiles ; des opérations explicites de
-copie adaptée et d'export pourront convertir les références.
-
-Un export Markdown destiné à la consultation est distinct d'une sauvegarde
-réimportable préservant toutes les données métier. Les formats et mécanismes
-de ces opérations restent ouverts. Aucune de ces fonctions n'est requise en 5.1.
-
-### 6.4 Annotations fortes
-
-Une `Annotation` est une référence temporelle structurée et identifiable.
-
-Elle peut être créée :
-
-- directement pendant le visionnage ;
-- plus tard à partir d'une référence faible ;
-- depuis une sélection de transcription ;
-- éventuellement depuis un asset.
-
-L'intérêt d'une annotation structurée est de permettre notamment :
-
-- affichage dans une liste ;
-- marqueur sur la timeline ;
-- recherche ciblée ;
-- requête MCP ;
-- navigation entre annotations ;
-- future catégorisation.
-
-La relation exacte entre notes et annotations reste volontairement ouverte tant que l'UX n'a pas été testée en pratique.
-
-## 7. Lecture et synchronisation temporelle
-
-Le lecteur est une partie active de l'application. Les interactions temporelles
-avec la note et la transcription ci-dessous sont réservées à l'étape 6.
-
-Il doit pouvoir fournir au reste de l'UI :
-
-- temps courant ;
-- durée ;
-- état de lecture ;
-- navigation vers un timestamp.
-
-Deux modes sont envisagés :
-
-### 7.1 Source distante
-
-La vidéo est lue directement depuis sa source, par exemple via le lecteur YouTube.
-
-En 5.3, l'IFrame Player API YouTube est intégrée directement, avec ses commandes
-natives, sans bibliothèque supplémentaire ni abstraction multi-provider.
-L'ouverture et la réapparition du lecteur ne déclenchent aucune lecture automatique.
-Masquer le lecteur YouTube interrompt la lecture et laisse un bandeau « Lecteur »
-avec une action de réaffichage. La position est conservée lors d'un masquage
-ordinaire dans la même fiche, sans garantie après erreur, recharge ou navigation.
-Le lecteur Local suit désormais la même règle de pause au masquage. La lecture audio en arrière-plan reste différée.
-Chargement, échec d'initialisation, vidéo inaccessible et intégration interdite
-restent propres au panneau. Le lien externe reste accessible lorsqu'il est valide.
-Les dimensions et la visibilité respectent les exigences du lecteur YouTube.
-
-### 7.2 Média local
-
-Si la vidéo a été téléchargée, l'application peut utiliser le fichier local.
-
-Le téléchargement ne crée pas une nouvelle `Video`. Il crée une représentation locale supplémentaire de la même vidéo.
-
-## 8. Transcription
-
-### 8.1 Acquisition actuelle
-
-L'utilisateur peut acquérir ou rafraîchir la caption automatique originale
-d'une source YouTube. L'application utilise la langue audio originale fiable,
-ou une unique piste originale admissible lorsqu'elle est inconnue.
-Elle ne choisit implicitement ni une autre langue ni des sous-titres manuels.
-
-La langue affichable dans la réponse est celle du contenu (`en`, `pt-BR`),
-sans suffixe technique `-orig`. L'UI de sélection de variantes reste future.
-
-### 8.2 Consultation
-
-Le GET fournit les fragments textuels horodatés de la dernière acquisition
-sélectionnée, sans accès réseau. La relecture utilise le snapshot JSON3 local.
-Un snapshot absent ou corrompu est une anomalie locale pendant cette tranche.
-
-Les fragments permettent l'affichage et la navigation par instant. Le texte
-brut est dérivé en mémoire ; il n'est pas persisté séparément.
-La recherche autour d'un timestamp et la synchronisation avancée du lecteur
-ne sont pas implémentées dans cette tranche.
-
-En 5.3, l'ouverture effectue uniquement le GET local. L'absence propose « Récupérer » ;
-un contenu disponible propose « Actualiser ». Seule une action explicite lance le
-POST sans corps. Le contenu reste affiché pendant l'opération et après son échec.
-L'état du contenu et celui de l'opération sont distincts : chargement initial,
-absence locale, disponibilité, acquisition, aucune piste originale sélectionnable,
-échec distant, délai dépassé, erreur interne ou de lecture locale. Une erreur locale
-ne prouve pas une corruption. Une piste non sélectionnable ne prouve pas l'absence
-de tous sous-titres. Après résultat POST incertain, une relecture locale peut
-retrouver le contenu publié ; aucun POST n'est relancé automatiquement.
-
-Les fragments sont regroupés en présentation par intervalles fixes ancrés sur zéro,
-de 10 secondes fixes depuis 6.3, sans sélecteur ni préférence.
-Chaque fragment est affecté selon start_ms, sans découpe ; seuls les fragments
-consécutifs du même intervalle sont réunis. L'ordre source reste prioritaire, même
-en cas de retour temporel : un intervalle peut donc produire plusieurs blocs.
-Les textes sont concaténés exactement, sans espace ajouté. Le timestamp est celui
-du premier fragment réel du bloc. Aucun bloc visuellement vide ni intervalle sans
-texte n'est affiché ; les blancs isolés restent des séparateurs du texte voisin.
-Chaque bloc est affiché comme un paragraphe fluide : les espaces et retours à la
-ligne sont normalisés visuellement par le navigateur, qui adapte les lignes à
-la largeur disponible sur desktop et mobile. Les coupures des sous-titres ne
-sont pas reproduites. Les chaînes regroupées, les fragments REST et les données
-sources conservent leurs espaces exacts ; aucun espace n'est ajouté entre deux
-fragments d'un même mot. Les groupes restent séparés avec leur timestamp.
-Les frontières peuvent couper une phrase ou un mot. Aucun traitement linguistique,
-changement de modèle ou de persistance n'est introduit.
-
-En 6.1, chaque timestamp est un bouton accessible au clavier (Entrée ou Espace).
-Il demande au lecteur YouTube de rejoindre le `start_ms` réel du bloc, sans
-arrondir à la seconde affichée. Une lecture en cours continue ; une vidéo en pause
-reste en pause. Avant la première lecture, depuis cued ou après la fin, le clic
-demande maintenant la lecture au passage ; la préparation sans démarrage reste
-réservée aux bascules. Un lecteur masqué est réaffiché.
-Pendant un masquage en cours, la garantie d'arrêt reste prioritaire : un message
-invite à renouveler l'action après l'arrêt. Si le lecteur est indisponible ou pas
-encore prêt, le message explique que la navigation n'a pas eu lieu ; le timestamp
-doit être activé à nouveau une fois le lecteur prêt. Aucune commande n'est différée.
-La commande envoyée n'est pas présentée comme une position confirmée par YouTube.
-La note conserve sa session, sa sélection, son historique et son autosauvegarde.
-Le clic ne déclenche ni acquisition de transcription ni insertion dans la note.
-La recherche locale est implémentée en 6.3 ci-dessous ; l'insertion du temps est
-implémentée en 6.2 et les citations en 6.4. La synchronisation continue reste future.
-
-### Recherche locale dans la transcription — tranche 6.3
-
-Implémentée en 6.3 : recherche textuelle insensible à la casse dans le contenu déjà
-chargé, sans requête supplémentaire. Le texte continu concatène exactement les
-fragments dans l'ordre source, sans séparateur ajouté ni modification des blancs.
-Les expressions et mots peuvent traverser plusieurs fragments et blocs visuels.
-Champ, compteur, précédent/suivant circulaires, surlignage de toutes les occurrences
-avec distinction du résultat actif et défilement vers celui-ci.
-Changer de vidéo ou de source réinitialise la recherche.
-La navigation des résultats ne commande jamais le lecteur : les timestamps
-cliquables restent l'action explicite pour rejoindre un instant.
-Le regroupement existant est conservé à 10 secondes fixes, sans sélecteur,
-préférence utilisateur ni configuration. Fragments, timestamps et ordre inchangés.
-Aucun endpoint, changement du domaine, de la persistance ou moteur global.
-Acquisition, actualisation, édition des notes et insertion temporelle conservées.
-La segmentation naturelle, la synchronisation continue, les citations (6.4)
-et la navigation depuis le Markdown restent hors périmètre.
-
-La recherche est littérale hors équivalence des blancs : pas d'expressions régulières
-ni de suppression des accents. Un espace saisi correspond aussi aux sauts de ligne,
-tabulations et suites de blancs du texte source, sans modifier ce dernier. Les occurrences sont non chevauchantes, de gauche
-à droite. Une saisie vide n'affiche aucun résultat. Le compteur indique le résultat
-actif et le total ; il reste vide sans requête et indique « Aucun résultat » sans
-correspondance. Les deux commandes sont désactivées sans résultat.
-Entrée dans le champ passe au résultat suivant avec retour circulaire, sans déplacer
-le focus ni commander le lecteur ; la validation IME est ignorée.
-Les blancs sources restent exacts, même si CSS les réduit visuellement dans les
-paragraphes. Une actualisation réussie conserve la requête, recalcule les occurrences
-et sélectionne la première ; pendant l'opération ou après un échec, le contenu
-conservé reste consultable avec la sélection courante.
-Sur desktop, seul le texte de la transcription défile ; sur mobile, les résultats
-participent au défilement normal de la page. La recherche n'est pas persistée.
-
-### 6.4 — Sélection et citation de transcription
-
-Cadrage consigné avant le code le 14 octobre 2026, puis implémenté et testé
-localement. Retours manuels utilisateur satisfaisants, puis correctifs ciblés de clôture
-(voir le bilan 6.4 dans la roadmap). Tranche entièrement frontend, sans nouveau contrat REST, migration, entité Annotation ni objet citation
-persisté. Aucun end_ms. Les références sont activables en Lecture depuis 6.5.
-
-Sélection native à la souris, au clavier avec la navigation au curseur du navigateur,
-ou tactile, partielle ou traversant plusieurs fragments/blocs, y compris les mark
-de recherche. Aucun système personnalisé de sélection. Les timestamps sont exclus
-de la sélection de texte et du texte copié, mais restent des boutons accessibles.
-La copie native d'une sélection valide produit seulement du texte continu :
-concaténation dans l'ordre source sans séparateur ajouté, suites de blancs réduites
-à un espace, blancs de bord retirés. Les copies hors sélection valide ne sont pas
-interceptées. Les fragments et timestamps sources restent intacts.
-
-Un bouton stable « Citer dans la note » est activé pour un passage valide.
-Le passage est conservé avant le transfert de focus, puis invalidé au changement
-de vidéo/source, au remplacement effectif de transcription ou lorsque la recherche
-rend la sélection obsolète. Aucune citation différée ou remplacement silencieux
-du passage. Un clic ou un transfert de focus vers un autre outil abandonne
-l'extrait mémorisé ; le transfert vers « Citer dans la note » le conserve.
-L'action consomme la sélection, y compris en cas de refus. Les sélections vides,
-composées uniquement de blancs, multiples ou débordant hors de la transcription
-ne sont pas acceptées. Aucun bouton flottant dans cette tranche.
-
-Le début vient du premier fragment contenant du texte réellement retenu après
-nettoyage, même si ses timestamps ne sont pas monotones. Ni timestamp systématique
-du bloc, ni interpolation à l'intérieur d'un fragment. Le texte est échappé pour
-rester littéral en Markdown. Format généré depuis UX 1.1 :
-
-```markdown
-> [!quote:tr](sillage://videos/5/sources/5?start_ms=21000)
-> They may not agree with those arguments.
-```
-
-En Édition, une note vide (zéro caractère) accepte l'insertion à zéro. Une note
-non vide, y compris seulement des espaces, exige un emplacement choisi explicitement
-par l'utilisateur. Un focus automatique ne suffit pas. La position persiste après
-perte du focus ; une sélection de note reçoit l'insertion après sa borne supérieure
-sans remplacement. En Lecture ou sans emplacement choisi : message explicatif,
-sans bascule, insertion automatique ou mise en attente ; recommencer ensuite
-la sélection de transcription. Le remplacement de la version éditée invalide
-l'emplacement choisi.
-
-Insertion dans la session CodeMirror existante, avec les séparateurs LF nécessaires
-pour isoler le bloc et un curseur après la citation et sa ligne vide finale.
-La référence figure dans l'en-tête depuis UX 1.1. Les sauts LF déjà présents sont réutilisés ;
-aucun caractère existant n’est retiré. Citation, référence et séparateurs constituent un seul Undo/Redo et utilisent
-l'autosauvegarde, les révisions et les conflits existants. Aucun ordre au lecteur.
-Dans les listes, tableaux ou blocs de code, l'insertion reste textuelle : aucune
-restructuration ou recherche automatique d'un autre emplacement. Le rendu peut
-donc dépendre du contexte Markdown ; c'est une limite acceptée. L'échappement protège
-les syntaxes inline, les entités et les marqueurs de bloc en début de paragraphe,
-sans ajouter d'antislashs à la ponctuation ordinaire. Les URL littérales
-peuvent toujours être reconnues par les autoliens GFM du mode Lecture, sans changer
-leur libellé.
-
-Le bouton flottant et les finitions graphiques sont différés. La navigation au
-curseur et les menus tactiles natifs dépendent du navigateur. Le bilan manuel,
-les confirmations complémentaires et les pistes UX sont consignés dans la roadmap.
-
-### Navigation depuis la note — tranche 6.5, implémentée
-
-En Lecture, les références temporelles canoniques deviennent des boutons natifs ;
-en Édition, elles restent du Markdown brut. Le temps vient uniquement de start_ms.
-Seule l'identité vidéo/source du lecteur courant autorise une commande. Les autres
-identités donnent un message non bloquant, sans changer de fiche ni de source.
-Les références invalides restent inertes. L'activation préserve la note et le focus.
-
-La navigation partage les garanties des timestamps de transcription. Les deux
-actions ramènent la zone vidéo à l'écran seulement après commande acceptée,
-par défilement instantané minimal et sans toucher aux défilements internes.
-Le réaffichage d'un lecteur indisponible ne constitue pas un succès.
-Dans les notes, les liens Web HTTP(S) d'origine externe, explicites ou reconnus
-par GFM, ouvrent un nouvel onglet protégé. Les liens internes gardent la navigation
-React Router dans le même onglet, mailto son comportement natif et les références
-temporelles leur activation locale. Les URL dangereuses restent filtrées.
-Contrat détaillé, exclusions et validations dans la tranche 6.5 de la roadmap.
-
-### 8.3 Stockage et évolutions
-
-La provenance affichée est « Transcription automatique ». La sélection privilégie
-la langue audio originale, mais le marqueur `-orig` peut concerner une piste doublée ;
-le repli sur une piste unique ne garantit donc pas l'audio original.
-
-Toute acquisition réussie conserve actuellement son snapshot source.
-La politique produit durable (archive, cache ou récupération à la demande)
-reste ouverte. Un changement devra aussi préciser le comportement de lecture.
-
-Les sous-titres manuels, les autres langues, le STT et les corrections IA
-sont différés. Une correction future devra rester distincte du contenu source.
-
-## 9. Screenshots et assets
-
-### 9.1 Cas d'usage
-
-Pendant le visionnage, l'utilisateur peut vouloir conserver :
-
-- un diagramme ;
-- une slide ;
-- une démonstration ;
-- un écran de code ;
-- une image importante.
-
-Action visée :
-
-```text
-[ Capture ]
-```
-
-L'application extrait l'image correspondant au timestamp courant.
-
-### 9.2 Acquisition implémentée en 7.2
-
-Le bouton `+ Capture`, voisin de `+ Temps`, lit immédiatement le timestamp du
-lecteur, selon les mêmes règles temporelles. Il est réservé au mode Édition.
-Aucune commande ni bascule du lecteur n'est nécessaire.
-
-Un média complet de la source actuellement lue est prioritaire. Une autre source
-de la même vidéo n'est jamais substituée. Sans média exploitable (notamment pendant
-son téléchargement), l'extraction utilise directement le flux YouTube. Un échec
-de lecture/décodage local permet un repli distant ; les erreurs de stockage,
-SQLite et d'arrêt ne le permettent pas. Aucun téléchargement complet permanent
-n'est déclenché implicitement.
-
-À dimensions identiques, HTTPS direct est préféré à HLS dès la sélection.
-Une résolution supérieure reste prioritaire, même disponible uniquement en HLS.
-Un échec du flux HLS peut conduire à un unique essai HTTPS de même largeur et
-hauteur. Codec et débit peuvent différer ; aucune baisse de résolution n'est
-effectuée automatiquement.
-
-Le résultat est un PNG à la résolution du fichier local ou du meilleur flux vidéo
-distant sélectionné, sans plafond 1080p ni redimensionnement volontaire. La capture
-vise la première image décodable à partir de la cible ; la cadence discrète et
-les différences de timeline/rendu YouTube empêchent de promettre une identité
-exacte avec l'image de l'iframe. Les limites techniques sont décrites dans le
-document 04.
-
-### 9.3 Acceptation et insertion
-
-Au clic, une Decoration CodeMirror affiche « Capture à 12:42 — préparation… »
-avec un indicateur d'activité. Elle ne modifie ni le Markdown ni l'autosauvegarde.
-Elle suit les modifications et les Undo/Redo ordinaires. Une suppression
-traversant son point d'ancrage ou le remplacement de la session invalide
-définitivement l'insertion ; une réponse tardive ne la ressuscite pas.
-
-Dès l'acceptation persistée, le marqueur devient une unique insertion Markdown :
-
-```markdown
-![Capture à 12:42](/api/v1/assets/123/content)
-```
-
-L'insertion se fait au curseur ou après la sélection sans remplacer le texte.
-Elle constitue une étape Undo/Redo isolée, sans déplacer le focus à la réponse.
-Si le curseur attend encore au marqueur, il est placé après la référence et son
-espace final. Une sélection ou un curseur déplacé pendant l'attente est préservé.
-Undo ne supprime pas l'Asset ; Redo ne relance pas son extraction.
-Le nom physique est technique et unique, par exemple
-`capture-123-762345ms-<identifiant-aléatoire>.png` ; le timestamp en base est canonique.
-
-### 9.4 Génération, navigation et erreurs
-
-Une seule capture occupe le serveur à la fois, indépendamment du téléchargement.
-Le bouton reste occupé jusqu'à son état terminal. Une autre page peut recevoir
-un refus explicite si le serveur est occupé ; il n'existe pas d'indicateur global.
-Le suivi local ne vaut jamais confirmation de sauvegarde de la note.
-
-La bascule en Lecture est bloquée uniquement pendant l'acceptation. Après
-insertion, la génération continue même si l'utilisateur quitte la page. Partir
-pendant l'acceptation abandonne l'insertion locale, sans annuler une demande déjà
-acceptée par le serveur. La protection habituelle des modifications non
-sauvegardées reste seule applicable.
-
-En Lecture, une référence interne affiche la préparation, le PNG ou l'échec ;
-son état est actualisé automatiquement. Une erreur de consultation est distinguée
-d'un échec de génération. Le Markdown reste intact en cas d'échec. Les images
-ne commandent pas le lecteur. L'Édition reste textuelle, sans Live Preview.
-
-Retirer une référence ne supprime ni l'Asset ni le PNG. Des assets sans référence
-peuvent donc rester conservés, notamment après un abandon d'insertion.
-La galerie, la réinsertion, l'import, la suppression explicite, plusieurs captures,
-l'agrandissement et la navigation temporelle depuis une image restent futurs.
-
-## 10. Tags
-
-Les tags sont des données structurées d'un catalogue unique, associables aux
-vidéos, publishers et personnes. L'extension aux deux derniers est disponible
-par REST depuis l'étape 4 bis.
-
-L'étape 4 est implémentée et accessible via REST.
-Les tags sont partagés entre vidéos. L'ajout par noms est additif, sans doublons,
-et un ajout multiple réussit ou échoue intégralement. Retirer un tag d'une vidéo
-ne le supprime pas du catalogue, même s'il n'est plus utilisé.
-
-L'identité utilise une normalisation Unicode NFC et une comparaison insensible
-à la casse, en conservant les accents significatifs. Les espaces aux extrémités
-sont supprimés ; la casse d'affichage initiale est conservée lors des réutilisations.
-Ainsi, `DevOps` et `devops` désignent le même tag, mais `Café` et `Cafe`,
-ou `Go` et `Golang`, restent distincts. Aucun rapprochement sémantique n'est fait.
-
-L'API expose les tags sur les vidéos et permet un filtre par un seul tag.
-Le filtrage conserve la représentation complète de chaque vidéo et l'ordre des
-ajouts récents. Les tags sont restitués par identifiant croissant, selon un ordre
-stable commun au catalogue et aux vidéos. L'interface Web vient à l'étape 5 ;
-les combinaisons de filtres et la recherche textuelle sont différées.
-
-Ils servent à :
-
-- classer ;
-- filtrer ;
-- rechercher ;
-- connecter des contenus ;
-- alimenter l'IA.
-
-À terme, ils pourront être :
-
-- ajoutés manuellement ;
-- suggérés par une IA ;
-- ajoutés par un agent via MCP.
-
-Les suggestions IA ne doivent pas nécessairement être appliquées sans validation selon le workflow choisi plus tard.
-
-Les associations de tags sont indépendantes : le tag DevOps d'une personne
-n'est pas attribué à ses vidéos ou à ses publishers. Retirer une association
-conserve le tag partagé. Le filtre vidéo actuel reste fondé sur ses tags directs.
-
-## 11. Recherche
-
-### 11.1 Recherche de base
-
-Le MVP peut commencer par une recherche simple sur les métadonnées, les tags ou les notes.
-
-Une recherche future pourra exploiter les liens entre personnes, publishers,
-vidéos et tags sans matérialiser d'héritage automatique. Les routes de navigation
-directe et indirecte existent déjà ; elles ne constituent pas une recherche plein texte.
-
-### 11.2 Recherche plein texte
-
-À terme, la recherche doit pouvoir couvrir :
-
-- titres ;
-- descriptions ;
-- notes ;
-- transcriptions ;
-- tags ;
-- résumés ;
-- autres artefacts textuels.
-
-SQLite FTS5 est le mécanisme privilégié pour cette évolution.
-
-### 11.3 Résultat temporel
-
-Quand une correspondance provient d'un passage de la transcription, le résultat devrait idéalement pouvoir ouvrir directement la vidéo au bon timestamp.
-
-## 12. IA
-
-Deux usages sont distingués.
-
-### 12.1 IA intégrée
-
-L'application peut appeler directement un fournisseur IA pour :
-
-- résumer ;
-- suggérer des tags ;
-- générer des chapitres ;
-- extraire des points clés ;
-- répondre à des questions sur une vidéo.
-
-Cette couche est optionnelle et son fournisseur n'est pas encore choisi.
-
-### 12.2 IA externe via MCP
-
-Un agent externe peut utiliser l'application comme source de connaissance et comme outil d'action.
-
-Exemple :
-
-> Recherche mes vidéos concernant Proxmox et Tailscale, lis leurs transcriptions et indique lesquelles parlent du routage subnet.
-
-L'agent doit pouvoir appeler des outils métier tels que :
-
-```text
-search_videos
-get_video
-get_transcript
-get_annotations
-add_tags
-append_note
-```
-
-Il ne doit pas être exposé à des primitives internes inutiles comme `execute_sql`.
-
-## 13. Principes UX à conserver
-
-1. La page vidéo est un espace de travail.
-2. La prise de notes doit être plus rapide que la structuration.
-3. Les timestamps sont interactifs.
-4. La structure ne doit pas interrompre le visionnage.
-5. La structuration forte peut intervenir dans une seconde passe.
-6. L'interface doit fonctionner sans IA.
-7. Le téléchargement est un moyen, pas le cœur du produit.
-8. La vidéo locale et la vidéo distante représentent le même objet métier.
-9. Le MVP doit privilégier l'utilité avant le raffinement visuel.
-
-## Jalon 3 de 5.1 — décisions UX validées
-
-Les tags de la fiche sont visibles et ouvrent la bibliothèque filtrée
-(`/?tag_id=7`). Ceux des cartes restent non interactifs. Le bouton précédent
-du navigateur retrouve la bibliothèque et son filtre lorsqu'on en vient ; le logo
-Sillage ouvre la bibliothèque sans filtre. La fiche ne présente plus de lien
-« Revenir à la bibliothèque » dédié.
-
-Un bouton « Gérer les tags » (ou « Ajouter des tags ») ouvre une modale.
-Un champ unique propose les tags existants à la saisie et une action explicite
-d'ajout du nom. Flèches, Entrée et Échap permettent son utilisation au clavier.
-Les associations sont enregistrées immédiatement, une opération à la fois ;
-fermer la modale n'annule pas les modifications réussies. Les ajouts sont
-successifs, sans sauvegarde globale. Le retrait concerne uniquement l'association.
-
-Le filtre unique figure dans l'URL et peut être retiré explicitement.
-Un catalogue vide, un filtre sans résultat et une erreur sont distincts.
-Le catalogue reste global, y compris les tags inutilisés ou employés uniquement
-sur d'autres entités. Le backend reste seul responsable de l'identité Unicode ;
-l'autocomplétion est une aide de présentation, pas une déduplication métier.
-
-Chaque description de source est intégrale mais repliée initialement, avec
-une ouverture indépendante. Une description absente est signalée sans volet vide.
-Les retours à la ligne sont conservés, sans état d'ouverture persisté.
-
-### Préférences révisables et questions ouvertes
-
-La modale est provisoire. Un volet ou onglet pourrait accueillir ultérieurement
-la gestion des tags ; un panneau « Informations » ou « Métadonnées » pourrait
-regrouper les propriétés secondaires. La disposition du workspace reste ouverte.
-Séparer simplement l'éditeur de tags de son conteneur suffit pour ce jalon :
-aucun système générique de panneaux, modales ou onglets n'est prévu.
-
-### UX 1.1 — Callouts de citation en Lecture
-
-Contrat validé le 14 octobre 2026, titre facultatif ajouté le 15 octobre 2026.
-Deux formes seulement, sans moteur générique :
-
-~~~markdown
 > [!quote] Aristote
 > L'homme est par nature un animal politique.
 
-> [!quote:tr](sillage://videos/6/sources/6?start_ms=40360)
-> decision models. So, when you go to ollama.com
-~~~
-
-La réflexion personnelle reste du Markdown ordinaire. Une citation de transcription
-déclare une provenance ; son contenu est librement éditable, sans authenticité ni
-synchronisation garanties. Note reste le document principal ; aucune Annotation
-ou autre entité persistée n'est créée.
-
-Reconnaissance au début de la première ligne de contenu d'un véritable blockquote,
-hors code, en minuscules, sans échappement et sans ancêtre blockquote. Une citation
-dans une liste est autorisée si Markdown reconnaît cette structure. Un blockquote
-classique dans le corps reste ordinaire. Les callouts imbriqués ne sont pas enrichis :
-leur en-tête connu reste visible et inerte. Aucun enrichissement dans les blocs de code.
-
-- [!quote] accepte une attribution facultative, séparée par espace ou tabulation,
-  rendue littéralement : pas d'emphase, de lien ni d'entité HTML interprétée dans l'attribution.
-- [!quote:tr](URI) accepte uniquement la référence directe canonique, validée par
-  parseTemporalReference, suivie facultativement d'un titre séparé par espace ou
-  tabulation, limité à la ligne d'en-tête. Le titre est du texte simple, comme
-  l'attribution : caractères Markdown et HTML littéraux. Sans titre ou avec
-  uniquement des blancs, afficher « Transcription ». Cette règle remplace
-  l'interdiction initiale de texte après l'URI.
-  Aucun titre Markdown à l'intérieur des parenthèses du lien, paramètre end_ms,
-  lien par référence ou destination répartie sur plusieurs lignes.
-- Les blancs de fin d'en-tête sont tolérés. Une ligne citée vide après l'en-tête
-  est facultative ; un corps vide est accepté.
-- Le corps conserve le Markdown/GFM : paragraphes, listes, liens, tableaux, code,
-  notes de bas de page, citations ordinaires et continuations sans répétition de >.
-- En-tête connu mais invalide : blockquote ordinaire, en-tête littéral visible et
-  inerte, même pour une destination HTTP(S) ou mailto. Les destinations commencées
-  dans l'en-tête et poursuivies dans le corps restent inertes ; les autres liens
-  du corps gardent leur traitement habituel.
-- Marqueur inconnu (notamment quote:autre), échappé ou hors position de reconnaissance :
-  Markdown habituel. La famille [!…] n'est pas réservée.
-
-Les deux formes partagent un cadre, un en-tête et un corps, avec pictogrammes
-distincts et désignations accessibles « Citation » / « Citation de transcription ».
-Pour quote:tr, le pictogramme est suivi à gauche du titre personnalisé ou de
-« Transcription ». Les titres longs reviennent à la ligne, y compris sur écran
-étroit. La citation ordinaire garde son attribution facultative, sans libellé ajouté.
-Le timestamp est calculé
-depuis start_ms et placé en haut à droite ; sa description accessible indique
-l'action et le temps. Clair/Sombre/Système et écrans étroits sont pris en charge.
-
-La référence valide d'une autre vidéo/source reste reconnue. Son clic passe par
-les contrôles de 6.5 : message accessible, aucune ouverture de fiche/source.
-Toutes les garanties de disponibilité, pause, absence de commande différée et
-défilement conditionnel de 6.5 sont réutilisées.
-
-« Citer dans la note » génère désormais l'en-tête quote:tr suivi du texte échappé
-sur une ligne citée, sans titre personnalisé ni duplication du timestamp en libellé
-Markdown. L’utilisateur peut compléter le titre en Édition. Extraction,
-premier fragment retenu, choix explicite de la position, sélection préservée, Undo/Redo
-isolé, séparateurs extérieurs, autosauvegarde et conflits sont inchangés.
-Les anciennes citations ne sont ni migrées ni requalifiées ; leur référence séparée
-reste activable. L'insertion temporelle rapide conserve son format 6.2.
-Les décorations CodeMirror sont traitées séparément en UX 1.2a ; aucun Live Preview.
-
-Exemple avec titre personnalisé (UX 1.1, 15 octobre 2026) :
-
-~~~markdown
-> [!quote:tr](sillage://videos/6/sources/6?start_ms=40360) Les limites des modèles de raisonnement
+> [!quote:tr](sillage://videos/6/sources/6?start_ms=40360) Limites du modèle
 > decision models. So, when you go to ollama.com.
-~~~
-
-
-### UX 1.2a — Présentation des citations dans l'éditeur Markdown
-
-Une bordure verticale discrète et continue accompagne tous les véritables
-blockquotes reconnus par le parseur Markdown de CodeMirror, y compris dans les
-listes, leurs continuations sans > et leurs lignes citées vides. Les imbrications
-partagent la bordure de citation de la ligne, sans multiplier les traits.
-Les exemples de citation dans du code extérieur ne sont pas décorés ; un bloc
-de code à l'intérieur d'une citation reste dans la présentation de cette citation.
-
-Les callouts valides quote et quote:tr reçoivent un fond léger, un marqueur
-identifiable et une attribution ou un titre mis en valeur. L'URI canonique du
-callout de transcription est atténuée mais entièrement visible. Les règles de
-reconnaissance restent celles d'UX 1.1 : premier contenu, marqueur non échappé,
-pas d'ancêtre blockquote, URI valide. Les formes inconnues ou invalides gardent
-seulement la présentation commune du blockquote et la coloration Markdown native.
-Aucun libellé par défaut n'est ajouté dans le document édité.
-
-Les décorations n'altèrent ni texte, curseur, sélection, historique, insertion,
-sauvegarde ni session. Aucun élément interactif, masquage, remplacement d'URI ou
-commande au lecteur en Édition. Clair/Sombre/Système et retours visuels à la ligne
-sur écrans étroits utilisent les styles existants.
-
-Orientation initiale UX 1.2b (précisée par UX 1.2b.1 ci-dessous) : représentation compacte de toutes les références
-temporelles canoniques, dans les callouts ou le Markdown ordinaire. Cette étape
-devra définir révélation, interactions et sélections ; elle n'est pas implémentée.
-
-### UX 1.2b.1 — Références temporelles compactes en Édition
-
-Les liens directs sur une seule ligne source, avec libellé simple non vide et
-destination canonique validée, sont affichés avec une horloge et leur libellé.
-Le Markdown enregistré reste inchangé. Les liens multilignes, par définition,
-avec titre Markdown, libellé enrichi, échappements ou entités, les images, le code
-et les URI isolées ou invalides restent visibles en source.
-
-Les en-têtes connus de callout sont exclus, même invalides ou imbriqués :
-attributions, titres littéraux et liens traversant l'en-tête ne sont pas enrichis.
-Les liens ordinaires du corps restent éligibles. Les décorations UX 1.2a sont conservées.
-Une référence valide d'une autre vidéo/source est compacte, sans navigation.
-
-Un clic simple révèle la source et place le curseur au début du libellé.
-Les positions exactement avant/après le lien restent extérieures et permettent
-d'écrire, y compris entre deux références adjacentes. Les flèches gauche/droite
-vers l'intérieur révèlent la source. Retour arrière/Suppr contre le lien compact
-révèle sa source sans déplacer le curseur ni supprimer au premier appui ; ensuite l'édition est
-ordinaire. Une sélection non vide intersectant le lien, même en l'englobant,
-révèle sa source et garde les comportements natifs de copie/suppression.
-Quand la sélection quitte son intérieur, le lien redevient compact.
-Ces changements de présentation ne modifient ni le document, ni la sauvegarde,
-ni l'historique des modifications.
-
-Le widget ne crée aucun arrêt Tab supplémentaire. Son nom accessible indique
-l'action de modification ; l'accès clavier passe par le curseur de l'éditeur.
-Les libellés longs peuvent se replier. La composition IME suspend temporairement
-la compaction pour ne pas remplacer le texte en cours de saisie.
-« + Temps » garde son espace final, son curseur après l'espace et son Undo isolé.
-
-UX 1.2b.1 a été validée manuellement par l'utilisateur. Les compléments de
-compaction et de navigation sont livrés séparément en UX 1.2b.2 ci-dessous.
-
-
-### UX 1.2b.2 — Références interactives en Édition
-
-Seule l'URI des en-têtes quote:tr admissibles est compactée, avec ◷ et le
-timestamp calculé depuis start_ms. Les parenthèses, le marqueur et le titre
-restent visibles. Les règles UX 1.1 (première ligne, véritable blockquote,
-hors code, sans ancêtre blockquote, URI canonique, titre littéral) s'appliquent.
-Les attributions, titres et en-têtes connus invalides ou imbriqués restent inertes.
-Les décorations UX 1.2a et les gestes d'édition UX 1.2b.1 sont conservés.
-
-Clic simple : révéler la source. Ctrl+clic (Cmd+clic sur macOS) : activer une
-référence compacte ou révélée sans changer la sélection ou l'état de révélation.
-Seule une référence reconnue intercepte ce geste ; ailleurs CodeMirror conserve
-ses interactions natives. Les combinaisons avec Shift ou Alt restent natives.
-Ctrl/Cmd+Entrée active une référence lorsque l'unique curseur est strictement
-à l'intérieur de sa plage (URI pour un callout, lien complet pour un lien ordinaire).
-Aux frontières, dans un titre ou avec une sélection non vide/multiple, le raccourci
-ne choisit aucune référence implicitement. Aucune activation pendant la composition.
-
-Le callback 6.5 vérifie vidéo/source et appelle le lecteur existant : états,
-absence d'autoplay sollicité implicitement, refus sans commande différée et
-défilement conditionnel restent identiques. Le focus et la sélection de l'éditeur
-sont préservés ; le défilement de la page vers la vidéo peut néanmoins les éloigner
-visuellement. Les refus sont annoncés dans une région status près de l'éditeur,
-séparée des messages de sauvegarde. Aucun arrêt Tab ni écriture n'est ajouté.
-
-Finition du survol, après validation manuelle d'UX 1.2b.1 et 1.2b.2 :
-le curseur reste natif au repos et devient une main lorsque Ctrl (Cmd sur macOS)
-est maintenu sur une référence activable, compacte ou révélée. Le relâchement,
-la sortie de l'éditeur ou la perte de focus de la fenêtre retire ce retour.
-Shift/Alt désactivent la main, comme ils excluent le geste de navigation.
-Les titres, en-têtes inadmissibles et liens non temporels gardent leur curseur.
-Aucun changement de sélection, de focus, de navigation ou de Markdown.
-
-
-## Téléchargement volontaire — 7.1 implémentée
-
-L'action Télécharger est visible près des commandes du lecteur, même masqué ou
-indisponible, et vise la même source de travail. Elle ne commande pas le lecteur,
-ne remonte pas la note et ne modifie ni transcription ni références temporelles.
-États : non téléchargé, en cours, disponible, échec. Une erreur de consultation
-est distincte de l'absence. Le suivi reprend à l'ouverture/rechargement ; quitter
-la page n'annule pas le transfert. Aucun réessai d'acquisition automatique.
-La suppression confirmée cible le fichier exact et préserve toutes les connaissances.
-La présence du fichier ne provoque aucune bascule vers une lecture locale.
-
-
-Le bandeau affiche le conteneur, la taille en Mio et la durée lorsqu'un fichier
-est disponible. Le dialogue natif de suppression cible l'identité affichée,
-avec Annuler comme action initialement focalisée. Un fichier enregistré disparu
-reste supprimable explicitement afin de résoudre sa référence cassée.
-
-Le suivi consulte le serveur toutes les deux secondes pendant une acquisition,
-à l'ouverture et au retour de visibilité/focus. Une erreur de consultation arrête
-le polling jusqu'à actualisation ou retour sur la page ; elle ne propose jamais
-Télécharger comme si le serveur avait confirmé l'absence. Une réponse POST perdue
-est suivie d'un GET, sans nouveau POST. La saturation du serveur reste visible.
-La navigation quitte uniquement le suivi navigateur, pas le travail serveur.
-Le bandeau est compact sur desktop ; la hauteur du lecteur est ajustée en conservant
-son minimum de 200 px pour préserver l'espace de transcription.
-
-Le correctif conserve cette UX. Un média conservé peut utiliser un conteneur
-non lisible par un futur lecteur Web. La maintenance des fichiers abandonnés
-sera une action explicite future, jamais un nettoyage silencieux au démarrage.
-
-
-### Métadonnées du fichier local — correctif livré
-
-La section Métadonnées et sources accueille un bloc distinct Fichier local
-pour la source de travail : conteneur, taille, dimensions encodées, FPS moyens,
-codecs, langue audio déclarée et durée. Les inconnues sont explicites.
-Le bloc partage le suivi existant, sans second polling ni confirmation avant
-téléchargement. Il ne représente pas une nouvelle VideoSource.
-
-
-### Decluttering — partie 1 : commandes du lecteur
-
-Le panneau conserve son nom accessible « Lecteur » sans titre visible. Une
-indication YouTube discrète remplace le titre ; le lien externe redondant est
-retiré. L'œil barré masque la vidéo après mise en pause, l'œil la réaffiche.
-La commande reste présente lorsque la vidéo est masquée. Les boutons à icône
-ont un nom accessible, un focus visible et une infobulle au survol et au clavier.
-Les commandes de conservation du fichier local restent inchangées à ce stade.
-
-
-### Decluttering — partie 1 : transcription
-
-L'en-tête regroupe « Transcription · LANGUE · automatique » et trois commandes
-à icône : recherche, acquisition/actualisation et citation. La citation est la
-dernière action avant le contenu lorsque la recherche est repliée, afin de
-conserver le transfert clavier direct de la sélection vers son bouton.
-La commande d'acquisition garde sa cible de 40 px et son emplacement : téléchargement
-sans contenu, actualisation avec contenu, spinner pendant le POST et sa vérification
-locale éventuelle. Un succès confirmé par une réponse POST valide affiche une coche
-verte pendant cinq secondes ; une erreur serveur confirmée affiche une croix rouge
-pendant cinq secondes. Le bouton revient ensuite à l'icône correspondant au contenu
-réel, sans déplacement ni nouvelle requête. Une nouvelle action efface le retour
-précédent. Le chargement local initial et les lectures locales ne produisent aucun
-résultat d'acquisition ; une réponse incertaine, même suivie d'une relecture réussie,
-ne produit ni coche ni croix. Les erreurs et actions de reprise restent accessibles
-après disparition du symbole. Le nom accessible conserve l'action proposée,
-aria-busy signale l'acquisition et l'infobulle décrit le résultat ; le succès est
-également annoncé sans ajout de texte visible. Le spinner respecte le mouvement réduit.
-La date d'acquisition figure dans l'infobulle d'actualisation, accessible au
-survol et au focus ; Échap ferme les infobulles. Sans transcription, seul le
-titre est affiché et le panneau indique comment lancer la récupération.
-Les erreurs et opérations en cours restent explicites ; une erreur de lecture
-n'est jamais présentée comme une absence de transcription.
-
-La recherche est repliée par défaut. L'ouverture focalise le champ ; un second
-clic sur la loupe ou Échap dans la barre replie celle-ci et rend le focus à la
-loupe. La requête, les surlignages et le résultat actif sont conservés au repli,
-avec un indicateur sur la loupe tant que la requête n'est pas vide. Le compteur
-reste vide sans requête et affiche « Aucun résultat » si la recherche échoue.
-Une action d'effacement conserve le focus dans le champ. Changer de vidéo ou
-de source réinitialise la recherche et replie la barre. Aucune préférence n'est
-persistée et aucune commande n'est envoyée au lecteur par la recherche.
-Les règles de sélection, citation, Undo et autosauvegarde restent inchangées.
-
-
-### Decluttering — partie 2 : barre YouTube unique
-
-Le titre visible « YouTube » reprend la présentation de Note et Transcription.
-La barre regroupe ensuite le format, la taille et la durée du fichier disponible,
-puis une corbeille ; sans fichier, seule l'icône de téléchargement est proposée.
-L'œil reste à droite, même lorsque la vidéo est masquée. La seconde ligne et son
-séparateur disparaissent. Les informations reviennent à la ligne si nécessaire.
-Les opérations et erreurs restent explicites, sans assimiler un état inconnu à
-une absence. La confirmation de suppression et le suivi partagé sont conservés.
-Il n'y a ni volet intermédiaire, ni sélecteur, ni lecture locale dans cette partie.
-
-Les infobulles se ferment au clic et à la sortie du pointeur, y compris après
-un changement de visibilité ou de recherche. Le focus laissé par un clic ne
-les maintient pas ouvertes. Un focus clavier les affiche ; Échap les ferme.
-Un nouveau survol ou une nouvelle interaction clavier peut les réafficher.
-
-
-### Typographie des notes — Édition et Lecture
-
-Le texte courant partage la police système de l'application, une taille de
-16 px CSS et un interligne relatif de 1,5 (24 px). La largeur utile est plafonnée
-à 700 px CSS, hors padding et bordure, et diminue naturellement sur écran étroit.
-La colonne de contenu est centrée dans le panneau ; le workspace, les commandes
-et les autres panneaux conservent leurs dimensions et leur typographie.
-Les retraits internes des listes et citations réduisent leur largeur disponible.
-
-Code inline, blocs clôturés et blocs indentés conservent une même pile monospace
-dans les deux modes. L'éditeur utilise l'arbre syntaxique existant pour ces
-marques, y compris autour de la coloration imbriquée d'un langage. Le Markdown,
-les espaces et les tabulations ne sont pas modifiés. Le retour visuel à la ligne
-en Édition et le défilement horizontal des blocs de code en Lecture restent
-inchangés. Les alignements manuels en espaces hors code ne forment plus une
-grille monospace ; les tableaux rendus restent des tableaux en Lecture.
-
-Titres, emphases, callouts, images et références temporelles gardent leurs
-présentations spécifiques. La cohérence typographique ne rend pas les deux modes
-identiques : le Markdown source et le rendu produisent des hauteurs différentes.
-La bascule conserve la session, l'historique, les sélections et l'autosauvegarde ;
-un changement d'affichage seul n'enregistre pas la note.
-
-## Lecture locale — première implémentation et decluttering partie 3
-
-Une seule zone propose le choix YouTube / Local. À chaque ouverture, le lecteur
-attend la consultation initiale : Local si le média de la source de travail est
-disponible, sinon YouTube, y compris en cas d'échec de consultation. Aucun lecteur
-distant n'est monté pendant cette attente. La note et la transcription restent
-accessibles. Ce choix n'est calculé qu'une fois par session, sans préférence persistée ;
-une actualisation de disponibilité ne change pas le mode sélectionné.
-
-Le contrôle segmenté YouTube / Local conserve le mode réellement sélectionné.
-Sans fichier disponible, cliquer Local ouvre une modale de conservation sans changer
-le mode actif ; ce comportement remplace la sélection systématique de Local vide.
-Après suppression depuis Local, ce mode reste sélectionné et son panneau vide
-propose la même modale. Les états vide, acquisition, erreur de consultation et fichier
-disponible restent distincts. Informations et œil restent sur la même ligne permanente.
-Les métadonnées et commandes de conservation sont accessibles dans les informations
-contextuelles ou la modale, avec la consultation partagée existante.
-
-La fin d'une acquisition ne change jamais le mode choisi. Si Local est déjà choisi,
-le fichier peut apparaître dans ce panneau, sans lecture automatique. Aucun
-transfert de position n'est gardé en attente d'un téléchargement futur.
-
-Une bascule relève la position courante admissible si possible, arrête et décharge
-l'ancienne instance puis prépare la nouvelle sans autoplay. Le départ préparé reste
-transférable tant qu'aucune activité ne l'a rendu incertain : Local à 0:40,
-YouTube préparé sans lecture, puis Local conserve 0:40. Une référence acceptée
-depuis YouTube cued abandonne ce départ et demande une navigation avec lecture ;
-une commande refusée ne le remplace pas.
-Le transfert peut attendre une fois l'initialisation de la nouvelle instance,
-sans reporter les navigations ordinaires.
-L'absence normale de position avant une première lecture ne produit aucun avertissement.
-Une position devenue incertaine (erreur, buffering, seek local en cours) n'est jamais
-remplacée par une ancienne position : la bascule sans transfert est signalée.
-Cette mémoire est limitée à la fiche et à sa source temporelle pendant la session ;
-elle ne constitue pas une reprise de lecture persistée.
-YouTube peut afficher une vignette avec départ préparé plutôt qu'une image à
-l'instant demandé. La correspondance reste approximative. La position initiale
-locale est bornée par la durée décodée ; une navigation ordinaire hors durée est
-refusée. Les timestamps sur un lecteur non prêt restent refusés sans mise en attente.
-
-Masquer Local met en pause et conserve normalement sa position ; réafficher ne
-relance rien. La note, sa sélection, Undo/Redo, l'autosauvegarde et la transcription
-restent montées au changement de mode. Les références vidéo/source existantes
-commandent uniquement le lecteur actif de cette même source. + Temps et + Capture
-lisent exclusivement sa position courante admissible, y compris masqué en pause, sans commande
-de lecture. Un départ préparé ne suffit jamais à ces opérations, même si le
-masquage fait passer YouTube à l'état paused. Le local
-refuse une position pendant le chargement, le seek ou après une erreur.
-Les captures gardent leur extraction serveur et leur repli distant sélectif.
-
-Une erreur de lecture reste en Local, avec un message prudent, un réessai et le
-choix manuel YouTube. Elle ne transforme pas le téléchargement en échec et ne
-provoque ni conversion ni effacement. Le navigateur et ffmpeg peuvent avoir des
-capacités de décodage différentes.
-
-Après confirmation de suppression, le lecteur est arrêté et déchargé avant DELETE.
-Une réservation concurrente peut encore provoquer un refus temporaire ; aucun
-réessai automatique de suppression. En cas de refus, recharger le lecteur est
-une action explicite. Après succès, Local reste sélectionné avec l'état sans fichier.
-Les connaissances et captures restent intactes. Un rafraîchissement recommence
-le choix initial : YouTube dans cette phase, puis la politique cible après validation.
-
-
-## Panneau vidéo — phase 1 : barre stable et conservation volontaire
-
-Le panneau et l'en-tête restent montés lors d'une bascule ; seule la surface propre
-au lecteur change. Les deux boutons natifs ont aria-pressed et gardent le focus ;
-aucun mode n'est annoncé sélectionné pendant la consultation initiale.
-Les marges de la vidéo, ratios et limites de hauteur restent inchangés dans cette phase.
-
-Cliquer Local avec un fichier disponible sélectionne le lecteur. Sinon une seule
-modale présente l'état courant : confirmation Télécharger si absent, activité sans
-POST si téléchargement en cours, erreur et Réessayer si échec, Actualiser l'état
-si consultation incertaine. Une référence à un fichier indisponible reste supprimable
-après confirmation. Les changements d'état serveur actualisent la fenêtre ouverte.
-Annuler/Échap ferme sans acquisition. Pendant une activité, Fermer ferme seulement
-la fenêtre et ne prétend pas annuler le travail serveur. Confirmer déclenche un seul POST puis ferme
-la fenêtre sans attendre son résultat. YouTube n'est ni arrêté ni remplacé.
-Le panneau Local vide après suppression utilise exactement cette même fenêtre.
-
-Le sélecteur segmenté contient uniquement les libellés YouTube et Local, sur un
-fond commun contrasté avec un fond distinct pour le segment actif. Ses cibles
-mesurent 40 px de haut ; ses transitions discrètes respectent prefers-reduced-motion.
-Une commande indépendante immédiatement à droite ouvre la même modale : icône de
-téléchargement sans fichier, spinner pendant la demande ou l'activité serveur,
-coche verte après conservation confirmée et croix rouge après échec d'une activité
-suivie. Les deux résultats durent cinq secondes, puis la commande disparaît si le
-fichier est disponible, ou retrouve l'icône de téléchargement après échec. Un fichier
-déjà disponible n'affiche aucune commande. L'incertitude reste consultable sans
-acquisition implicite. La disparition ne déplace pas le sélecteur et rend le focus
-à Local uniquement si la commande le détenait. La modale rend le focus à son
-déclencheur, ou à Local si ce déclencheur a disparu.
-Les annonces accessibles complètent les symboles, sans dépendre de la couleur.
-Une première consultation available/failed reste neutre ; downloading rétablit
-le spinner après rafraîchissement. Les résultats ne sont pas persistés.
-Après POST perdu, une conservation confirmée peut annoncer le succès ; un ancien
-failed sans activité observée ne prouve pas l'échec d'une nouvelle demande.
-Une erreur de consultation, de suppression ou de décodage ne produit pas de croix.
-Les erreurs importantes restent visibles et leur détail reste consultable.
-
-Informations ouvre un popover non modal, fermé par Échap, clic extérieur, bouton
-Fermer ou changement de mode. Il prend le focus à l'ouverture ; Échap rend le
-focus à Informations, tandis qu'un clic extérieur garde sa destination.
-Les informations YouTube concernent la source de travail : titre, identifiant,
-compte de publication, durée, URL et description repliable.
-Les informations Local incluent les propriétés techniques et added_at du fichier,
-ainsi que sa suppression. La confirmation ferme le popover ; Annuler est focalisé.
-Après fermeture de la confirmation, le focus revient à Informations.
-Seule une suppression confirmée depuis Local décharge le média ; depuis YouTube,
-le lecteur distant reste intact. Une suppression refusée permet de recharger le local.
-
-L'onglet Informations de la zone Note conserve intégralement les métadonnées : toutes les sources,
-leurs descriptions et les informations internes à Sillage ne sont pas remplacées
-par le popover de la source de travail.
-
-### Phase 2 différée : surface bord à bord
-
-Une validation visuelle et fonctionnelle explicite de la phase 1 est obligatoire
-avant toute modification des marges de la surface ou de ses dimensions.
-Le rendu bord à bord n'est pas réalisé dans cette phase.
-
-### Parcours exploratoire : conserver des clips d'étude
-
-Piste future, sans implémentation ni modèle arrêté : télécharger une vidéo complète,
-l'étudier et repérer des plages, produire quelques clips durables, les réutiliser
-dans les notes, puis supprimer volontairement le complet en conservant clips, notes,
-transcriptions et captures. L'export externe serait une possibilité distincte,
-facultative. Voir les questions ouvertes de la roadmap ; aucune option de découpe
-ou d'export n'est ajoutée à la barre actuelle.
-
-## Orientation de travail — accès immédiat et étude approfondie
-
-YouTube est le moyen d'accès immédiat à une vidéo ; Local est le mode de travail
-privilégié pour l'étudier en profondeur. YouTube permet la consultation, les notes,
-les références et les captures sans téléchargement préalable. Local facilite
-l'étude prolongée, les navigations répétées et la rédaction structurée.
-Cette orientation ne réserve aucune action d'annotation à Local.
-
-Les priorités sont, dans cet ordre, la fiabilité et la fluidité des annotations,
-le fonctionnement naturel de la lecture/navigation, puis le confort de continuité
-entre lecteurs. La priorité initiale Local lorsque le fichier est disponible reste
-inchangée.
-
-Pour YouTube, + Temps et + Capture utilisent le temps réellement annoncé au clic
-dans un état admissible, jamais la cible d'une commande. Après un seek vers
-80.123 s, un temps annoncé de 80.080 s produit une référence ou une demande de
-capture à 80080 ms. Aucun verrou ne dépend de l'égalité avec la cible, d'une
-tolérance, d'un délai ou d'une notification de fin de seek.
-Une mesure peut rester momentanément ancienne après une commande : cette limite
-de fraîcheur de l'API est acceptée, sans promettre une synchronisation image par
-image. Les millisecondes des données Sillage restent conservées.
-
-Une référence Markdown ou un timestamp de transcription exprime une intention
-explicite : YouTube navigue en conservant la lecture ou la pause ; depuis non
-démarré, cued ou terminé, il demande aussi le démarrage. Une bascule vers YouTube
-prépare toujours le départ sans lecture. Une préparation seule ne permet pas
-d'annoter. Local conserve strictement son comportement de navigation actuel.
-
-Si YouTube signale que le navigateur a bloqué le démarrage, afficher un message
-invitant à utiliser Lecture dans le lecteur, sans le détruire ni relancer la
-commande. Le message disparaît lorsque la lecture démarre. Le signal n'est pas
-garanti après seekTo : aucune absence de lecture n'est diagnostiquée par délai.
-L'ouverture d'une fiche et les bascules ne déclenchent jamais de lecture.
-
-### Navigation YouTube — règle actuelle
-
-Cette règle remplace les descriptions antérieures de préparation sans lecture
-lors d'un clic temporel avant première lecture : seul le transfert entre lecteurs
-prépare désormais un départ. Les commandes refusées avant disponibilité ne sont
-toujours pas différées. Masquage en cours, erreurs, identités vidéo/source et
-conservation de la session de note restent protégés.
-
-## Panneau vidéo — surfaces 16:9 et tranche B
-
-Les surfaces YouTube et Local rejoignent les bords intérieurs gauche et droit
-du panneau Lecteur. Elles ont la même largeur et une hauteur de largeur × 9/16,
-sans plafond lié au viewport. Le minimum commun de 200 px demeure sur petit
-mobile pour respecter le minimum du lecteur YouTube : sous environ 356 px de
-largeur de surface, le contenant n'est donc pas strictement 16:9.
-Local utilise object-fit: contain sur fond noir ; aucune déformation ni recadrage.
-YouTube conserve le rendu interne de son iframe.
-
-Les quatre coins de la surface sont arrondis au rayon intérieur du cadre.
-Seule la surface YouTube découpe son iframe ; le panneau garde overflow visible
-pour le popover Informations, ancré sous sa barre de commandes.
-
-Sur desktop à partir de 1100 px, Lecteur et Transcription partagent un cadre
-apparent : pas de gap vertical, pas de bordure à leur jonction, fond commun,
-arrondis supérieurs du Lecteur et inférieurs de Transcription. Les composants et
-les trois enfants de la grille restent séparés. Le ratio des colonnes 1.2/1 est
-conservé. Sans source exploitable, le panneau d'information garde son cadre complet.
-Sur mobile, les trois cadres distincts et l'ordre Lecteur, Note, Transcription
-restent inchangés.
-
-Les commandes desktop conservent des cibles de 40 px, 16 px d'espacement latéral
-et environ 8 px au-dessus/dessous. La barre Lecteur mesure normalement 58 px
-avec la bordure du switch ; celle de Transcription a un minimum de 56 px.
-Elles peuvent grandir avec leurs contenus. La recherche reste une rangée distincte.
-
-Le texte de transcription dispose d'un minimum desktop de 12rem, en plus de
-ses commandes, recherche et messages. Lui seul défile dans le panneau ; les
-contenus longs n'agrandissent pas la grille. Lorsque les minima des panneaux ne
-tiennent plus, la page défile. Une transcription absente n'impose pas de surface
-de texte vide. Masquer la vidéo conserve les commandes et libère sa hauteur
-pour la transcription, avec les règles de pause existantes.
-
-Les messages informatifs non bloquants du lecteur sont placés après la surface,
-notamment transfert indisponible et démarrage bloqué. Les erreurs avec action
-restent près du lecteur. Aucun système global de notifications n'est introduit.
-Une erreur ou un état sans média peut modifier la hauteur du panneau ; aucune
-réserve noire artificielle n'est imposée.
-
-## Fiche vidéo — budget vertical de la tranche A
-
-À partir de 1100 px, le workspace occupe l'espace sous l'en-tête réel avec
-8 px en haut et 16 px en bas. La largeur maximale de 1720 px, les paddings latéraux
-de 32 px, l'écart de 16 px et le rapport 1.2/1 des pistes restent inchangés.
-Une hauteur minimale de workspace de 38rem permet le défilement de page sur
-fenêtre basse. Informations garde son défilement ; Note dispose d'une surface de défilement
-commune à Édition et Lecture, sous les commandes. Les tags restent sur une ligne
-compacte dans l'en-tête, avec débordement dans un popover.
-Sous 1100 px, la page garde son flux normal Lecteur → Note → Transcription.
-
-Le budget nominal à viewport 1920 × 1080 est : en-tête 56 px, marge 8 px,
-workspace 1000 px et marge basse 16 px. Ce n'est pas une garantie liée à la
-résolution physique de l'écran : barres navigateur, zoom, police et messages
-modifient l'espace réellement disponible. La tranche B applique désormais les règles 16:9 décrites ci-dessus.
-
-## Fiche vidéo — finitions de la zone Note (tranche A)
-
-Sur les fiches seules, le bandeau est transparent et sans bordure horizontale.
-La signature compacte « [Logo] Sillage » conserve son lien nommé « Sillage, accueil ».
-Le symbole mesure 29 × 20 px, le texte 20 px, avec un espacement de 4 px et
-une hauteur cliquable minimale de 40 px.
-Aucun séparateur vertical ne précède le titre. Sur mobile, logo et titre restent sur
-la même ligne, les tags passent dessous ; le titre garde deux lignes maximum.
-Le sélecteur de thème appartient au volet de navigation global. Les autres pages conservent leur identité et leur footer.
-
-Les onglets locaux sont transparents, soulignés lorsqu'ils sont sélectionnés,
-avec une séparation horizontale fine. Le contour de focus clavier est distinct
-du soulignement actif. Leur fonctionnement clavier ne change pas.
-
-La barre de commandes de Note reste au-dessus de la surface défilante desktop.
-Sur mobile, la page défile naturellement et les commandes sont sticky dans Note.
-Le fond de rédaction rejoint les bords intérieurs et les coins inférieurs du
-panneau, sans cadre d'éditeur intermédiaire. Le texte reste centré sur 700 px
-utiles maximum, avec 1rem de marges et la typographie existante. Édition et Lecture
-utilisent le même conteneur de défilement, sans scroll vertical CodeMirror imbriqué.
-Les messages d'erreur restent près des commandes ; la résolution détaillée du
-conflit est accessible par son bouton et reste dans le contenu.
-
-La disquette à droite demeure interactive au repos. Une disquette plus visible
-avec un point indique les modifications non confirmées. Le spinner accompagne
-les sauvegardes automatiques et manuelles, y compris les réessais existants.
-La coche dure cinq secondes seulement après une confirmation réelle de tout le
-texte courant. Une nouvelle modification ou sauvegarde l'efface immédiatement ;
-Undo ne la réactive pas. Une confirmation d'un ancien texte pendant une saisie
-affiche les modifications en attente, jamais une coche globale. Un clic sans
-écriture ne crée ni ne prolonge la coche. Une création explicite vide ou une
-normalisation LF explicite réellement confirmée peut en revanche la produire.
-
-L'échec affiche une croix rouge et un message persistant ; le conflit affiche
-un triangle et un accès à sa résolution. Ni l'un ni l'autre ne disparaît après
-cinq secondes. La couleur n'est pas le seul signal. L'infobulle accessible au
-survol et au focus annonce l'état, la dernière révision confirmée et sa date/heure
-serveur ; Échap la ferme. L'état est aussi annoncé dans une région status.
-Le retour dans Note ne relance pas la durée de confirmation.
-
-
-## En-tête, classement et navigation superposée
-
-Le hamburger précède le logo sur toutes les pages. Son icône mesure 24 × 24 px
-avec un trait de 2 px dans une cible de 40 × 40 px. L'en-tête utilise toute la
-largeur disponible avec 16 px de marge intérieure latérale, sans marge en vw. Il ouvre un volet gauche
-superposé, fermé par défaut et sans état d'ouverture mémorisé. Il contient les
-liens Bibliothèque et Ajouter une vidéo, puis le choix Clair / Sombre / Système.
-Aucun emplacement interactif fictif pour les paramètres ou le compte.
-Le volet ne redimensionne pas les panneaux et ne commande pas les lecteurs.
-Son ouverture rend l'arrière-plan inerte ; Tab reste dans le volet, Échap,
-le bouton de fermeture et un clic extérieur le ferment. Une navigation ferme
-d'abord le volet pour laisser les protections de départ de la note s'afficher.
-
-Sur les fiches, le bandeau transparent contient hamburger, signature Sillage,
-titre et tags. Le titre conserve la première source REST et sa troncature CSS.
-Sur desktop, le titre intégral est prioritaire, sans plafond de 70ch ou de 62 %.
-L'accès minimal aux tags (+n et gestion) reste réservé avant sa troncature.
-Les tags utilisent l'espace restant ; un titre très long peut tous les masquer
-derrière +n. Le groupe titre/tags est centré sur la surface de page hors gouttière
-lorsque sa largeur réelle le permet sans perdre de contenu. Sinon, il est aligné
-à gauche après la signature. Le texte du titre reste toujours aligné à gauche. Sous 1100 px, les tags occupent une ligne distincte sur toute la largeur
-du bandeau ; à 600 px et moins, le titre garde deux lignes maximum.
-Le titre complet reste consultable et copiable dans Informations.
-
-Les tags sont des pilules neutres, sans icône ni suppression intégrée.
-Chaque lien ouvre le filtre existant de la bibliothèque. Le nombre visible
-dépend des largeurs réelles, sans quota : conserver le plus long préfixe de
-l'ordre REST qui tient avec le compteur +n. Ne pas sauter un nom long pour
-afficher un tag court suivant. Si aucun tag ne tient, afficher seulement +n
-et le bouton de gestion. Sans tags, conserver le bouton Ajouter des tags.
-
-+n ouvre un popover de consultation des tags masqués, avec leurs noms complets
-pouvant revenir à la ligne. Les liens sont accessibles par Tab ; Échap ferme
-le popover et rend le focus au compteur. Le clic extérieur le ferme également.
-Un changement de liste ou du nombre visible ferme cette consultation ; un lien
-focalisé qui disparaît de la ligne rend le focus à un accès encore visible.
-Le bouton distinct Gérer les tags ouvre la modale existante, seule responsable
-des ajouts et retraits. Les tags ne prennent plus de place au-dessus des onglets
-Note / Informations. Les couleurs individuelles restent une évolution future.
-
-Le bouton de gestion suit directement la dernière pilule ou le compteur +n,
-avec 6 px d'espacement. Le budget de largeur du groupe
-est indépendant de la largeur du préfixe visible.
-
-Le bandeau vidéo desktop a une hauteur minimale de 56 px et 8 px de padding
-vertical autour des commandes de 40 px ; il peut grandir avec la typographie.
-Le calcul des tags utilise toujours la largeur disponible après la navigation,
-jamais la zone centrée plus étroite. Le placement ne change donc ni le titre
-visible ni le préfixe de tags retenu. Le centrage n'est pas garanti sur les
-fiches très chargées, même sur grand écran. La disposition sous 1100 px demeure
-celle du bandeau à plusieurs rangées, sans hauteur fixe.
+```
+
+- `quote` : citation ordinaire avec attribution facultative en texte simple.
+- `quote:tr` : citation de transcription avec URI temporelle **canonique** et titre facultatif en texte simple ;
+  sans titre, afficher « Transcription ». Le timestamp est calculé depuis `start_ms`, non depuis le texte du
+  titre.
+- La reconnaissance exige un véritable blockquote Markdown, un en-tête connu au début de son premier contenu,
+  hors code, sans échappement ni parent blockquote. Une citation placée dans une liste est acceptée si le
+  parseur la reconnaît comme blockquote.
+- Les titres/attributions sont littéraux (pas de Markdown ou HTML interprété). Le corps garde son rendu
+  Markdown/GFM ; les callouts imbriqués ne sont pas enrichis.
+- Un en-tête connu mais invalide reste visible et inerte. Un marqueur inconnu suit les règles Markdown
+  ordinaires. Les URI d'une autre vidéo/source restent affichées mais leur navigation est refusée par les
+  contrôles communs.
+- Les anciennes citations Markdown ne sont pas migrées automatiquement. Modifier la citation ne garantit ni
+  authenticité ni synchronisation avec la transcription source.
+
+### 4.5 Édition : décorations et références compactes
+
+CodeMirror enrichit la présentation **sans modifier le Markdown persisté** :
+
+- Les véritables blockquotes sont marqués visuellement, y compris en listes ou avec lignes de continuation ; le
+  code extérieur n'est pas décoré.
+- Les callouts admissibles ont un style distinct (fond, marqueur, attribution/titre). Les formes invalides
+  restent des blockquotes ordinaires.
+- Les **liens temporels directs monolignes** avec libellé simple et URI canonique sont présentés de façon
+  compacte (horloge + libellé). Les syntaxes complexes — liens par définition, libellés enrichis, titres de
+  lien, images, code, formes multilignes ou invalides — restent visibles en source.
+- Dans les en-têtes admissibles de `quote:tr`, seule l'URI est compactée ; le marqueur, les parenthèses et le
+  titre restent visibles. Les en-têtes invalides ne deviennent pas interactifs.
+- Un clic simple, un déplacement du curseur à l'intérieur ou une sélection qui traverse une référence révèle la
+  source. Copier et éditer conservent les comportements natifs. La suppression contre un lien compact révèle
+  d'abord la syntaxe sans la détruire au premier appui ; l'édition suivante est normale.
+- La composition IME suspend les transformations visuelles incompatibles. L'affichage compact n'introduit ni
+  arrêt Tab, ni écriture, ni modification de l'historique Undo/Redo.
+- **Ctrl+clic** (Cmd+clic sur macOS) active une référence reconnue ; **Ctrl/Cmd+Entrée** l'active lorsqu'un
+  curseur unique est strictement à l'intérieur de sa plage. Les frontières, titres et sélections multiples ne
+  déclenchent pas d'activation implicite. Shift et Alt n'ajoutent pas d'activation.
+- Un curseur-main signale Ctrl/Cmd sur une référence activable ; au repos, le curseur d'édition reste natif. Le
+  focus et la sélection sont préservés lors d'une navigation acceptée ; les refus s'affichent dans un état
+  distinct de l'autosauvegarde.
+
+Les détails de reconnaissance et d'implémentation sont décrits dans [Architecture](03-architecture.md). L'objectif d'un Live Preview plus étendu reste exploratoire : voir [Open questions](06-open-questions.md).
+
+## 5. Transcriptions
+
+### 5.1 Acquisition et consultation
+
+- La fiche consulte par défaut **le contenu local déjà acquis** ; elle ne lance ni découverte distante ni POST
+  automatique.
+- Sans transcription, l'UI propose **Récupérer** ; si un contenu existe, **Actualiser**. Seule une action
+  explicite lance l'acquisition depuis YouTube.
+- La sélection actuelle privilégie la piste automatique originale admissible à partir des signaux audio, avec
+  des replis déterministes. La langue affichée est celle du contenu (sans suffixe technique `-orig`) et le
+  libellé utilisateur indique « Transcription automatique ».
+- Le marqueur `-orig` ne garantit pas absolument qu'une piste correspond à l'audio original, notamment en
+  présence d'un doublage.
+- L'acquisition peut conserver l'ancien contenu pendant une actualisation ou après un échec. Absence, erreur de
+  lecture locale, erreur distante, sélection ambiguë, délai dépassé et opération en cours ne sont pas présentés
+  comme un seul état.
+- Une réponse POST incertaine peut être réconciliée par une nouvelle consultation locale, **sans relancer
+  automatiquement** l'acquisition.
+- L'interface actuelle n'offre pas de sélection manuelle de pistes, de sous-titres manuels, de traduction ou de
+  STT.
+
+### 5.2 Regroupement et navigation temporelle
+
+- Les fragments horodatés sont regroupés pour l'affichage en **intervalles fixes de 10 s ancrés à zéro**, sans
+  découper un fragment. Seuls les fragments consécutifs du même intervalle sont fusionnés, en préservant l'ordre
+  source même si les timestamps ne sont pas monotones.
+- Les textes sont concaténés **sans séparateur artificiel** ; la présentation peut rendre les espaces plus
+  fluides sans altérer les données source. Ne montrer ni bloc vide ni intervalle sans texte ; les blancs isolés
+  peuvent séparer le texte voisin.
+- Le temps du bloc est le `start_ms` de son premier fragment réel, pas une borne arrondie à l'intervalle. Des
+  blocs peuvent couper une phrase ou un mot : aucun regroupement linguistique n'est revendiqué.
+- Le timestamp est activable au clavier et navigue vers la position réelle du bloc, sans insertion de note. Il
+  utilise les mêmes règles de disponibilité et de navigation que les références Markdown.
+- La synchronisation continue du défilement avec la lecture n'est pas implémentée.
+
+### 5.3 Recherche locale
+
+- La recherche opère **sur la transcription déjà chargée**, sans requête réseau ni modification du lecteur. Elle
+  est insensible à la casse, sans recherche par regex ni suppression des accents.
+- Elle cherche dans le texte continu formé par les fragments, y compris à travers les frontières de
+  présentation. Les blancs du texte sont conservés ; une espace recherchée peut correspondre à une suite de
+  blancs ou un saut de ligne.
+- Le champ est replié au départ. Son ouverture le focalise ; Échap ou un second clic sur la loupe le replie sans
+  effacer la requête, les surlignages et le résultat actif. Changer de vidéo/source réinitialise la recherche.
+- Toutes les correspondances non chevauchantes sont surlignées, avec un résultat actif, un compteur et des
+  actions précédent/suivant circulaires. Entrée dans le champ avance sans commander le lecteur et sans valider
+  une composition IME.
+- Une actualisation réussie recalcule les occurrences pour la requête conservée ; pendant l'acquisition ou après
+  un échec, l'ancien contenu reste consultable.
+- Les résultats font défiler le texte pertinent : à desktop le panneau Transcription, sur mobile le défilement
+  naturel de la page. La recherche ne persiste pas entre les fiches.
+- La loupe signale l'existence d'une recherche repliée. Le bouton Citation reste la dernière action de la barre
+  avant le texte quand la recherche est repliée.
+
+### 5.4 Sélection et citation dans la note
+
+- La sélection de transcription est **native** (souris, clavier, tactile), y compris sur plusieurs fragments,
+  blocs ou surlignages. Les timestamps ne sont ni copiés ni inclus dans le texte sélectionné.
+- La copie d'un passage valide produit le texte continu source dans l'ordre, avec les suites de blancs ramenées
+  à un espace et les blancs de bord retirés. Les copies hors sélection valide gardent le comportement natif du
+  navigateur.
+- Le bouton **« Citer dans la note »** est disponible pour un passage valide, non vide et contenu dans la
+  transcription. Une sélection multiple ou débordante est refusée.
+- Le début de la citation vient du **premier fragment contenant du texte effectivement retenu**, même si les
+  timestamps ne sont pas monotones : pas d'interpolation ni d'utilisation systématique de la borne du bloc
+  visuel.
+- La citation insérée utilise le format `quote:tr`, avec échappement du texte source afin qu'il demeure littéral
+  dans le Markdown.
+- En Édition, une note vide accepte l'insertion au début. Une note non vide, **même composée uniquement de
+  blancs**, exige un emplacement choisi explicitement ; une prise de focus automatique ne suffit pas. Le contenu
+  sélectionné dans la note n'est pas remplacé : l'insertion suit la borne supérieure de la sélection.
+- En Lecture ou sans emplacement explicitement choisi, afficher un refus ; ne pas changer d'onglet, deviner une
+  position, modifier le lecteur ou programmer une insertion différée. La sélection de transcription consommée
+  doit être refaite pour réessayer.
+- Une citation acceptée utilise la session CodeMirror existante, les séparateurs LF nécessaires et **une seule
+  étape Undo/Redo**. Le curseur est replacé après le bloc et sa ligne vide, l'autosauvegarde suit son cycle
+  normal.
+- Changer de vidéo/source, remplacer réellement la transcription ou rendre la sélection obsolète invalide la
+  citation préparée. Les interactions de focus habituelles ne doivent pas réutiliser un extrait périmé.
+- Dans une liste, un tableau ou un bloc de code, l'insertion reste textuelle : le rendu dépend de ce contexte ;
+  aucune restructuration automatique du document n'est tentée.
+
+## 6. Lecture vidéo, conservation du média et captures
+
+### 6.1 Deux lecteurs, une source de travail
+
+- La première source YouTube exploitable dans l'ordre REST est actuellement la **source de travail commune** au
+  lecteur, à la transcription et aux références. Ce choix n'introduit pas de source principale persistée.
+- Les modes **YouTube** (iframe et IFrame Player API) et **Local** (élément HTML5) partagent un panneau et un
+  contrôle segmenté. Ils concernent la même `VideoSource` ; conserver le fichier crée un `MediaFile`, pas une
+  `Video` ou `VideoSource` supplémentaire.
+- YouTube permet la consultation et les annotations sans téléchargement. Local facilite les navigations répétées
+  et le travail approfondi ; aucune action de note ou capture n'est réservée à Local.
+- À l'ouverture, attendre la consultation initiale du média : **Local si le fichier de cette source est
+  disponible, sinon YouTube**, y compris en cas d'erreur de consultation. Aucun lecteur YouTube transitoire
+  pendant cette attente. Note et transcription restent utilisables.
+- Le mode initial est choisi **une fois par session de fiche**. Les changements ultérieurs de disponibilité et
+  la fin d'un téléchargement ne sélectionnent pas automatiquement un autre lecteur. Aucune préférence de lecteur
+  persistée.
+- Cliquer Local sans fichier disponible ouvre la **modale de téléchargement**, sans changer le mode sélectionné.
+  Après suppression confirmée depuis Local, ce mode reste affiché avec son état vide et permet une nouvelle
+  acquisition.
+- Le contrôle indique clairement le mode actif, y compris au clavier ; l'état du téléchargement est communiqué
+  séparément du mode effectivement sélectionné.
+
+### 6.2 Masquage, bascule et transfert de position
+
+- Masquer un lecteur le met en pause ; le réafficher ne relance pas la vidéo. Pour YouTube, la garantie d'arrêt
+  prime sur une commande concurrente ; en cas d'impossibilité de confirmer la pause, l'ancienne instance peut
+  être détruite.
+- La bascule récupère, si possible, une position valide de l'ancien lecteur, **arrête et décharge l'ancienne
+  instance**, puis prépare la nouvelle **sans autoplay**. La note, la transcription, les sélections et
+  l'autosauvegarde ne sont pas démontées.
+- Une position seulement **préparée** après bascule peut être transférée de nouveau pendant la même session tant
+  qu'elle reste valable. Elle n'est pas un temps de visionnage confirmé et ne suffit jamais pour `+ Temps` ou `+
+  Capture`.
+- Une référence temporelle acceptée depuis YouTube `cued` remplace le départ préparé et constitue une vraie
+  navigation. Une commande refusée n'est pas différée.
+- L'absence normale de temps avant première lecture n'est pas une erreur. En revanche, une position
+  **incertaine** (erreur, buffering, seek local en cours, masquage en cours) n'autorise pas à reprendre une
+  ancienne cible : la bascule se fait sans transfert et peut le signaler.
+- La position préparée est limitée à la session de fiche/source. Aucun suivi de progression ni reprise persistée
+  n'est implémenté. Local borne un transfert initial à la durée du fichier ; une navigation normale hors durée
+  est refusée.
+
+### 6.3 Règles de navigation YouTube et Local
+
+- Une référence de note ou un timestamp de transcription exprime une **navigation explicite**. Pour YouTube, la
+  commande utilise `seekTo` : en pause, la pause reste applicable ; en lecture, elle continue ; depuis un état
+  non démarré, `cued` ou terminé, la commande demande la lecture au passage.
+- **L'ouverture d'une fiche et les bascules** ne déclenchent jamais la lecture. La préparation par
+  `cueVideoById` ne constitue pas une navigation annotable.
+- Si le navigateur signale un blocage du démarrage, afficher un message non fatal invitant à cliquer Lecture ;
+  supprimer ce message à la reprise. L'absence de signal de blocage ne doit pas donner lieu à une détection par
+  délai ou à une nouvelle commande automatique.
+- Pour `+ Temps` et `+ Capture` avec YouTube, utiliser le temps **réellement annoncé par l'API dans un état
+  admissible**, jamais la cible d'un ancien `seekTo`. Une valeur momentanément ancienne reste possible : ne pas
+  attendre une égalité exacte, une tolérance arbitraire ou un événement de confirmation durable.
+- Local suit les contrôles du navigateur. L'affectation de `currentTime` ne lance pas la lecture ; pendant
+  `seeking`, avant disponibilité des données ou après erreur, le temps ne doit pas être présenté comme confirmé.
+- Les commandes refusées restent sans effet différé. Après une erreur de lecture locale, rester en mode Local
+  avec un message prudent et des actions de réessai ou retour manuel à YouTube : **pas de conversion, effacement
+  ni bascule automatique**.
+
+### 6.4 Panneau et présentation du lecteur
+
+- Le panneau Lecteur reste monté pendant les bascules ; seules les surfaces de lecture propres aux modes
+  changent. La barre permanente comprend le sélecteur YouTube/Local, **Informations** et l'œil de masquage.
+- Informations ouvre un popover non modal contextualisé : source/titre/compte/durée/description pour YouTube,
+  détails techniques et opérations de conservation pour Local. Il ne remplace pas l'onglet Informations complet
+  de la fiche.
+- Le popover reçoit le focus et se ferme par Échap, bouton de fermeture, clic extérieur ou changement de mode.
+  Échap restitue le focus à Informations ; un clic extérieur conserve la destination du clic.
+- Les icônes ont des noms accessibles, des cibles utilisables et des indicateurs de focus/infobulles au clavier
+  comme au pointeur. L'état d'erreur important reste lisible après fermeture d'un popover ou disparition d'une
+  icône transitoire.
+- Les surfaces YouTube et Local prennent la **largeur intérieure du panneau**, avec un contenant de ratio
+  **16:9**. Une **hauteur minimale commune de 200 px sur petit mobile** prime sur le ratio quand la largeur est
+  trop faible (environ moins de 356 px).
+- Local utilise `object-fit: contain`, fond noir, **sans recadrage ni déformation**. L'iframe YouTube conserve
+  son rendu interne. Les coins sont arrondis ; le conteneur ne doit pas tronquer les popovers.
+- Les messages informatifs non bloquants apparaissent après la surface ; les erreurs avec action restent près du
+  lecteur. Aucun système de notifications globales n'est implémenté.
+
+### 6.5 Télécharger et supprimer un fichier local
+
+- Le téléchargement est **volontaire** et vise la source de travail. Il n'interrompt pas YouTube et ne modifie
+  pas le lecteur actif, les notes ou la transcription.
+- Les états doivent distinguer **non téléchargé**, **téléchargement en cours**, **disponible**, **échec** et
+  **consultation incertaine**. Une consultation en échec ne signifie pas que le serveur a confirmé l'absence du
+  fichier.
+- La modale commune présente le contexte actuel. Annuler/Échap n'envoie aucun POST ; confirmer lance une seule
+  acquisition. Fermer une modale pendant un téléchargement n'arrête pas le traitement serveur. Les réessais sont
+  explicites.
+- Le suivi reprend à l'ouverture, au retour sur la page et pendant une acquisition. Une réponse POST perdue
+  conduit à une consultation GET, **sans second POST automatique**. La fin de traitement ne change pas le mode
+  sélectionné.
+- Le retour de téléchargement peut montrer un spinner puis un succès/échec pendant **5 s** ; ces indications
+  transitoires ne remplacent pas les erreurs persistantes ni les annonces accessibles.
+- Un média disponible affiche ses informations : conteneur, taille, durée, dimensions, cadence, codecs et langue
+  audio déclarée lorsque connues. Les inconnues restent explicites ; ces informations sont relatives au fichier,
+  pas à une nouvelle source.
+- Supprimer exige une confirmation portant sur le **fichier exact**. Depuis Local, arrêter et décharger avant
+  DELETE ; depuis YouTube, ne pas arrêter le lecteur distant. Une suppression refusée par une réservation
+  concurrente ne déclenche pas de réessai automatique.
+- Après suppression réussie, conserver `Video`, note, transcription et captures. Si Local était sélectionné, il
+  reste vide dans la session ; au prochain chargement de la fiche, le choix initial est recalculé.
+- Une référence à un fichier disparu peut être supprimée explicitement. Aucune maintenance ou élimination
+  silencieuse des médias orphelins au démarrage.
+
+### 6.6 Captures vidéo
+
+- **`+ Capture`** est disponible en Édition et lit le temps admissible du lecteur actif. Une capture concerne
+  **la source courante**, jamais une autre source de la même vidéo substituée silencieusement.
+- L'extraction utilise d'abord le média complet local exploitable, puis le flux distant YouTube selon les règles
+  de repli applicables. Elle n'entraîne pas de téléchargement permanent du média complet.
+- Le résultat est un **PNG** sans réduction volontaire de résolution. La capture vise la première image
+  décodable à partir du temps demandé : aucune identité parfaite avec l'image affichée par YouTube n'est
+  garantie.
+- Dès le clic, un marqueur CodeMirror d'attente apparaît **sans changer le Markdown**. Il suit les éditions et
+  Undo/Redo ordinaires ; détruire son ancrage ou remplacer la session invalide l'insertion, sans que la réponse
+  tardive puisse la ressusciter.
+- Après acceptation persistée, insérer une seule référence Markdown à l'emplacement retenu :
+
+  ```markdown
+  ![Capture à 12:42](/api/v1/assets/123/content)
+  ```
+
+  L'insertion est une seule étape Undo/Redo et suit l'autosauvegarde. Si le curseur est resté au marqueur, le
+  placer après la référence ; sinon préserver le focus et la sélection courants. Undo ne supprime pas l'`Asset`,
+  Redo ne relance pas l'extraction.
+- Le passage en Lecture est bloqué uniquement pendant l'acceptation initiale. Une génération acceptée continue
+  côté serveur après navigation ; quitter avant acceptation abandonne l'insertion locale sans prétendre annuler
+  le serveur.
+- En Lecture, l'image affiche son état de préparation, de disponibilité ou d'échec ; une erreur de consultation
+  est distinguée de l'échec de génération. La note Markdown reste intacte si la génération échoue. L'image ne
+  commande pas le lecteur.
+- Une seule capture à la fois est traitée par instance serveur. Il n'existe pas de galerie complète ni de
+  compteur global d'activité. Retirer la référence Markdown **ne supprime pas** l'`Asset` ou son PNG.
+
+La galerie, la réinsertion, l'import d'images et les clips vidéo sont des pistes de développement, documentées dans [Open questions](06-open-questions.md).
+
+## 7. Recherche, IA et pistes non livrées
+
+- **Recherche globale** : future étape distincte de la recherche locale dans une transcription. La direction prévue va d'une recherche simple sur titres/tags/notes à une recherche plein texte pouvant retrouver un passage horodaté ; voir [Roadmap](05-roadmap.md).
+- **MCP** : interface future pour exposer les cas d'usage métier à un agent, sans accès direct aux primitives de
+  persistance ; outils et permissions restent à décider.
+- **IA intégrée** : facultative, postérieure aux primitives métier ; candidates : résumés, tags suggérés,
+  chapitrage, questions/réponses et extraction d'informations. Aucun provider n'est choisi.
+- **Autres pistes** : annotations structurées, plages temporelles, sources supplémentaires, STT, sélection de
+  pistes, bibliothèque de captures, clips durables, redimensionnement des panneaux, reprise de lecture et
+  export. Elles ne doivent pas être traitées comme des fonctionnalités déjà implémentées.
+
+Pour les objectifs des étapes futures, voir [05-roadmap.md](05-roadmap.md). Pour leurs arbitrages encore ouverts, voir [06-open-questions.md](06-open-questions.md). Ne pas dupliquer ici leurs spécifications tant qu'elles ne sont pas implémentées.
+
+## 8. Principes UX et maintenance documentaire
+
+1. **Continuité du travail** : le lecteur, la transcription, les tags, les popovers et le thème ne doivent pas
+   interrompre une session de note.
+2. **Annotation rapide** : l'insertion temporelle ou d'une citation ne doit pas imposer de parcours complexe ni
+   de manipulation implicite du lecteur.
+3. **Connaissances distinctes des médias** : télécharger, supprimer ou changer de mode n'altère pas `Video`, la
+   note, les transcriptions et les captures conservées.
+4. **Identités temporelles explicites** : vidéo, source et millisecondes font autorité ; ne pas inférer une
+   position de lecture d'un libellé ou d'une commande simplement préparée.
+5. **Erreurs honnêtes** : absence, indisponibilité, incertitude et échec ne sont pas interchangeables. Une
+   réponse différée ou refusée n'est jamais présentée comme un succès.
+6. **Accessibilité et responsive** : contrôle clavier, focus visible, messages accessibles et fonctionnement à
+   faible largeur sont des exigences transversales.
+7. **Sans IA et sans téléchargement obligatoire** : le parcours central doit rester entièrement utilisable avec
+   une vidéo YouTube et des notes Markdown.
+8. **Maintenance** : consolider les règles dans les sections fonctionnelles ; ne pas ajouter de compte rendu de développement, validation de jalon ou décision supersédée à la fin de ce document. Les PR/Git conservent le détail historique ; [l'historique synthétique](history/sillage-decisions-octobre-2026.md) explique certains arbitrages passés.

@@ -1,961 +1,268 @@
 # Sillage
 
-**Sillage** est une base de connaissances personnelle centrée sur la vidéo.
-L'objectif est de transformer le visionnage d'une vidéo en connaissance durable, structurée et réutilisable : métadonnées, notes Markdown, timestamps, annotations, transcriptions, tags, captures, recherche et enrichissements IA.
+**Sillage** est une base de connaissances personnelle centrée sur la vidéo. L'application permet de regarder une vidéo, prendre des notes Markdown, conserver des passages horodatés et des captures, puis retrouver les connaissances qui en découlent.
 
-> Le projet est en développement actif. Les tranches métadonnées YouTube, persistance SQLite, API HTTP, transcriptions automatiques originales, Notes + Tags et Publishers + Personnes + Tags universels sont fonctionnelles. La bibliothèque Web, l'ajout avec détection des doublons, les fiches vidéo et le classement par tags sont fonctionnels. L'étape 5.1 est terminée et validée manuellement et en CI, avec une distribution Docker opérationnelle.
+YouTube est actuellement la source prise en charge. La conception distingue la vidéo comme objet de connaissance (`Video`), sa provenance (`VideoSource`) et son éventuel fichier local (`MediaFile`). Le projet est **self-hosted**, utilisable sans intelligence artificielle et toujours en développement.
 
-## Vision
+> **État du projet :** le socle de travail vidéo est fonctionnel. La recherche globale, MCP et l'IA intégrée restent à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
 
-Une vidéo est un flux temporel continu. Pendant son visionnage, certaines idées, explications, images ou passages méritent d'être conservés et retrouvés plus tard.
-Sillage vise à réunir ces éléments autour d'un objet `Video` stable :
+## Fonctionnalités disponibles
 
-```text
-vidéo
-  ↓
-visionnage
-  ↓
-notes + timestamps + annotations + captures
-  ↓
-transcription + tags
-  ↓
-recherche et structuration
-  ↓
-connaissance exploitable
-```
+- **Bibliothèque** : ajout de vidéos YouTube par URL, extraction des métadonnées avec `yt-dlp`, détection des doublons et consultation des fiches.
+- **Classement** : tags partagés entre vidéos, publishers et personnes ; filtre de bibliothèque par tag ; associations explicites des comptes de publication et personnes, accessibles par REST.
+- **Espace de travail** : lecteur vidéo, note Markdown et transcription, avec mise en page adaptée aux écrans desktop et mobile. En-tête compact, navigation latérale, thèmes clair/sombre/système et panneaux Note/Informations.
+- **Notes** : éditeur CodeMirror 6, lecture Markdown/GFM, sauvegarde automatique, protection par révision contre les écrasements concurrents, historique Undo/Redo et références temporelles interactives.
+- **Transcriptions YouTube** : acquisition explicite de sous-titres automatiques sélectionnés, conservation du JSON3, lecture hors réseau depuis le snapshot, recherche textuelle locale, navigation par timestamp et citation d'extraits dans la note.
+- **Lecture distante et locale** : lecteur YouTube ou HTML5 natif, conservation volontaire d'une vidéo avec `yt-dlp`, suivi du téléchargement, consultation des propriétés techniques, suppression explicite du fichier et bascule entre lecteurs. Si le fichier est disponible à l'ouverture, **Local** est sélectionné en premier ; aucune lecture ne démarre automatiquement.
+- **Captures PNG** : extraction d'une image au temps courant avec `ffmpeg`, insertion dans la note et conservation indépendante du fichier vidéo et du Markdown qui la référence.
+- **API REST** : accès aux vidéos, notes, tags, transcriptions, publishers, personnes, fichiers locaux et captures.
 
-YouTube est la première source prise en charge, mais le modèle n'est pas limité à une plateforme particulière.
+La recherche **dans une transcription ouverte** est disponible. Elle ne doit pas être confondue avec une recherche dans toute la bibliothèque. Le serveur MCP, l'IA intégrée, l'import de vidéos locales et les annotations structurées constituent des travaux futurs, pas des fonctionnalités livrées.
 
-Une `Video` représente un objet de connaissance interne à Sillage. Une vidéo YouTube, un fichier local ou une autre plateforme ne sont que des sources ou représentations de cet objet.
+## Démarrage rapide avec Docker
 
-## État actuel
+La distribution initiale cible **Linux AMD64**, notamment Linux natif et WSL2, avec Docker Engine et Compose v2 (ou Docker Desktop intégré à WSL2). L'image rassemble le serveur Go, le frontend compilé, `yt-dlp`, Deno, `ffmpeg` et `ffprobe`. Il n'est pas nécessaire de les installer séparément sur l'hôte.
 
-Le flux persistant suivant est implémenté :
-
-```text
-URL YouTube
-    ↓
-AddVideo
-    ↓
-adapter yt-dlp
-    ↓
-Video + VideoSource
-    ↓
-SQLite
-    ↓
-relecture persistante
-```
-
-Sillage sait actuellement :
-
-* recevoir une URL YouTube ;
-* appeler `yt-dlp` ;
-* extraire et normaliser les métadonnées utiles ;
-* créer une `Video` et sa `VideoSource` ;
-* les persister dans SQLite ;
-* retrouver une vidéo existante à partir de l'identité de sa source ;
-* conserver la même `Video` pour plusieurs formes d'URL correspondant à la même vidéo YouTube.
-
-Il peut également acquérir, rafraîchir et relire localement la transcription
-automatique originale d'une source YouTube.
-
-Chaque vidéo peut recevoir une note Markdown principale et des tags partagés.
-Leur lecture et leur modification sont locales, indépendantes des sources.
-L'interface Web permet de consulter la bibliothèque et les fiches, d'ajouter une
-vidéo YouTube et de retrouver un doublon. Les tags vidéo peuvent être ajoutés et
-retirés dans une modale avec autocomplétion, puis utilisés pour naviguer et filtrer
-la bibliothèque par un seul tag. Les descriptions des sources sont repliables.
-La fiche intègre désormais l'édition Markdown, le mode Lecture GFM et une
-sauvegarde protégée contre les écrasements concurrents.
-
-La tranche 5.3 réunit désormais note, lecteur YouTube et transcription dans un
-workspace responsive. Le lecteur se masque avec pause, sans reprise automatique ;
-la transcription locale se consulte indépendamment, se récupère ou s'actualise
-explicitement, et se regroupe par intervalles fixes de 10 secondes depuis 6.3.
-Les métadonnées complètes restent accessibles dans une section repliable.
-La tranche est terminée, vérifiée automatiquement et fusionnée après
-les retours manuels positifs de l'utilisateur, y compris sur les correctifs
-d'acquisition et de présentation. Le thème Clair / Sombre / Système utilise une
-palette bleu nuit et une préférence locale au navigateur.
-
-La tranche 6.1 ajoute les timestamps cliquables de transcription (également Entrée
-ou Espace) : déplacement dans le lecteur de la même source, lecture/pause préservées
-et réaffichage du lecteur masqué. Avant la première lecture ou après la fin, seul
-le départ est préparé, sans lancement automatique. Si le lecteur n'est pas prêt,
-un message demande un nouveau clic ; aucune commande n'est mise en attente.
-La note et l'acquisition de transcription restent indépendantes. 6.1 est validée
-manuellement ; le travail de l'étape 6 continue sur la même branche.
-
-En 6.2, `+ Temps` insère en mode Édition un lien tel que
-`[12:42](sillage://videos/5/sources/5?start_ms=762345)` au curseur ou après une sélection,
-sans supprimer son texte. L'insertion conserve les millisecondes, rend le focus,
-est annulable indépendamment et suit l'autosauvegarde normale. Le lecteur ne reçoit
-aucune commande ; un lecteur masqué en pause reste masqué. Lecture, pause et fin
-sont acceptées avec une position valide ; les états non démarré, cued, buffering
-et indisponibles demandent de réessayer sans rien insérer. Le mode Lecture affiche
-le libellé sans interaction. `videos` est l'autorité logique de l'URI ; les deux
-identifiants Sillage rendent le Markdown autonome entre notes d'une même base,
-sans résolution universelle entre bases. `end_ms` est réservé aux plages futures.
-Citations, plages, synchronisation et navigation inverse restent hors de 6.2.
-
-En 6.3, le champ de recherche parcourt le texte continu déjà chargé, sans casse
-et sans requête réseau. Les expressions traversant fragments et blocs sont
-surlignées ; compteur et précédent/suivant circulaires font défiler le résultat actif.
-Entrée dans le champ passe au résultat suivant avec retour au premier.
-La recherche conserve les accents et traite les suites de blancs comme équivalentes, sans occurrences
-chevauchantes. Elle ne commande jamais le lecteur ; les timestamps restent
-l'action explicite. Changer de vidéo/source la réinitialise. Le sélecteur
-d'intervalle est supprimé : présentation fixe à 10 secondes.
-
-L'étape 4 bis permet également de créer ou retrouver un publisher YouTube depuis
-une URL de chaîne, de l'associer à une source, de gérer des personnes indépendantes
-et leurs liens directs aux vidéos ou leurs publishers de référence. Le catalogue
-de tags est partagé entre vidéos, publishers et personnes, sans propagation.
-La navigation distingue les vidéos directement associées à une personne de celles
-publiées par ses publishers, avec une union dédupliquée.
-
-Une `Video` et ses `VideoSource` possèdent leurs propres identifiants internes Sillage.
-
-L'identité externe d'une source repose, lorsqu'un identifiant externe existe, sur le couple :
-
-```text
-(provider, external_id)
-```
-
-Pour YouTube, deux URL telles que :
-
-```text
-https://youtu.be/IgKU8xCgbjc
-https://www.youtube.com/watch?v=IgKU8xCgbjc
-```
-
-sont normalisées vers la même identité externe et retournent donc la même `Video`.
-
-Les métadonnées d'une source déjà enregistrée ne sont pas rafraîchies implicitement par `AddVideo`.
-
-### Flux actuel d'ajout d'une vidéo
-
-Le handler appelle `video.Service.AddVideo`, qui extrait une source normalisée,
-cherche son identité externe en base puis crée ou retrouve la vidéo.
-Le résultat applicatif `AddVideoResult` contient `Video` et `Created`.
-
-L'extraction a lieu également lors d'un ajout répété pour identifier la source :
-les nouvelles métadonnées ne remplacent pas celles déjà enregistrées.
-La contrainte SQL sur `(provider, external_id)` protège les créations concurrentes ;
-seul l'appel qui crée effectivement la vidéo retourne `Created: true`.
-
-## Architecture actuelle
-
-`cmd/server` assemble le routeur Chi, les handlers HTTP, `video.Service`,
-`transcript.Service`, `note.Service`, `video.TagService`, `video.PublisherService`,
-`video.PersonService`, les repositories SQLite, `ytdlp.Client` et le stockage
-filesystem des snapshots.
-
-Les trois cas d'usage `AddVideo`, `GetVideo` et `ListVideos` sont réutilisables
-sans HTTP, comme `transcript.Service.Fetch` et `Get`. Le cœur dépend de ports
-spécialisés de lecture, acquisition, snapshots et persistance.
-Les DTO JSON appartiennent à l'adaptateur HTTP ; le modèle
-métier ne porte aucun tag JSON.
-
-## Modèle de données actuel
-
-Le schéma persistant contient les vidéos, leurs sources, les transcriptions,
-les notes, les tags, les publishers et les personnes. Le diagramme ci-dessous détaille la partie acquisition ;
-les tables de connaissance utilisateur sont décrites à sa suite.
-
-```mermaid
-erDiagram
-    VIDEO ||--|{ VIDEO_SOURCE : possede
-    VIDEO_SOURCE ||--o{ TRANSCRIPT : synchronise
-
-    VIDEO {
-        INTEGER id PK
-        TEXT created_at
-    }
-
-    VIDEO_SOURCE {
-        INTEGER id PK
-        INTEGER video_id FK
-        TEXT provider
-        TEXT external_id
-        TEXT canonical_url
-        TEXT title
-        TEXT description
-        INTEGER publisher_id FK
-        INTEGER duration_ms
-        TEXT thumbnail_url
-        TEXT original_audio_language
-    }
-
-    TRANSCRIPT {
-        INTEGER id PK
-        INTEGER video_source_id FK
-        TEXT language
-        TEXT provenance
-        TEXT local_path
-        TEXT last_fetched_at
-    }
-```
-
-La migration `0003_notes_tags.sql` complète ce schéma sans perte des données existantes :
-
-| Table | Identité et contenu |
-| --- | --- |
-| `notes` | `video_id` clé primaire et étrangère, `content_md`, `created_at`, `updated_at` |
-| `tags` | `id` généré, `name` affiché, `identity_key` unique |
-| `video_tags` | clé primaire composée `(video_id, tag_id)`, deux clés étrangères |
-
-La migration `0004_publishers_persons.sql` supprime `creator` et ajoute
-`video_sources.publisher_id`, facultatif, ainsi que :
-
-| Table | Identité et contenu |
-| --- | --- |
-| `publishers` | `id`, `provider`, `external_id` unique par provider, `name` nullable, `person_id` nullable |
-| `persons` | `id`, `name` obligatoire, homonymes autorisés |
-| `video_persons` | clé composée `(video_id, person_id)`, sans rôle |
-| `publisher_tags` | clé composée `(publisher_id, tag_id)` |
-| `person_tags` | clé composée `(person_id, tag_id)` |
-
-Toutes les associations ont des clés étrangères. Le nom de chaîne n'est stocké
-que dans le publisher. Les métadonnées ne créent jamais de personne automatiquement.
-
-`Video.id` et `VideoSource.id` sont des identifiants internes Sillage.
-
-`VideoSource.external_id` appartient à l'espace de noms défini par son `provider`.
-
-Lorsqu'un `external_id` existe :
-
-```text
-(provider, external_id)
-```
-
-est unique.
-
-Le modèle métier prévoit plus tard d'autres objets tels que :
-
-* `Annotation` ;
-* `Asset`.
-
-Annotation et Asset ne sont pas encore persistés. MediaFile est ajouté par la
-migration 0006 en 7.1, avec provenance source et métadonnées du fichier local ;
-voir le contrat de téléchargement ci-dessous.
-
-Le modèle conceptuel complet est documenté dans [`docs/02-domain-model.md`](docs/02-domain-model.md).
-
-## Architecture cible
-
-Les futures interfaces doivent utiliser le même cœur applicatif.
-
-```mermaid
-flowchart TD
-    Web["Web UI"] --> REST["REST / Chi"]
-    REST --> Services["Application Services"]
-
-    MCP["MCP"] --> Services
-    CLI["CLI"] --> Services
-    Desktop["Futur desktop"] --> Services
-
-    Services --> Ports["Ports"]
-    Ports --> Adapters["Adapters"]
-
-    Adapters --> SQLite["SQLite"]
-    Adapters --> Ytdlp["yt-dlp"]
-    Adapters --> Ffmpeg["ffmpeg"]
-    Adapters --> Filesystem["Filesystem"]
-    Adapters --> AI["IA"]
-````
-
-REST, MCP, le CLI et une éventuelle application desktop doivent appeler les mêmes services applicatifs.
-Les interfaces externes et dépendances techniques restent des adapters autour du cœur.
-
-## Fonctionnalités envisagées
-
-### Bibliothèque vidéo
-
-L'ajout YouTube, les métadonnées, la navigation et le classement par tags sont
-disponibles dans l'interface Web. La recherche reste à développer.
-
-* ajout d'une vidéo depuis une URL YouTube ;
-* récupération automatique des métadonnées ;
-* navigation par miniatures ;
-* tags et filtre unique par tag ;
-* recherche.
-
-### Espace de travail vidéo
-
-La page d'une vidéo doit devenir un véritable espace de travail :
-
-* lecteur vidéo ;
-* notes Markdown ;
-* insertion rapide du timestamp courant ;
-* navigation depuis un timestamp vers le passage correspondant ;
-* annotations temporelles structurées ;
-* consultation de la transcription ;
-* captures d'écran liées à un timestamp.
-
-Exemple de prise de notes :
-
-```markdown
-[12:42] Comparer cette approche avec le fonctionnement de SQLite.
-```
-
-La dimension temporelle est un élément métier de premier ordre : timestamps de notes, annotations, segments de transcription et captures doivent pouvoir être reliés précisément à la vidéo.
-
-### Transcriptions YouTube
-
-Le flux complet est implémenté : découverte yt-dlp, sélection de la caption
-automatique originale, téléchargement JSON3, validation, snapshot local,
-persistance SQLite et restitution REST.
-
-Une transcription appartient à une `VideoSource`, dont elle partage la timeline.
-Son identité est `(video_source_id, language, provenance)`. La langue métier
-est celle du contenu (`en`, `pt-BR`), sans le suffixe technique `-orig`.
-La provenance de cette tranche est `youtube_auto`.
-
-`VideoSource.original_audio_language` est facultative et n'est pas exposée
-dans le JSON vidéo. L'adapter utilise les formats audio explicitement marqués
-originaux par yt-dlp (`language_preference = 10`). Une piste audio simplement
-« default » ou une caption `*-orig` ne suffit pas. L'acquisition ne modifie
-jamais la langue audio, même inconnue. Les anciennes valeurs restent conservées.
-
-La langue audio enregistrée donne priorité à sa clé `<langue>-orig` admissible.
-À défaut, une forme simple langue-région (région de deux lettres ou trois chiffres)
-cible sa clé générique ; les étiquettes complexes ne sont pas simplifiées.
-Sinon, un seul candidat `-orig` proposant JSON3 et une URL HTTPS valide est
-accepté, même dans une autre langue. Plusieurs formats d'une clé ne sont pas
-plusieurs pistes. Aucun candidat signifie indisponibilité ; plusieurs candidats
-sans correspondance exacte ou régionale signifient ambiguïté. La redétection audio ne
-départage pas les pistes. Aucune traduction de captions n'est demandée ; les captions
-manuelles et le STT restent exclus. Une piste `-orig` peut transcrire un doublage : cette politique
-privilégie l'audio original sans le garantir, notamment lors du repli unique.
-
-JSON3 reste dans l'adapter. Le domaine utilise seulement :
-
-```go
-type TranscriptItem struct {
-    StartMS int64
-    Text    string
-}
-
-type TranscriptContent []TranscriptItem
-```
-
-Le parser conserve l'ordre source et les espaces des fragments. Il matérialise
-une séparation entre événements autonomes si aucun blanc ne les sépare déjà ;
-un événement JSON3 `aAppend` prolonge le précédent. Les événements sans texte
-sont ignorés ; un texte sans temps valide, des offsets invalides ou un document
-sans contenu exploitable sont rejetés. Les offsets absents valent zéro.
-Aucune durée de fin ni segmentation par mots n'est inférée.
-
-`TranscriptContent.PlainText()` concatène puis normalise les blancs.
-Le texte brut n'est pas persisté. Les fragments ne deviennent pas des lignes SQL.
-
-Chaque acquisition réussie conserve actuellement le JSON3 dans
-`data/transcripts/`. SQLite contient un chemin relatif à cette racine.
-Un nouveau fichier complet est publié avant la transaction SQL ; un échec
-ne remplace ni le chemin courant ni sa date. Les fichiers précédents et les
-éventuels fichiers orphelins après échec/crash ne sont pas automatiquement
-supprimés pendant cette phase, afin de préserver les lectures concurrentes.
-Ce mécanisme n'expose aucun historique métier. La politique durable de rétention
-et de nettoyage reste ouverte.
-
-Les téléchargements utilisent un répertoire temporaire supprimé en fin d'appel.
-Le dump yt-dlp de découverte n'y reste que le temps du téléchargement, via
-`--load-info-json`, pour conserver exactement la piste sélectionnée.
-Le JSON3 est limité à 16 Mio, le dump de découverte à 64 Mio et stderr à 16 Kio.
-
-### Recherche
-
-La recherche doit à terme pouvoir couvrir :
-
-* titres ;
-* descriptions ;
-* tags ;
-* notes ;
-* transcriptions ;
-* résumés et autres artefacts textuels.
-
-SQLite FTS5 est privilégié pour la future recherche plein texte.
-
-Lorsqu'un résultat provient d'un contenu temporel, Sillage doit idéalement pouvoir ouvrir directement la vidéo au bon timestamp.
-
-### IA et MCP
-
-Sillage est conçu pour être **IA-native**, tout en restant pleinement utilisable sans IA.
-
-Des agents pourront à terme interroger et modifier la base via MCP avec des outils métier tels que :
-
-```text
-search_videos
-get_video
-get_transcript
-get_annotations
-add_tags
-append_note
-```
-
-Ils ne doivent pas être exposés à des primitives techniques telles que :
-
-```text
-execute_sql
-run_ytdlp_command
-```
-
-Exemple d'usage :
-
-> Recherche mes vidéos sur Proxmox et Tailscale et indique lesquelles parlent du subnet routing.
-
-## Stack technique
-
-Choix actuels ou privilégiés :
-
-* **Go**
-* `net/http`
-* **Chi**
-* **SQLite**
-* `database/sql`
-* `modernc.org/sqlite`
-* migrations SQL embarquées avec `embed.FS`
-* `PRAGMA user_version`
-* SQLite **FTS5** à terme
-* **yt-dlp**
-* **ffmpeg**
-* **Docker**
-* API REST
-* MCP en Go à terme
-
-React, TypeScript et Vite sont utilisés pour une SPA consommant l'API REST,
-avec React Router pour la navigation. Go sert déjà les fichiers compilés en
-production locale, sans serveur Node.js permanent. Ils sont également distribués avec le
-binaire dans une même image Docker. L'accès reste
-local par défaut.
-CodeMirror 6 est intégré directement pour l'édition ; react-markdown et remark-gfm
-assurent la lecture GFM sans interprétation du HTML brut. Les autres bibliothèques
-seront choisies selon les besoins.
-
-Une version desktop reste envisageable, mais sa technologie n'est pas arrêtée.
-
-## SQLite
-
-La persistance actuelle utilise :
-
-```text
-database/sql
-+
-modernc.org/sqlite
-```
-
-Le schéma est initialisé automatiquement au démarrage à partir de migrations SQL embarquées.
-
-Le système de migrations utilise :
-
-```text
-embed.FS
-+
-PRAGMA user_version
-```
-
-Les migrations sont :
-
-* versionnées ;
-* forward-only ;
-* appliquées dans l'ordre ;
-* transactionnelles.
-
-La configuration actuelle active également :
-
-```text
-foreign_keys = ON
-busy_timeout ≈ 5000 ms
-```
-
-Le mode WAL n'est pas activé pour l'instant.
-
-### Mise à niveau vers l'étape 4 bis
-
-Arrêter les anciens processus avant de lancer le nouveau serveur. Pour une base
-en version 1 à 3, l'ouverture crée automatiquement une sauvegarde SQLite complète
-voisine, nommée `sillage.db.before-publishers-<suffixe>.bak`, puis applique les
-migrations. Si la sauvegarde échoue, l'ouverture échoue avant la migration.
-
-Les anciens libellés `creator` sont supprimés de la base migrée et restent dans
-la sauvegarde. Aucune identité n'est déduite de ces noms : les sources existantes
-commencent sans publisher. Les autres données et leurs identifiants sont conservés.
-Le rattachement ultérieur est explicite ; réajouter une vidéo ne le réalise pas.
-Les sauvegardes ne sont ni écrasées ni nettoyées automatiquement.
-
-## Exécution
-
-### Prérequis
-
-* Go 1.27.1 ;
-* `yt-dlp` accessible dans le `PATH`.
-
-Lancer le serveur depuis le répertoire de travail souhaité :
-
-```bash
-go run ./cmd/server
-```
-
-| Variable d'environnement | Défaut |
-| --- | --- |
-| `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` |
-| `SILLAGE_POST_TIMEOUT` | `60s` |
-| `SILLAGE_WEB_DIR` | absent : API seule |
-
-Le timeout accepte une durée Go strictement positive, par exemple `90s`.
-Le chemin de base est fixe : `data/sillage.db`, relatif au répertoire de travail
-du processus. Son dossier parent est créé s'il manque. Une ancienne base à la
-racine n'est ni déplacée ni importée automatiquement. Le conteneur utilise
-`WORKDIR /app` avec un bind mount sur `/app/data`.
-
-Les dates SQLite utilisent UTC avec une précision milliseconde fixe
-(`YYYY-MM-DDTHH:MM:SS.mmmZ`). Le schéma initial a été réinitialisé pendant
-le développement : les anciennes bases utilisant `created_at_ms` ne sont
-pas compatibles. Serveur arrêté, déplacer `data/sillage.db` hors de ce
-chemin puis redémarrer recrée une base vide ; aucun ancien contenu n'est importé.
-
-Le serveur n'active ni authentification ni CORS. L'adresse d'écoute est configurable.
-Le packaging Docker est décrit ci-dessous.
-
-Le POST est synchrone. Après décodage du corps, un contexte limité par
-`SILLAGE_POST_TIMEOUT` est propagé jusqu'au processus d'extraction et à SQLite.
-`http.Server` limite la lecture des en-têtes à 5 s, la lecture de la requête à
-15 s et l'inactivité entre requêtes à 60 s. `WriteTimeout` reste désactivé pour
-permettre l'envoi du JSON d'erreur après expiration du timeout applicatif.
-L'arrêt sur interruption ou SIGTERM annule les traitements, arrête le serveur,
-puis ferme SQLite.
-
-### Distribution Docker — Linux AMD64
-
-Le jalon 4 et l'ensemble de l'étape 5.1 sont terminés et validés manuellement
-et en CI. Docker Compose a été validé sous WSL2, y compris l'import YouTube réel,
-les doublons, les tags, les accès directs et la persistance après recréation.
-Les données Docker sont conservées séparément de celles du développement local.
-Docker Engine avec Compose v2, ou Docker Desktop intégré à WSL2, suffit :
-Go, Node, Python, yt-dlp et ffmpeg n'ont pas à être installés sur l'hôte.
-Exécuter les commandes depuis la racine du dépôt sous Linux/WSL. Sous WSL,
-privilégier un répertoire du filesystem Linux pour les données et les permissions.
-
-**Premier démarrage :**
+Depuis la racine du dépôt :
 
 ```bash
 export SILLAGE_DATA_DIR="$HOME/.local/share/sillage"
 export SILLAGE_UID="$(id -u)"
 export SILLAGE_GID="$(id -g)"
-export SILLAGE_PORT=8080
+
 mkdir -p "$SILLAGE_DATA_DIR"
 chmod 700 "$SILLAGE_DATA_DIR"
+
+docker compose -f deployments/docker/compose.yaml config
 docker compose -f deployments/docker/compose.yaml up -d --build
 ```
 
-Choisir un répertoire dédié. Compose exige un chemin de données existant ;
-il ne le crée pas implicitement en root. Le processus non-root utilise les
-UID/GID numériques indiqués (1000:1000 par défaut). Le répertoire et son contenu
-doivent appartenir à cet utilisateur ou lui donner les droits nécessaires.
-Sur un serveur, préparer ces droits une seule fois avec l'administrateur.
-Ne pas utiliser UID 0 ni rendre les données accessibles à tous pour contourner
-une erreur de permissions. Les mêmes variables doivent être conservées pour
-les commandes suivantes. On peut aussi placer la configuration dans
-`deployments/docker/.env`, à côté de `compose.yaml`. Ce fichier local est déjà
-ignoré par Git. Exemple à adapter au répertoire et aux UID/GID de l'utilisateur :
+Ouvrir **<http://127.0.0.1:8080>**. Le port hôte est publié sur `127.0.0.1` par défaut, car **Sillage ne propose pas encore d'authentification**. Ne pas exposer directement cette instance sur Internet.
 
-```dotenv
-SILLAGE_DATA_DIR=/home/patrick/.local/share/sillage
-SILLAGE_UID=1000
-SILLAGE_GID=1000
-SILLAGE_PORT=8080
-```
-
-`SILLAGE_DATA_DIR` est obligatoire et doit contenir un chemin absolu vers le
-répertoire préparé. Les trois autres variables sont facultatives : UID et GID
-valent chacun `1000` par défaut, et le port hôte vaut `8080`. Utiliser `id -u`
-et `id -g` pour connaître les valeurs adaptées à l'hôte ; le fichier contient
-leurs valeurs numériques, pas des commandes shell.
-
-Depuis la racine du dépôt, vérifier la configuration effective avant le lancement :
-
-```bash
-docker compose -f deployments/docker/compose.yaml config
-```
-
-Les variables déjà exportées dans le terminal sont prioritaires sur le `.env`.
-Un `.env` présent dans le répertoire courant peut également prendre priorité
-sur celui du Compose ; pour choisir explicitement le fichier, ajouter
-`--env-file deployments/docker/.env` à la commande `docker compose`.
-Le chargement par Compose ne définit pas les variables du shell : pour les
-commandes `mkdir`, `chmod` et `tar` de ce guide, exporter aussi
-`SILLAGE_DATA_DIR` ou utiliser directement le même chemin absolu.
-
-Ouvrir <http://127.0.0.1:8080> (ou le port choisi). L'API est accessible sous
-`/api/v1`. Le serveur écoute sur `0.0.0.0:8080` dans le conteneur, mais Compose
-publie uniquement sur `127.0.0.1` de l'hôte. Sillage n'a pas d'authentification.
-En usage Docker direct, conserver cette restriction avec
-`-p 127.0.0.1:8080:8080`, le bind mount vers `/app/data` et `--user UID:GID`.
+Pour consulter les logs et arrêter l'application :
 
 ```bash
 docker compose -f deployments/docker/compose.yaml logs -f
-docker compose -f deployments/docker/compose.yaml stop
-docker compose -f deployments/docker/compose.yaml start
-docker compose -f deployments/docker/compose.yaml up -d --force-recreate
 docker compose -f deployments/docker/compose.yaml down
 ```
 
-Arrêts et recréations conservent le répertoire hôte. Le délai d'arrêt Compose
-est de 15 s pour laisser au serveur ses 10 s de shutdown gracieux.
-`SILLAGE_POST_TIMEOUT` configure les acquisitions de métadonnées/transcriptions (défaut `60s`).
-`SILLAGE_DOWNLOAD_TIMEOUT` borne les téléchargements complets (défaut `6h`).
-Les caches des outils restent éphémères sous `/tmp`. Les téléchargements médias
-temporaires vivent sous `data/media/.pending-*` sur le filesystem final ; les médias
-validés restent sous `data/media/`. Prévoir la place pour les pistes et leur assemblage,
-qui peuvent coexister temporairement. Aucun quota ni réencodage automatique.
-Les exécutables appartiennent à root et ne sont pas modifiables par Sillage.
+`down` ne supprime pas le répertoire de données monté depuis l'hôte. `make up`, `make logs` et `make down` appellent ces mêmes commandes Compose, sous réserve que `SILLAGE_DATA_DIR` soit configurée.
 
-**Sauvegarde, restauration et déplacement à froid :**
+### Configuration Docker
 
-Arrêter toutes les instances utilisant les données. Copier tout le répertoire,
-pas seulement `sillage.db` : il contient aussi les snapshots de transcription
-et peut contenir les fichiers auxiliaires SQLite.
+Depuis la racine du dépôt, copier [l'exemple commenté](deployments/docker/.env.example), puis adapter ses valeurs :
 
 ```bash
+cp deployments/docker/.env.example deployments/docker/.env
+```
+
+Compose lit automatiquement `deployments/docker/.env` avec les commandes `-f deployments/docker/compose.yaml` ci-dessus. Seule **`SILLAGE_DATA_DIR` est obligatoire** ; toutes les autres variables disposent de valeurs par défaut dans le [fichier Compose](deployments/docker/compose.yaml).
+
+La configuration minimale recommandée comprend :
+
+| Variable | Valeur par défaut | Usage |
+| --- | --- | --- |
+| `SILLAGE_DATA_DIR` | Aucune (obligatoire) | Chemin absolu du répertoire de données |
+| `SILLAGE_UID` | `1000` | UID du processus dans le conteneur ; adapter avec `id -u` |
+| `SILLAGE_GID` | `1000` | GID du processus dans le conteneur ; adapter avec `id -g` |
+| `SILLAGE_PORT` | `8080` | Port HTTP sur l'hôte |
+
+Le répertoire de données doit **exister avant le démarrage** et permettre la lecture, l'écriture et la traversée à l'UID/GID configuré. Compose ne le crée pas automatiquement. Le fichier `.env` est ignoré par Git ; les variables déjà exportées dans le shell prévalent sur son contenu.
+
+Par défaut, les données sont montées dans `/app/data` ; le processus s'exécute sans privilèges root, et le service HTTP écoute sur le port `8080` dans le conteneur. Pour une deuxième installation sur le même hôte, choisir des valeurs distinctes pour le port, le nom du conteneur et le répertoire de données.
+
+## Développement local
+
+Prérequis : **Go 1.27.1**, **Node.js 24**, npm, Make et, pour les acquisitions réelles, `yt-dlp`, `ffmpeg` et `ffprobe` disponibles dans le `PATH`. Les fonctionnalités YouTube peuvent aussi dépendre d'un moteur JavaScript pris en charge par `yt-dlp` (Deno est intégré à l'image Docker).
+
+### Compilation et lancement
+
+```bash
+make web-install  # npm ci dans web/
+make build        # TypeScript + Vite, puis compilation Go
+make run          # serveur Go et interface compilée
+```
+
+Ouvrir <http://127.0.0.1:8080>. Le processus utilise `data/` relativement au répertoire courant. `make run` sert `web/dist` par l'intermédiaire de `SILLAGE_WEB_DIR` ; reconstruire après une modification du frontend.
+
+### Mode développement
+
+Démarrer deux terminaux depuis la racine :
+
+```bash
+# Terminal 1 : API Go
+make dev-api
+```
+
+```bash
+# Terminal 2 : Vite, avec rechargement du frontend
+make web-dev
+```
+
+Ouvrir <http://127.0.0.1:5173>. Vite relaie les requêtes `/api` vers le serveur Go sur `127.0.0.1:8080`. Sans `SILLAGE_WEB_DIR`, le serveur Go fonctionne en mode **API seule**. Ne pas lancer parallèlement deux serveurs sur le même répertoire `data/`.
+
+### Variables du serveur
+
+| Variable | Défaut hors Docker | Effet |
+| --- | --- | --- |
+| `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` | Adresse d'écoute HTTP |
+| `SILLAGE_WEB_DIR` | Non défini | Répertoire du build Web à servir ; sinon API seule |
+| `SILLAGE_POST_TIMEOUT` | `60s` | Délai des acquisitions synchrones de métadonnées et transcriptions |
+| `SILLAGE_DOWNLOAD_TIMEOUT` | `6h` | Délai des téléchargements médias |
+| `SILLAGE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` ou `ERROR` |
+| `SILLAGE_LOG_FORMAT` | `text` | `text` ou `json` ; Docker définit `json` par défaut |
+
+Les délais sont des durées Go strictement positives, par exemple `90s` ou `2h`. La base utilisée par le serveur reste `data/sillage.db`, chemin relatif au répertoire de travail : il n'existe pas de variable de configuration pour la déplacer indépendamment de `data/`.
+
+## Données, sauvegarde et mises à jour
+
+Le répertoire persistant contient notamment :
+
+```text
+data/
+├── sillage.db       # SQLite et migrations
+├── transcripts/     # snapshots des transcriptions acquises
+├── media/           # vidéos téléchargées
+└── assets/          # captures PNG
+```
+
+**Sauvegarder l'ensemble de ce répertoire, jamais uniquement `sillage.db`.** Les médias, captures et snapshots ne sont pas contenus dans SQLite. Une seule instance Sillage doit utiliser un répertoire de données donné.
+
+### Sauvegarde à froid sous Docker
+
+Compose lit le `.env`, mais n'exporte pas ses variables dans le shell. Pour `tar`, définir `SILLAGE_DATA_DIR` dans le terminal avec **le même chemin que celui utilisé par Compose** :
+
+```bash
+export SILLAGE_DATA_DIR="/home/utilisateur/.local/share/sillage"  # À adapter
+test -d "${SILLAGE_DATA_DIR:?Définir le répertoire de données}" || exit 1
+
 docker compose -f deployments/docker/compose.yaml stop
 tar -C "$SILLAGE_DATA_DIR" -czf "$HOME/sillage-backup-$(date +%Y%m%d-%H%M%S).tar.gz" .
 docker compose -f deployments/docker/compose.yaml start
 ```
 
-Pour restaurer, arrêter le conteneur, extraire l'archive dans un **nouveau
-répertoire vide** appartenant à l'utilisateur choisi, puis configurer ce chemin
-dans `SILLAGE_DATA_DIR` et exécuter `up -d --force-recreate`. Conserver l'ancien
-répertoire jusqu'à validation. Pour déplacer les données vers un autre hôte,
-appliquer la même procédure et adapter UID/GID au propriétaire sur cet hôte.
+Pour restaurer, arrêter le conteneur, extraire l'archive dans **un nouveau répertoire vide**, vérifier les permissions, puis pointer `SILLAGE_DATA_DIR` sur ce dossier avant de recréer le conteneur. Conserver l'ancien répertoire tant que la restauration n'est pas validée.
 
-Pour reprendre les données de développement, arrêter d'abord `make run`,
-copier **l'ensemble** de `data/` vers le répertoire dédié vide, puis démarrer
-Compose avec ce chemin. Aucune migration automatique n'est effectuée.
-Le backend lancé avec `make run` et le conteneur ne doivent jamais utiliser
-simultanément la même base SQLite.
+La publication des fichiers est prudente : après un incident SQL, un crash ou une restauration, des fichiers non référencés peuvent rester sur disque. **Ne pas les effacer automatiquement** : certains peuvent correspondre à des données qu'une sauvegarde plus ancienne ne référence plus. L'inventaire et la maintenance de ces fichiers restent à définir.
 
-**Reconstruction et mises à jour :**
+### Mise à jour de l'image
+
+Sauvegarder les données avant une mise à jour, puis reconstruire et recréer :
 
 ```bash
-docker compose -f deployments/docker/compose.yaml build --pull --no-cache
+docker compose -f deployments/docker/compose.yaml build --pull
 docker compose -f deployments/docker/compose.yaml up -d --force-recreate
 ```
 
-Le Dockerfile fixe les versions Go/Node, les digests des images de base et les
-versions/empreintes de yt-dlp et Deno. Les paquets Debian reçoivent les correctifs
-disponibles au moment de la reconstruction ; le build n'est donc pas garanti
-identique octet pour octet. Actualiser explicitement les digests pour faire
-évoluer les images de base. Sauvegarder les données avant une mise à jour de
-Sillage et conserver l'ancienne image si un retour arrière est nécessaire.
+Le Dockerfile épingle les images de base ainsi que les versions et empreintes des exécutables téléchargés (`yt-dlp`, Deno). Les actualiser demande une modification ou des arguments de build **explicites** ; Sillage ne met pas automatiquement ces outils à jour au démarrage. Consulter `deployments/docker/Dockerfile` pour les versions actuellement embarquées et les arguments disponibles.
 
-yt-dlp stable `2026.08.19` et Deno `2.9.7` sont intégrés. Pour reconstruire avec
-une autre version de yt-dlp, choisir un tag précis et relever l'empreinte de
-`yt-dlp_linux` dans les `SHA2-256SUMS` de la release officielle. Les paramètres
-sont `YTDLP_REPOSITORY`, `YTDLP_VERSION` et `YTDLP_SHA256` :
+## Utiliser l'espace de travail
 
-```bash
-# Définir au préalable VERSION et SHA256 avec le tag et son empreinte vérifiée.
-docker compose -f deployments/docker/compose.yaml build \
-  --build-arg YTDLP_REPOSITORY=yt-dlp/yt-dlp \
-  --build-arg YTDLP_VERSION="$VERSION" \
-  --build-arg YTDLP_SHA256="$SHA256"
-docker compose -f deployments/docker/compose.yaml up -d --force-recreate
-```
+Sur une fiche vidéo, le lecteur et la transcription s'appuient sur la même **source de travail**. La note appartient à la vidéo, indépendamment de ses sources. Sur desktop, le lecteur et la transcription composent la partie droite ; la zone Note/Informations reste indépendante.
 
-Pour une nightly corrective, utiliser `yt-dlp/yt-dlp-nightly-builds` et le tag
-**précis** de sa release avec sa propre empreinte, jamais `latest`.
-Les [releases stables](https://github.com/yt-dlp/yt-dlp/releases) et
-[nightly](https://github.com/yt-dlp/yt-dlp-nightly-builds/releases) fournissent
-ces fichiers. Une empreinte erronée fait échouer le build. Deno dispose des
-paramètres analogues `DENO_VERSION` et `DENO_SHA256`.
-Il n'y a ni auto-update au démarrage ni mise à jour depuis l'interface.
-Un exécutable externe persistant sélectionné volontairement, avec la version
-intégrée comme repli, reste une question ouverte.
+- **`+ Temps`** insère dans la note, en mode Édition, une référence telle que `[12:42](sillage://videos/5/sources/5?start_ms=762345)`. Les IDs vidéo/source et le timestamp en millisecondes en conservent la provenance. Cette insertion n'engage aucune lecture.
+- **Transcription** : après acquisition explicite, les timestamps permettent la navigation dans le lecteur actif, la recherche reste locale au contenu chargé, et « Citer dans la note » peut insérer un extrait avec son lien temporel. Une note non vide exige de choisir préalablement une position d'insertion.
+- **Citations Markdown** : les callouts `[!quote]` et `[!quote:tr]` sont reconnus en Lecture ; les références temporelles canoniques disposent également d'une présentation et de gestes adaptés dans CodeMirror.
+- **YouTube / Local** : la bascule s'effectue sans lecture automatique ; elle tente de conserver une position admissible dans la session. Les actions d'annotation nécessitent une **position courante réellement disponible**, et non un simple départ préparé.
+- **Conservation** : cliquer Local sans fichier peut proposer le téléchargement. Le fichier reste une représentation de la source, pas une nouvelle vidéo. Le lecteur Local repose sur les capacités HTML5 du navigateur : un fichier valide n'est pas forcément décodable par celui-ci.
+- **Captures** : `+ Capture` demande un PNG au temps courant ; l'Asset est conservé séparément de son insertion Markdown. Retirer une référence de la note ne supprime pas l'image.
 
-**Vérification de la distribution :**
+Le comportement détaillé des lecteurs, de l'éditeur et des interactions est spécifié dans [Product & UX](docs/01-product-and-ux.md). Une [recette manuelle ciblée](docs/07-local-playback-validation.md) couvre les interactions que les simulations de navigateur ne suffisent pas à confirmer.
 
-```bash
-docker build --platform linux/amd64 -f deployments/docker/Dockerfile -t sillage:local .
-python3 tests/docker/smoke.py
-```
+## API REST
 
-Le script requiert Python 3 et un utilisateur hôte non-root. Il teste les outils
-réels hors réseau, puis Compose avec une acquisition simulée : HTTP/SPA,
-permissions, publication localhost, SQLite, tags, fichier persistant, recréation
-et arrêt propre. Il utilise exclusivement un répertoire temporaire, supprimé
-après retrait des conteneurs de test. La CI Docker exécute ce parcours depuis
-un checkout propre, indépendamment de Go/Postman/Playwright. L'acquisition
-YouTube réelle a été validée manuellement sous WSL2 ; elle reste exclue de la CI.
+Le serveur expose l'API sous **`/api/v1`**. Les exemples suivants utilisent `http://127.0.0.1:8080`. L'API est actuellement **sans authentification** ; elle n'est pas destinée à une exposition publique directe.
 
-### Interface Web — étape 5.1, jalons 1 à 3
+Les corps JSON sont validés strictement : types de données, champs inconnus, UTF-8 et limites de taille. Les handlers renvoient des statuts HTTP et des codes d'erreur publics, sans chemins de fichiers internes ni sortie brute des outils.
 
-Les jalons 1, 2 et 3 sont terminés, testés automatiquement et validés manuellement.
-Le jalon 4 — distribution Docker et consolidation — est également validé.
-Les trois jobs GitHub Actions Go/Postman, Web/Playwright et Docker ont réussi.
+### Vidéos
 
-Disponible : bibliothèque connectée à REST, ajout YouTube, détection des
-doublons et fiches vidéo. Les cartes ouvrent `/videos/{id}` avec l'ID interne
-Sillage ; `/videos/new` permet l'ajout. React Router gère la navigation et
-l'historique. Accès direct, rechargement et retour à la bibliothèque sont pris
-en charge par le build servi par Go comme par le serveur Vite.
-
-Le formulaire distingue création (201) et vidéo déjà présente (200), puis
-propose d'ouvrir la fiche retournée. Une seule acquisition synchrone est lancée
-à la fois, sans relance automatique ni timeout client plus court que le serveur.
-Les erreurs de validation, d'acquisition et de délai sont traduites par leur
-code REST ; la saisie est conservée. Quitter la page annule la requête cliente
-et ignore sa réponse tardive, sans garantir l'annulation d'un enregistrement
-déjà effectué. Après une coupure réseau, vérifier la bibliothèque ou réessayer :
-le backend conserve sa déduplication existante.
-
-La fiche affiche les métadonnées de toutes les sources, leurs publishers,
-durées, descriptions en texte brut et liens HTTP(S), ainsi que les tags directs
-de la vidéo. Le titre d'en-tête utilise provisoirement la première source.
-La date affichée est celle de l'ajout dans Sillage, pas celle de publication.
-Les personnes ne sont pas déduites des publishers. L'éditeur de notes est décrit
-dans la section 5.2 ci-dessous ; aucun lecteur ni panneau de transcription
-n'est introduit.
-
-Les tags de la fiche ouvrent la bibliothèque filtrée (`/?tag_id=7`). Le retour
-à une bibliothèque filtrée conserve ce contexte ; un accès direct à une fiche
-revient à la bibliothèque complète. Les tags des cartes restent non interactifs.
-
-**Gérer les tags** (ou **Ajouter des tags**) ouvre une modale provisoire.
-Le champ unique propose les tags existants et permet un ajout par nom :
-flèches pour parcourir, Entrée pour associer, Échap pour fermer les propositions,
-puis la modale. Les ajouts/retraits sont enregistrés immédiatement. Fermer la
-modale n'annule pas une opération ; quitter la fiche ignore ses réponses tardives.
-**Actualiser les associations** relit les données en cas de doute ou de modification
-dans un autre onglet. La normalisation et les noms affichés viennent du backend.
-Une seule mutation est exécutée à la fois ; aucune synchronisation entre onglets.
-
-Le filtre utilise le catalogue complet, y compris les tags sans vidéo associée.
-Un résultat vide ne signifie pas que toute la bibliothèque est vide.
-Les descriptions sont intégrales et repliées initialement, indépendamment pour
-chaque source. Le futur volet de gestion et un panneau de métadonnées restent
-des pistes UX, sans composants anticipés.
-
-Le packaging Docker du jalon 4 réutilise ce même build.
-La chaîne de production fonctionne déjà sans Vite à l'exécution.
-
-Prérequis supplémentaires : Node.js 24 (24.20.0 validé), npm et Make.
-Exécuter sous Linux/WSL depuis la racine du dépôt, avec Go dans le PATH.
-
-**Production locale :**
-
-```bash
-make web-install
-make build
-make run
-```
-
-Ouvrir <http://127.0.0.1:8080>. Le serveur utilise la bibliothèque existante
-`data/sillage.db`. `make run` lance le binaire compilé et sert `web/dist`.
-Après une modification du code, relancer `make build` puis le serveur.
-
-`SILLAGE_WEB_DIR` active explicitement le frontend et désigne son répertoire
-compilé, relatif au répertoire de travail ou absolu. Sans cette variable,
-le serveur conserve son fonctionnement API seul ; un chemin configuré absent
-ou sans `index.html` fait échouer le démarrage. Le répertoire public doit
-contenir uniquement le build frontend, jamais `data/`.
-
-**Développement, dans deux terminaux :**
-
-```bash
-make dev-api
-```
-
-```bash
-make web-dev
-```
-
-Ouvrir <http://127.0.0.1:5173>. Vite relaie `/api` vers
-`127.0.0.1:8080`, sans CORS. Les ports sont fixes pour éviter de viser
-accidentellement une autre instance ; arrêter le serveur de production avant
-de lancer l'API de développement. Les commandes restent entièrement sous WSL.
-
-**Validation automatisée :**
-
-```bash
-make test
-cd web
-npx playwright install --with-deps chromium
-cd ..
-make test-web
-python3 tests/postman/run.py deterministic
-```
-
-L'installation des dépendances système Chromium peut demander les droits
-administrateur sous Linux ; elle ne concerne que les tests navigateur.
-Playwright teste le build servi par le vrai binaire Go, sur le port 18381,
-avec une base temporaire. Un double ciblé de yt-dlp fournit des métadonnées
-fixes uniquement dans ce processus de test. Les données initiales sont ajoutées
-par REST puis le serveur redémarre avant le test de lecture. Le navigateur
-effectue aussi un ajout et un doublon via Go/SQLite. Aucun accès YouTube ni
-donnée personnelle. Le parcours tags associe un même tag à deux vidéos,
-vérifie la normalisation côté Go, filtre la bibliothèque puis retire une
-association sans modifier l'autre. Les scénarios de transport couvrent erreurs,
-réponses tardives et fermeture pendant une mutation ; les tests clavier couvrent
-les suggestions et le focus du dialogue.
-Les états vide/erreur et les variantes de métadonnées utilisent des réponses
-simulées dans le navigateur, séparément de ce parcours d'intégration.
-
-**Essai manuel du jalon 2 :**
-
-1. Lancer l'application avec le vrai `yt-dlp` dans le PATH, puis ouvrir la
-   bibliothèque et choisir **Ajouter une vidéo**.
-2. Saisir une URL YouTube publique non encore enregistrée. Pendant l'acquisition,
-   le bouton et le champ sont désactivés. Attendre **Vidéo ajoutée**, puis choisir
-   **Ouvrir la fiche**.
-3. Vérifier titre, source, compte de publication, durée et lien externe, puis
-   déplier la description ; les données absentes doivent rester compréhensibles.
-4. Revenir à la bibliothèque et ouvrir la carte. Tester précédent/suivant,
-   rechargement et ouverture de l'URL de fiche dans un nouvel onglet.
-5. Ajouter à nouveau la même URL : le message **déjà présente** mène à la même
-   fiche et aucune nouvelle carte n'est créée.
-6. Arrêter le serveur (Ctrl+C), puis relancer `make run` depuis le même dossier.
-   Rouvrir la fiche : elle est lue dans SQLite sans nouvelle acquisition.
-7. Essayer `https://example.com/video` dans le formulaire : l'erreur de
-   validation conserve la saisie et permet de la corriger. Les erreurs distantes
-   et timeouts sont couverts de façon déterministe dans Playwright.
-8. Ouvrir `/videos/999999999` (ID absent), `/videos/invalide` et
-   `/page-inconnue`, puis revenir à la bibliothèque. Les erreurs API et
-   `/assets/inconnu.js` restent séparées de la SPA.
-9. Réduire la fenêtre et parcourir les cartes/liens au clavier.
-
-**Essai manuel du jalon 3 :**
-
-1. Ouvrir une fiche, cliquer sur **Gérer les tags**, saisir un nouveau nom
-   et choisir son ajout. Vérifier que la saisie est vidée et garde le focus.
-2. Sur une seconde vidéo, saisir le début de ce nom et choisir la suggestion
-   avec les flèches puis Entrée. Fermer la modale : le tag reste visible.
-3. Cliquer sur le tag : la bibliothèque filtrée doit montrer les deux vidéos.
-   Recharger, essayer précédent/suivant et changer le filtre avec le sélecteur.
-4. Ouvrir une carte puis utiliser précédent dans le navigateur : le filtre est
-   conservé. Cliquer sur le logo Sillage revient à la bibliothèque sans filtre.
-5. Retirer le tag de la première vidéo dans la modale : la seconde doit rester
-   associée et visible sous ce filtre. Retirer le filtre retrouve toute la liste.
-6. Après retrait de la dernière association, le tag reste disponible dans le
-   catalogue ; son filtre affiche un état vide explicite.
-7. Arrêter et relancer `make run` depuis le même dossier : les associations
-   restantes et les retraits sont conservés.
-8. Vérifier les descriptions fermées initialement, leur ouverture indépendante
-   et le clavier de la modale (Tab, flèches, Entrée, Échap), sur écran étroit aussi.
-
-### Contrat API v1
+| Méthode | Route | Comportement |
+| --- | --- | --- |
+| `POST` | `/api/v1/videos` | Ajoute une URL YouTube ; `201` à la création, `200` si elle est déjà connue, sans rafraîchissement implicite |
+| `GET` | `/api/v1/videos` | Bibliothèque sous `{"videos": [...]}` ; filtre facultatif `?tag_id=7` |
+| `GET` | `/api/v1/videos/{id}` | Détail de la vidéo et de ses sources |
 
 ```bash
 curl -i http://127.0.0.1:8080/api/v1/videos \
-  -H 'Content-Type: application/json; charset=utf-8' \
+  -H 'Content-Type: application/json' \
   --data '{"url":"https://www.youtube.com/watch?v=IgKU8xCgbjc"}'
 
 curl http://127.0.0.1:8080/api/v1/videos
 curl http://127.0.0.1:8080/api/v1/videos/42
 ```
 
-`POST /api/v1/videos` exige le type MIME `application/json`, avec paramètres
-éventuels, et accepte un seul objet `{"url":"…"}` de 16 Kio maximum.
-L'URL est obligatoire ; les champs inconnus et le contenu JSON supplémentaire
-sont rejetés.
+`POST` accepte un objet `{"url":"…"}` de **16 Kio maximum**. Une création renvoie un en-tête `Location: /api/v1/videos/{id}`. Une vidéo connue reste inchangée : le réajout ne rafraîchit pas ses métadonnées ou associations. L'identité d'une source YouTube est déterminée par `(provider, external_id)`, pas par la forme de son URL.
 
-- Création : `201 Created`, avec `Location: /api/v1/videos/{id}`.
-- Vidéo déjà présente : `200 OK`, sans `Location` et sans refresh.
-
-Les deux réponses et `GET /api/v1/videos/{id}` utilisent exactement la même
-représentation :
+Exemple de représentation (valeurs illustratives) :
 
 ```json
 {
   "id": 42,
-  "created_at": "2026-09-10T18:30:12.123Z",
-  "sources": [
-    {
-      "id": 17,
-      "provider": "youtube",
-      "external_id": "IgKU8xCgbjc",
-      "canonical_url": "https://www.youtube.com/watch?v=IgKU8xCgbjc",
-      "title": "Strategies for programming with AI agents | DHH and Lex Fridman",
-      "description": null,
-      "publisher": {"id": 7, "name": "Lex Clips"},
-      "duration_ms": 1025000,
-      "thumbnail_url": null
-    }
-  ],
+  "created_at": "2026-10-15T18:30:12.123Z",
+  "sources": [{
+    "id": 17,
+    "provider": "youtube",
+    "external_id": "IgKU8xCgbjc",
+    "canonical_url": "https://www.youtube.com/watch?v=IgKU8xCgbjc",
+    "title": "Exemple de vidéo",
+    "description": null,
+    "publisher": {"id": 7, "name": "Exemple de chaîne"},
+    "duration_ms": 1025000,
+    "thumbnail_url": null
+  }],
   "tags": [],
   "person_ids": []
 }
 ```
 
-Les dates sont en UTC / RFC 3339 avec leur précision disponible. Les sources
-sont ordonnées par ID croissant et n'exposent pas `video_id`.
-Les champs optionnels absents valent `null`, y compris `external_id` et
-`canonical_url` dans le modèle générique. Une durée connue de zéro reste `0`.
+La liste est ordonnée par `created_at DESC, id DESC`, les sources et tags suivant des ordres stables par ID. `publisher` peut être `null` ; il remplace l'ancien champ `creator`. `person_ids` représente uniquement les associations **directes** à la vidéo. Une liste vide renvoie `{"videos":[]}`.
 
-**Rupture de contrat de l'étape 4 bis :** `creator` est supprimé de `/api/v1`,
-sans alias. Chaque source expose `publisher`, soit `null`, soit un objet contenant
-uniquement `id` et `name`. Le nom vaut `null` s'il est inconnu. Aucun champ
-`publisher_id` supplémentaire n'est exposé dans cette réponse.
-`person_ids` contient uniquement les personnes directement associées à la vidéo,
-par ID croissant ; les relations indirectes par publisher ne sont pas matérialisées.
+### Notes et tags
 
-`GET /api/v1/videos` retourne `{"videos":[…]}`, avec la même représentation
-pour chaque vidéo. L'ordre est `created_at DESC, id DESC`, sans pagination
-ni limite implicite. Une bibliothèque vide retourne `200` et `{"videos":[]}`.
-
-### Erreurs API
-
-```json
-{
-  "error": {
-    "code": "video_not_found",
-    "message": "video not found"
-  }
-}
-```
-
-Les codes sont stables ; les messages lisibles en anglais peuvent évoluer.
-
-| Statut | Code | Situation |
+| Méthode | Route | Comportement |
 | --- | --- | --- |
-| 400 | `bad_request` | Corps, URL ou identifiant invalide |
-| 404 | `video_not_found` | Vidéo absente |
-| 413 | `payload_too_large` | Corps supérieur à 16 Kio |
-| 415 | `unsupported_media_type` | Type de contenu absent, invalide ou différent de JSON |
-| 502 | `metadata_fetch_failed` | Échec d'extraction ou métadonnées inexploitables |
-| 504 | `metadata_fetch_timeout` | Délai applicatif dépassé |
-| 500 | `internal_error` | Problème local d'exécution, persistance ou autre erreur interne |
+| `GET` | `/api/v1/videos/{id}/note` | Note principale ou `404 note_not_found` |
+| `PUT` | `/api/v1/videos/{id}/note` | Sauvegarde conditionnelle ; `201` à la création, `200` ensuite, `409 note_conflict` en cas de révision obsolète |
+| `GET` | `/api/v1/tags` | Catalogue de tous les tags, même inutilisés |
+| `POST` | `/api/v1/videos/{id}/tags` | Ajout additif par noms ; retourne les tags associés |
+| `DELETE` | `/api/v1/videos/{id}/tags/{tag_id}` | Retire l'association, sans supprimer le tag du catalogue |
 
-L'adaptateur valide déjà les hôtes YouTube et signale un refus explicite par
-`400 bad_request`. Les erreurs non classifiées d'extraction donnent `502`,
-sans interprétation de chaînes stderr. Aucun `422 video_unavailable` n'est
-introduit. Les détails techniques restent dans les logs. La déconnexion du client
-annule le traitement sans réponse particulière.
+```bash
+curl -X PUT http://127.0.0.1:8080/api/v1/videos/42/note \
+  -H 'Content-Type: application/json' \
+  --data '{"content_md":"# À retenir\n\nUne idée.","expected_revision":0}'
 
-### API des transcriptions
+curl -X POST http://127.0.0.1:8080/api/v1/videos/42/tags \
+  -H 'Content-Type: application/json' \
+  --data '{"names":["Go","SQLite"]}'
 
-```text
-POST /api/v1/videos/{video_id}/sources/{source_id}/transcript
-GET  /api/v1/videos/{video_id}/sources/{source_id}/transcript
+curl 'http://127.0.0.1:8080/api/v1/videos?tag_id=7'
 ```
 
-Le POST sans corps acquiert ou rafraîchit la caption automatique originale.
-Aucun `Content-Type` n'est requis ; un corps non vide est rejeté par `400 bad_request`.
-Il retourne toujours `200 OK`, sans `Location`, après publication et persistance.
-Le délai global `SILLAGE_POST_TIMEOUT` couvre toute l'acquisition.
+Chaque `PUT` de note exige **`content_md` et `expected_revision`**. La valeur `0` attend une note absente ; pour les écritures suivantes, reprendre la révision renvoyée par le précédent GET/PUT. Les réponses contiennent `video_id`, `content_md`, `revision`, `created_at` et `updated_at`. Une note absente n'est pas une note vide ; la chaîne vide peut être enregistrée explicitement.
 
-Le GET ne fait aucun accès distant. Il sélectionne la dernière acquisition
-`youtube_auto` par `last_fetched_at DESC, id DESC`, puis parse le snapshot local.
-Une ligne dont le snapshot est absent, illisible ou corrompu donne `500 internal_error`.
-Le service vérifie la vidéo et l'appartenance de la source avant tout accès au contenu.
+La sauvegarde convertit uniquement CRLF et CR en LF. Une écriture identique sous précondition valide conserve la révision et les dates. Taille maximale du JSON de note : **1 Mio** ; ajout de tags : **64 Kio**. Les noms des tags, limités à 200 points de code après retrait des espaces aux extrémités, ont une identité Unicode NFC sans casse mais conservent leurs accents significatifs et leur nom d'affichage. Les associations n'héritent pas des autres entités.
 
-GET et POST exposent exactement les mêmes champs :
+### Transcriptions
+
+| Méthode | Route | Comportement |
+| --- | --- | --- |
+| `POST` | `/api/v1/videos/{video_id}/sources/{source_id}/transcript` | Acquisition/actualisation explicite ; **corps vide**, `200` après persistance |
+| `GET` | `/api/v1/videos/{video_id}/sources/{source_id}/transcript` | Relecture **strictement locale** du snapshot ; aucune acquisition distante |
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/v1/videos/42/sources/17/transcript
+curl http://127.0.0.1:8080/api/v1/videos/42/sources/17/transcript
+```
+
+Exemple de réponse (GET et POST) :
 
 ```json
 {
   "language": "en",
   "provenance": "youtube_auto",
-  "last_fetched_at": "2026-10-07T14:21:35.042Z",
+  "last_fetched_at": "2026-10-15T19:00:00.000Z",
   "items": [
     {"start_ms": 2960, "text": "This"},
     {"start_ms": 3080, "text": " is"}
@@ -963,152 +270,26 @@ GET et POST exposent exactement les mêmes champs :
 }
 ```
 
-L'ID du transcript, `video_source_id` et `local_path` restent internes.
-Il n'existe pas de ressource autonome `/api/v1/transcripts`.
+Seules les captions automatiques originales **sélectionnables selon la politique actuelle** sont acquises. L'indication `-orig` ne garantit pas qu'une piste corresponde à la langue originale de l'audio. Les fragments sont conservés dans l'ordre de la source et ne sont pas persistés individuellement en SQLite. En cas d'absence, d'ambiguïté, de délai distant ou de snapshot local illisible, l'API renvoie des erreurs distinctes, sans réessai automatique implicite.
 
-| Statut | Code | Situation |
+### Publishers et personnes
+
+| Méthode | Route | Comportement |
 | --- | --- | --- |
-| 400 | `bad_request` | Identifiant invalide ou corps non vide |
-| 404 | `video_not_found` | Vidéo inexistante |
-| 404 | `video_source_not_found` | Source absente ou appartenant à une autre vidéo |
-| 404 | `transcript_not_found` | Aucune acquisition pour la politique actuelle |
-| 404 | `transcript_not_available` | Aucune piste originale JSON3 sélectionnable de façon fiable |
-| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte ou régionale avec la langue audio enregistrée |
-| 502 | `transcript_fetch_failed` | Échec distant ou contenu distant inexploitable |
-| 504 | `transcript_fetch_timeout` | Délai applicatif dépassé |
-| 500 | `internal_error` | Erreur locale : exécutable indisponible, SQLite, filesystem, snapshot |
-
-Les échecs de processus ne sont pas interprétés en analysant le texte de stderr.
-Une déconnexion annule l'opération sans réponse particulière. Un commit déjà
-réussi peut néanmoins précéder une déconnexion ; le client peut alors relire le GET.
-
-### API des notes et tags
-
-Ces routes sont disponibles depuis l'étape 4, sans accès distant :
-
-| Méthode | Endpoint | Succès |
-| --- | --- | --- |
-| `GET` | `/api/v1/videos/{id}/note` | `200`, note principale |
-| `PUT` | `/api/v1/videos/{id}/note` | `201` à la création, `200` ensuite |
-| `GET` | `/api/v1/tags` | `200`, catalogue incluant les tags inutilisés |
-| `POST` | `/api/v1/videos/{id}/tags` | `200`, ajout additif puis tous les tags associés |
-| `DELETE` | `/api/v1/videos/{id}/tags/{tag_id}` | `204`, même si l'association est absente |
-
-Exemples pour une vidéo existante :
-
-```bash
-curl -X PUT http://127.0.0.1:8080/api/v1/videos/42/note \
-  -H 'Content-Type: application/json' \
-  --data '{"content_md":"# À retenir\n\n  [12:42] Une idée.  \n","expected_revision":0}'
-
-curl -X POST http://127.0.0.1:8080/api/v1/videos/42/tags \
-  -H 'Content-Type: application/json' \
-  --data '{"names":["Go","SQLite"]}'
-
-curl http://127.0.0.1:8080/api/v1/tags
-curl 'http://127.0.0.1:8080/api/v1/videos?tag_id=7'
-curl -X DELETE http://127.0.0.1:8080/api/v1/videos/42/tags/7
-```
-
-GET et PUT de note retournent `video_id`, `content_md`, `revision`, `created_at`
-et `updated_at`. Chaque PUT exige `expected_revision` : 0 attend une note absente,
-sinon utiliser la révision positive obtenue par GET ou PUT. Une révision obsolète
-retourne `409 note_conflict`, sans modifier la note. La comparaison et l'écriture
-sont atomiques. Une modification effective incrémente la révision ; une sauvegarde
-identique avec une précondition valide ne change ni révision ni dates.
-**Rupture de contrat :** les anciens PUT sans précondition sont refusés par 400.
-Le premier enregistrement crée la note, y compris avec `content_md: ""` ; son absence
-reste distincte d'une note vide. À la création les dates sont identiques ; ensuite
-`created_at` reste stable et une sauvegarde identique ne change aucune date.
-La création fournit `Location: /api/v1/videos/{id}/note`.
-Le service applicatif normalise uniquement CRLF et CR vers LF avant sauvegarde,
-sans trim, parsing, rendu ni modification des autres caractères. Cette convention
-remplace la conservation exacte des séparateurs de 5.2. Aucune migration des notes
-existantes ni modification à leur lecture : GET restitue le contenu stocké.
-La première normalisation d'une ancienne note incrémente sa révision ; les variantes
-de séparateurs sont ensuite des sauvegardes identiques, sous précondition valide.
-Le contenu des notes n'est pas inclus dans les réponses vidéo générales.
-
-Les réponses du catalogue et de l'ajout de tags utilisent `{"tags":[{"id":3,"name":"Go"}]}`.
-Tous les tags sont ordonnés par ID croissant. Les réponses vidéo de création,
-réajout, détail et liste incluent `tags`, avec `[]` sans association. Le filtre
-`tag_id` sélectionne des vidéos complètes : toutes leurs sources et tous leurs tags
-restent présents. Un tag inconnu ou inutilisé retourne `200` et `{"videos":[]}`.
-
-L'identité des tags combine NFC et un repli Unicode complet de casse via
-`golang.org/x/text`, sans NFKC ni suppression d'accents. `École` et `école`, ou
-`Café` précomposé et décomposé, désignent le même tag ; `Café` et `Cafe` restent
-distincts. Le repli assimile aussi `Straße` et `STRASSE`. Les espaces Unicode aux
-extrémités sont supprimés ; le nom d'affichage initial est conservé. Les contraintes
-SQL garantissent l'unicité des clés et associations, même en concurrence.
-Un ajout multiple est atomique, créations comprises. Retirer une association
-ne supprime jamais le tag partagé.
-
-Limites et erreurs des nouvelles routes :
-
-- corps JSON de note : 1 Mio maximum ; ajout de tags : 64 Kio maximum,
-  enveloppe et échappements compris (`413 payload_too_large`) ;
-- `application/json` requis pour PUT/POST, paramètres MIME acceptés
-  (`415 unsupported_media_type` sinon) ;
-- objet JSON unique, sans champs inconnus ; UTF-8 invalide ou échappements Unicode
-  non appariés refusés, sans remplacement silencieux (`400 bad_request`) ;
-- `expected_revision` obligatoire pour une note, entier non négatif ;
-- `content_md` obligatoire, chaîne non nulle ; `names` obligatoire, tableau non vide
-  de chaînes non nulles ; noms non vides après trim et limités à 200 points de code ;
-- identifiants strictement positifs ; `tag_id` vide, invalide ou répété refusé par `400` ;
-- vidéo absente : `404 video_not_found` ; note absente sur vidéo existante : `404 note_not_found` ;
-- erreur locale : `500 internal_error`, sans diagnostic technique exposé.
-
-Aucun quota métier de tags par vidéo. Les notes sont protégées par révision depuis
-5.2. Suppression de note, historique, renommage/suppression globale des tags,
-recherche et combinaisons de filtres restent hors périmètre. Les timestamps interactifs et annotations attendent l'étape 6.
-
-### Notes Markdown dans la fiche — étape 5.2
-
-La note occupe l'espace principal de la fiche. Les modes Édition et Lecture
-partagent cet espace ; la bascule conserve le document, la sélection et Undo/Redo.
-Le mode Lecture prend en charge GFM et ignore le HTML brut. Une erreur de lecture
-affiche une erreur, jamais un éditeur vide. Ouvrir une fiche ne crée pas de note ;
-le bouton Enregistrer permet notamment de créer explicitement une note vide.
-
-Les modifications sont enregistrées après 2 secondes d'inactivité ou déclenchent
-une sauvegarde après 20 secondes de saisie continue. Ctrl+S (Cmd+S sur macOS)
-et le bouton Enregistrer permettent de sauvegarder immédiatement. Une seule
-écriture s'exécute à la fois, sans bloquer la saisie. L'indicateur distingue les
-modifications en attente, l'enregistrement, le dernier contenu confirmé et les erreurs.
-
-Une réponse incertaine entraîne une relecture avant toute nouvelle écriture.
-Les reprises automatiques sont limitées à deux, puis restent manuelles. En cas de
-conflit, le texte local est conservé et l'autosauvegarde suspendue ; les deux
-versions sont consultables, avec choix explicite. Conserver la version locale
-reste une écriture conditionnelle et peut rencontrer un nouveau conflit.
-
-Les liens internes et précédent/suivant tentent de sauvegarder avant de quitter ;
-si le contenu reste non confirmé, un dialogue permet de rester ou de quitter.
-Le rechargement et la fermeture utilisent l'avertissement standard du navigateur,
-lorsqu'il est disponible. Il n'y a pas de brouillon persistant : un crash brutal
-peut perdre les dernières modifications, notamment hors connexion.
-
-LF est désormais canonique pour les notes. CodeMirror traite naturellement les
-collages LF/CRLF/CR et les documents mixtes. La session compare les contenus en LF
-sans écrire à l'ouverture, au changement de mode ou au départ de la fiche.
-Une sauvegarde explicite, ou une édition suivie d'autosauvegarde, peut normaliser
-une ancienne note. Aucun traitement spécifique du caret ni migration de contenu.
-La migration historique 0005 attribue la révision 1 aux notes existantes
-sans modifier leur texte ni leurs dates. Effectuer une sauvegarde à froid avant
-la mise à jour, comme décrit dans la section Docker ; adapter les clients REST
-à la précondition obligatoire.
-
-Les tests navigateur utilisent Go et SQLite isolés : conservation du contenu,
-temporisations, réponses perdues, conflits entre deux pages, navigation et
-rendu sécurisé. Aucun accès YouTube réel n'est requis.
-
-### API des publishers et personnes
-
-Les comptes YouTube sont identifiés par `channel_id`, jamais par nom ou handle.
-La résolution crée le compte (`201` avec Location) ou le retrouve (`200`) sans
-rafraîchir ses métadonnées. Le nom est facultatif. Sans identité fiable, l'import
-vidéo peut rester sans publisher ; la résolution manuelle de chaîne échoue.
+| `POST` / `GET` | `/api/v1/publishers` | Résolution d'une chaîne YouTube par URL / catalogue |
+| `GET` | `/api/v1/publishers/{id}` | Compte et tags associés |
+| `PUT` | `/api/v1/publishers/{id}/person` | `{"person_id":3}` ou `null` pour retirer le lien |
+| `GET` | `/api/v1/publishers/{id}/videos` | Vidéos de ce publisher |
+| `POST` / `GET` | `/api/v1/persons` | Création d'une personne / catalogue |
+| `GET` / `PATCH` | `/api/v1/persons/{id}` | Détail / renommage |
+| `GET` | `/api/v1/persons/{id}/publishers` | Publishers dont elle est la référence |
+| `GET` | `/api/v1/persons/{id}/videos` | Filtre `relation` : `direct`, `publisher` ou `all` (par défaut) |
+| `PUT` | `/api/v1/videos/{video_id}/sources/{source_id}/publisher` | `{"publisher_id":7}` ou `null` |
+| `PUT` / `DELETE` | `/api/v1/videos/{video_id}/persons/{person_id}` | Ajout/retrait d'une association directe, sans corps |
+| `POST` | `/api/v1/publishers/{id}/tags` | Ajout additif par noms |
+| `DELETE` | `/api/v1/publishers/{id}/tags/{tag_id}` | Retrait d'association |
+| `POST` | `/api/v1/persons/{id}/tags` | Ajout additif par noms |
+| `DELETE` | `/api/v1/persons/{id}/tags/{tag_id}` | Retrait d'association |
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/v1/publishers \
@@ -1119,637 +300,149 @@ curl -X POST http://127.0.0.1:8080/api/v1/persons \
   -H 'Content-Type: application/json' \
   --data '{"name":"Lex Fridman"}'
 
-curl -X PUT http://127.0.0.1:8080/api/v1/publishers/7/person \
-  -H 'Content-Type: application/json' --data '{"person_id":3}'
-
-curl -X PUT http://127.0.0.1:8080/api/v1/videos/42/sources/17/publisher \
-  -H 'Content-Type: application/json' --data '{"publisher_id":7}'
-
-curl -X PUT http://127.0.0.1:8080/api/v1/videos/42/persons/3
 curl 'http://127.0.0.1:8080/api/v1/persons/3/videos?relation=all'
 ```
 
-Les deux dernières associations peuvent être retirées respectivement par
-`{"publisher_id":null}` et `DELETE /videos/42/persons/3`. La référence d'une
-personne sur un publisher se retire avec `{"person_id":null}`.
+Les publishers sont identifiés par leur **`channel_id` YouTube fiable**, pas par le nom de la chaîne ni son handle. Deux personnes homonymes restent deux entités distinctes. Les tags des personnes, publishers et vidéos partagent le catalogue, sans propagation des associations. Les rattachements explicites ne sont pas modifiés lors d'un réimport vidéo.
 
-Les listes/détails `/publishers` et `/persons`, le renommage `PATCH /persons/{id}`,
-les associations de tags sous chaque ressource et les navigations
-`/publishers/{id}/videos`, `/persons/{id}/publishers` et
-`/persons/{id}/videos?relation=direct|publisher|all` sont disponibles.
-`all` est le mode par défaut ; les vidéos sont dédupliquées.
+### Téléchargements et fichiers locaux
 
-Le contrat complet, les corps, enveloppes, statuts et limites sont décrits dans
-[l'architecture](docs/03-architecture.md#api-publishers--personnes--disponible).
-La suppression des entités, leur rafraîchissement et les collaborations restent
-hors périmètre. Les associations et tags ne se propagent jamais.
-
-### Tests Postman
-
-Les collections v3 et le lanceur isolé sont décrits dans [tests/postman/README.md](tests/postman/README.md).
-La CI exécute les scénarios déterministes ; le parcours réel YouTube reste local.
-La collection déterministe couvre 44 requêtes et 132 assertions, sans accès à YouTube.
-
-### Validation
+| Méthode | Route | Comportement |
+| --- | --- | --- |
+| `POST` | `/api/v1/videos/{video_id}/sources/{source_id}/download` | Démarre ou retrouve un téléchargement ; corps vide ; `202` si actif, `200` si disponible |
+| `GET` | `/api/v1/videos/{video_id}/sources/{source_id}/download` | État local : `not_downloaded`, `downloading`, `available`, `failed` |
+| `DELETE` | `/api/v1/videos/{video_id}/media-files/{media_file_id}` | Supprime volontairement l'identité exacte du fichier (`204`) |
+| `GET` / `HEAD` | `/api/v1/videos/{video_id}/media-files/{media_file_id}/content` | Diffusion du fichier et prise en charge de `Range` (`200`, `206`, `416`) |
 
 ```bash
-go test ./...
-go vet ./...
-go build ./...
+curl -X POST http://127.0.0.1:8080/api/v1/videos/42/sources/17/download
+curl http://127.0.0.1:8080/api/v1/videos/42/sources/17/download
 ```
 
-Les tests automatisés de parsing et de comportement de l'adapter `yt-dlp` ne nécessitent ni Internet ni un véritable processus `yt-dlp`. Les vérifications réelles avec YouTube et le binaire `yt-dlp` restent des tests d'intégration manuels.
+Un état `available` contient `media_file` : `id`, `format`, `size`, `duration_ms`, `added_at`, codecs, dimensions, `fps` et `audio_language` (certaines propriétés pouvant être `null`). Un échec de travail est consultable avec **HTTP 200 et `status: "failed"`** ; une erreur de consultation est au contraire un **échec HTTP**. Un fichier référencé mais devenu indisponible donne notamment `409 local_media_unavailable`, avec son identité lorsqu'elle est connue, pour permettre une suppression ciblée.
 
-Les tests HTTP couvrent le contrat JSON, les validations, les erreurs, les ajouts
-concurrents et le parcours avec SQLite temporaire. Un test TCP vérifie que le
-timeout applicatif peut envoyer son erreur JSON.
+Un téléchargement ne crée ni autre `Video` ni autre `VideoSource`. Il conserve un média complet volontairement, sans réencodage systématique, et sa publication est distincte de son décodage par le navigateur. La suppression d'un média préserve les notes, transcriptions et captures. Une seule acquisition média est active à la fois par instance de serveur ; les autres sources peuvent obtenir `503 download_busy`.
 
-Les tests SQLite couvrent notamment :
+Le contenu est servi à partir de l'identité du fichier, sans exposer son chemin. `Cache-Control: no-store` et `X-Content-Type-Options: nosniff` protègent la diffusion ; une lecture HTTP ou une capture peut temporairement empêcher une suppression.
 
-* migrations ;
-* contraintes ;
-* rollback ;
-* persistance après réouverture ;
-* identité externe ;
-* idempotence ;
-* créations concurrentes.
+### Captures et assets
 
-Les tests Notes + Tags vérifient aussi la migration d'une base contenant déjà
-des transcriptions, la réouverture, la fidélité du Markdown, la stabilité des dates,
-les équivalences Unicode, les contraintes d'unicité, le rollback complet d'un lot
-et les sauvegardes concurrentes. Les parcours REST vérifient les limites exactes
-des corps, les erreurs, le filtrage complet, le réajout avec tags et la préservation
-des données utilisateur pendant les acquisitions de transcriptions.
-
-Les tests de transcription couvrent également les langues originales et régionales,
-le JSON3, l'exécution simulée de yt-dlp, la relecture locale après réouverture,
-les erreurs de snapshot, les rafraîchissements échoués et les acquisitions concurrentes.
-Un parcours HTTP utilise l'adapter réel avec un exécutable temporaire contrôlé.
-
-Validation manuelle du 7 octobre 2026 : yt-dlp `2026.08.19`, vidéo
-`IgKU8xCgbjc`, acquisition anglaise de 3 615 fragments et GET identique au POST.
-Cette observation ne fige pas le contenu futur de YouTube et ne fait pas partie
-des tests automatisés.
-
-## Structure du projet
-
-```text
-.
-├── cmd/
-│   └── server/
-│
-├── internal/
-│   ├── video/
-│   │   ├── model.go
-│   │   ├── repository.go
-│   │   └── service.go
-│   │
-│   ├── adapter/
-│   │   ├── sqlite/
-│   │   │   └── migrations/
-│   │   └── ytdlp/
-│   │
-│   ├── transcript/
-│   ├── note/
-│   └── http/
-│
-├── web/
-│   ├── src/
-│   └── tests/
-│
-├── tests/
-│   ├── postman/
-│   └── web/
-│
-├── docs/
-│
-└── deployments/
-    └── docker/
-```
-
-La structure continuera d'évoluer à partir des besoins réels plutôt que d'anticiper toutes les fonctionnalités futures.
-
-## Documentation
-
-La documentation détaillée de conception se trouve dans [`docs/`](docs/).
-
-* [`00-project-brief.md`](docs/00-project-brief.md) — vision et périmètre ;
-* [`01-product-and-ux.md`](docs/01-product-and-ux.md) — workflows et UX ;
-* [`02-domain-model.md`](docs/02-domain-model.md) — modèle métier ;
-* [`03-architecture.md`](docs/03-architecture.md) — architecture ;
-* [`04-tech-stack-and-decisions.md`](docs/04-tech-stack-and-decisions.md) — choix techniques ;
-* [`05-roadmap-and-open-questions.md`](docs/05-roadmap-and-open-questions.md) — roadmap et questions ouvertes.
-
-Ces documents constituent la référence détaillée du projet.
-
-## Roadmap
-
-L'étape Web est découpée en jalons validables :
-
-- **5.1 — bibliothèque utilisable et distribuable** : liste, ajout et détail,
-  tags vidéo et filtre unique, navigation, build servi par Go ; distribution
-  Docker et consolidation terminés ; les quatre jalons sont testés et validés ;
-- **5.2 — éditeur Markdown et sauvegarde fiable** : implémenté et testé localement,
-  périmètre fonctionnel validé manuellement ; édition/lecture GFM,
-  autosauvegarde 2 s/20 s, conflits et navigation protégée ;
-- **5.3 — lecteur et transcription** : terminée, testée localement et fusionnée
-  après retours manuels positifs ; note principale, transcription
-  indépendante du lecteur, paragraphes fluides et thèmes clair/sombre/système ;
-- **6.1 — navigation transcription → lecteur** : implémentée, testée et validée
-  manuellement ; aucun démarrage automatique ni commande différée ;
-- **6.2 — insertion du temps courant** : implémentée, testée et validée
-  manuellement ; lien Markdown avec vidéo, source et millisecondes explicites ;
-- **6.3 — recherche dans la transcription** : implémentée et testée localement,
-  validation manuelle complète confirmée ; recherche continue entre fragments et blocs,
-  navigation circulaire et surlignages, sans action automatique sur le lecteur ;
-  regroupement fixé à 10 secondes ;
-- **6.4 — sélection et citation de transcription** : implémentée et testée localement,
-  retours manuels satisfaisants et correctifs de clôture livrés ; copie continue et citation au premier fragment
-  retenu, insertion contrôlée dans la note et Undo/Redo isolé ;
-- **6.5 — références Markdown vers le lecteur** : terminée et validée manuellement
-  pour son périmètre fonctionnel ; boutons en Lecture, URI strictes, identité
-  vidéo/source contrôlée et défilement conditionnel partagé avec la transcription ;
-- **Suite de 6 — interactions temporelles** : plages éventuelles et rendu enrichi ; format `sillage://videos/…/sources/…?start_ms=…` acté.
-
-La gestion complète des publishers et personnes reste hors de 5.1. La première
-source REST sert provisoirement à présenter une carte, sans créer de source
-principale métier. Les extensions Markdown internes sont admises ; copie adaptée
-et export de consultation pourront convertir leur représentation. Un tel export
-ne remplace pas une sauvegarde réimportable de toutes les données métier.
-
-Le développement avance par petits incréments verticaux :
-
-```text
-yt-dlp
-  ↓
-modèle Go
-  ↓
-SQLite
-  ↓
-API REST
-  ↓
-transcriptions
-  ↓
-notes + tags
-  ↓
-UI minimale
-  ↓
-timestamps
-  ↓
-téléchargement volontaire (7.1 livré)
-  ↓
-lecteur local + screenshots (ultérieurs)
-  ↓
-recherche
-  ↓
-MCP
-  ↓
-IA intégrée
-```
-
-### Terminé
-
-* 7.1 : téléchargement volontaire asynchrone, MediaFile, suppression robuste et actions Web ;
-* preuve de concept `yt-dlp` ;
-* modèle initial `Video` / `VideoSource` ;
-* identités internes Sillage ;
-* persistance SQLite ;
-* migrations ;
-* `VideoRepository` ;
-* service `AddVideo` ;
-* idempotence par identité externe ;
-* API HTTP : ajout, liste et détail, DTO et erreurs JSON ;
-* acquisition et lecture locale des transcriptions automatiques originales YouTube ;
-* notes Markdown canoniques en LF, tags partagés et filtre par tag, persistants et disponibles via REST ;
-* publishers, personnes et associations avec les tags partagés via REST ;
-* bibliothèque Web React/TypeScript/Vite, ajout YouTube avec détection des doublons
-  et fiches vidéo navigables ;
-* gestion des tags vidéo en modale avec autocomplétion, navigation et filtre unique
-  par tag dans l'URL, descriptions des sources repliables.
-
-Les jalons Web 1 à 3 sont terminés, testés et validés manuellement, avec une CI
-GitHub Actions réussie. Le jalon 4 est lui aussi terminé et validé manuellement
-et en CI : l'étape 5.1 est clôturée. L'étape 5.2 est implémentée et vérifiée
-localement, et son périmètre fonctionnel est validé manuellement. L'étape 5.3
-(lecteur et transcription) est terminée et fusionnée, avec retours manuels
-positifs de l'utilisateur. La vérification finale locale comprend 80 tests navigateur,
-les tests Go, vet, build Go et typage ; aucune nouvelle exécution de CI distante
-n'est revendiquée pour cette branche.
-
-La tranche 6.1 est implémentée et validée manuellement sur une branche dédiée, sans fusion automatique.
-Validation locale : 91 tests navigateur déterministes, tests Go complets,
-`go vet ./...`, builds Go/frontend et typage TypeScript réussis. Le lecteur peut se
-positionner sur l'image clé précédente ; la précision effective dépend de YouTube.
-
-La tranche 6.2 poursuit cette branche : 100 tests navigateur déterministes, tests
-Go complets, vet, builds Go/frontend et typage TypeScript réussis. Les 9 nouveaux
-parcours couvrent l'insertion, les sélections, Undo/Redo, l'autosauvegarde, les
-millisecondes et les états du lecteur, sans YouTube réel dans ces tests.
-La validation manuelle de 6.2 a été confirmée par l'utilisateur ; aucune CI distante
-ni reconstruction Docker revendiquée.
-
-Le correctif LF canonique est validé localement par 104 tests navigateur, les tests
-Go complets, vet, typage et builds Go/frontend. Les tests couvrent les collages
-CRLF/CR/mélangés, la visibilité du caret en fin de ligne, les révisions, les anciennes
-notes sans écriture à la lecture et la réconciliation après réponse perdue.
-Le collage est simulé à l'entrée navigateur dans ces tests ; le correctif LF
-a ensuite été validé manuellement par l'utilisateur. Aucun déploiement revendiqué. L'avertissement Vite sur le chunk CodeMirror subsiste.
-
-La tranche 6.3 est implémentée et validée localement : 113 tests navigateur,
-tests Go complets et race, vet, typage, builds Go/frontend et collection Postman
-déterministe (45 requêtes, 135 assertions). Captures clair/sombre et mobile
-inspectées. La validation manuelle de 6.3 est confirmée ; voir les scénarios dans
-`docs/05-roadmap-and-open-questions.md`. Aucun nouvel essai YouTube réel,
-CI distante ou build Docker revendiqué. La segmentation naturelle des blocs
-reste une investigation future, distincte de cette recherche locale.
-
-La tranche 6.4 est implémentée, sans changement d'API ni de persistance.
-Placez d'abord le curseur dans la note en Édition (inutile si elle est vide),
-sélectionnez un passage de transcription, puis activez « Citer dans la note ».
-Une sélection dans la note reçoit la citation après sa borne supérieure, sans
-effacement. En Lecture ou sans emplacement choisi dans une note non vide,
-un message demande de recommencer après préparation de la note.
-Ctrl+C copie uniquement le texte continu normalisé ; les timestamps sont exclus.
-
-Validation locale après correctif de clôture : 142 tests Playwright réussis, dont
-26 tests de citation ; tests Go, race, vet, typage et builds réussis.
-Les scénarios couvrent la copie native Chromium, les recherches actives,
-les sélections inversées, Undo/Redo, autosauvegarde, conflits et invalidations.
-Les retours manuels de 6.4 sont satisfaisants. Le correctif final réduit les
-échappements superflus et ajoute Ctrl+Shift+Z à la keymap Windows/Linux, en conservant
-Ctrl+Y. Ces deux Redo restent à confirmer manuellement sous Windows sur le build
-corrigé ; le test Win32 automatisé simule la plateforme dans Chromium Linux.
-La tranche est achevée dans son périmètre ; bilan et confirmations ciblées dans
-[la roadmap](docs/05-roadmap-and-open-questions.md#clôture-de-64-après-retours-manuels). Aucun nouvel essai
-YouTube réel, build Docker ou CI distante revendiqué. L'avertissement Vite
-sur le chunk CodeMirror reste présent.
-
-En 6.5, activez en Lecture une référence temporelle pour rejoindre le lecteur de
-la même vidéo/source. Le temps vient de start_ms, jamais du libellé. Une référence
-invalide reste inerte ; une autre vidéo/source donne un message sans navigation.
-Note et transcription réaffichent le lecteur et ramènent sa zone vidéo à l'écran
-seulement après une commande acceptée, sans autoplay ni déplacement du focus.
-Le Markdown brut reste inchangé en Édition.
-
-Validation 6.5 : 162 tests navigateur, tests Go/race, vet, typage, builds et
-135 assertions Postman réussies lors de la livraison. Les essais manuels rapportés
-par l'utilisateur sont satisfaisants, notamment les références réelles sur /videos/6.
-Le dernier correctif ouvre les liens HTTP(S) externes des notes dans un nouvel onglet
-protégé, y compris les autoliens GFM ; liens internes, mailto et références temporelles
-conservent leur comportement. Les 162 tests et validations habituelles passent.
-Seule cette nouvelle ouverture externe attend une confirmation manuelle ; aucune
-validation tactile ou d'un environnement non testé n'est revendiquée. Bilan dans la roadmap.
-
-### API HTTP réalisée
-
-La tranche HTTP expose :
-
-```text
-POST /api/v1/videos
-GET  /api/v1/videos
-GET  /api/v1/videos/{id}
-```
-
-Les contrats vidéo, transcription, notes, tags, publishers et personnes sont
-décrits ci-dessus. Les étapes 4 et 4 bis sont réalisées ; les jalons 1 à 3 de
-l'interface Web sont disponibles et validés.
-
-## Principes de développement
-
-Le projet privilégie :
-
-* la simplicité ;
-* le code Go idiomatique ;
-* les petits incréments verticaux testables ;
-* les abstractions justifiées par un besoin réel ;
-* une séparation claire entre domaine, services et adapters ;
-* une architecture modulaire sans surarchitecture ;
-* une approche local-first ;
-* un produit pleinement utilisable sans IA.
-
-
-## Téléchargement local — étape 7.1
-
-Correctif acquisition/métadonnées implémenté ; les routes restent inchangées.
-
-Depuis le workspace YouTube, **Télécharger** conserve volontairement la source
-de travail. Le bouton reste visible quand le lecteur est masqué ou indisponible.
-La lecture continue dans YouTube : aucun lecteur local ni endpoint vidéo n'est livré.
-La disponibilité affiche conteneur, taille et durée. Le bloc **Fichier local**
-dans **Métadonnées et sources** décrit aussi dimensions encodées, FPS moyens,
-codecs et langue audio déclarée, à partir de la même consultation. **Supprimer le fichier local**
-demande confirmation et préserve vidéo, source, note, transcription et futurs assets.
-
-Un seul transfert global est accepté, sans file. Quitter/recharger la page ne
-l'annule pas ; le suivi reprend au retour. Une nouvelle demande sur la même source
-retrouve l'opération ou le fichier existant. Une autre source reçoit un refus temporaire.
-Les opérations et derniers échecs sont en mémoire ; après redémarrage, les transferts
-interrompus ne reprennent pas et redeviennent non téléchargés. Les fichiers publiés restent.
-
-### Politique média
-
-Vidéos YouTube terminées, vidéo et audio sans réencodage ni modification volontaire
-de timeline. Le correctif validé délègue le classement à yt-dlp avec -S "res:1080",
-sans --format-sort-force : préférence 1080 ou moins, repli supérieur possible.
-Aucune préférence MP4 propre à Sillage ni liste fermée de codecs/conteneurs.
-Le conteneur final peut notamment être MP4, WebM ou MKV ; sa conservation ne
-garantit pas sa lecture par un futur lecteur Web.
-Sillage accepte la sélection audio native, y compris un doublage ou l'audio
-d'un format combiné ; l'identification certaine de l'original n'est plus requise.
-La politique des transcriptions et original_audio_language reste inchangée.
-ffprobe contrôle le résultat complet avant publication.
-
-Tolérance temporelle : max(1s, min(3s, 0,1% de la référence)), comparée à la découverte
-lorsqu'elle est exploitable, et aux métadonnées enregistrées. La durée distante
-peut manquer ; la durée locale reste obligatoire. Aucun rafraîchissement implicite.
-Une seule invocation yt-dlp applique le filtre d'identité/statut avant acquisition,
-puis expose la sélection et le chemin final. ffprobe reste un processus distinct.
-Les contrôles start_time et de flux auxiliaires n'ont pas été assouplis.
-
-### API de conservation
-
-| Méthode | Route | Résultat |
+| Méthode | Route | Comportement |
 | --- | --- | --- |
-| POST | /api/v1/videos/{video_id}/sources/{source_id}/download | Sans corps ; 202 + Location si actif, 200 si déjà disponible |
-| GET | /api/v1/videos/{video_id}/sources/{source_id}/download | 200, consultation locale sans accès YouTube |
-| DELETE | /api/v1/videos/{video_id}/media-files/{media_file_id} | 204 ; identité absente également 204, identité d'une autre vidéo 404 |
+| `POST` | `/api/v1/videos/{video_id}/sources/{source_id}/captures` | Demande de capture à un timestamp avec `request_id` unique ; `202` si en cours, `200` si commande déjà terminée |
+| `GET` | `/api/v1/assets/requests/{request_id}` | Retrouve l'Asset après une réponse de POST incertaine |
+| `GET` | `/api/v1/assets/{asset_id}` | Consulte l'état et la provenance |
+| `GET` | `/api/v1/assets/{asset_id}/content` | Lit le PNG publié, sans générer de nouvelle capture |
 
-GET et POST réussis :
+Exemple de demande (remplacer les IDs par ceux d'une vidéo et de sa source) :
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/v1/videos/42/sources/17/captures \
+  -H 'Content-Type: application/json' \
+  --data '{"timestamp_ms":762345,"request_id":"d3e96f35-1e7d-4fc9-8118-dac4503721b9"}'
+```
+
+La requête JSON est limitée à **4 Kio**. Une capture acceptée renvoie son ID dans `Location: /api/v1/assets/{id}` et une représentation contenant notamment `id`, `video_id`, `source_id`, `timestamp_ms`, `type`, `status`, `error_code` et `created_at`.
+
+L'Asset est enregistré comme `pending` avant l'extraction et devient `available` ou `failed`. La clé `request_id` sert à retrouver **la même commande** après une réponse perdue : en cas de doute, consulter l'endpoint de récupération puis, si nécessaire, répéter le POST avec **la même clé**, pas avec une nouvelle. Une clé réutilisée avec d'autres paramètres reçoit `409`. Une seule capture s'exécute à la fois par instance, indépendamment du téléchargement.
+
+La capture privilégie le fichier complet de **la même source** s'il est exploitable, puis le flux distant selon une politique de repli bornée. Le fichier PNG et l'Asset restent indépendants de leur éventuelle référence dans une note. Aucun endpoint de galerie ou de suppression d'assets n'est encore disponible.
+
+### Erreurs et limites communes
+
+Les erreurs JSON sont de la forme :
 
 ```json
-{
-  "status": "available",
-  "media_file": {
-    "id": 1,
-    "format": "mp4",
-    "size": 533916,
-    "duration_ms": 19064,
-    "added_at": "2026-10-15T19:00:00Z",
-    "video_codec": "h264",
-    "audio_codec": "aac",
-    "width": 640,
-    "height": 360,
-    "fps": 29.97002997002997,
-    "audio_language": null
-  },
-  "error": null
-}
+{"error":{"code":"video_not_found","message":"video not found"}}
 ```
 
-États : not_downloaded, downloading, available, failed. media_file n'est renseigné
-que pour available. failed contient error: {code, message}, avec message générique ;
-le frontend traduit le code. Chemins internes et URL de flux ne sont jamais exposés.
-Cache-Control: no-store sur les lectures d'état et les démarrages réussis.
+| Statut | Exemples de codes | Signification |
+| --- | --- | --- |
+| `400` | `bad_request` | Identifiant, filtre, corps ou valeur invalide |
+| `404` | `video_not_found`, `video_source_not_found`, `note_not_found`, `transcript_not_found`, `asset_not_found` | Ressource absente selon la route |
+| `409` | `note_conflict`, `transcript_selection_ambiguous`, `local_media_unavailable` | Conflit, ambiguïté ou état incompatible |
+| `413` | `payload_too_large` | Corps trop volumineux |
+| `415` | `unsupported_media_type` | Type MIME non accepté pour un corps JSON |
+| `502` | `metadata_fetch_failed`, `transcript_fetch_failed` | Acquisition distante impossible |
+| `503` | `download_busy`, `capture_busy` | Opération concurrente ou ressource occupée |
+| `504` | `metadata_fetch_timeout`, `transcript_fetch_timeout` | Délai d'acquisition synchrone dépassé |
+| `500` | `internal_error` | Erreur locale ou interne |
 
-| Situation | Statut / code |
-| --- | --- |
-| Identifiant invalide ou POST avec corps | 400 bad_request |
-| Vidéo/source absente ou source d'une autre vidéo | 404 video_not_found / video_source_not_found |
-| Source non YouTube | 409 media_source_unsupported |
-| Serveur occupé ou en arrêt | 503 download_busy, Retry-After: 3 |
-| Fichier enregistré absent, changé en taille ou illisible | 409 local_media_unavailable, avec media_file pour suppression ciblée |
-| Échec local de consultation/suppression | 500 internal_error |
+Ces exemples ne constituent pas une liste exhaustive : chaque ressource possède ses erreurs propres. Les messages lisibles peuvent évoluer ; les clients doivent privilégier le **code**. Les routes de lecture ou suppression ne relancent pas implicitement un téléchargement, une acquisition de transcription ou une capture.
 
-Un échec après acceptation est consultable en GET 200, status=failed, avec :
-media_unfinished,
-media_duration_mismatch, media_invalid, download_failed, download_timeout,
-download_interrupted ou internal_error. Les catégories techniques sûres et codes de sortie restent dans
-les logs serveur, sans sortie brute des outils. Aucune analyse de stderr ne pilote les décisions métier.
-Une erreur de consultation n'est jamais assimilée à not_downloaded.
+## Tests et validation
 
-Le navigateur consulte toutes les deux secondes pendant downloading et au retour
-de visibilité/focus. Après réponse incertaine, il relit sans réémettre la commande.
-Une suppression cible l'ID affiché : un ancien onglet ne supprime pas son remplaçant.
+Depuis la racine du dépôt :
 
-### Stockage et exploitation
+```bash
+make test      # go test ./..., go vet, go build et vérification TypeScript
+make test-web  # build complet puis Playwright
+```
 
-La migration 0006 ajoute media_files, l'unicité du chemin/de la source et la FK
-composée source–vidéo. origin_source_id reste nullable pour le modèle général ;
-le téléchargement le renseigne obligatoirement. Aucun endpoint d'import local.
-La migration 0007 ouvre format sans modifier les identités ni réutiliser les anciens
-identifiants supprimés. Le conteneur est une chaîne non vide, pas une énumération.
-Les fichiers complets sont publiés sous data/media avec des noms aléatoires sûrs,
-puis référencés en base. Aucun partiel n'est déclaré disponible.
+Pour une première utilisation de Playwright, installer Chromium et, si nécessaire, ses dépendances système :
 
-Au démarrage, les médias sans référence, temporaires abandonnés et .deleting
-non référencés restent conservés et signalés dans les logs. Un .deleting référencé
-peut être restauré seulement sans conflit et après vérifications. Une anomalie
-isolée ne bloque pas les connaissances. Aucun nettoyage compensatoire d'un fichier
-publié après échec SQL. Les opérations dangereuses sont refusées explicitement. Une racine média inutilisable
-au démarrage nécessite réparation puis redémarrage pour réactiver ces opérations.
-Seule une suppression utilisateur vivante et confirmée en base efface un média.
-La maintenance interactive reste future. Une seule instance utilise data/.
+```bash
+cd web
+npx playwright install --with-deps chromium
+cd ..
+```
 
-Sauvegarder/restaurer à froid **tout data/**, base et médias ensemble.
-Une copie de la seule base ne conserve pas les vidéos. Restaurer une ancienne base
-ne supprime pas les médias plus récents : ils restent sur disque sans rattachement. Les imports manuels dans
-data/media ne sont pas supportés ; ne pas modifier les fichiers gérés.
-SILLAGE_DOWNLOAD_TIMEOUT accepte une durée Go strictement positive, par exemple 90m.
-Le délai par défaut est 6h ; les longues formations lentes peuvent nécessiter davantage.
-L'arrêt du serveur annule les groupes yt-dlp/ffmpeg avant fermeture de SQLite.
+La collection Postman déterministe peut être lancée avec :
 
-### Validation reproductible
+```bash
+python3 tests/postman/run.py deterministic
+```
 
-```sh
-make test
-make test-web
-go test -race ./cmd/server ./internal/media ./internal/adapter/filesystem ./internal/adapter/sqlite ./internal/adapter/ytdlp ./internal/http
+Elle nécessite Python 3 et Postman CLI ; les détails d'installation, les collections v3 et les conditions d'essai réel YouTube figurent dans [tests/postman/README.md](tests/postman/README.md). Les tests automatisés utilisent des outils ou lecteurs contrôlés lorsque nécessaire : **ils ne prouvent pas à eux seuls les comportements de l'iframe YouTube réelle**.
+
+Pour valider le packaging Docker (nécessite Docker, Python 3 et les prérequis du script) :
+
+```bash
+docker build --platform linux/amd64 -f deployments/docker/Dockerfile -t sillage:local .
 python3 tests/docker/smoke.py
 ```
 
-Les tests ordinaires ne contactent pas YouTube. Les tests ffmpeg/ffprobe locaux
-génèrent leurs médias et sont ignorés si ces exécutables ne sont pas disponibles.
-Les fixtures Web remplacent yt-dlp et ffprobe dans un répertoire temporaire.
-Pour un essai réseau volontaire, avec outils réels :
+Pour les interactions réelles des lecteurs et du workspace, utiliser la [recette manuelle](docs/07-local-playback-validation.md). Les essais YouTube réels restent volontaires et séparés de la CI déterministe.
 
-```sh
-SILLAGE_TEST_YOUTUBE_ID=jNQXAC9IVRw go test ./internal/adapter/ytdlp -run TestYouTubeMediaIntegration -v -count=1
-docker build -f deployments/docker/Dockerfile -t sillage:local .
-python3 tests/docker/media.py --youtube-id jNQXAC9IVRw
+## Architecture et documentation
+
+```text
+Navigateur React / TypeScript
+          │ REST
+          ▼
+Serveur Go (net/http + Chi)
+          │
+     Services métier
+          │
+   ports / adapters
+     ├── SQLite
+     ├── filesystem
+     ├── yt-dlp
+     └── ffmpeg / ffprobe
+
+Futur : MCP, IA intégrée et autres sources → mêmes services métier
 ```
 
-Le dernier script utilise le port localhost 18389 (modifiable par --port), un conteneur
-et un bind mount temporaires, puis supprime ses données. Il vérifie acquisition,
-redémarrage, absence de doublon, suppression physique et conservation de la note.
-La disponibilité de la vidéo distante n'est pas garantie. Pour le bilan d'essais
-effectivement réalisés et leurs limites, voir docs/05-roadmap-and-open-questions.md.
+Les services applicatifs et le domaine restent indépendants des handlers HTTP, de SQLite et des outils externes. SQLite utilise `modernc.org/sqlite`, des migrations SQL embarquées et `PRAGMA user_version`. Les données temporelles dans un média sont des entiers en **millisecondes** ; les dates de calendrier sont des timestamps UTC.
 
-### Limites opérationnelles du correctif 7.1
+La documentation de référence est organisée ainsi :
 
-Un fichier complet publié reste sur disque même si son enregistrement SQL échoue.
-Un .deleting sans référence reste également conservé après crash ; répéter DELETE
-sur un ID absent ne recherche ni n’efface ce fichier. Les suppressions explicites
-vivantes gardent leur protocole de confirmation SQL avant effacement.
-Le stockage peut donc croître avec les interruptions ; la maintenance interactive
-n’est pas encore livrée. Les diagnostics de rapprochement sont dans les logs serveur.
-Des temporaires historiques peuvent contenir des URL signées ou métadonnées de
-découverte ; la nouvelle acquisition ne crée plus ce JSON : conserver les droits privés de data/, ne jamais le servir directement.
-Aucun checksum, décodage intégral ou garantie universelle de lecture navigateur.
+| Document | Objet |
+| --- | --- |
+| [00-project-brief.md](docs/00-project-brief.md) | Vision, objectifs et périmètre |
+| [01-product-and-ux.md](docs/01-product-and-ux.md) | Parcours et règles UX actuelles |
+| [02-domain-model.md](docs/02-domain-model.md) | Entités métier, identités et invariants |
+| [03-architecture.md](docs/03-architecture.md) | Services, adapters, API et garanties techniques |
+| [04-tech-stack-and-decisions.md](docs/04-tech-stack-and-decisions.md) | Stack et choix techniques en vigueur |
+| [05-roadmap.md](docs/05-roadmap.md) | État d'avancement et jalons futurs |
+| [06-open-questions.md](docs/06-open-questions.md) | Questions et décisions non résolues |
+| [07-local-playback-validation.md](docs/07-local-playback-validation.md) | Recette manuelle de non-régression des lecteurs et du workspace |
+| [Historique d'arbitrages](docs/history/sillage-decisions-octobre-2026.md) | Raisons de quelques choix techniques et UX passés |
 
-L’état downloading inclut le nettoyage final. Dès que available est annoncé,
-l’activité résiduelle de cette acquisition ne bloque plus DELETE. La confirmation
-du fichier exact après un commit SQL incertain est traitée comme une réussite.
+Les instructions de travail propres au dépôt sont dans [AGENTS.md](AGENTS.md). Le code et les migrations restent les références finales des détails d'implémentation ; les documents de conception décrivent les contrats et intentions à maintenir.
 
-Validation locale du correctif acquisition/métadonnées : Go/vet/build/TypeScript, race detector,
-311 tests Playwright, collections Postman sans avertissement puis 45 requêtes
-et 135 assertions réussies. Les tests natifs yt-dlp sont hors réseau ; le test
-YouTube explicite et le cycle Docker restent séparés de la suite déterministe.
+## Prochaines étapes
 
-Les six nouveaux champs sont nullable dans la migration additive 0008 : les anciens
-médias restent disponibles avec des valeurs inconnues, sans réanalyse au démarrage.
-Codecs et dimensions viennent de ffprobe ; fps est une moyenne exploitable, sinon NULL.
-audio_language vient uniquement de l'audio sélectionné par yt-dlp, jamais du tag
-ffprobe ni de VideoSource.original_audio_language. Les inférences internes de yt-dlp
-sont acceptées ; une différence avec l'original ne bloque pas le téléchargement.
-Aucun formulaire d'édition, filtre de recherche ou lecteur local n'est ajouté.
+La prochaine grande étape planifiée est la **recherche globale** dans la bibliothèque, avec une première recherche transversale puis, selon son cadrage, une recherche plein texte avec SQLite FTS5 et des résultats reliés aux passages temporels. MCP et IA intégrée viendront ensuite, sans calendrier fixé.
 
-
-### Journalisation structurée
-
-Le serveur accepte SILLAGE_LOG_LEVEL=DEBUG|INFO|WARN|ERROR (INFO par défaut)
-et SILLAGE_LOG_FORMAT=text|json (text par défaut hors Docker), sur stdout.
-Le niveau est choisi au démarrage. GET/HEAD, polling et autosave réussis restent
-en DEBUG ; les anomalies restent visibles. X-Request-ID est généré côté serveur
-et permet de retrouver le bilan HTTP. Aucun corps ni stderr brut d'outil n'est
-journalisé ; les catégories techniques et codes de sortie restent disponibles.
-
-
-Les événements capture.started et download.started portent operation_id et,
-si l'appel vient de HTTP, origin_request_id. Une capture conserve l'identité
-capture:<asset_id> ; chaque nouveau téléchargement reçoit sa propre identité.
-La clé request_id de commande capture garde son rôle d'idempotence.
-Les événements completed, failed, interrupted ou finalization_uncertain
-décrivent le résultat serveur ; un POST 202 ne confirme pas la fin du traitement.
-Les fichiers publiés restent conservés lors d'une finalisation incertaine.
-
-
-#### Exploitation Docker des journaux
-
-L'image choisit JSON par défaut ; Compose expose les variables suivantes :
-
-| Variable | Défaut Compose | Usage |
-|---|---|---|
-| SILLAGE_LOG_LEVEL | INFO | DEBUG, INFO, WARN ou ERROR |
-| SILLAGE_LOG_FORMAT | json | json ou text |
-| SILLAGE_CONTAINER_NAME | sillage | Nom unique sur ce daemon Docker |
-
-Une deuxième installation doit choisir un autre nom et un autre répertoire de
-données. Les tests utilisent leur propre nom ; le nom du projet Compose seul
-ne suffit plus à isoler le nom du conteneur.
-
-Après un changement de configuration, recréer le conteneur :
-
-```sh
-docker compose -f deployments/docker/compose.yaml up -d --force-recreate
-docker logs --tail 100 -f sillage
-docker logs --since 1h sillage
-```
-
-Pour une session de diagnostic, définir SILLAGE_LOG_LEVEL=DEBUG dans
-l'environnement Compose ou son fichier de variables, puis recréer ; rétablir INFO
-de la même manière. Le niveau DEBUG ne permet jamais l'affichage des sorties
-brutes. Avec jq installé sur l'hôte, une opération se filtre par exemple ainsi :
-
-```sh
-docker logs sillage | jq 'select(.operation_id == "capture:123")'
-```
-
-Le pilote Docker local conserve au maximum cinq fichiers de 20 Mio et compresse
-les fichiers tournés. Cette limite est volumétrique, pas une durée de conservation
-ni une garantie de taille exacte sur disque. Les journaux appartiennent au
-conteneur ; sa suppression peut supprimer cet historique. Ils ne sont pas dans
-le bind mount /app/data ni dans la sauvegarde SQLite. Consulter les messages par
-docker logs ou docker compose logs, sans manipuler les fichiers internes du daemon.
-
-Les erreurs de configuration utilisent un diagnostic JSON de secours.
-Les panics récupérés dans HTTP omettent leur valeur arbitraire ; seuls des
-emplacements de code sont conservés. Un crash du runtime peut encore produire
-une sortie fatale sur stderr. Les logs ne constituent pas un journal d'audit.
-
-
-### Validation manuelle du decluttering — partie 1
-
-- Sur une fiche, le logo rejoint la bibliothèque sans filtre et précédent retrouve
-  le contexte de navigation ; aucun lien de retour dédié n'occupe une ligne.
-- Masquer/réafficher la vidéo avec l'œil ; vérifier la pause et la conservation
-  de la note. Le titre visible « Lecteur » et le lien YouTube redondant sont retirés.
-- Vérifier l'en-tête compact de transcription, la récupération/actualisation,
-  l'aide au survol et au focus, et les erreurs toujours visibles.
-- Ouvrir la recherche, parcourir les occurrences, la replier puis la rouvrir :
-  requête et résultat actif sont conservés. Échap revient à la loupe ; effacer
-  retire les surlignages. Un changement de vidéo réinitialise la recherche.
-- Sélectionner un extrait puis activer les guillemets à la souris ou au clavier :
-  citation, Undo/Redo et autosauvegarde gardent leurs garanties habituelles.
-- Vérifier ces parcours en mode nuit et sur écran étroit. Les commandes actuelles
-  de fichier local restent disponibles ; aucune lecture locale n'est ajoutée.
-
-
-### Validation manuelle du decluttering — partie 2
-
-- Vérifier la barre unique : YouTube, résumé format/taille/durée si disponible,
-  icône téléchargement ou corbeille, puis œil à droite. Aucun séparateur.
-- Vérifier les états chargement, téléchargement, erreur et fichier disponible,
-  ainsi que la confirmation de suppression et son annulation.
-- Survoler puis cliquer l'œil et la loupe, sortir le pointeur, et répéter les
-  ouvertures/fermetures : aucune infobulle ne doit rester affichée à cause du
-  focus souris. Tester également le focus clavier, Échap et un nouveau survol.
-- Vérifier la barre sur écran étroit, sans débordement ni bouton écrasé.
-  La partie 3 et la lecture locale restent différées.
-
-
-### Validation manuelle de la typographie des notes
-
-- Comparer Édition et Lecture : police système 16 px, interligne 24 px pour la
-  prose, colonne utile plafonnée à 700 px hors padding, réduite sur écran étroit.
-- Vérifier code inline, blocs clôturés (avec et sans langage), code indenté,
-  listes imbriquées, citations, tableaux et captures. Le code reste monospace.
-- Vérifier caret, sélections et retours visuels à la ligne, références compactes
-  et révélées, navigation temporelle, Undo/Redo et stabilité lors des bascules.
-- Une ouverture, bascule de mode ou redimensionnement sans édition ne doit pas
-  déclencher d'enregistrement. Le panneau et les commandes gardent leur largeur.
-
-## Lecture locale dans le workspace
-
-Le choix **YouTube / Local** permet de regarder le fichier conservé de la source
-de travail. La barre stable propose deux boutons, Informations et Masquer/Afficher.
-Sans fichier, cliquer Local ouvre une confirmation sans interrompre YouTube.
-Les timestamps, notes, transcription et captures utilisent le lecteur actif.
-Les bascules préparent autant que possible la position en pause ; masquer met en pause.
-Une erreur locale propose un réessai et laisse le retour vers YouTube manuel.
-
-**Local est sélectionné initialement si le média de la source de travail est
-disponible**, sinon YouTube. Le choix attend la consultation initiale sans affichage
-fugace de YouTube ; une erreur de consultation choisit YouTube. Les notes restent
-accessibles. Aucun changement automatique à la fin d'un téléchargement.
-
-### Contenu média
-
-- GET /api/v1/videos/{video_id}/media-files/{media_file_id}/content
-- HEAD sur la même URL, sans corps.
-- GET complet : 200 ; plages satisfaites : 206 avec Content-Range ; hors limites : 416.
-- IDs invalides : 400 ; vidéo/média absent ou mauvaise appartenance : 404 ;
-  fichier connu mais indisponible : 409 local_media_unavailable.
-- URL fondée sur l'identité exacte, jamais sur un chemin du disque.
-- Cache-Control: no-store pour le contenu, MIME du conteneur, nosniff.
-- Un DELETE peut recevoir 503 download_busy tant qu'une lecture HTTP ou capture
-  réserve le média. Arrêter/décharger le lecteur puis réessayer explicitement.
-- Un fichier conservé n'est pas nécessairement décodable par le navigateur.
-  Aucune conversion ni modification de la politique yt-dlp.
-
-La suppression conserve notes, transcriptions et captures. Elle laisse le panneau
-Local vide ; un rafraîchissement recalcule le choix et revient à YouTube sans fichier.
-
-Voir [la recette de validation locale](docs/06-local-playback-validation.md).
-
-
-### Panneau vidéo : phase 1
-
-Informations ouvre les détails de la source YouTube ou du fichier Local, avec sa
-date d'ajout et sa suppression confirmée. Métadonnées et sources reste disponible.
-Le panneau Local vide après suppression utilise la même confirmation de téléchargement.
-Pendant une acquisition, Local garde son libellé et affiche un spinner ; les résultats
-confirmés suivis dans cette ouverture affichent une coche/croix pendant cinq secondes.
-Les erreurs restent consultables. Aucune bascule automatique en fin de téléchargement.
-
-Les marges et dimensions de la vidéo sont conservées. Le bord à bord reste différé
-jusqu'à validation visuelle explicite de cette phase.
+La [roadmap](docs/05-roadmap.md) donne l'état des jalons et leurs objectifs ; [les questions ouvertes](docs/06-open-questions.md) recensent les choix qui ne sont pas encore tranchés. Leur présence dans ces fichiers ne signifie pas qu'ils sont implémentés ou approuvés.

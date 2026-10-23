@@ -189,8 +189,6 @@ Desktop et ne permet pas d'attribuer la difficulté rencontrée à WSL.
 `.github/workflows/api-tests.yml` est déclenché par `push`, `pull_request` et
 `workflow_dispatch`.
 
-Un lancement réel déclenché par push a été validé avec succès.
-
 Il exécute les tests Go, `vet`, le build, valide le format des deux collections,
 puis **exécute uniquement deterministic/**. Les logs sont conservés dans l'artefact
 `sillage-api-logs`, y compris en cas d'échec. Le lanceur refuse également

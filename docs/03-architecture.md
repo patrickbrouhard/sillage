@@ -1,1562 +1,401 @@
-# Architecture
+# Architecture — Sillage
 
-## 1. Objectif
+Ce document décrit **l'architecture actuellement implémentée** de Sillage : responsabilités des couches, interactions entre composants, contrats d'intégration et garanties à préserver. Il ne constitue ni un historique des jalons ni une liste de fonctionnalités à développer.
 
-L'architecture doit permettre :
+Documents complémentaires :
 
-- un développement initial très simple ;
-- une API HTTP ;
-- une interface Web ;
-- un serveur MCP ;
-- l'utilisation de `yt-dlp` et `ffmpeg` ;
-- SQLite ;
-- une future version desktop ;
-- éventuellement d'autres sources vidéo et fournisseurs IA.
+- [Vision et principes du produit](00-project-brief.md) ; [parcours et règles UX](01-product-and-ux.md).
+- [Modèle de domaine et invariants](02-domain-model.md) ; [choix techniques](04-tech-stack-and-decisions.md).
+- [Roadmap](05-roadmap.md), [questions ouvertes](06-open-questions.md) et [recette manuelle des lecteurs](07-local-playback-validation.md).
+- [Historique des arbitrages significatifs](history/sillage-decisions-octobre-2026.md).
 
-Le principe principal est de conserver un **cœur applicatif indépendant des interfaces et des dépendances externes**.
+**Périmètre :** REST, services applicatifs, SQLite, `yt-dlp`, `ffmpeg`/`ffprobe`, stockage local, React et Docker sont implémentés. Le serveur MCP, l'IA intégrée, le STT et une application desktop restent des perspectives, pas des composants existants.
 
-## 2. Vue générale
+**Maintenance :** modifier les sections concernées lorsqu'un contrat évolue, sans ajouter de journal de développement. Les migrations SQL, les types et les routes du code font foi pour les détails d'implémentation ; corriger une divergence documentaire après vérification.
+
+## 1. Vue d'ensemble et frontières
 
 ```text
-                  ┌───────────────────┐
-                  │      Web UI       │
-                  └─────────┬─────────┘
-                            │ HTTP
-                            ▼
-                  ┌───────────────────┐
-                  │    HTTP / Chi     │
-                  └─────────┬─────────┘
-                            │
-                            ▼
-              ┌────────────────────────────┐
-              │    Application Services    │
-              │────────────────────────────│
-              │ AddVideo                   │
-              │ GetVideo                   │
-              │ SearchVideos               │
-              │ UpdateNotes                │
-              │ AddAnnotation              │
-              │ FetchTranscript            │
-              │ DownloadMedia              │
-              │ CaptureFrame               │
-              └──────┬───────────┬─────────┘
-                     │           │
-            ports    │           │    ports
-                     ▼           ▼
-              ┌──────────┐   ┌──────────────┐
-              │Repository│   │Video Provider│
-              └────┬─────┘   └──────┬───────┘
-                   │                │
-                   ▼                ▼
-               SQLite            yt-dlp
-                                    │
-                                    ▼
-                                  ffmpeg
+   Navigateur (React / TypeScript / Vite)
+                    │ REST / HTTP
+                    ▼
+         HTTP / Chi / DTO / SPA
+                    │
+                    ▼
+          Services applicatifs Go
+       video · note · transcript · media · asset
+                    │
+          ports et interfaces ciblés
+             ┌──────┴─────────┐
+             ▼                ▼
+       SQLite / fichiers   Adapters externes
+                           yt-dlp · ffmpeg · ffprobe
 
-
-                    ┌───────────────────┐
-                    │    MCP Server     │
-                    └─────────┬─────────┘
-                              │
-                              └────────────► Application Services
+   Futur : MCP / CLI / desktop ──► mêmes services applicatifs
 ```
 
-## 3. Le cœur n'est pas l'API
+Le **cœur applicatif n'est pas l'API HTTP**. Les handlers convertissent et valident les requêtes, appellent les services puis construisent les réponses. Ils ne portent ni SQL métier, ni invocation directe de `yt-dlp`, ni gestion autonome des fichiers métier. Les objets métier ne dépendent ni de Chi, ni de React, ni de SQLite, ni d'un provider IA.
 
-L'API HTTP est une interface vers le cœur applicatif.
+L'approche ports/adapters reste **légère** : une interface est utile lorsqu'elle matérialise une véritable frontière (persistance, processus externe, stockage), pas pour reproduire une architecture cérémonieuse. Éviter repository générique, ORM imposé, bus de messages et abstractions multi-provider anticipées.
 
-Elle ne contient pas le métier.
+### 1.1 Données et identité
 
-Un handler HTTP doit idéalement :
+`Video` est l'objet métier central ; `VideoSource` décrit une provenance externe et ses métadonnées. Un `MediaFile` est une représentation physique locale d'une source existante, **pas une nouvelle `VideoSource`**. `Transcript`, `Note`, `Asset`, `Publisher`, `Person` et `Tag` ont des identités et cycles de vie distincts.
 
-1. lire et valider la requête ;
-2. convertir les données vers les types applicatifs ;
-3. appeler un service ;
-4. convertir le résultat en réponse HTTP.
+Les identifiants internes Sillage sont indépendants des identifiants YouTube. L'identité externe d'une source est `(provider, external_id)` lorsqu'un ID externe existe. SQLite en garantit l'unicité. Une URL alternative de la même vidéo ne doit pas créer un doublon métier.
 
-Il ne doit pas :
+Une source de travail unique, actuellement la première source YouTube exploitable de l'ordre REST, sert au lecteur, à la transcription et aux opérations temporelles. Ce choix d'interface **n'est pas** une source principale persistée. La provenance est conservée explicitement dans les références temporelles et les captures.
 
-- lancer directement `yt-dlp` ;
-- écrire du SQL métier ;
-- manipuler directement le système de fichiers ;
-- contenir les règles de domaine.
+### 1.2 Composition et séparation des interfaces
 
-## 4. Application services
+Le serveur Go assemble services et adapters au point de composition (`cmd/server`). En développement, Vite sert le frontend et relaie `/api` vers Go. En production, le serveur Go sert le frontend compilé et l'API ; le navigateur ne lit directement ni SQLite ni `data/`.
 
-Les services applicatifs orchestrent les cas d'usage.
+Le futur serveur MCP devra appeler les **mêmes services applicatifs** que REST, sans requêtes HTTP vers sa propre API si les deux partagent le processus. Ses outils, permissions et transports ne sont pas encore définis. Les futurs providers IA/STT seront eux aussi isolés derrière les frontières appropriées.
 
-Exemples :
+## 2. Services et transactions métier
+
+### 2.1 Vidéos et métadonnées
+
+Le service `AddVideo` extrait une source normalisée **avant** d'ouvrir la transaction de création. Il recherche `(provider, external_id)` : si la source existe, il restitue la vidéo existante **sans rafraîchir implicitement** titre, miniature, description, publisher ou autres associations ; sinon il crée `Video` et `VideoSource` atomiquement.
 
 ```text
-AddVideo()
-GetVideo()
-ListVideos()
-SearchVideos()
-UpdateNote()
-AddTag()
-AddAnnotation()
-FetchTranscript()
-DownloadMedia()
-CaptureFrame()
+URL → MetadataProvider.Extract → source normalisée
+                                  │
+                         FindBySource(provider, external_id)
+                          ├─ existante → Video existante
+                          └─ absente → transaction Video + VideoSource
 ```
 
-Ils représentent les opérations que peuvent consommer :
+La contrainte unique SQLite tranche la concurrence même si deux requêtes ont constaté une absence simultanément. Les services de lecture/liste utilisent des ports spécialisés tels que `VideoRepository`, qui exposent des erreurs métier stables plutôt que des erreurs SQL brutes.
 
-- REST ;
-- MCP ;
-- un CLI ;
-- une future application desktop.
+L'adapter `yt-dlp` connaît les options CLI et les champs des formats externes ; le service ne les connaît pas. Le modèle n'impose pas la présence d'une URL canonique ou d'un external ID à tous les futurs providers, même si ces informations sont nécessaires pour YouTube.
 
-Ils doivent utiliser des ports/interfaces pour leurs dépendances.
+### 2.2 Publishers, personnes et tags
 
-### 4.1 `AddVideo`
+`PublisherService` et `PersonService` portent la création, la résolution d'identité externe, les associations explicites, les tags et les parcours de consultation. `PublisherRepository` et `PersonRepository` restent spécialisés. Une chaîne YouTube est identifiée par `channel_id` ; son nom peut être inconnu. Aucun nom ou handle n'autorise la fusion automatique de personnes ou publishers.
 
-Le premier cas d'usage persistant est `AddVideo`.
+Lors de l'import d'une vidéo, créer ou réutiliser son publisher est atomique avec la création de la source. Une réutilisation ne déclenche pas de mise à jour silencieuse. Une association explicite de personne ou de publisher n'est pas inférée ou corrigée par l'extracteur. La migration historique de `creator` n'a effectué aucun rapprochement par nom.
 
-Flux validé :
+Le catalogue des tags est partagé entre vidéos, personnes et publishers, **sans héritage** entre ces entités. Les ajouts de noms et d'associations sont atomiques, y compris en présence de concurrents. Les retraits suppriment l'association, pas nécessairement le tag du catalogue. Le filtrage par tag conserve toutes les sources et tous les tags de chaque vidéo retenue.
+
+Les listes et parcours indirects chargent leurs relations en lot et dédupliquent par ID ; ils ne doivent ni multiplier inutilement les requêtes par entité, ni créer d'associations persistantes pendant une lecture.
+
+### 2.3 Notes et concurrence
+
+`note.Service` possède la lecture et l'enregistrement d'une note Markdown principale facultative par vidéo. La note absente diffère d'une note enregistrée vide. Le contenu brut est conservé, à l'exception de la normalisation **CRLF/CR vers LF lors de la sauvegarde** ; un GET ne normalise ni ne sauvegarde.
+
+Chaque `PUT` exige `expected_revision` ; `0` désigne une note attendue absente. La précondition est vérifiée **atomiquement sous transaction SQLite**, création comprise. Un conflit renvoie un résultat métier stable ; aucune dernière écriture gagnante ni écriture forcée n'est autorisée. Une sauvegarde sans modification canonique ne produit pas de nouvelle révision.
+
+Le navigateur dispose d'une session locale d'édition ; elle n'est pas l'autorité sur la concurrence. Elle peut réconcilier une réponse perdue en relisant le serveur, mais les services et SQLite garantissent la protection pour **tous** les clients.
+
+### 2.4 Transcriptions
+
+`transcript.Service` vérifie la vidéo et l'appartenance de la source, puis sépare :
+
+- **`Get`** : lecture strictement locale de la transcription référencée et de son snapshot JSON3 ; aucune requête YouTube.
+- **`Fetch`** : acquisition explicite de la caption sélectionnée, normalisation du contenu, publication d'un nouveau snapshot et mise à jour de l'identité persistée `(video_source_id, language, provenance)`.
+
+Le port de provider retourne un contenu normalisé et les octets source opaques ; la connaissance de JSON3 et des formats `yt-dlp` reste dans l'adapter. La langue audio de la source ne doit jamais être déduite de la caption. La sélection originale est une préférence explicite, **pas une garantie** d'identité avec la piste audio.
+
+Publication d'un snapshot : écriture d'un nouveau temporaire, synchronisation, fermeture et renommage, **puis transaction SQLite courte**. Aucune transaction SQL n'est maintenue pendant le réseau ou l'écriture du fichier. L'ancien snapshot reste disponible pour les lecteurs ; un crash ou un échec SQL peut laisser un fichier orphelin, qui n'est pas effacé arbitrairement. Le `GET` lit et parse le snapshot référencé ; son absence/corruption est une erreur locale, sans réacquisition implicite.
+
+## 3. Stockage SQLite et filesystem
+
+### 3.1 SQLite
+
+SQLite est accessible par `database/sql` avec `modernc.org/sqlite`. Les migrations SQL sont embarquées (`embed.FS`), ordonnées, transactionnelles et suivies par `PRAGMA user_version`. Une base d'une version supérieure à celle du binaire est refusée. Les clés étrangères sont activées ; un `busy_timeout` amortit la contention ordinaire.
+
+L'intégrité repose sur les **contraintes de base et les transactions**, pas uniquement sur « rechercher puis insérer ». Les notes sont protégées par révision ; les tags par identité Unicode normalisée et contraintes uniques ; les relations et IDs externes par leurs clés et contraintes dédiées.
+
+Les **migrations SQL** constituent la référence du schéma actuel. Ne pas recopier la migration `0001` comme si elle décrivait encore le modèle complet. Les décisions sur WAL, un futur outil de migrations et la stratégie de sauvegarde sont dans [Open questions](06-open-questions.md).
+
+### 3.2 Fichiers durables et publications
+
+Organisation actuelle du répertoire de données (chemin relatif au processus ; `/app/data` dans Docker) :
 
 ```text
-AddVideo(url)
-    ↓
-extracteur de métadonnées
-    ↓
-VideoSource normalisée
-    ↓
-FindBySource(provider, external_id)
-    ├── existe
-    │     ↓
-    │  retourner la Video existante
-    │
-    └── absente
-          ↓
-       créer Video
-          +
-       créer VideoSource
-          ↓
-       transaction SQLite
-```
-
-Pour une source telle que YouTube, plusieurs formes d'URL correspondant au même couple :
-
-```text
-(provider, external_id)
-```
-
-doivent aboutir à la même `Video`.
-
-`AddVideo` est ainsi idempotent au niveau métier pour une même identité externe de source.
-
-La contrainte d'unicité de la base reste la garantie ultime contre une création concurrente en double.
-
-### 4.2 Pas de rafraîchissement implicite
-
-Lorsqu'une source existe déjà, `AddVideo` retourne la `Video` existante.
-
-Il ne rafraîchit pas implicitement :
-
-- titre ;
-- description ;
-- publisher et nom du compte partagé ;
-- miniature ;
-- autres métadonnées de source.
-
-La politique de rafraîchissement reste distincte et pourra devenir un cas d'usage explicite plus tard.
-
-## 5. Ports et adapters
-
-Une approche ports/adapters légère est privilégiée.
-
-Il n'est pas nécessaire de reproduire une Clean Architecture cérémonieuse.
-
-L'objectif est simplement de rendre explicites les frontières.
-
-### 5.1 `VideoRepository`
-
-Le port initial est volontairement petit et spécialisé :
-
-```go
-type VideoRepository interface {
-    Create(ctx context.Context, video Video) (Video, error)
-    Get(ctx context.Context, id VideoID) (Video, error)
-    List(ctx context.Context) ([]Video, error)
-    ListByTag(ctx context.Context, tagID TagID) ([]Video, error)
-    FindBySource(
-        ctx context.Context,
-        provider string,
-        externalID string,
-    ) (Video, error)
-}
-```
-
-SQLite implémente cette interface.
-
-À ce stade, ne pas ajouter sans besoin concret :
-
-- repository générique ;
-- `Update` ;
-- `Delete`.
-
-`List` est utilisé par le service `ListVideos` pour l'API de bibliothèque.
-Depuis l'étape 4, `ListByTag` sélectionne par association tout en conservant
-les sources et tags complets des vidéos.
-
-Le repository expose une erreur applicative stable telle que :
-
-```go
-ErrVideoNotFound
-```
-
-plutôt que d'obliger le service applicatif à interpréter directement une erreur SQLite.
-
-Il n'est pas nécessaire d'introduire une hiérarchie complexe d'erreurs.
-
-### 5.2 Création atomique
-
-La création d'une `Video` et de sa première `VideoSource` doit être atomique.
-
-L'adapter SQLite utilise donc une transaction pour :
-
-```text
-INSERT Video
-+
-INSERT VideoSource
-```
-
-Si la source ne peut pas être persistée, la `Video` ne doit pas rester seule en base à la suite de ce cas d'usage.
-
-### 5.3 Provider de métadonnées
-
-Exemple :
-
-```go
-type MetadataProvider interface {
-    Extract(ctx context.Context, url string) (VideoSource, error)
-}
-```
-
-L'adapter `yt-dlp` implémente ce port pour les sources prises en charge.
-
-Depuis l'étape 4 bis, la source normalisée peut contenir les métadonnées d'un
-publisher sans identifiant interne. L'adapter résout l'identité externe ; le
-repository crée ou retrouve le compte dans la transaction vidéo/source.
-L'extraction distante précède cette transaction. Aucun identifiant interne ni
-personne de référence ne provient des métadonnées externes.
-
-Le port distinct `PublisherProvider.ResolvePublisher` permet de résoudre une URL
-de chaîne indépendamment d'une vidéo. Il est consommé par `PublisherService`.
-
-### 5.4 Transcriptions
-
-`transcript.Service.Fetch` et `Get` portent l'acquisition et la lecture locale.
-Ils vérifient d'abord la vidéo et l'appartenance de sa source via un petit
-port `VideoReader`, satisfait par le repository vidéo existant.
-
-Le port `Provider` expose une acquisition normalisée :
-langue du contenu, `TranscriptContent`, octets source opaques à conserver.
-L'adapter yt-dlp découvre les formats audio/captions, sélectionne l'original,
-récupère son JSON3 et le parse. Les options CLI et structures JSON3 restent
-dans cet adapter. La langue audio enregistrée donne priorité à sa clé exacte
-admissible, puis à sa clé générique si l'étiquette est une simple langue-région
-(deux lettres ou trois chiffres pour la région) ; sinon seule une piste
-`-orig` admissible unique est acceptée. Ce marqueur peut concerner un doublage :
-la sélection privilégie l'audio original sans le garantir.
-Les langues audio et transcription peuvent diverger. Ni l'import ni l'acquisition
-ne déduisent la langue audio d'une caption.
-
-Le port `Snapshots` publie un nouveau fichier complet et relit son contenu
-sans réseau. L'adapter filesystem reçoit le parser JSON3 lors de l'assemblage
-dans `cmd/server` ; le service ne choisit ni extension ni parser technique.
-
-Le repository de transcription conserve l'identité stable par
-`(video_source_id, language, provenance)`. Sa transaction actualise le chemin
-et la date, sans modifier la langue audio ni imposer son égalité avec la transcription. Elle ne reste
-jamais ouverte pendant l'accès distant ou l'écriture du fichier.
-
-### 5.5 Publication locale
-
-Les snapshots sont conservés dans `data/transcripts/`, avec des chemins
-relatifs en base. Publication : fichier temporaire, écriture complète,
-synchronisation, fermeture, renommage, puis transaction SQLite.
-Chaque acquisition dispose d'un chemin distinct, y compris en concurrence.
-
-Le fichier précédent n'est pas écrasé et reste disponible aux GET en cours.
-Un échec SQL ou un crash peut laisser un fichier non référencé ; aucune
-politique complète de nettoyage n'est implémentée. Ce compromis de développement
-ne constitue ni un historique métier ni une politique durable de rétention.
-
-Le GET charge uniquement le snapshot référencé et le parse. Absence, erreur
-de lecture ou corruption donnent une erreur locale. Il ne dépend d'aucun
-provider distant. Les transcriptions ne sont pas imbriquées dans le type
-`video.VideoSource`, ce qui évite une dépendance cyclique entre packages.
-
-### 5.6 Notes et tags — étape 4 implémentée
-
-Le cadrage et l'implémentation sont terminés. Lecture et enregistrement de la note, catalogue de tags,
-ajout et retrait d'associations et filtrage des vidéos passent par des services
-applicatifs indépendants de HTTP et SQLite, avec des ports spécialisés et des
-handlers minces. REST et le futur MCP réutiliseront les mêmes cas d'usage.
-`note.Service` et `video.TagService` utilisent leurs ports spécialisés.
-`video.Service.ListVideosByTag` porte le filtrage. Ce découpage reste local
-et révisable, sans repository générique.
-
-Ces opérations sont locales et ne dépendent d'aucune acquisition ou actualisation
-distante. Les notes et tags restent séparés des métadonnées et transcriptions
-source ; un rafraîchissement ne doit pas les écraser.
-
-L'adapter SQLite garantit l'unicité concurrente des tags et associations ainsi
-que l'atomicité de tout ajout multiple, créations de tags comprises. Un simple
-contrôle d'existence avant insertion ne suffit pas à garantir ces invariants.
-La migration embarquée `0003_notes_tags.sql` ajoute les trois tables sans
-modifier les vidéos, sources ou transcriptions existantes.
-
-Les lectures filtrées conservent toutes les sources et tous les tags
-des vidéos sélectionnées. Le réajout d'une vidéo existante restitue également
-ses tags actuels. Le repository charge les sources puis les tags en lot pour
-éviter une requête par vidéo et le produit des deux relations.
-
-### 5.7 Publishers et personnes — étape 4 bis implémentée
-
-`video.PublisherService` et `video.PersonService` portent les cas d'usage sur les
-comptes, personnes, associations, tags et parcours de navigation. Leurs ports
-`PublisherRepository` et `PersonRepository` sont spécialisés et implémentés par
-SQLite. Les handlers n'interprètent ni métadonnées externes ni SQL.
-
-Les types restent dans `internal/video`, autour du domaine central, sans framework
-d'entités ni repository générique. Ce placement est un choix local révisable.
-`NormalizeTagNames` est partagé par les trois services de tags ; le catalogue SQL
-reste unique. Le futur MCP pourra appeler exactement les mêmes services.
-
-La création du publisher lors d'un import est atomique avec vidéo et sources.
-Sa réutilisation ne fait aucun UPDATE. Le réajout d'une vidéo existante ne modifie
-ni ses métadonnées ni ses rattachements explicites, même absents.
-
-Les parcours directs et indirects sélectionnent les vidéos avec EXISTS et les
-dédupliquent par leur ID, sans créer d'associations. Les lectures vidéo joignent
-les publishers aux sources et chargent séparément les tags et personnes directes
-en lot, pour éviter le produit des relations et une requête par vidéo.
-
-## 6. Adapter `yt-dlp`
-
-`yt-dlp` est utilisé comme **binaire externe**, appelé depuis Go.
-
-Ce choix est cohérent avec l'expérience existante sur un ancien programme CLI.
-
-Flux :
-
-```text
-Go
- ↓
-exec yt-dlp
- ↓
-sortie structurée
- ↓
-parsing
- ↓
-modèle interne
-```
-
-Avantages :
-
-- pas d'intégration du code Python de `yt-dlp` dans le processus Go ;
-- séparation claire ;
-- remplacement ou adaptation future possible ;
-- comportement facilement testable via un adapter.
-
-Le code métier ne doit pas connaître les options CLI précises de `yt-dlp`.
-
-L'adapter actuel ne supporte que YouTube. Cette limitation est acceptable : ne pas introduire maintenant une abstraction destinée uniquement à anticiper le fait que `yt-dlp` supporte aussi d'autres plateformes.
-
-## 7. Adapter `ffmpeg`
-
-`ffmpeg` extrait les captures 7.2 dans l'adapter technique `ytdlp.CaptureClient`.
-Le service applicatif `asset.Service` orchestre les ports de repository, stockage,
-extraction et emprunt du média ; il ne dépend ni des outils CLI ni de SQLite/HTTP.
-
-```text
-acceptation → Asset pending → réponse avec identité
-                    ↓
-         emprunt MediaFile de la source
-                    ↓
-         extraction locale ou flux YouTube
-                    ↓
-         validation PNG → publication → état terminal
-```
-
-Une seule opération capture appartient au serveur, avec délai maximal de deux
-minutes, sans file d'attente. Elle est indépendante de la requête HTTP et du
-téléchargement. L'arrêt annule les sous-processus puis attend la finalisation
-avant de fermer SQLite. Un serveur unique par répertoire de données reste requis.
-
-L'emprunt du MediaFile et sa suppression partagent le verrou du service média :
-la suppression est refusée tant que l'extraction utilise le fichier. La capture
-libère l'emprunt avant la publication du PNG. Une anomalie de média local peut
-déclencher un repli ; une erreur SQLite ou de stockage n'en déclenche jamais.
-
-Le stockage valide le PNG complet, synchronise son fichier puis publie par lien
-sans écrasement dans la même racine. La confirmation SQL suit la publication.
-Les fichiers publiés survivent aux échecs SQL ; les fichiers abandonnés ne sont
-pas supprimés au démarrage. Seul le temporaire de l'opération vivante est nettoyé.
-Le démarrage marque les captures interrompues `failed`, sans régénération.
-Si SQLite reste inaccessible lors des deux tentatives de finalisation, la
-récupération de l'état attend le prochain démarrage réussi.
-
-Côté Web, une StateField CodeMirror suit un widget avec
-`ChangeDesc.mapPos(..., MapMode.TrackDel)`. Les effets visuels ne participent
-pas à l'historique. La transaction finale insère le texte et retire le widget.
-Le handle de l'ancienne vue ne peut pas insérer dans une session remplacée.
-Le suivi des Assets est mutualisé par identité entre le bouton et les images
-affichées ; il cesse au démontage, sans arrêter le traitement serveur.
-
-### 7.1 Contrat REST des captures
-
-- `POST /api/v1/videos/{video_id}/sources/{source_id}/captures` :
-  `{"timestamp_ms":762345,"request_id":"<UUID>"}`.
-  Réponse `202` pour pending, `200` si une répétition retrouve un état terminal.
-- `GET /api/v1/assets/requests/{request_id}` : récupération de l'identité après
-  une réponse perdue ; si absent, le client peut répéter le POST avec la même clé.
-- `GET /api/v1/assets/{asset_id}` : état public et provenance, sans chemin.
-- `GET /api/v1/assets/{asset_id}/content` : PNG disponible, sans génération.
-
-Les clés comportent 16 à 80 caractères ASCII alphanumériques, tiret ou underscore.
-Une clé réutilisée avec d'autres paramètres reçoit `409`, un serveur occupé
-`503` avec `Retry-After`. Les lectures ne relancent jamais une capture.
-Un contenu manquant/inaccessible renvoie un refus distinct, sans transformer
-un Asset `available` en `failed`. Ces routes servent le même service applicatif
-que les futures interfaces.
-
-## 8. API HTTP
-
-### 8.1 Stack
-
-L'API utilise :
-
-```text
-net/http
-+
-Chi
-```
-
-Chi est choisi comme routeur HTTP léger plutôt qu'un framework Web lourd.
-
-Les décisions de la tranche HTTP sont implémentées et décrites dans le README
-(section « Contrat API v1 »), qui contient les exemples et la liste des erreurs.
-
-- Trois routes : POST /api/v1/videos, GET /api/v1/videos, GET /api/v1/videos/{id}.
-- POST synchrone ; résultat applicatif AddVideoResult{Video, Created}.
-- Création : 201 avec Location ; vidéo existante : 200 sans refresh.
-- DTO HTTP distincts ; sources imbriquées sans video_id ; champs absents à null.
-- Liste complète sous {"videos": [...]} ; created_at DESC, id DESC.
-- Sources par ID croissant ; dates UTC / RFC 3339.
-- Corps JSON strict, 16 Kio ; application/json avec paramètres accepté.
-- Timeout applicatif configurable de 60 s propagé par contexte.
-- Erreurs : 400, 404, 413, 415, 502, 504, 500 ; aucune analyse fragile de stderr.
-- Écoute locale 127.0.0.1:8080 configurable ; pas d'auth ni CORS.
-- Chemin de base fixe data/sillage.db (relatif au répertoire de travail) ; création du dossier, sans déplacement de l'ancienne base.
-
-### API des transcriptions
-
-```text
-POST /api/v1/videos/{video_id}/sources/{source_id}/transcript
-GET  /api/v1/videos/{video_id}/sources/{source_id}/transcript
-```
-
-Le POST sans corps acquiert ou rafraîchit la caption automatique originale.
-Aucun `Content-Type` n'est requis ; un corps non vide est rejeté par `400 bad_request`.
-Il retourne toujours `200 OK`, sans `Location`, après publication et persistance.
-Le délai global `SILLAGE_POST_TIMEOUT` couvre toute l'acquisition.
-
-Le GET ne fait aucun accès distant. Il sélectionne la dernière acquisition
-`youtube_auto` par `last_fetched_at DESC, id DESC`, puis parse le snapshot local.
-Une ligne dont le snapshot est absent, illisible ou corrompu donne `500 internal_error`.
-Le service vérifie la vidéo et l'appartenance de la source avant tout accès au contenu.
-
-GET et POST exposent exactement les mêmes champs :
-
-```json
-{
-  "language": "en",
-  "provenance": "youtube_auto",
-  "last_fetched_at": "2026-10-07T14:21:35.042Z",
-  "items": [
-    {"start_ms": 2960, "text": "This"},
-    {"start_ms": 3080, "text": " is"}
-  ]
-}
-```
-
-L'ID du transcript, `video_source_id` et `local_path` restent internes.
-Il n'existe pas de ressource autonome `/api/v1/transcripts`.
-
-| Statut | Code | Situation |
-| --- | --- | --- |
-| 400 | `bad_request` | Identifiant invalide ou corps non vide |
-| 404 | `video_not_found` | Vidéo inexistante |
-| 404 | `video_source_not_found` | Source absente ou appartenant à une autre vidéo |
-| 404 | `transcript_not_found` | Aucune acquisition pour la politique actuelle |
-| 404 | `transcript_not_available` | Aucune piste originale JSON3 sélectionnable de façon fiable |
-| 409 | `transcript_selection_ambiguous` | Plusieurs pistes originales admissibles sans correspondance exacte ou régionale avec la langue audio enregistrée |
-| 502 | `transcript_fetch_failed` | Échec distant ou contenu distant inexploitable |
-| 504 | `transcript_fetch_timeout` | Délai applicatif dépassé |
-| 500 | `internal_error` | Erreur locale : exécutable indisponible, SQLite, filesystem, snapshot |
-
-Les échecs de processus ne sont pas interprétés en analysant le texte de stderr.
-Une déconnexion annule l'opération sans réponse particulière. Un commit déjà
-réussi peut néanmoins précéder une déconnexion ; le client peut alors relire le GET.
-
-### API Notes + Tags — disponible
-
-Ces routes et extensions sont implémentées depuis l'étape 4. Les modèles et invariants
-sont définis dans [le modèle métier](02-domain-model.md), sections 5 et 9.
-Les conventions REST existantes de JSON, DTO et erreurs restent applicables.
-
-Validation des nouveaux corps JSON :
-
-- `application/json` requis, paramètres MIME acceptés ; sinon `415 unsupported_media_type` ;
-- un seul objet, champs inconnus refusés ; JSON ou Unicode invalide refusé par
-  `400 bad_request`, sans remplacement silencieux de caractères ;
-- corps du `PUT` de note limité à 1 Mio et du `POST` de tags à 64 Kio,
-  enveloppe et échappements JSON compris ; dépassement : `413 payload_too_large` ;
-- `names` est un tableau non vide de chaînes ; absence, `null`, tableau vide,
-  élément nul ou nom vide sont refusés par `400 bad_request` ;
-- chaque nom est limité à 200 points de code Unicode après suppression des
-  espaces aux extrémités ; aucun quota total de tags par vidéo ;
-- `tag_id` doit être fourni une seule fois et être un entier strictement positif ;
-  valeur vide, répétée, invalide ou requête mal encodée : `400 bad_request`.
-
-Les erreurs locales donnent `500 internal_error`, sans diagnostic technique
-dans le JSON. Les limites sont des choix locaux révisables.
-
-#### Note principale
-
-| Méthode | Endpoint | Succès |
-| --- | --- | --- |
-| `GET` | `/api/v1/videos/{id}/note` | `200` si la note existe |
-| `PUT` | `/api/v1/videos/{id}/note` | `201` à la création, `200` ensuite, même sans changement |
-
-En 5.2, le `PUT` exige `content_md` (chaîne, vide acceptée) et
-`expected_revision` (entier non négatif, obligatoire). 0 attend une note absente.
-Les anciens clients sans précondition sont refusés par `400 bad_request`.
-Une version obsolète retourne `409 note_conflict` sans écriture.
-Aucun ETag ni If-Match parallèle n'est introduit.
-La création retourne aussi `Location: /api/v1/videos/{id}/note`.
-Les réponses réussies des deux opérations contiennent `video_id`, `content_md`,
-`created_at`, `updated_at` et `revision` positive. Le contenu de la note n'est pas intégré aux
-représentations générales de `Video`.
-
-- Vidéo inexistante : `404 video_not_found`.
-- Vidéo existante sans note, pour le `GET` : `404 note_not_found`.
-- Identifiant invalide ou `content_md` absent, `null` ou de type invalide :
-  `400 bad_request`.
-
-Aucune route de suppression, d'ajout partiel ou d'historique n'est prévue.
-La résolution d'un conflit réutilise GET et PUT conditionnel ; aucune écriture forcée.
-Le service exige la révision attendue et SQLite la compare sous son verrou de
-transaction immédiate, y compris à la création. Une lecture HTTP préalable seule
-ne constitue pas une protection.
-
-#### Tags et associations
-
-| Méthode | Endpoint | Comportement |
-| --- | --- | --- |
-| `GET` | `/api/v1/tags` | `200`, tous les tags, même inutilisés |
-| `POST` | `/api/v1/videos/{id}/tags` | `200`, ajout additif par noms, retour de tous les tags associés |
-| `DELETE` | `/api/v1/videos/{id}/tags/{tag_id}` | `204`, même si l'association est déjà absente |
-
-Corps du `POST` :
-
-```json
-{"names": ["Go", "SQLite", "DevOps"]}
-```
-
-Le `GET` du catalogue et le `POST` utilisent la même enveloppe :
-
-```json
-{
-  "tags": [
-    {"id": 3, "name": "Go"},
-    {"id": 7, "name": "SQLite"}
-  ]
-}
-```
-
-Une liste vide est représentée par `{"tags": []}`. Les tags sont ordonnés
-par `id` croissant dans toutes les réponses : catalogue, résultat d'ajout et
-tags imbriqués dans une vidéo. Cette règle simple donne un ordre stable sans
-imposer de tri linguistique à la future interface.
-
-Une vidéo inexistante donne `404 video_not_found` ; des identifiants ou noms
-invalides donnent `400 bad_request`.
-
-Les réponses de création, de réajout, de détail et de liste des vidéos incluent
-un champ `tags` contenant ces objets `{id, name}`, ou `[]` sans tags.
-Aucun endpoint séparé de lecture des tags d'une vidéo n'est nécessaire.
-
-#### Filtrage des vidéos
-
-`GET /api/v1/videos` accepte le paramètre facultatif `tag_id`, par exemple
-`GET /api/v1/videos?tag_id=7`.
-
-- Sans filtre, le comportement existant est conservé, avec l'ajout du champ `tags`.
-- Avec filtre, seules les vidéos associées au tag sont sélectionnées.
-- La représentation conserve toutes leurs sources et tous leurs tags.
-- Un tag inconnu ou inutilisé donne `200` avec `{"videos": []}`.
-- Un identifiant invalide donne `400 bad_request`.
-- L'enveloppe `{"videos": [...]}` et l'ordre `created_at DESC, id DESC` restent inchangés.
-
-Les combinaisons de filtres et la recherche textuelle sont différées.
-
-### API Publishers + Personnes — disponible
-
-L'étape 4 bis introduit une rupture documentée de `/api/v1` : `creator` disparaît
-des sources. Chaque source expose `publisher: {id, name}` ou `null`. Le nom peut
-être `null` même si le publisher existe. Aucun `publisher_id` séparé n'est exposé
-dans la réponse source ; la persistance conserve bien cette clé étrangère.
-Les réponses vidéo ajoutent `person_ids`, liste croissante des associations
-directes uniquement, vide sous la forme `[]`.
-
-Les ressources autonomes ont ces représentations :
-
-```json
-{"id":7,"provider":"youtube","external_id":"UC…","name":null,"person_id":null,"tags":[]}
-```
-
-```json
-{"id":3,"name":"Lex Fridman","tags":[]}
-```
-
-Les routes suivantes sont préfixées par `/api/v1` :
-
-| Méthode | Route | Corps | Succès |
-| --- | --- | --- | --- |
-| POST | `/publishers` | `{"url":"https://www.youtube.com/@LexClips"}` | 201 créé avec Location ; 200 réutilisé sans refresh |
-| GET | `/publishers` | — | 200, `{"publishers": [...]}` |
-| GET | `/publishers/{id}` | — | 200, publisher et tags propres |
-| POST | `/persons` | `{"name":"Lex Fridman"}` | 201 avec Location, y compris pour un homonyme |
-| GET | `/persons` | — | 200, `{"persons": [...]}` |
-| GET | `/persons/{id}` | — | 200, personne et tags propres |
-| PATCH | `/persons/{id}` | `{"name":"…"}` | 200, personne renommée |
-| PUT | `/publishers/{id}/person` | `{"person_id":3}` ou `{"person_id":null}` | 204 |
-| PUT | `/videos/{video_id}/sources/{source_id}/publisher` | `{"publisher_id":7}` ou `{"publisher_id":null}` | 204 |
-| PUT / DELETE | `/videos/{video_id}/persons/{person_id}` | aucun corps | 204, idempotent |
-| POST | `/publishers/{id}/tags` | `{"names":["DevOps"]}` | 200, tous les tags associés |
-| POST | `/persons/{id}/tags` | même format | 200, tous les tags associés |
-| DELETE | `/publishers/{id}/tags/{tag_id}` | — | 204, association seule |
-| DELETE | `/persons/{id}/tags/{tag_id}` | — | 204, association seule |
-| GET | `/publishers/{id}/videos` | — | 200, `{"videos": [...]}` |
-| GET | `/persons/{id}/publishers` | — | 200, `{"publishers": [...]}` |
-| GET | `/persons/{id}/videos?relation=direct\|publisher\|all` | — | 200, `{"videos": [...]}` |
-
-`relation` vaut `all` par défaut ; valeur vide, inconnue ou répétée : 400.
-Les vidéos conservent l'ordre `created_at DESC, id DESC`, toutes leurs sources,
-leurs tags et leurs associations directes. Une vidéo commune aux deux chemins
-n'apparaît qu'une fois. Publishers, personnes, tags et identifiants de personnes
-sont ordonnés par ID croissant. Les catalogues incluent les entités sans liens.
-
-Les corps JSON suivent les conventions strictes existantes : objet unique,
-champs inconnus refusés, UTF-8 valide et `application/json` requis. Limites locales :
-16 Kio pour création/renommage/rattachement, 64 Kio pour les tags ; dépassement : 413.
-Les champs de rattachement doivent être présents ; seul `null` retire le lien.
-`Person.name` est non vide après trim, sans unicité. Les noms de tags gardent les
-limites et la normalisation existantes. Les ajouts de tags sont additifs et atomiques.
-
-Les erreurs d'identifiant, d'entrée ou de provider incompatible donnent
-`400 bad_request`. Les ressources absentes donnent `404 publisher_not_found`,
-`person_not_found`, `video_not_found` ou `video_source_not_found` ; une source
-d'une autre vidéo est également absente pour ce chemin.
-La résolution distante utilise `502 metadata_fetch_failed` et
-`504 metadata_fetch_timeout`, avec `SILLAGE_POST_TIMEOUT`. Une erreur locale
-donne `500 internal_error`. Les diagnostics techniques ne sont pas exposés.
-
-Le catalogue `/tags` reste unique. Le filtre `/videos?tag_id=…` reste direct.
-Aucune suppression de personne/publisher, aucun rafraîchissement, rôle,
-héritage ou traitement de collaboration n'est exposé.
-
-## 9. MCP
-
-### 9.1 Même cœur, autre adapter
-
-Le serveur MCP appelle directement les services applicatifs.
-
-Il ne doit pas appeler l'API HTTP locale uniquement pour réutiliser le métier.
-
-```text
-REST ─────┐
-          │
-MCP ──────┼──► Application Services
-          │
-CLI ──────┘
-```
-
-### 9.2 Outils métier
-
-MCP doit exposer des capacités sémantiques.
-
-Exemples :
-
-```text
-search_videos
-get_video
-get_transcript
-get_annotations
-add_tags
-append_note
-```
-
-À éviter :
-
-```text
-execute_sql
-read_database_file
-run_ytdlp_command
-```
-
-L'agent doit interagir avec le domaine, pas avec l'implémentation.
-
-### 9.3 Position dans la roadmap
-
-MCP est important pour la vision produit, mais peut être implémenté relativement tard.
-
-Lorsque les services applicatifs sont déjà stables, le serveur MCP devient une couche d'adaptation assez mince.
-
-## 10. Interface Web
-
-**Acté :** SPA React avec TypeScript et Vite, consommant l'API REST Go existante.
-Le cœur applicatif reste indépendant de React et des interfaces. Aucun accès
-direct du navigateur à SQLite ou au filesystem interne n'est prévu.
-
-En développement, Vite sert l'interface et relaie `/api` vers Go ; les appels
-du navigateur restent relatifs, sans ajouter de CORS. En production, Go sert
-les fichiers statiques compilés livrés à côté du binaire dans la même image
-Docker. Aucun SSR ni serveur Node.js permanent n'est requis.
-
-Le jalon 1 utilise `SILLAGE_WEB_DIR` pour activer le build statique. Son absence
-conserve le serveur API seul, indépendant de Node pour sa compilation.
-Le répertoire est ouvert avec `os.OpenRoot` pour borner les accès filesystem.
-
-Les routes API, les assets et les routes SPA doivent être séparés : le repli vers
-`index.html` ne doit jamais masquer une erreur API ou un asset absent. Seul le
-répertoire frontend est public, jamais celui des données.
-
-En 5.1, le jalon 2 utilisait React Router en mode déclaratif pour `/`, `/videos/new`
-et `/videos/:videoId`. Les cartes et retours sont des liens ; la fiche relit
-REST indépendamment de la navigation précédente. Les lectures sont annulées
-au démontage et leurs réponses tardives ignorées. Le formulaire lance un seul
-POST par soumission explicite et distingue 201/200 sans modifier AddVideo.
-L'état reste local aux pages ; aucune bibliothèque de store n'est ajoutée.
-En 5.2, un data router React Router permet le blocage des navigations internes
-et de l'historique pendant la confirmation des sauvegardes. CodeMirror 6 est
-intégré directement et reste monté, masqué pendant la lecture GFM chargée à la demande.
-CodeMirror utilise son découpage natif CRLF/CR/LF et sa sérialisation LF, y compris
-pour les collages Windows. L'ancien `lineSeparator.of('\n')` est retiré : il laissait
-des CR dans le document et créait des positions de caret invisibles en fin de ligne.
-La session travaille sur une représentation LF et compare avec la version LF du
-contenu confirmé, tout en gardant la réponse serveur originale et sa révision.
-Ainsi, ouvrir une ancienne note, changer de mode ou quitter la fiche ne déclenche
-aucune écriture de normalisation. Un enregistrement explicite peut la normaliser
-même sans édition visible ; les éditions continuent à utiliser l'autosauvegarde.
-Le choix de la version serveur après conflit applique la même représentation locale.
-
-Le service applicatif Go normalise CRLF puis CR en LF avant d'appeler le port de
-persistance. SQLite compare ce contenu canonique sous la précondition de révision
-existante ; les variantes de séparateurs n'incrémentent pas une note déjà canonique.
-La première normalisation d'une ancienne note incrémente sa révision. Les GET ne
-transforment rien et aucune migration n'est ajoutée. Les réponses de sauvegarde LF
-permettent la réconciliation après réponse perdue, sans seconde écriture automatique.
-
-Une session locale par note gère le contenu courant, la dernière version confirmée,
-les temporisations et une unique écriture en cours. Elle est détruite à la sortie ;
-aucun brouillon n'est persisté dans le navigateur. Les requêtes ont un délai de
-12 secondes. Les reprises réseau sont limitées à deux, après 1 puis 3 secondes,
-avec relecture de l'état serveur après un résultat incertain. Ces valeurs sont
-des choix locaux révisables. Les conflits suspendent l'autosauvegarde ; le choix
-local reste conditionnel sur la version serveur consultée. Le service et SQLite
-assurent la protection pour tous les clients, indépendamment de cette session React.
-
-La fiche 5.1 ne fige pas le workspace ultérieur : note stable, transcription
-indépendante et lecteur flexible. Les références temporelles relèvent de 6.
-
-### Workspace 5.3
-
-Le frontend sélectionne la première source `youtube` dont l'identifiant externe
-est exploitable par l'IFrame API (11 caractères alphanumériques, tiret ou underscore),
-dans l'ordre REST. Cette source unique alimente le lecteur et les URLs de
-transcription. Aucun changement de contrat REST, de domaine ou de persistance.
-L'absence de source compatible n'affecte pas la note. Les composants restent
-montés pendant les changements de grille CSS et de visibilité du lecteur.
-
-L'IFrame Player API est chargée à la demande par une promesse partagée. L'iframe
-déclare l'origine réelle, une politique `strict-origin-when-cross-origin`, les
-commandes natives et aucune lecture automatique. Le chargement du script et
-l'attente de `onReady` ont chacun une limite locale de 15 s et un réessai explicite.
-Les événements des instances détruites ou en échec sont ignorés, y compris sous
-StrictMode. Le masquage attend une pause confirmée et conserve normalement
-l'instance. Sans confirmation après 1 s, ou après une reprise inattendue une fois
-masqué, le lecteur est détruit pour arrêter le média ; ces échecs exceptionnels
-ne conservent pas la position. La navigation détruit également l'instance.
-Ces choix ne définissent pas un comportement générique pour les futurs médias locaux.
-
-Le panneau de transcription conserve séparément son contenu et l'opération en
-cours. Le GET local est borné à 12 s côté navigateur ; le POST à 90 s, indépendamment
-du délai des notes. Le serveur conserve son délai configurable, de 60 s par défaut :
-si celui-ci est porté au-delà de 90 s, le navigateur peut interrompre l'attente avant
-le serveur. Une réponse POST incertaine provoque une seule relecture GET, jamais
-un POST automatique ; un contenu retrouvé ne prouve pas à lui seul le succès de
-l'actualisation demandée. Les réponses abandonnées ne modifient pas la fiche suivante.
-
-Le regroupement parcourt les items dans leur ordre source et crée des blocs
-consécutifs par intervalle fixe de 10 secondes depuis 6.3. Les groupes composés
-uniquement de blancs sont rattachés
-au texte précédent, ou préfixés au premier bloc textuel s'ils sont initiaux, sans
-ligne horodatée dédiée ni changement du timestamp du bloc textuel. Les items restent
-intacts. Le rendu utilise du texte échappé et `white-space: normal` : chaque bloc
-forme un paragraphe fluide, avec normalisation visuelle des blancs et retour à la
-ligne selon la largeur disponible. Aucune transformation JavaScript des chaînes
-n'est nécessaire ; les données et les règles de regroupement restent inchangées.
-
-Les tests navigateur emploient une IFrame API contrôlée, sans accès à YouTube,
-et un faux yt-dlp exécuté par le backend réel pour acquérir puis relire des snapshots.
-Les essais avec YouTube réel restent complémentaires aux validations déterministes.
-
-### Recherche locale de transcription 6.3
-
-`TranscriptText` reçoit les fragments chargés et regroupe leur présentation à
-10 secondes. La recherche utilise leur concaténation exacte dans l'ordre source,
-indépendamment des blocs. `findTranscriptMatches` échappe la saisie puis utilise
-une expression régulière Unicode insensible à la casse, avec chaque suite de blancs
-de la requête remplacée par `\s+`, pour obtenir des intervalles
-UTF-16 dans le texte original, sans conversion préalable susceptible de déplacer
-les indices. Les occurrences sont littérales hors équivalence des blancs et non chevauchantes.
-
-`highlightTranscript` parcourt les blocs et les occurrences dans l'ordre pour
-projeter ces intervalles en portions de texte exactes. Une occurrence traversant
-plusieurs blocs garde le même indice et le même état actif dans chaque portion.
-React échappe le texte des éléments `mark` ; aucun HTML de transcription n'est injecté.
-Le contenu, les blocs et les résultats sont dérivés en mémoire, sans dépendance ajoutée.
-
-La sélection repart de zéro quand la requête ou le contenu reçu change. La session
-de recherche est associée aux IDs vidéo/source ; aucun état navigateur persistant.
-Le défilement vise la première portion active : scroll du conteneur sur desktop,
-défilement de page sur mobile. Aucun focus n'est transféré au résultat ni commande
-lecteur émise ; seul le callback des timestamps conserve la navigation 6.1.
-Acquisition et gestion des erreurs restent dans `VideoTranscript`.
-Aucun changement REST, domaine ou SQLite ; aucune segmentation linguistique.
-
-### Navigation transcription → YouTube 6.1
-
-La fiche relie le callback de la transcription à une commande impérative du lecteur
-YouTube de la même source. La commande reçoit les millisecondes du bloc ; seul le
-lecteur les convertit en secondes (`start_ms / 1000`, sans arrondi). Aucun état
-temporel ne traverse la session de note et aucune file de commandes n'est créée.
-
-Selon la [sémantique officielle de l'IFrame API](https://developers.google.com/youtube/iframe_api_reference#seekTo),
-`seekTo(seconds, true)` conserve la pause uniquement depuis l'état `paused` (2).
-Il est utilisé pour toutes les navigations explicites depuis les états connus
-(-1, 0, 1, 2, 3, 5). Depuis unstarted, cued ou ended, le clic demande donc aussi
-le démarrage. Un état inconnu refuse la commande. Aucun playVideo supplémentaire.
-cueVideoById reste réservé au départ initial d'une bascule, sans lecture.
-YouTube peut viser l'image clé précédente : transmettre la valeur exacte ne
-garantit pas une précision de lecture à la milliseconde.
-
-Le lecteur masqué est réaffiché avant navigation ; un masquage dont la pause n'est
-pas confirmée garde priorité. Sans instance prête, le clic est refusé explicitement
-et n'est jamais rejoué après chargement, réessai ou changement de fiche. Une
-exception de commande passe par le même arrêt et la même invalidation des événements
-tardifs qu'une erreur YouTube. L'UI n'annonce pas de succès confirmé à partir d'une
-commande sans accusé de position. Ni REST, ni domaine, ni SQLite ne changent.
-
-Le double navigateur reproduit le démarrage de `seekTo` hors pause et la préparation
-sans lecture de `cueVideoById`. Les tests couvrent les six états natifs, clavier,
-clics répétés, fractions de seconde, masquage, erreurs, absence de commande différée
-et conservation de la session de note.
-
-### Insertion du temps courant 6.2
-
-La fiche compose une référence à partir de sa vidéo, de sa source de travail
-et d'une lecture synchrone `getCurrentTimeMs()` du lecteur. L'adapter YouTube
-appelle `getCurrentTime()` seulement pour une instance prête, hors masquage en
-cours, dans les états ended (0), playing (1) ou paused (2). Un lecteur masqué
-conservé en pause reste utilisable sans réaffichage. Les états unstarted (-1),
-cued (5), buffering (3) et inconnus sont refusés ; un départ préparé lors d'une bascule
-n'est jamais substitué à la position courante. Les valeurs non finies, négatives
-ou hors des entiers sûrs en millisecondes sont refusées. Zéro reste valide.
-La conversion utilise `Math.round(seconds * 1000)` ; elle conserve la précision
-fournie sans garantir une précision réelle de mesure à la milliseconde.
-Aucune lecture, pause, navigation, acquisition ou commande différée n'est déclenchée.
-
-Le constructeur spécifique `temporalReference` produit uniquement
-`[libellé](sillage://videos/{videoID}/sources/{sourceID}?start_ms={milliseconds})`.
-L'autorité est `videos`, le chemin commence par l'identifiant vidéo. Aucun parseur
-général ni résolution de références n'est nécessaire. `end_ms` reste réservé.
-
-`VideoNote` demande l'insertion via une commande impérative du `MarkdownEditor`
-existant. Une transaction insère à `selection.main.to`, sans remplacer la
-sélection, ajoute un espace de continuation, place le curseur après celui-ci,
-puis rend le focus. `isolateHistory.of('full')` sépare l'action des frappes voisines
-et des autres insertions. L'écouteur `docChanged` alimente la session et ses délais
-d'autosauvegarde existants, y compris sa suspension en cas d'erreur ou conflit.
-Ni `initial`, ni l'état complet de l'éditeur ne sont réinjectés. La note suit la
-convention LF canonique. Le bouton est désactivé en mode Lecture.
-
-Le rendu initialement inerte de 6.2 est remplacé par l'activation contrôlée
-de 6.5 en Lecture seulement (voir ci-dessous), sans modification du Markdown persisté.
-
-## 11. Desktop futur
-
-Une version desktop reste une possibilité, notamment avec un outil adapté à Go tel que Wails.
-
-L'architecture doit permettre :
-
-```text
-Desktop UI
-    ↓
-mêmes services applicatifs
-    ↓
-SQLite / yt-dlp / filesystem
-```
-
-Le choix de Wails n'est pas acté et la version desktop n'est pas prioritaire.
-
-L'important est de ne pas l'empêcher par un couplage excessif entre cœur et serveur HTTP.
-
-## 12. Déploiement initial
-
-L'application cible d'abord un conteneur Docker.
-
-Stockage conceptuel :
-
-```text
-/data/
+data/
 ├── sillage.db
 ├── media/
 ├── assets/
-└── transcripts/   # si des snapshots locaux sont conservés
+└── transcripts/
 ```
 
-La structure exacte reste non contractuelle.
+SQLite conserve l'identité, la provenance, les états et les noms/chemins relatifs nécessaires. Le filesystem conserve les octets. Un nom de fichier n'est jamais l'identité métier ; une API publique n'expose pas les chemins internes.
 
-Le fichier SQLite et les données persistantes vivent dans un bind mount vers un
-répertoire hôte explicite et configurable. Compose ne crée pas de volume nommé.
-Le chemin actuel est `data/` relatif au processus : le packaging emploie
-`WORKDIR /app` et un bind mount `/app/data`, snapshots et sauvegardes compris.
-Le serveur écoute sur toutes les interfaces du conteneur, mais le port publié
-reste lié à localhost par défaut, en l'absence d'authentification.
-Le Dockerfile multi-stage et Compose sont implémentés au jalon 4 de 5.1.
-Le conteneur non-root réunit Go, le frontend et les outils externes ; seule la
-publication localhost est activée par défaut. Les données ne font jamais partie
-de l'image. Voir le README pour les droits et les sauvegardes à froid.
+Il n'existe pas de transaction distribuée SQLite/filesystem. Les protocoles de publication combinent **fichier complet et durable d'abord**, puis validation transactionnelle en base. Après commit SQL incertain, l'application peut vérifier son effet sans détruire les octets. Les orphelins résultant de crash, sauvegarde restaurée ou publication partielle sont **préservés et signalés**, jamais nettoyés automatiquement sur la seule absence de référence SQL.
 
-## 13. Gestion des opérations longues
+La suppression d'un média est distincte de celle des connaissances : note, vidéo, transcription et captures sont préservées. Les procédures de réparation, d'inventaire et de rétention restent de futures opérations explicites.
 
-Certaines opérations pourront devenir longues :
+### 3.3 Déploiement, sûreté et sauvegardes
 
-- téléchargement ;
-- transcription STT ;
-- traitements IA ;
-- import massif.
+Une instance serveur unique doit utiliser un même répertoire de données. Les données vivent dans un bind mount durable, séparé de l'image. La sauvegarde/restauration cohérente concerne **la base et ses fichiers** ; les sauvegardes à froid sont actuellement la référence de déploiement. L'application ne doit pas écrire ni servir directement des chemins contrôlés par le client.
 
-Il n'est pas nécessaire de modéliser immédiatement un système persistant de `Job`.
+## 4. Acquisition et conservation de médias
 
-Les acquisitions de métadonnées/transcriptions restent synchrones. En 7.1,
-le téléchargement est asynchrone et possédé par le service applicatif.
+### 4.1 Service asynchrone
 
-Un système de jobs pourra être introduit lorsque les limites deviennent concrètes.
+`media.Service` orchestre `VideoReader`, `Repository`, `Provider` et `Storage` ; les adapters SQLite, filesystem et `ytdlp.MediaClient` assurent les opérations techniques.
 
-## 14. Structure de packages Go possible
+Le téléchargement est une opération **asynchrone appartenant au contexte serveur**, et non à la requête HTTP initiatrice. Une seule acquisition est active globalement ; une nouvelle demande de la même source retrouve l'opération, une autre reçoit un refus temporaire. Il n'y a ni file, ni `Job` persistant, ni reprise automatique après arrêt, ni annulation utilisateur.
 
-Exemple indicatif :
+L'activité est réservée **avant** le lancement de la goroutine. Le résultat terminal est publié après la finalisation et la libération de l'activité, de façon à ne pas annoncer `available` pendant que le travail est encore actif. Le dernier échec est un état transitoire borné en mémoire ; la disponibilité durable est déduite de SQLite et du fichier présent, non d'un indicateur mémorisé.
+
+La requête GET de suivi est locale et ne lance ni `yt-dlp` ni `ffprobe`. Elle contrôle référence, présence, taille et possibilité de lecture ; elle ne garantit pas l'intégrité complète d'un fichier modifié ultérieurement à taille inchangée.
+
+### 4.2 Extraction, validation et publication
+
+Une invocation `yt-dlp` contrôle l'identité YouTube et le caractère terminé de la vidéo avant acquisition. La sélection et le tri sont délégués à `yt-dlp` ; Sillage n'impose ni MP4 ni catalogue de codecs. `ffprobe` valide la représentation obtenue (conteneur, pistes attendues, dimensions, codecs, durée et taille) avant publication. Les métadonnées techniques peuvent être inconnues (`NULL`) lorsque la source ne fournit pas de valeur exploitable.
+
+L'opération travaille dans une zone temporaire sous `data/media`, sur le filesystem définitif. Après validation : synchronisation du fichier complet, publication sous nom sûr, puis transaction SQLite courte. Un fichier publié n'est **pas** supprimé en compensation d'une erreur SQL. Les fichiers temporaires de l'opération en cours sont nettoyés lorsqu'elle en a la maîtrise.
+
+### 4.3 Suppression et rapprochement
+
+Une suppression explicite désigne **un MediaFile précis**. Le service sérialise les consultations et opérations critiques ; une réservation d'usage empêche la suppression pendant une lecture HTTP ou une capture utilisant ce fichier.
+
+Le fichier est déplacé dans une zone `.deleting`, synchronisé, puis sa référence SQL est supprimée avant l'effacement des octets. Au redémarrage, seul un `.deleting` référencé, sûr et sans original peut être restauré. Les fichiers sans référence, `.pending` abandonnés et `.deleting` orphelins sont laissés intacts et signalés. Une anomalie de média isolée ne doit pas rendre les notes et transcriptions indisponibles.
+
+Une racine média inutilisable au démarrage peut désactiver les opérations média tout en préservant le reste du serveur jusqu'à réparation et redémarrage. Aucun nettoyage ni rattachement automatique n'est réalisé après restauration de sauvegarde.
+
+### 4.4 Durée de vie et arrêt
+
+`SILLAGE_DOWNLOAD_TIMEOUT` est indépendant du timeout d'acquisition HTTP des métadonnées/transcriptions. Sous Linux, les processus externes sont lancés en groupe et l'arrêt interrompt aussi leurs descendants. Le serveur attend la fin des opérations applicatives avant de fermer SQLite ; les requêtes HTTP ne possèdent pas la durée de vie du téléchargement.
+
+## 5. Captures PNG et assets
+
+### 5.1 Service et provenance
+
+`asset.Service` possède l'acceptation, la déduplication par clé de commande, le repository, l'emprunt média, l'extraction et la publication. L'identité d'une capture inclut sa vidéo, sa **source exacte** et son timestamp. Une capture n'utilise jamais silencieusement un média d'une autre `VideoSource` de la même vidéo.
 
 ```text
-cmd/
-  server/
-
-internal/
-  video/
-    model.go
-    service.go
-    repository.go
-
-  transcript/
-    model.go
-    service.go
-
-  note/
-  annotation/
-  tag/
-
-  adapter/
-    sqlite/
-    ytdlp/
-    ffmpeg/
-    filesystem/
-
-  http/
-    handlers.go
-    routes.go
-
-  mcp/
+POST capture → Asset pending + identité durable → réponse HTTP
+                         │
+                opération serveur autonome
+                         │
+           emprunt d'un MediaFile de même source
+                  │ disponible ?
+                  ├─ oui → extraction locale
+                  └─ non / erreur éligible → flux distant
+                         │
+                 validation / publication PNG
+                         │
+                 état available ou failed
 ```
 
-Cette structure n'est pas une décision définitive.
-
-Elle illustre seulement la séparation souhaitée entre :
-
-- domaine/application ;
-- adapters techniques ;
-- interfaces externes.
-
-## 15. Règles d'architecture
-
-1. Le domaine ne dépend pas de HTTP.
-2. Le domaine ne dépend pas de MCP.
-3. Le domaine ne dépend pas de SQLite.
-4. Le domaine ne dépend pas de `yt-dlp`.
-5. Le domaine ne dépend pas d'un LLM particulier.
-6. Les handlers restent minces.
-7. Les outils MCP appellent les mêmes cas d'usage que l'API.
-8. Les formats externes sont interprétés aux frontières avant d'être utilisés par le cœur. Une représentation source peut néanmoins être conservée telle quelle comme snapshot local.
-9. Le système de fichiers ne définit pas l'identité des objets métier.
-10. Une abstraction n'est introduite que si elle protège une vraie frontière ou répond à un besoin concret.
-11. Les contraintes de la base renforcent les invariants applicatifs ; elles ne sont pas remplacées par un simple « check puis insert ».
-
-### Citation de transcription 6.4 — implémentation frontend
-
-La sélection DOM est traduite en offsets du texte continu, en parcourant uniquement
-les paragraphes de transcription (mark inclus) ; le fragment du premier caractère
-non blanc fournit le start_ms. Copie et citation partagent l'extraction normalisée,
-sans modifier le modèle source. La commande traverse la fiche vers la session de note,
-sans dépendance envers le lecteur ni API supplémentaire. CodeMirror distingue
-l'emplacement choisi des focus automatiques, conserve sa sélection et réalise
-l'insertion comme transaction isolée. Voir Product & UX et roadmap pour le contrat,
-les refus et les limites de contexte Markdown.
-
-Le module transcriptSelection traduit les bornes de Range en offsets UTF-16,
-en ignorant les boutons de timestamp. Les bornes normalisées de Range couvrent
-aussi les sélections inversées et les éléments mark. L'extrait mémorisé est lié
-à la version du rendu ; une nouvelle recherche ou un remplacement effectif
-l'invalide. L'événement copy utilise la sélection vivante et fournit text/plain,
-sans intercepter les copies de champs ou de l'éditeur. Il ne nécessite aucune
-permission Clipboard API dans l'application.
-
-VideoPage construit la référence avec les identifiants de la fiche/source,
-puis appelle l'action impérative de VideoNote vers MarkdownEditor.
-L'éditeur mémorise le choix explicite par geste de pointeur, navigation clavier
-ou transaction utilisateur ; les focus et insertions programmatiques ne suffisent
-pas. Ce choix est réinitialisé avec une nouvelle version d'éditeur, conservé lors
-des pertes de focus et des bascules Lecture/Édition. L'insertion utilise la borne
-supérieure de la sélection CodeMirror et isolateHistory, sans changer NoteSession
-ni son protocole de sauvegarde. Les séparateurs LF sont ajoutés uniquement selon
-le texte adjacent, sans analyse du contexte Markdown.
-
-
-### Navigation temporelle Markdown 6.5
-
-parseTemporalReference est un parseur pur du format canonique produit par Sillage :
-validation de la structure entière puis des entiers sûrs, sans normalisation d'URI.
-MarkdownReading autorise ces seules URI sur les href de liens via urlTransform,
-et délègue les autres attributs/URL au filtre standard de react-markdown.
-Le composant de lien devient un bouton natif pour une référence valide ; aucun
-href sillage:// n'est envoyé au navigateur. Les liens de même origine restent
-des Link React Router. Les autres liens HTTP(S) reçoivent target="_blank" et
-rel="noopener noreferrer" ; les autres protocoles autorisés, dont mailto,
-gardent leur comportement natif. Ce traitement commun couvre les autoliens GFM.
-Le libellé reste le nom accessible ; une description donne le temps structuré.
-
-VideoDetail vérifie les identités vidéo/source de travail et appelle la même
-fonction navigate que la transcription. Les refus sont présentés près du bouton
-dans une région status ; ils ne passent pas par NoteSession. Les composants de lien
-restent stables lors des mises à jour de sauvegarde pour préserver le focus.
-
-YouTubePlayer conserve son protocole immédiat. Une commande transmise incrémente
-un état local qui déclenche une mesure en useLayoutEffect, après réaffichage DOM.
-La zone youtube-frame est comparée au viewport visuel ; window.scrollBy instantané
-déplace seulement la page du delta nécessaire. Aucune attente onReady, animation,
-file d'attente, focus d'iframe ou synchronisation continue n'est ajoutée.
-Une fiche démontée ne conserve aucun travail de défilement différé.
-
-### Callouts de citation UX 1.1
-
-remarkCallouts reconnaît deux en-têtes dans l'arbre mdast et vérifie leur ligne
-source, pour distinguer notamment marqueurs littéraux, échappés et inconnus.
-Le plugin isole les en-têtes dans une copie temporaire du texte de rendu, puis
-réanalyse la note entière avec le même parseur. Cela empêche les syntaxes inline
-et setext de traverser l'en-tête tout en conservant les définitions Markdown/GFM
-communes au document. Les continuations paresseuses sont explicitées dans cette
-copie uniquement ; les bornes des liens traversant l'en-tête servent à empêcher
-leur réactivation par les autoliens GFM. Aucun texte enregistré n'est modifié.
-Cette seconde analyse ne relance pas les transformations Remark ; le plugin
-s'insère après remark-gfm dans la chaîne actuelle, sans second renderer du corps.
-
-Les propriétés temporaires du blockquote indiquent seulement sa forme et
-l'attribution ou l'URI validée avec son titre facultatif en texte simple.
-QuoteCallout affiche « Transcription » lorsque le titre manque ou ne contient
-que des blancs. La reconnaissance sépare la destination du titre avant validation ;
-les parenthèses et syntaxes Markdown du titre restent littérales.
-QuoteCallout partage la présentation et reçoit
-une action React ; il ne parse aucun Markdown, ne valide aucune URI et ne commande
-pas le lecteur. MarkdownReading réutilise TimeButton, parseTemporalReference
-et le callback 6.5 existants, avec des composants stables pendant la sauvegarde.
-Le filtre des URL et skipHtml restent en place ; les en-têtes rejetés deviennent
-des nœuds texte, jamais du HTML ni des liens externes.
-
-temporalReferenceURI centralise la génération canonique pour l'insertion rapide
-et transcriptCitation. Aucun changement de CodeMirror, de NoteSession, de REST,
-du domaine ou de SQLite. Aucun registre, plugin configurable ou nouveau type.
-
-
-### Décorations Markdown UX 1.2a
-
-markdownDecorations est un ViewPlugin CodeMirror : Decoration.line pour la
-bordure et le fond, Decoration.mark pour marqueur, URI et attribution/titre.
-L'arbre syntaxique Lezer de l'éditeur détermine les blockquotes et leur ascendance ;
-la présence textuelle de > ne suffit jamais. Les décorations sont limitées aux
-lignes visibles, avec contexte du bloc hors écran, et recalculées au changement
-du document, du viewport ou de l'arbre syntaxique incrémental.
-
-La bordure par ombre intérieure ne décale pas le texte et suit la hauteur des
-lignes repliées. Les lignes couvertes par plusieurs citations sont dédupliquées.
-L'extension ne produit aucune transaction, aucun widget ni plage de remplacement.
-Elle est installée dans la session EditorView existante.
-
-Seule parseCalloutHeader, fonction pure de validation d'une ligne littérale,
-est partagée avec Remark. Chaque environnement conserve son arbre et contrôle
-le contexte de reconnaissance. Aucun Remark dans l'éditeur, aucun arbre unifié,
-nouvelle dépendance ou moteur générique.
-
-### Compaction temporelle UX 1.2b.1
-
-compactTemporalReferences est une extension CodeMirror distincte de
-markdownDecorations. Un ViewPlugin parcourt les Link de l'arbre Markdown dans
-les plages visibles, rejette les contextes non admissibles et applique
-parseTemporalReference à la destination exacte. Aucun parseur Remark ni
-normalisation de destination n'est ajouté. La reconnaissance des en-têtes connus
-exclut leurs lignes littérales, y compris dans les citations imbriquées.
-
-Decoration.replace et WidgetType remplacent visuellement des liens monolignes,
-sans atomicRanges. Les remplacements ont des frontières non inclusives.
-Les sélections qui intersectent les liens retirent leurs décorations ; une keymap
-prioritaire permet l'entrée depuis les frontières et protège la suppression
-immédiate d'une source cachée. Le clic place une sélection native dans le libellé.
-Les widgets égaux conservent leur DOM, sans position source capturée dans un
-callback. Les plages sont recalculées lors des changements de document, sélection,
-viewport ou arbre syntaxique. Les événements de composition suspendent les
-remplacements avec un effet sans modification documentaire ; le retour attend
-la fin du traitement natif. Le timer est annulé au démontage.
-
-L'extension reste montée dans la même session. Seul docChanged continue de
-déclencher onChange/autosauvegarde. Copie, insertion, modèle NoteSession et
-historique textuel restent natifs. UX 1.2b.1 n'introduisait pas de callback lecteur ;
-UX 1.2b.2 étend ce périmètre ci-dessous.
-
-
-### Navigation en Édition UX 1.2b.2
-
-compactTemporalReferences reçoit une fonction d'activation via une facet locale.
-MarkdownEditor délègue à callbacks.current ; une nouvelle fonction React ne
-reconstruit donc pas EditorView. VideoNote appelle le même onNavigate que Lecture
-et affiche le résultat hors de CodeMirror et de NoteSession, dans une région status.
-
-Le collecteur reconnaît également les en-têtes par le contexte Lezer et
-parseCalloutHeader. Il conserve la référence validée et la plage exacte d'URI.
-Les liens des titres et les en-têtes inadmissibles restent exclus. Le widget et
-les protections de sélection/suppression existants servent aux deux formes.
-
-Le mousedown modifié est intercepté avant la sélection native, uniquement sur une
-plage reconnue. La position provient du DOM du widget ou de posAtCoords pour la
-source révélée. La commande Mod-Enter vérifie un curseur unique strictement intérieur.
-L'activation ne dispatch aucune transaction et ne transfère pas le focus.
-Le contrôle vidéo/source et player.navigate restent exclusivement dans la fiche
-et le lecteur existants ; aucune copie du protocole 6.5 n'est introduite.
-
-Le retour de survol utilise une classe DOM locale au ViewPlugin et des marques
-sur les seules plages reconnues révélées. Les widgets compacts conservent leur DOM.
-Les événements souris renseignent l'entrée et la sortie ; keydown/keyup sur la
-fenêtre couvrent le modificateur pressé sans déplacement de souris, même sans focus
-dans l'éditeur. blur efface l'état et destroy retire les écouteurs. La CSS cible
-uniquement les références ; aucune transaction n'est émise pour le curseur.
-
-
-## Téléchargements 7.1 — implémentation
-
-Un service applicatif spécialisé, partagé par REST et futur MCP, prend en charge
-les acquisitions indépendamment du contexte HTTP. Une opération globale active,
-sans file ; deux demandes de la même source retrouvent l'opération. Une autre
-source reçoit un refus temporaire. État actif/dernier échec en mémoire seulement.
-Délai propre au téléchargement et arrêt borné du groupe yt-dlp/ffmpeg avec le serveur.
-Aucun job persistant, reprise automatique ou annulation utilisateur.
-
-Routes retenues :
-- POST /api/v1/videos/{video_id}/sources/{source_id}/download
-- GET /api/v1/videos/{video_id}/sources/{source_id}/download
-- DELETE /api/v1/videos/{video_id}/media-files/{media_file_id}
-
-POST sans corps : 202 et Location pour une acquisition active, 200 si déjà disponible.
-GET local : non téléchargé/en cours/disponible/échec ; aucune exposition des chemins.
-La suppression vise une identité précise. La tranche de lecture locale ajoute désormais GET/HEAD sur le contenu de cette identité (voir ci-dessous).
-
-Acquisition dans une zone maîtrisée de data/media, sur le filesystem final :
-validation, synchronisation, renommage puis transaction SQLite courte.
-Disponibilité seulement après finalisation complète, y compris libération de l’activité.
-Le rapprochement est conservateur, sans effacement compensatoire.
-Suppression récupérable via déplacement provisoire puis suppression SQL et physique.
-Une disparition extérieure est signalée, sans téléchargement automatique.
-
-
-### Frontières et état
-
-internal/media.Service réutilise un VideoReader et des ports Repository,
-Provider et Storage. media.File représente le MediaFile métier. Les adapters
-SQLite, filesystem et ytdlp.MediaClient normalisent leurs formats techniques.
-L'ID de source indexe l'activité globale ; aucun objet Job ni opération durable.
-Start vérifie l'appartenance, retrouve le fichier existant ou l'opération active,
-puis réserve la place avant la goroutine. Le contexte de travail dérive du serveur,
-jamais de la requête. Les derniers échecs sont bornés à 64 sources en mémoire ;
-l'éviction d'une ancienne erreur n'est pas un historique.
-
-Get expose downloading tant que l’opération reste active, nettoyage final compris.
-Après libération atomique de l’activité et de son résultat sous verrou, Get consulte
-SQLite puis présence, taille et lisibilité du fichier ; il ne lance
-ni yt-dlp ni ffprobe. Il ne prouve donc pas l'intégrité d'un fichier modifié à taille
-identique. L'état disponible est déduit de la référence durable et du disque,
-pas d'une ancienne valeur en mémoire. La suppression et la publication sont
-sérialisées avec les consultations ; aucune transaction SQL ne couvre le réseau.
-
-### Publication, suppression et rapprochement
-
-Racine fixe data/media, sous /app/data dans Docker. Une zone .pending-<nombre>
-contient les pistes et le fichier final ; aucun JSON de découverte n’est réinjecté. La sortie validée est
-synchronisée puis renommée avec un nom aléatoire sûr avant insertion SQL.
-La base stocke seulement le nom relatif. Tout fichier déjà publié est conservé
-en cas d'erreur SQL ; une relecture peut confirmer un commit au résultat incertain.
-
-La suppression vivante renomme en .deleting, synchronise, supprime la ligne puis
-les octets. Au démarrage, seul un .deleting référencé, sûr et sans original peut
-être restauré. Les orphelins, temporaires abandonnés et .deleting sans référence
-restent intacts et sont signalés. Aucun écrasement en présence de deux versions.
-Les anomalies isolées n'empêchent pas le serveur de donner accès aux connaissances.
-Les opérations sur un média dangereux ou inaccessible échouent explicitement.
-Une racine média inutilisable au démarrage désactive les opérations média jusqu’au
-redémarrage après réparation ; le reste du serveur continue. Les anomalies isolées
-sont consignées dans les logs et les références indisponibles restent des erreurs
-de consultation. Aucun nouvel endpoint de maintenance ou diagnostic n’est ajouté.
-
-Ce protocole ne crée pas de transaction commune SQLite/filesystem. Une seule
-instance utilise data/. Une maintenance explicite reste future ; aucun rattachement,
-nettoyage ou retéléchargement implicite après restauration de sauvegarde.
-
-### Transport et cycle serveur
-
-REST utilise les états not_downloaded, downloading, available, failed. Le dernier
-échec est une réponse GET 200 avec error.code ; un problème de consultation utilise
-un statut d'erreur HTTP. Les DTO exposent id, format, size, duration_ms, added_at et les six attributs
-nullable video_codec, audio_codec, width, height, fps, audio_language, jamais path. Le détail du contrat et les codes sont dans le README.
-
-SILLAGE_DOWNLOAD_TIMEOUT vaut 6h par défaut, indépendant de SILLAGE_POST_TIMEOUT.
-Les appels d'outils ont des sorties bornées. Sous Linux, chaque commande crée un
-groupe ; l'annulation envoie SIGTERM, attend une seconde, puis SIGKILL au groupe,
-descendants compris. Close attend les opérations avant fermeture de SQLite.
-Le shutdown HTTP conserve son budget de 10s ; Compose laisse 15s.
-Aucune annulation utilisateur ; les états transitoires sont oubliés au redémarrage.
-
-Le composant VideoDownload est un enfant indépendant des commandes de YouTubePlayer.
-Il ne possède aucune référence au lecteur ou à l'éditeur. Les clés du workspace
-ne changent pas au gré des états de conservation.
-
-
-### Acquisition simplifiée et métadonnées — correctif livré
-
-Le correctif utilise une invocation yt-dlp avec contrôles natifs
-avant acquisition, puis une validation ffprobe. Le port Acquired et File
-portent les six nouvelles métadonnées nullable ; le DTO media_file existant
-les expose sans nouvel endpoint. Un seul état React alimente commandes et
-métadonnées locales. Publication, récupération, concurrence et arrêt restent inchangés.
-
-Le filtre natif yt-dlp exige id, extractor_key=Youtube et live_status not_live/was_live
-avant téléchargement des octets. Les sorties préfixées source: (pre_process) et
-result: (after_move) sont des projections JSON minimales, bornées en mémoire.
-Un refus filtré peut sortir avec succès sans résultat final : le parser exige
-une identité cohérente, un statut terminé et un unique résultat avant ffprobe.
-Un échec de l'extracteur avant ce préambule reste download_failed.
-Le groupe de processus, le délai et le nettoyage temporaire existants sont conservés.
-useVideoDownload possède la consultation unique ; VideoDownload et LocalFileDetails
-la partagent. Les propriétés ajoutées sont aussi présentes dans les erreurs
-local_media_unavailable, afin de décrire un fichier enregistré devenu indisponible.
-
-
-## Journalisation HTTP
-
-Le logger slog est construit au point de composition et porté par le contexte.
-internal/logging ne connaît ni HTTP ni les adapters. Les objets métier restent
-indépendants de la journalisation. Les services ne lisent pas le contexte Chi.
-
-Le middleware extérieur couvre l'API et la SPA avec RequestLogger de Chi et une récupération
-locale des panics. Les handlers enrichissent une seule entrée HTTP avec un code public et
-un diagnostic sûr. Le modèle de route est récupéré après résolution ; aucune URL
-arbitraire n'est journalisée. Les panics n'exposent pas leur valeur. Le writer
-Chi conserve les capacités de réponse ; HEAD, Range, flush progressif et hijack
-sont vérifiés. Une requête abandonnée sans réponse n'est pas comptée comme 200.
-Avant engagement de la réponse, un panic produit 500. Après écriture ou flush,
-il provoque ErrAbortHandler pour interrompre le flux sans le terminer normalement.
-Le bilan conserve ERROR et les seules positions du code, jamais la valeur du panic.
-Une annulation HTTP ne rétrograde pas une erreur serveur déjà constatée.
-Les crashes du runtime peuvent rester sur stderr hors de ce mécanisme.
-
-
-Les services capture et média conservent le logger de l'opération sur le contexte
-serveur, avec origin_request_id copié à l'acceptation. Le contexte HTTP n'est
-jamais le parent du worker. Les vérifications SQL indépendantes conservent ce
-logger. Une capture utilise capture:<asset_id> ; un téléchargement reçoit une
-identité aléatoire éphémère. La clé de commande capture reste inchangée.
-
-Le résultat terminal suit le nettoyage et la finalisation. Une vérification
-confirmant un commit incertain autorise un succès ; sinon les logs distinguent
-l'incertitude et la conservation du fichier. Aucun journal ne remplace l'état
-persistant. Après un crash, un début peut ne pas avoir de fin.
-
-La récupération d'une capture par sa clé de commande enrichit son bilan HTTP
-avec asset_id et operation_id de la capture retrouvée. La clé brute reste exclue ;
-la nouvelle requête HTTP ne remplace pas origin_request_id de l'opération.
-
-## Lecture locale — transport et composition du workspace
-
-GET et HEAD /api/v1/videos/{video_id}/media-files/{media_file_id}/content
-servent une identité exacte. Le service vérifie les IDs, la vidéo propriétaire,
-la finalisation et l'ouverture. Le port Storage.Open retourne Reader/Seeker/Closer.
-Le filesystem borne l'ouverture par os.OpenRoot, vérifie la racine ouverte,
-refuse les liens symboliques finaux avec O_NOFOLLOW et les fichiers non réguliers.
-O_NONBLOCK évite le blocage sur un FIFO substitué ; Stat contrôle le descripteur
-réel et sa taille. Les fichiers .deleting ambigus restent indisponibles.
-Aucun chemin ne vient de la requête ni ne sort dans les DTO.
-
-L'ouverture et la prise de réservation sont sérialisées avec DELETE. La lecture
-s'effectue sans verrou global. Close ferme le descripteur puis libère une seule
-fois la réservation ; le handler le diffère, y compris après déconnexion ou panic.
-Plusieurs lectures sont possibles, ainsi que les captures et les téléchargements
-d'autres sources. DELETE refuse un fichier réservé. Une réservation protège une
-requête, pas une séance complète : après sa fin, une suppression peut réussir et
-une requête Range ultérieure recevoir 404. La connaissance reste accessible.
-
-Le handler utilise http.ServeContent : corps complet, HEAD, plages et réponses
-206/416, requêtes conditionnelles natives. Le MIME est déduit de l'extension du
-conteneur validé, avec application/octet-stream si inconnu, sans liste de formats
-autorisés. X-Content-Type-Options: nosniff et Cache-Control: no-store sont posés.
-Sur les erreurs de plage, Go peut retirer les en-têtes de cache selon son
-comportement standard. Aucun encodage HTTP transformant les octets n'est ajouté.
-Les erreurs avant transfert conservent les codes 400 bad_request, 404
-video_not_found/media_file_not_found, 409 local_media_unavailable et 500 internal_error.
-Les réservations de lecture/capture utilisent le refus 503 download_busy existant
-à la suppression, avec un message désormais adapté à l'utilisation d'un média.
-
-VideoPlayer possède le panneau et l'en-tête permanents ; il compose les deux surfaces
-concrètes avec getCurrentTimeMs, navigate et stop pour les usages du workspace.
-PlayerSurfaceHandle ajoute toggleVisibility pour l'en-tête et getTransferPosition,
-réservé à la bascule (confirmed, prepared, empty ou uncertain) ; la surface
-publie sa visibilité confirmée, notamment après pause YouTube. Une seule instance
-de lecture est montée.
-La sélection initiale attend le premier état de téléchargement ou son erreur :
-Local si available, sinon YouTube. Aucun lecteur n'est monté pendant l'attente.
-Le choix n'est pas recalculé lors des actualisations du téléchargement. Local utilise directement
-l'URL HTTP dans video, sans téléchargement préalable du fichier dans un Blob.
-
-La bascule transmet une position initiale facultative, consommée une fois à
-onReady/loadedmetadata. L'ancienne instance est arrêtée avant la transition ;
-les effets nettoient leurs écouteurs et ignorent les événements obsolètes.
-Les timestamps ordinaires ne rejoignent jamais ce mécanisme d'initialisation.
-Le curseur de transfert circule dans VideoPlayer par la sélection de session ;
-chaque surface conserve et qualifie sa préparation, sans historique parallèle ni
-hook supplémentaire. La clé vidéo/source du workspace borne cette mémoire.
-YouTube conserve le départ cued d'une bascule. Une navigation explicite invalide
-ce départ et utilise seekTo ; elle ne stocke pas sa cible comme temps courant.
-Lecture et buffering invalident ce repli ; les erreurs et destructions forcées
-l'invalident aussi. Un seek explicite ne crée aucun verrou de confirmation.
-YouTube est interrogé au clic dans les états ended, playing ou paused ; le temps
-annoncé est utilisé même s'il diffère de la cible et sans nouvel événement.
-Les départs seulement préparés, buffering, états inconnus, erreurs et masquage
-en cours restent refusés. L'API ne fournit pas d'identifiant de seek ni de garantie
-image par image ; un temps momentanément ancien après commande reste une limite
-acceptée. Aucun seuil de proximité, délai de confirmation ni polling n'est ajouté.
-Le libellé interne confirmed du transfert désigne une mesure admissible selon le
-lecteur, pas un accusé de réception du dernier seek YouTube.
-Local distingue le chargement initial, le seek demandé en pause et une position
-réellement décodable ; la durée effective borne la préparation. Arrêt, erreur et
-suppression effacent les préparations locales. Les callbacks d'instances détruites
-restent ignorés. Aucun polling temporel ni stockage de progression.
-getCurrentTimeMs reste indépendant de ce repli et refuse les préparations :
-+ Temps et + Capture ne consomment jamais le curseur de transfert.
-Le défilement conditionnel est partagé, sans focus forcé ni scroll des panneaux.
-VideoNote, sa session et VideoTranscript restent hors de cette alternance.
-
-Les tests navigateur ajoutent un WebM VP8/Opus généré par ffmpeg dans le workspace
-temporaire du lanceur. L'acquisition distante est simulée, mais publication,
-SQLite, GET/Range, ffprobe et décodage HTML5 sont réels. Les fixtures MKV factices
-restent utilisées pour les seuls parcours de gestion des téléchargements.
-
-
-### Panneau vidéo — interactions de la phase 1
-
-useVideoDownload demeure l'unique propriétaire de la consultation et du polling.
-Son suivi éphémère distingue une demande, une activité observée et son résultat
-confirmé ; un timer de cinq secondes efface seulement le résultat de présentation.
-Aucun champ métier, stockage navigateur ou contrat REST supplémentaire.
-VideoDownload est la modale de conservation unique. Les suppressions mémorisent
-l'identité exacte du fichier à confirmer ; elles réutilisent mutate et le déchargement.
-PlayerInformation partage les données déjà chargées ; LocalFileDetails utilise
-un identifiant accessible propre à chaque instance. Aucun appel HTTP à l'ouverture
-du popover. Les commandes d'en-tête ne remountent ni notes ni transcription.
-
-### Navigation explicite YouTube et blocage navigateur
-
-La navigation commune aux notes, callouts, éditeur et transcription appelle seekTo
-directement depuis le geste utilisateur. Elle conserve la pause depuis paused,
-sinon demande la lecture. L'initialisation et les bascules conservent autoplay: 0
-et cueVideoById ; Local est inchangé.
-
-L'iframe délègue autoplay en plus des capacités existantes. Cette permission
-n'est pas une commande de démarrage. onAutoplayBlocked affiche seulement un
-message non fatal lorsqu'il est reçu ; l'événement playing l'efface. Les gardes
-disposed/failed ignorent les événements obsolètes. Aucune détection par délai,
-polling, relance, changement de mode ou coupure du son. L'API ne cite pas
-explicitement seekTo parmi les appels couverts par ce signal ; son absence
-n'est pas une preuve de démarrage. Les erreurs fatales restent distinctes.
-
-### Présentation du lecteur et panneau droit — tranche B
-
-player-surface conserve son cycle de vie. Les règles de hauteur clamp liées au
-viewport, y compris l'ancien seuil Local à 900 px, sont supprimées. local-video
-et youtube-frame suivent la largeur avec aspect-ratio: 16 / 9 et min-height: 200px.
-L'iframe remplit ce contenant ; Local utilise object-fit: contain. Les marges
-latérales négatives existantes conservent le bord à bord, avec quatre coins
-arrondis. Le panneau ne découpe pas les popovers.
-
-Le popover Informations est enfant de player-toolbar, positionnée relativement :
-top: 100% suit la hauteur réelle des commandes, y compris lors d'un retour à la
-ligne. Son contenu, focus, fermeture et opérations restent inchangés.
-Les statuts de transfert et de démarrage sont rendus après le média ; les erreurs
-avec réessai restent à proximité. Aucun bus de notification ou abstraction flash.
-
-La grille desktop conserve ses trois enfants et ses pistes 1.2fr/1fr. En présence
-de Transcription, row-gap: 0 et les bordures jointives créent un cadre unique.
-Les lignes sont auto / minmax(auto, 1fr), avec un minimum intrinsèque du workspace.
-Le plancher de la ligne main conserve 38rem + 24px ; les minima réels peuvent
-l'excéder sur fenêtre basse. Sans transcription, le cadre du Lecteur reste complet.
-
-La transcription garde ses commandes et messages non réductibles ; son texte
-utilise flex: 1 1 0, min-height: 12rem et overflow: auto. Le panneau externe est
-en overflow visible. contain: size sur les surfaces défilantes desktop
-note-content, video-information et transcript-content exclut la longueur des
-documents du minimum intrinsèque de la grille ; leurs minima explicites restent
-pris en compte. Aucun éditeur ou lecteur n'est remonté. Les styles de continuité
-du cadre, de minimum de transcription et de containment sont limités au desktop.
-
-## Fiche vidéo — onglets locaux (tranche A)
-
-App fournit un emplacement DOM stable dans l'en-tête ; VideoDetail y rend son h1 et VideoTags
-par portail depuis son unique lecture REST. Le démontage de la fiche retire son
-titre et ses tags, y compris lors d'une navigation avec requête précédente encore en cours.
-Il n'existe ni état miroir du titre ni requête d'en-tête.
-
-VideoDetail possède uniquement le choix Note/Informations et les boutons d'onglet.
-VideoNote reste monté ; son panneau est masqué avec hidden, tandis que le dialogue
-de départ et le signalement d'erreur restent hors de ce panneau. NoteSession garde
-les écritures, conflits et protections de navigation. Informations conserve son défilement desktop ; dans Note, note-content est
-le propriétaire commun du défilement des modes Édition et Lecture. Le mobile conserve le flux lecteur, note, transcription.
-
-MarkdownEditor contrôle l'admissibilité d'une citation avant d'appeler la révélation
-synchrone de Note. La transaction isolée et le focus s'appliquent ensuite à la même
-vue visible. Une bascule ordinaire demande seulement une nouvelle mesure CodeMirror,
-sans prendre le focus du bouton d'onglet. Les captures en cours gardent leur handle
-et leur ancrage ; leur retour réseau ne révèle pas Note.
-
-La hauteur desktop est allouée par deux lignes CSS au niveau de la page :
-en-tête intrinsèque puis main avec minimum de calc(38rem + 24px) (workspace 38rem + paddings).
-La grille des trois zones reste unique ; aucune colonne React supplémentaire,
-aucun observateur de hauteur ni hauteur d'en-tête codée en JavaScript.
-
-### Présentation de la note et confirmations observables
-
-VideoNote conserve son arborescence stable : note-controls contient la barre et
-les messages, note-content contient l'éditeur masquable, la lecture et la résolution
-du conflit. Le CSS affecte la hauteur et le défilement sans recréer EditorView.
-cm-scroller reste en overflow visible ; l'ancêtre note-content porte le défilement
-desktop. Le mobile conserve le flux de page avec commandes sticky. Le panneau
-extérieur ne découpe pas les infobulles et peut agrandir la page en cas de nombreux
-messages. Les tags sont désormais dans l'en-tête.
-
-NoteSnapshot expose confirmationCount, compteur de session en mémoire incrémenté
-uniquement par confirm : PUT réussi ou réconciliation d'une réponse perdue.
-Le GET initial et l'adoption explicite de la version serveur ne l'incrémentent pas.
-Aucun champ persistant ni contrat REST ne change.
-
-NoteSaveButton observe les publications de la session pour la rétroaction de
-cinq secondes. confirm publie avant la libération de running : le composant
-attend la publication finale et l'absence de toute modification non confirmée.
-Une confirmation partielle est consommée sans coche. Le compteur évite de déduire
-un succès de la résolution de save(), qui peut aussi terminer sans écriture,
-sur erreur ou conflit. Les règles, délais, réessais et protections de NoteSession
-restent inchangés ; le temporisateur de présentation est nettoyé au démontage.
-
-### Débordement des informations — contenant des textes accessibles
-
-Le panneau video-information est positionné relativement pour contenir les
-descendants absolus, notamment le libellé sr-only « nouvel onglet » des liens
-externes. Sans ce contenant, ce texte invisible peut échapper à overflow auto
-et augmenter le scrollHeight de la page. La correction conserve le défilement
-interne, le libellé accessible et le défilement de page des fenêtres basses.
-
-
-### Navigation globale et tags adaptatifs
-
-App monte SiteNavigation indépendamment des données vidéo. Le volet utilise
-dialog.showModal : fond inerte, boucle de focus locale, fermeture par Échap,
-bouton ou clic sur le fond. Le verrou de défilement conserve la gouttière
-réservée par scrollbar-gutter: stable, sans déplacement du workspace.
-Les liens ferment synchroniquement le dialogue avant React Router, afin de ne
-pas concurrencer le dialogue de protection de NoteSession. Un changement de
-location ferme aussi le volet. ThemeSelector reste son unique instance et
-conserve ses règles existantes. Aucun état de lecteur ou d'éditeur n'est déplacé.
-
-Le portail stable appartient toujours à VideoDetail : pas de contexte métier
-global, de copie de données ni de nouvelle requête de titre ou de tags.
-VideoTags conserve sa modale, TagEditor et les relectures existantes à l'ouverture
-de la gestion. VideoTagList ne reçoit que la liste chargée et un rappel de focus.
-
-VideoTagList mesure les pilules et les compteurs dans des copies non interactives,
-inert et aria-hidden, découpées dans un contenant positionné de hauteur nulle.
-ResizeObserver suit le groupe de classement, le bouton de gestion et ces copies.
-Le budget soustrait la largeur du bouton et son espacement ; la liste visible
-prend seulement sa largeur de contenu, sans rétroaction sur le budget disponible. Le calcul teste les préfixes dans l'ordre REST avec la largeur
-exacte du compteur correspondant, y compris aux transitions +9/+10/+100.
-Il n'existe ni tri local ni nombre maximal fixe de tags. Les règles CSS gardent
-min-width: 0 et une piste racine minmax(0, 1fr), empêchant les noms longs de
-forcer la largeur de page.
-
-Le popover natif auto reste non modal et ne contient que des liens de filtre.
-Sa position est bornée au viewport, ses noms reviennent à la ligne et sa hauteur
-permet un défilement interne. Un défilement extérieur le ferme ; son propre
-défilement reste possible. Les changements de liste ou de préfixe visible
-ferment une consultation périmée et restaurent au besoin un focus visible.
-Les copies de mesure n'agrandissent jamais le document. Aucun appel réseau
-n'accompagne une ouverture du popover ou un redimensionnement.
-
-
-### Centrage conditionnel du bandeau compact
-
-Sur desktop, App regroupe la navigation et la signature dans header-navigation.
-Une grille réserve deux pistes latérales symétriques quand le portail tient au
-centre ; en repli, celui-ci occupe les deux dernières pistes et s'aligne à gauche.
-Le portail DOM reste identique. Sur mobile, display: contents restitue la grille
-existante et l'ordre du titre et des tags.
-
-measureHeaderLayout mesure la surface intérieure du bandeau, la navigation et
-une copie inerte du titre en largeur naturelle. Cette copie est cachée et découpée,
-sans contribution au débordement du document. Le budget disponible après la
-navigation réserve d'abord la gestion et, si nécessaire, le compteur de tous les
-tags, ou les tags eux-mêmes lorsque leur totalité est moins large que le compteur.
-Le titre prend le reste au maximum de sa largeur naturelle.
-
-VideoTagList conserve le calcul du plus long préfixe dans ce budget indépendant.
-Il en déduit la largeur réellement occupée, puis le choix centré/gauche et les
-variables CSS de taille. Aucun calcul n'utilise la largeur du groupe rendu pour
-décider de son propre budget desktop. ResizeObserver suit les entrées, notamment
-la copie du titre et la navigation. Les mesures sont nettoyées au démontage ;
-aucune requête, persistance ou modification de session métier n'est ajoutée.
-Un popover ouvert est repositionné même si seul le placement change.
+Une seule capture est active par instance serveur, indépendamment de l'acquisition média, sans queue. Le travail continue après la réponse d'acceptation ou la navigation du client. L'arrêt du serveur annule les sous-processus, attend leur finalisation et marque ou récupère les opérations interrompues selon les règles persistées.
+
+### 5.2 Extraction et replis
+
+La capture utilise en priorité le `MediaFile` complet de **la même source**, protégé contre la suppression pendant l'emprunt. Sinon l'adapter résout un flux distant récent et utilise `ffmpeg`/`ffprobe`. Le seek recherche une image réellement décodable au timestamp demandé ; il n'est pas assimilable à une reproduction pixel à pixel de l'iframe YouTube.
+
+La sélection distante privilégie la résolution, puis HTTPS direct à dimensions égales. Un échec HLS éligible peut déclencher **une seule alternative HTTPS de mêmes dimensions** ; un HTTP 403 peut autoriser **une seule nouvelle résolution** de l'URL, dans un budget global borné. Un échec SQLite, stockage ou une annulation **ne déclenche pas** ce repli. Aucun téléchargement complet durable ni réduction automatique de qualité n'est introduit.
+
+Le PNG est validé et synchronisé avant publication sans écrasement, puis le statut SQL est confirmé. Les fichiers publiés sont conservés en cas de commit incertain ; aucune collecte arbitraire des orphelins. La capture peut échouer explicitement sur timestamps sans image, profils colorimétriques non traitables ou formats invalides. Les critères détaillés de format, HDR, sécurité et sélection figurent dans [Tech stack & decisions](04-tech-stack-and-decisions.md).
+
+### 5.3 Idempotence et récupération
+
+Chaque demande possède une clé de commande générée côté client et réutilisée si la réponse HTTP est perdue. La recherche par clé permet de retrouver l'identité de l'Asset ; une répétition avec les **mêmes paramètres et la même clé** reste idempotente. Réutiliser la clé pour une demande différente est un conflit. Une simple consultation ne relance jamais l'extraction.
+
+La génération est distinguée de la **consultation de son fichier** : un Asset `available` dont le PNG est inaccessible ne doit pas être requalifié arbitrairement en `failed`.
+
+## 6. API HTTP / Chi
+
+### 6.1 Conventions
+
+L'API `/api/v1` est construite avec `net/http` et Chi. Les handlers sont minces, les DTO restent distincts du domaine et les données techniques internes ne sont pas retournées au client.
+
+- JSON strict : type MIME approprié lorsque requis, corps bornés, objet unique, champs inconnus refusés, UTF-8 valide et identifiants contrôlés.
+- Erreurs métier transformées en **statuts et codes publics stables**. Un `stderr`, un chemin hôte ou une exception technique ne fait jamais partie du corps public.
+- Les listes renvoient leurs enveloppes (`{"videos": [...]}`, `{"tags": [...]}`, etc.), les éléments et associations leur ordre déterministe ; les champs facultatifs sont représentés selon le contrat REST existant.
+- Les acquisitions synchrones sont bornées par `SILLAGE_POST_TIMEOUT` et annulées avec le contexte HTTP ; les travaux asynchrones ont leur propre contexte serveur.
+- Une API non authentifiée, accessible localement par défaut, ne doit pas être considérée comme prête pour une exposition publique.
+
+Les limites chiffrées et exemples de payloads en vigueur sont également documentés dans le [README](../README.md). Ne pas changer un code REST pour simplifier la documentation.
+
+### 6.2 Vidéos et classement
+
+| Méthode | Route | Contrat essentiel |
+| --- | --- | --- |
+| `POST` | `/api/v1/videos` | Ajout synchrone ; `201` + `Location` si créé, `200` si déjà présent ; aucun refresh implicite |
+| `GET` | `/api/v1/videos` | `{"videos": [...]}` ; ordre `created_at DESC, id DESC` ; `tag_id` facultatif |
+| `GET` | `/api/v1/videos/{id}` | Vidéo, sources, tags et associations directes |
+| `GET` | `/api/v1/tags` | Catalogue complet, même inutilisé ; IDs croissants |
+| `POST` | `/api/v1/videos/{id}/tags` | `{"names": [...]}` ; ajout additif atomique, retourne tous les tags associés |
+| `DELETE` | `/api/v1/videos/{id}/tags/{tag_id}` | `204` idempotent ; supprime l'association seulement |
+
+Les champs `publisher: {id, name}` nullable des sources et `person_ids` directs des vidéos remplacent l'ancien champ `creator`. Les DTO ne créent aucun héritage de tags ou de personnes à partir des publishers.
+
+### 6.3 Notes et transcriptions
+
+| Méthode | Route | Contrat essentiel |
+| --- | --- | --- |
+| `GET` | `/api/v1/videos/{id}/note` | `200` si présente ; `404 note_not_found` si absente |
+| `PUT` | `/api/v1/videos/{id}/note` | `content_md` et `expected_revision` obligatoires ; `201` création, `200` ensuite, `409 note_conflict` si précondition échouée |
+| `GET` | `/api/v1/videos/{video_id}/sources/{source_id}/transcript` | Snapshot local seulement ; `404` en l'absence de transcription |
+| `POST` | `/api/v1/videos/{video_id}/sources/{source_id}/transcript` | Corps vide ; `200` après acquisition et publication explicites |
+
+Le `PUT` de note ne permet ni écriture forcée ni création automatique à la lecture. Les transcriptions sont sélectionnées selon la provenance et la langue admises ; ambiguïté, absence de piste, indisponibilité distante et erreur de snapshot local sont **des catégories différentes**. Un résultat HTTP incertain ne doit pas déclencher un nouveau POST implicite.
+
+### 6.4 Publishers et personnes
+
+Les services exposent des routes de catalogue, création, détail, édition et association pour `publishers`, `persons`, leurs tags et leurs vidéos. Les parcours incluent :
+
+- `POST/GET /api/v1/publishers`, `GET /api/v1/publishers/{id}`, `GET /api/v1/publishers/{id}/videos` ;
+- `POST/GET /api/v1/persons`, `GET/PATCH /api/v1/persons/{id}`, `GET /api/v1/persons/{id}/publishers` et `/videos?relation=direct|publisher|all` ;
+- rattachement explicite d'un publisher à une source, d'une personne à un publisher ou à une vidéo ;
+- ajout/retrait des tags propres à chacun, à partir du catalogue partagé.
+
+Les relations directes et indirectes restent distinctes ; `all` déduplique les vidéos par identité. Aucune suppression d'entité, attribution de rôle ni rafraîchissement automatique n'est exposé. Voir le [README](../README.md) pour les signatures exactes des routes et les erreurs publiques.
+
+### 6.5 Médias et captures
+
+| Méthode | Route | Contrat essentiel |
+| --- | --- | --- |
+| `POST` | `/api/v1/videos/{video_id}/sources/{source_id}/download` | `202` en activité, `200` si déjà disponible ; ne requiert pas d'attente HTTP du téléchargement |
+| `GET` | `/api/v1/videos/{video_id}/sources/{source_id}/download` | État local `not_downloaded`, `downloading`, `available` ou `failed` |
+| `DELETE` | `/api/v1/videos/{video_id}/media-files/{media_file_id}` | Suppression explicite d'une identité exacte, protégée par réservation |
+| `GET/HEAD` | `/api/v1/videos/{video_id}/media-files/{media_file_id}/content` | Diffusion par `ServeContent` avec `Range` et requêtes conditionnelles |
+| `POST` | `/api/v1/videos/{video_id}/sources/{source_id}/captures` | Demande avec timestamp et clé ; `202 pending`, `200` si répétition terminée |
+| `GET` | `/api/v1/assets/requests/{request_id}` | Retrouver l'Asset d'une demande de capture incertaine |
+| `GET` | `/api/v1/assets/{asset_id}` | État, provenance et identité publics |
+| `GET` | `/api/v1/assets/{asset_id}/content` | PNG publié, **sans** création implicite |
+
+Les chemins internes des fichiers et les diagnostics des processus ne sont pas exposés. Les réponses de statut de téléchargement et les erreurs de consultation sont distinctes ; `failed` dans un `GET 200` n'est pas la même chose qu'un échec HTTP de ce GET.
+
+## 7. Diffusion locale et gestion des accès fichiers
+
+### 7.1 Ouverture contrôlée
+
+Le `GET/HEAD` du contenu média vérifie la vidéo propriétaire, l'identité du fichier, son état et sa disponibilité avant d'ouvrir le contenu. Le port de stockage retourne un objet `Reader/Seeker/Closer`. L'adapter filesystem borne l'accès à sa racine (`os.OpenRoot`), refuse les liens symboliques finaux et les fichiers non réguliers et valide le **descripteur réellement ouvert** (taille et type), sans construire un chemin à partir d'une valeur envoyée par le navigateur.
+
+Les fichiers marqués `.deleting` ou ambigus sont indisponibles. Le lecteur ne peut pas demander arbitrairement un fichier de `data/media/`.
+
+### 7.2 Réservations et diffusion HTTP
+
+L'ouverture et la prise de réservation sont sérialisées avec la suppression ; le flux se déroule **sans verrou global**. Fermer le lecteur HTTP ferme son descripteur puis libère sa réservation, y compris après annulation ou panique du handler.
+
+`http.ServeContent` fournit le corps, `HEAD`, les réponses `206/416` et les plages. Les en-têtes sont configurés pour éviter interprétations de type et cache non désiré. Aucune transformation des octets n'est réalisée. Une réservation protège **une requête**, pas toute la séance d'un navigateur : une suppression après une requête peut rendre le `Range` suivant indisponible, sans pouvoir révoquer des octets déjà mis en tampon.
+
+Un format validé par `ffprobe` n'est pas nécessairement décodable dans un navigateur : l'erreur de lecture doit être gérée par le frontend sans transcodage ou effacement implicite.
+
+## 8. Frontend : composition et état
+
+### 8.1 SPA et navigation
+
+React/TypeScript/Vite consomme REST avec des chemins relatifs ; Vite proxy `/api` en développement, Go sert les fichiers de production. Les routes React Router gèrent bibliothèque, ajout et fiche vidéo ; les réponses réseau tardives et lectures annulées ne doivent jamais remplacer les données de la page suivante.
+
+Le data router prend en charge les protections de navigation de la note, y compris l'historique. L'état reste local aux composants et services de session ; pas de store global imposé. La SPA n'a pas d'accès direct à SQLite ni aux fichiers bruts du serveur.
+
+Le fallback vers `index.html` est réservé aux **routes SPA** : il ne doit masquer ni une erreur de `/api`, ni l'absence d'un asset statique. Le répertoire public servi par Go est distinct du répertoire persistant ; son ouverture est bornée côté filesystem.
+
+### 8.2 Workspace et données partagées
+
+La fiche charge la vidéo par REST et détermine sa source de travail. `VideoPlayer` et `VideoTranscript` consomment cette identité commune ; `VideoNote` est associé à la `Video` et reste monté pendant les changements de mode/onglet, de lecteur et de disposition.
+
+Le titre et les tags de la fiche alimentent un emplacement stable de l'en-tête, sans seconde requête dédiée ni copie globale des données. La navigation latérale, le thème et les tags d'en-tête ne doivent ni commander les lecteurs ni détruire la session d'édition.
+
+L'onglet Note/Informations masque visuellement le contenu inactif sans démonter `VideoNote`. Une citation n'ouvre Note **que si l'insertion est admissible** ; les retours de capture asynchrones ne changent pas d'onglet. Le panneau d'informations conserve l'accès à toutes les sources et aux propriétés locales ; le popover du lecteur est limité à son contexte YouTube/Local.
+
+Le layout actuel comprend les surfaces 16:9 (avec exception de hauteur minimale sur petit mobile), la colonne Note et le cadre Lecteur/Transcription jointif sur desktop ; il conserve les trois composants séparés. Les contraintes visuelles précises sont documentées dans [Product & UX](01-product-and-ux.md), pas reproduites comme des étapes de refonte.
+
+### 8.3 Session CodeMirror, sauvegarde et lecture
+
+Une session locale par note porte le texte courant, la dernière version confirmée, sa révision, les délais d'autosauvegarde, les conflits et l'écriture en cours. `MarkdownEditor` conserve son `EditorView` pendant le passage Édition/Lecture, les onglets et les réponses du serveur. Le rendu Lecture utilise GFM sécurisé sans exécuter de HTML brut.
+
+La session travaille en LF ; le service Go normalise au moment de la sauvegarde. Une ancienne note CRLF ne doit pas être écrite simplement parce qu'on l'a ouverte. Le client peut réconcilier une réponse perdue par GET avant une nouvelle tentative ; les conflits suspendent l'autosauvegarde et demandent un choix explicite conditionnel.
+
+La sauvegarde visuelle représente la **confirmation de tout le contenu actuel**, pas la seule fin d'une promesse réseau. Les confirmations partielles ou anciennes ne déclenchent pas de coche de succès. Échec et conflit persistent jusqu'à leur résolution. Les états de présentation ne constituent ni nouveaux champs en base ni nouvelles routes.
+
+### 8.4 Références temporelles et navigation
+
+Le format canonique est une URI Markdown `sillage://videos/{video_id}/sources/{source_id}?start_ms={ms}`. Un parseur pur valide sa structure et ses entiers ; ni libellé affiché ni URL quelconque ne sont interprétés comme une commande temporelle. `end_ms` reste réservé à une future plage.
+
+`VideoDetail` vérifie l'appartenance vidéo/source puis délègue une action impérative au lecteur actif. Les liens en Lecture et les références activables en Édition réutilisent la même validation. Les liens Web restent filtrés/sécurisés ; les liens externes HTTP(S) ouvrent un onglet protégé. Les refus apparaissent près du geste concerné, sans modifier la note.
+
+Après une commande acceptée, le lecteur peut faire défiler **la page** pour rendre la vidéo visible, sans déplacer le focus ni forcer un défilement interne du texte. Un lecteur non prêt ou une identité différente produit un refus explicite, sans commande différée.
+
+#### YouTube et Local
+
+`VideoPlayer` conserve un en-tête et une surface active unique. Chaque surface expose les opérations nécessaires au workspace (`getCurrentTimeMs`, `navigate`, `stop`, visibilité et position transférable). Lors d'une bascule, l'ancienne surface est arrêtée avant la nouvelle ; les callbacks tardifs des instances démontées sont ignorés.
+
+- **Sélection initiale** : attendre la première consultation de disponibilité ; Local si un fichier de la source de travail est disponible, sinon YouTube. Le choix ne change pas à la fin d'un téléchargement et n'est pas persisté.
+- **Bascule** : transmettre si possible une position admissible ou préparée, sans autoplay ; une position devenue incertaine ne réutilise jamais l'ancienne cible. `cueVideoById` prépare YouTube ; `loadedmetadata` prépare Local. La mémoire ne sort pas de la session de la fiche/source.
+- **Navigation explicite** : YouTube utilise `seekTo` depuis les états connus, en préservant la pause depuis `paused` et en demandant le démarrage sinon ; Local règle `currentTime` sans démarrage automatique. Une préparation de bascule n'est pas une navigation explicite.
+- **Annotation/capture** : `getCurrentTimeMs` exige une position courante admissible. YouTube interroge la valeur annoncée dans ses états utilisables, même légèrement ancienne après un seek ; aucun verrou durable `pendingSeek` ni comparaison à la dernière cible. Local refuse le seek en cours ou des données insuffisantes. Un départ simplement préparé n'est jamais annotable.
+- **Visibilité** : masquer arrête la lecture ; une pause YouTube non confirmée peut conduire à détruire l'instance pour garantir l'arrêt. Réafficher ne relance pas la lecture.
+- **Blocage navigateur** : un événement `onAutoplayBlocked` peut informer l'utilisateur, sans détection par délai, deuxième `playVideo` ni relance automatique. L'absence du signal ne prouve pas que le démarrage a réussi.
+
+Les comportements et scénarios sur l'API YouTube réelle sont consignés dans [la recette manuelle](07-local-playback-validation.md). Les tests de navigateur avec un double YouTube ne remplacent pas cette validation.
+
+### 8.5 Transcription et recherche locale
+
+`VideoTranscript` charge seulement la transcription de la source de travail, sans acquisition implicite. La demande explicite récupère ou actualise ; une réponse perdue peut être clarifiée par lecture GET. Le contenu visible reste indépendant de l'état de l'acquisition et n'est pas effacé sur une erreur distante.
+
+La présentation regroupe les fragments source dans des intervalles **fixes de 10 secondes**, en conservant leur ordre et leur texte exact ; les paragraphes utilisent le retour visuel à la ligne du navigateur. La recherche opère sur la concaténation exacte des fragments chargés, indépendamment des blocs visuels ; elle conserve la correspondance vers les positions pour le surlignage. Aucun index SQL ni recherche globale n'est utilisé ici.
+
+Une occurrence de recherche ne commande pas le lecteur ; seul le timestamp activé le fait. La sélection d'un passage pour citation est une sélection native DOM : l'extraction de texte continu ignore les boutons de temps, tient compte des marques de recherche et rattache la position au premier fragment réellement retenu.
+
+### 8.6 Citations, callouts et décorations
+
+La citation passe de la sélection de transcription à une **transaction CodeMirror** dans la note. Une note non vide exige un emplacement choisi explicitement par l'utilisateur ; un focus automatique ne suffit pas. Une citation inadmissible ne change pas l'onglet ni la note. La transaction est isolée dans Undo/Redo et respecte LF, la révision et l'autosauvegarde.
+
+Le rendu Markdown utilise un traitement Remark ciblé pour `quote` et `quote:tr` avec validation partagée des URI canoniques, sans moteur extensible de callouts. Les en-têtes inconnus ou invalides restent du Markdown ordinaire ; leur contenu n'est pas exécuté comme HTML. Le titre d'une citation de transcription reste du texte littéral.
+
+CodeMirror utilise ses propres arbres syntaxiques pour les décorations de blockquotes et la compaction ciblée de références temporelles, sans transformer le Markdown stocké. Le clic simple révèle la source ; le clavier, les sélections et la composition IME préservent l'édition native. **Ctrl/Cmd+clic** et **Ctrl/Cmd+Entrée** activent seulement les références reconnues et admissibles en réutilisant la navigation du mode Lecture. Les décorations visuelles ne produisent pas de sauvegarde.
+
+### 8.7 Insertion asynchrone des captures
+
+L'éditeur affiche un ancrage visuel pendant l'acceptation de la capture, **sans Markdown temporaire** ni transaction de sauvegarde. Une `StateField` suit ce point à travers les changements de document ; si l'ancrage est détruit ou la session remplacée, la réponse tardive n'insère rien.
+
+L'acceptation persistée produit une unique insertion Markdown isolée dans Undo/Redo. Retirer le lien ou annuler son insertion ne supprime pas l'Asset et n'annule pas son opération serveur. Les images du mode Lecture consultent leur état par identité ; elles ne déclenchent aucune génération et ne commandent pas le lecteur.
+
+### 8.8 Gestion des tags et en-tête
+
+Les mutations de tags sont des opérations successives et persistées immédiatement ; la fermeture de la modale ne les annule pas. Le frontend fournit une autocomplétion accessible sans réimplémenter la normalisation métier Go. Les fiches affichent les tags dans leur en-tête, avec un préfixe mesuré et un compteur `+n` pour le surplus ; la liste garde l'ordre REST et n'impose pas de quota arbitraire.
+
+Les mesures d'encombrement et changements responsive n'ajoutent ni requête REST, ni association, ni sauvegarde de note. Le volet global utilise un dialogue modal et se ferme avant une navigation protégée afin de ne pas concurrencer le dialogue de sauvegarde.
+
+## 9. Journalisation et observabilité
+
+Le logger `log/slog` est composé au démarrage et transmis aux services via contexte ; il reste indépendant des objets métier. Le middleware Chi produit **un bilan HTTP unique** avec identifiant généré par le serveur et code public contrôlé. Il couvre API et SPA, ne journalise pas les URL arbitraires et récupère les panics HTTP selon l'état réel de la réponse (avant/après engagement du writer).
+
+- Ne jamais journaliser corps de notes ou transcriptions, URL signées, cookies, en-têtes, chemins hôte arbitraires, `stderr` brut ou texte de panic, même en `DEBUG`.
+- Les erreurs d'outils gardent des catégories sûres, étapes et codes de sortie sans exposer leurs sorties. Les erreurs métier attendues ne sont pas artificiellement converties en `internal_error`.
+- Les opérations média et capture ont leur **propre identité et leur propre contexte serveur**. L'identifiant HTTP à l'origine de l'acceptation est un attribut de corrélation, pas leur durée de vie.
+- La récupération d'une capture par sa clé corrèle la nouvelle requête à l'Asset et à son opération, **sans afficher la clé brute**. Un log de début sans fin après crash reste possible ; les logs ne remplacent jamais les états durables.
+- Une déconnexion HTTP n'efface pas la gravité d'un échec applicatif déjà constaté. Le writer doit conserver `HEAD`, `Range`, flux progressif et autres capacités HTTP.
+
+Les niveaux, formats et la rotation sont définis dans [Tech stack & decisions](04-tech-stack-and-decisions.md). Le transport et les traitements médias ne changent pas de règles de repli à cause de la manière dont une erreur est journalisée.
+
+## 10. Assemblage, distribution et validation
+
+### 10.1 Serveur et Docker
+
+Le serveur assemble les adapters SQLite, filesystem, `yt-dlp`, `ffmpeg`/`ffprobe`, services Go, handlers HTTP et fichiers frontend. Le build de production sert une SPA statique ; le mode API seul reste possible sans frontend. Le Dockerfile multi-stage fournit l'environnement Go/Web et les outils nécessaires dans une image finale non-root.
+
+Par défaut, Docker publie le port hôte sur `127.0.0.1`, malgré l'écoute interne `0.0.0.0`. Les données du bind mount restent indépendantes de l'image ; les sauvegardes/restaurations à froid doivent être cohérentes. Aucune authentification ne protège actuellement une publication réseau générale.
+
+### 10.2 Arrêt et opérations longues
+
+Les téléchargements et captures vivent au niveau du serveur ; une déconnexion du navigateur ne les annule pas. L'arrêt doit stopper les descendants des outils externes et attendre la finalisation des opérations avant la fermeture de SQLite. Les acquisitions synchrones de métadonnées ou de transcriptions restent au contraire bornées par la requête et son contexte.
+
+Une seule instance doit posséder le répertoire de données. Aucun `Job` générique persistant ni file distribuée n'est requis par l'architecture actuelle ; leur éventuelle introduction est une décision future.
+
+### 10.3 Tests et limites des doubles
+
+La CI déterministe couvre services/SQLite, REST/Postman, React/Playwright et Docker. Les scénarios `yt-dlp` ou `ffmpeg` testent autant que possible de **vrais exécutables avec des données synthétiques** sans dépendance réseau. Le frontend peut simuler l'IFrame API YouTube, tandis que le parcours local peut réellement décoder un média synthétique et utiliser SQLite/Range.
+
+**Ne pas assimiler un double YouTube à une validation navigateur réelle** : politiques d'autoplay, codecs, rendu visuel, plein écran et délais des API réelles demandent les essais ciblés de [la recette manuelle](07-local-playback-validation.md). Les volumes de tests et validations ponctuelles appartiennent aux PR/CI, pas à ce document.
+
+## 11. Extensions futures et règles de maintenance
+
+La recherche globale (éventuellement FTS5), MCP, IA/STT, imports locaux, autres providers, sauvegarde avancée et desktop doivent conserver les **frontières métier** ci-dessus. Leur existence dans la roadmap ou dans les questions ouvertes **n'autorise pas** à créer immédiatement ports, routes, jobs ou tables anticipés.
+
+Lorsque le code change :
+
+1. Mettre à jour **la section architecturale existante** et retirer la règle remplacée.
+2. Mettre à jour séparément le contrat UX, le modèle métier et/ou les décisions techniques si leur périmètre est affecté.
+3. Garder dans [Open questions](06-open-questions.md) seulement les choix encore ouverts, et dans [Roadmap](05-roadmap.md) seulement les étapes prévues ou leur état.
+4. Utiliser Git et les PR pour les preuves de validation ; réserver `history/` aux arbitrages dont la motivation restera utile.
+
+Éviter les annexes chronologiques, les anciennes recettes de test, les statuts de branches et les titres de type « phase N implémentée » dans cette spécification d'architecture.

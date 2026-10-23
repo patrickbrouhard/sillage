@@ -160,6 +160,12 @@ SQLite est le stockage relationnel privilégié.
 
 Les médias, screenshots et autres assets sont stockés sur le système de fichiers.
 
+Les représentations distantes et locales sont complémentaires, sans hiérarchie systématique. L'utilisateur décide de télécharger et conserver un média ; ni sa durée, ni son type, ni des captures envisagées ne déclenchent de conservation automatique. La connaissance reste indépendante du média local.
+
+La préservation prime sur le nettoyage automatique : une absence de référence SQLite ne rend jamais un média utilisateur jetable.
+
+Le lecteur local est sélectionné en priorité lorsque le média de la source de travail est disponible. Ce choix UX ne change pas la politique de conservation ; la sélection technique d'une méthode de capture reste une question distincte.
+
 ### 4.6 Architecture modulaire
 
 Le cœur métier ne doit dépendre ni :
@@ -218,19 +224,3 @@ Une fonctionnalité est cohérente avec le projet si elle aide à faire au moins
 3. **structurer** cette information ;
 4. **retrouver** cette information ;
 5. **réutiliser ou interroger** cette connaissance, manuellement ou avec une IA.
-
-
-### Représentations et conservation — décision 7.1
-
-Les représentations distantes et locales sont complémentaires, sans hiérarchie
-systématique. L'utilisateur décide de télécharger et conserver un média ;
-la durée, le type de contenu ou des captures envisagées ne déclenchent jamais
-une conservation automatique. La connaissance reste indépendante du média local.
-La sélection technique d'une méthode de capture est une question distincte.
-
-La préservation prime sur le nettoyage automatique : une absence de référence
-SQLite ne rend jamais un média utilisateur jetable.
-
-La priorité initiale au lecteur local est active lorsque le média de la source
-de travail est disponible. Ce choix UX ne change ni la valeur des représentations
-ni leur politique de conservation.
