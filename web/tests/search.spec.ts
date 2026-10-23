@@ -151,3 +151,16 @@ for (const width of [1440, 768, 375, 320]) {
     }
   })
 }
+
+test('bandeau desktop de même hauteur sur bibliothèque, recherche et fiche', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trsearch003' } })).json()
+  const heights: number[] = []
+  for (const path of ['/', '/search', '/videos/' + video.id]) {
+    await page.goto(path)
+    heights.push(await page.locator('.site-header').evaluate(el => el.getBoundingClientRect().height))
+    await expect(page.locator('.site-header')).toHaveCSS('border-bottom-width', '0px')
+    await expect(page.locator('.site-header')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  }
+  expect(heights).toEqual([56, 56, 56])
+})

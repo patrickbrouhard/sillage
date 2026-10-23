@@ -570,9 +570,9 @@ html:has(.site-navigation[open]) { overflow: hidden; }
 /* La recherche utilise une grille symétrique indépendante des mesures titre/tags. */
 .site-header-common { min-height: 64px; padding-block: 10px; background: transparent; border-bottom: 0; }
 .site-header-search { display: grid; grid-template-columns: minmax(190px, 1fr) minmax(0, 640px) minmax(190px, 1fr); }
-.global-search-form { display: flex; align-items: center; width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--input); }
-.global-search-form input { width: 100%; min-width: 0; border: 0; border-radius: inherit; background: transparent; color: var(--text); font: inherit; font-size: 14px; padding: 10px 16px; }
-.global-search-form button { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: var(--text); cursor: pointer; }
+.global-search-form { height: 40px; display: flex; align-items: center; width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--input); }
+.global-search-form input { width: 100%; min-width: 0; border: 0; border-radius: inherit; background: transparent; color: var(--text); font: inherit; font-size: 14px; padding: 8px 16px; }
+.global-search-form button { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border: 0; border-radius: 50%; background: transparent; color: var(--text); cursor: pointer; }
 .global-search-form button:hover { background: var(--hover); }
 .search-results { display: flex; flex-direction: column; gap: 24px; }
 .search-result { display: grid; grid-template-columns: minmax(160px, 240px) minmax(0, 1fr); gap: 24px; border-bottom: 1px solid var(--subtle); padding-bottom: 24px; }
