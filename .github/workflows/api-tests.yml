@@ -25,6 +25,7 @@ jobs:
 
       # Le sélecteur réel travaille sur des métadonnées synthétiques, sans accès à YouTube.
       - name: Install pinned media tools
+        timeout-minutes: 5
         run: |
           version=$(sed -n 's/^ARG YTDLP_VERSION=//p' deployments/docker/Dockerfile)
           checksum=$(sed -n 's/^ARG YTDLP_SHA256=//p' deployments/docker/Dockerfile)
@@ -33,8 +34,11 @@ jobs:
           echo "$checksum  $RUNNER_TEMP/media-tools/yt-dlp" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/media-tools/yt-dlp"
           echo "$RUNNER_TEMP/media-tools" >> "$GITHUB_PATH"
+          # Évite le miroir Azure lent tout en conservant les miroirs Ubuntu de repli.
+          # https://github.com/actions/runner-images/issues/14823
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Test and build
         run: |
@@ -89,7 +93,11 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install media tools for browser tests
+        timeout-minutes: 5
         run: |
+          # Évite le miroir Azure lent tout en conservant les miroirs Ubuntu de repli.
+          # https://github.com/actions/runner-images/issues/14823
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ffmpeg
           /usr/bin/ffmpeg -version
