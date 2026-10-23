@@ -173,8 +173,10 @@ func TestMediaCommandStopsDescendants(t *testing.T) {
 	// Un zombie réadopté attend seulement sa collecte par init ; il ne travaille plus.
 	deadline = time.Now().Add(2 * time.Second)
 	for {
+		// Une disparition entre l'ouverture et la lecture de stat peut renvoyer ESRCH plutôt qu'ENOENT.
 		stat, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
-		if errors.Is(err, os.ErrNotExist) || (err == nil && strings.Contains(string(stat), ") Z ")) {
+		if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ESRCH) ||
+			(err == nil && strings.Contains(string(stat), ") Z ")) {
 			break
 		}
 		if err != nil {
