@@ -296,27 +296,24 @@ Les contrats REST existants sont implémentés et décrits dans la documentation
 - Pagination des collections.
 - Filtres supplémentaires et combinaisons de filtres.
 - Tri configurable.
-- Recherche textuelle et filtres avancés.
+- Extension de la recherche textuelle et filtres avancés.
 - Authentification et autorisations, si l'application évolue au-delà de son usage local actuel.
 - Contrats supplémentaires pour les futures annotations, clips, imports et fonctions de gestion.
 
 Éviter d'introduire une infrastructure générique avant qu'un cas d'usage concret ne la nécessite.
 
-### 5.2 Recherche globale
+### 5.2 Extensions de recherche
 
-La recherche dans une transcription ouverte existe déjà. La recherche globale entre vidéos, notes et transcriptions reste une étape de développement distincte.
+La V1 FTS5 recherche les vidéos par leurs sources, publishers, tags directs et notes, avec indexation transactionnelle, reconstruction et pagination. Les décisions applicables sont décrites dans les documents 01 à 04.
 
-Questions à préciser :
+Restent à étudier :
 
-- Quel périmètre pour une première recherche globale : titres, tags, notes, métadonnées et/ou transcriptions ?
-- Comment faire évoluer cette première version vers SQLite FTS5 ?
-- Quelle représentation dérivée des transcriptions utiliser pour indexer le texte tout en conservant les timestamps ?
-- Comment présenter un résultat provenant d'un passage précis, avec navigation vers la bonne vidéo, source et position ?
-- Quelle politique d'indexation, de réindexation et de mise à jour adopter ?
-- Quels filtres, classements et critères de pertinence seront réellement nécessaires ?
-- À quel moment intégrer les futurs artefacts IA dans la recherche ?
-
-FTS5 est la solution technique privilégiée à ce stade, mais son schéma et son intégration précise restent à définir.
+- Quelle représentation dérivée des transcriptions permettra la recherche de passages avec provenance et timestamps ?
+- Comment naviguer depuis un passage trouvé vers la vidéo, source et position concernées ?
+- Quels filtres avancés et tris configurables apporteraient un bénéfice concret ?
+- Faut-il proposer correction orthographique, expressions exactes ou recherche instantanée ?
+- Quels besoins justifieraient une segmentation linguistique supplémentaire, des alias ou une recherche sémantique ?
+- Quand et comment intégrer les futurs artefacts IA aux résultats ?
 
 ## 6. MCP
 

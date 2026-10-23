@@ -343,9 +343,9 @@ SQLite conserve les entités, relations, états et chemins nécessaires. Le file
 
 Les sauvegardes, restaurations et changements de chemins doivent préserver **simultanément** la cohérence de la base et des fichiers. La configuration de stockages externes/NAS, la maintenance des orphelins et une stratégie de backup en ligne restent à définir.
 
-## 11. Recherche future, limites et décisions non prises
+## 11. Limites et décisions non prises
 
-**SQLite FTS5** est privilégié pour la recherche plein texte transversale dans les titres, descriptions, notes, transcriptions et futurs artefacts textuels ; une première recherche simple peut le précéder. Le schéma d'indexation, la pertinence, les timestamps retrouvables et les opérations de réindexation doivent être cadrés lors de l'étape 8. Ne pas ajouter prématurément une base vectorielle.
+La recherche globale FTS5 est décrite en section 3.7. Transcriptions avec passages/timestamps et futurs artefacts IA restent hors de son périmètre actuel. Une éventuelle recherche sémantique nécessite une décision distincte ; aucune base vectorielle n'est introduite.
 
 À reconsidérer uniquement lorsque le besoin est établi : WAL ; Goose ; import de `VideoSource` locale ; format et rétention des snapshots ; plusieurs qualités et audio seul ; règles de suppression/soft delete ; sauvegarde et restauration avancées ; jobs persistants ; recherche hybride ; auth/multi-utilisateur ; desktop ; providers IA/STT ; transport et permissions MCP. La liste et les questions détaillées vivent dans [Open questions](06-open-questions.md), pas dans un journal ajouté ici.
 

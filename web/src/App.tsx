@@ -4,6 +4,8 @@ import { Library } from './Library'
 import { AddVideo } from './AddVideo'
 import { VideoPage } from './VideoPage'
 import { SiteNavigation } from './SiteNavigation'
+import { Search } from './Search'
+import { SearchForm } from './SearchForm'
 
 /** Assemble les pages sans déplacer l'état des acquisitions dans un store global. */
 export function App() {
@@ -12,16 +14,22 @@ export function App() {
   const [titleHost, setTitleHost] = useState<HTMLDivElement | null>(null)
   const main = useRef<HTMLElement>(null)
 
+  const previousPath = useRef<string | null>(null)
   useEffect(() => {
-    // Une navigation SPA annonce son nouveau contexte aux utilisateurs du clavier.
-    main.current?.focus({ preventScroll: true })
-    window.scrollTo(0, 0)
-  }, [location.pathname])
+    // Le focus demandé par le volet attend la navigation autorisée par le garde.
+    const focusSearch = location.pathname === '/search' && location.state?.focusSearch
+    if (focusSearch) document.getElementById('global-search')?.focus({ preventScroll: true })
+    else if (previousPath.current !== location.pathname) main.current?.focus({ preventScroll: true })
+    if (previousPath.current !== location.pathname) window.scrollTo(0, 0)
+    previousPath.current = location.pathname
+  }, [location.pathname, location.key])
+  const searchHeader = location.pathname === '/' || location.pathname === '/search'
+
 
   return (
     <>
       <a className="skip-link" href="#main">Aller au contenu</a>
-      <header className={`site-header${videoPage ? ' site-header-compact' : ''}`}>
+      <header className={`site-header${videoPage ? ' site-header-compact' : ' site-header-common' + (searchHeader ? ' site-header-search' : '')}`}>
         <div className="header-navigation">
           <SiteNavigation />
           <Link className="brand" to="/" aria-label="Sillage, accueil">
@@ -29,11 +37,12 @@ export function App() {
           </Link>
         </div>
         {videoPage && <div className="video-header-content" ref={setTitleHost} />}
-        {!videoPage && <span className="header-caption">Une trace de ce qui compte.</span>}
+        {searchHeader && <SearchForm />}
       </header>
       <main id="main" ref={main} tabIndex={-1} aria-labelledby={videoPage ? 'video-title' : undefined}>
         <Routes>
           <Route path="/" element={<Library />} />
+          <Route path="/search" element={<Search />} />
           <Route path="/videos/new" element={<AddVideo />} />
           <Route path="/videos/:videoId" element={<VideoPage titleHost={titleHost} />} />
           <Route path="*" element={

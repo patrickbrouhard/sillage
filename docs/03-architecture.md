@@ -294,7 +294,7 @@ Un format validé par `ffprobe` n'est pas nécessairement décodable dans un nav
 
 ### 8.1 SPA et navigation
 
-React/TypeScript/Vite consomme REST avec des chemins relatifs ; Vite proxy `/api` en développement, Go sert les fichiers de production. Les routes React Router gèrent bibliothèque, ajout et fiche vidéo ; les réponses réseau tardives et lectures annulées ne doivent jamais remplacer les données de la page suivante.
+React/TypeScript/Vite consomme REST avec des chemins relatifs ; Vite proxy `/api` en développement, Go sert les fichiers de production. Les routes React Router gèrent bibliothèque, recherche, ajout et fiche vidéo ; les réponses réseau tardives et lectures annulées ne doivent jamais remplacer les données de la page suivante.
 
 Le data router prend en charge les protections de navigation de la note, y compris l'historique. L'état reste local aux composants et services de session ; pas de store global imposé. La SPA n'a pas d'accès direct à SQLite ni aux fichiers bruts du serveur.
 

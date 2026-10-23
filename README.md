@@ -4,7 +4,7 @@
 
 YouTube est actuellement la source prise en charge. La conception distingue la vidéo comme objet de connaissance (`Video`), sa provenance (`VideoSource`) et son éventuel fichier local (`MediaFile`). Le projet est **self-hosted**, utilisable sans intelligence artificielle et toujours en développement.
 
-> **État du projet :** le socle de travail vidéo est fonctionnel. La recherche globale, MCP et l'IA intégrée restent à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
+> **État du projet :** le socle de travail vidéo est fonctionnel. MCP et l'IA intégrée restent à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
 
 ## Fonctionnalités disponibles
 
@@ -15,9 +15,10 @@ YouTube est actuellement la source prise en charge. La conception distingue la v
 - **Transcriptions YouTube** : acquisition explicite de sous-titres automatiques sélectionnés, conservation du JSON3, lecture hors réseau depuis le snapshot, recherche textuelle locale, navigation par timestamp et citation d'extraits dans la note.
 - **Lecture distante et locale** : lecteur YouTube ou HTML5 natif, conservation volontaire d'une vidéo avec `yt-dlp`, suivi du téléchargement, consultation des propriétés techniques, suppression explicite du fichier et bascule entre lecteurs. Si le fichier est disponible à l'ouverture, **Local** est sélectionné en premier ; aucune lecture ne démarre automatiquement.
 - **Captures PNG** : extraction d'une image au temps courant avec `ffmpeg`, insertion dans la note et conservation indépendante du fichier vidéo et du Markdown qui la référence.
+- **Recherche globale** : titres et descriptions des sources, publishers, tags directs et notes ; résultats paginés, extraits et explications.
 - **API REST** : accès aux vidéos, notes, tags, transcriptions, publishers, personnes, fichiers locaux et captures.
 
-La recherche **dans une transcription ouverte** est disponible. Elle ne doit pas être confondue avec une recherche dans toute la bibliothèque. Le serveur MCP, l'IA intégrée, l'import de vidéos locales et les annotations structurées constituent des travaux futurs, pas des fonctionnalités livrées.
+La recherche **dans une transcription ouverte** reste distincte de la recherche globale, qui n’indexe pas les transcriptions. Le serveur MCP, l'IA intégrée, l'import de vidéos locales et les annotations structurées constituent des travaux futurs, pas des fonctionnalités livrées.
 
 ## Démarrage rapide avec Docker
 
