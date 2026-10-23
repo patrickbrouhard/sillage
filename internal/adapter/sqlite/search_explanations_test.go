@@ -93,3 +93,20 @@ func TestSearchBatchLoadsWithOneConnection(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchExcerptBoundsHugeTokensWithoutBreakingUnicode(t *testing.T) {
+	input := []search.Segment{
+		{Text: strings.Repeat("é", 1000)},
+		{Text: strings.Repeat("漢", 2000), Highlight: true},
+		{Text: strings.Repeat("界", 1000)},
+	}
+	got := limitSearchExcerpt(input)
+	runes, highlighted := 0, false
+	for _, segment := range got {
+		runes += len([]rune(segment.Text))
+		highlighted = highlighted || segment.Highlight
+	}
+	if runes > 602 || !highlighted || got[0].Text != "…" || got[len(got)-1].Text != "…" {
+		t.Fatalf("length=%d highlighted=%t: %+v", runes, highlighted, got)
+	}
+}

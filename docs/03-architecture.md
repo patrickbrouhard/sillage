@@ -99,7 +99,7 @@ Le port de provider retourne un contenu normalisé et les octets source opaques 
 
 Publication d'un snapshot : écriture d'un nouveau temporaire, synchronisation, fermeture et renommage, **puis transaction SQLite courte**. Aucune transaction SQL n'est maintenue pendant le réseau ou l'écriture du fichier. L'ancien snapshot reste disponible pour les lecteurs ; un crash ou un échec SQL peut laisser un fichier orphelin, qui n'est pas effacé arbitrairement. Le `GET` lit et parse le snapshot référencé ; son absence/corruption est une erreur locale, sans réacquisition implicite.
 
-### 2.7 Recherche globale
+### 2.5 Recherche globale
 
 `search.Service` expose un port spécialisé réutilisable directement par le futur MCP. L'adapter SQLite possède une table FTS ordinaire, une ligne par ID vidéo et cinq colonnes : titres, tags directs, note extraite, publishers, descriptions. Sources et tags sont lus séparément, ordonnés et dédupliqués strictement.
 
@@ -109,7 +109,7 @@ Après les migrations SQL, `Open` initialise la projection en Go. La version est
 
 Les explications réutilisent le tokenizer FTS5, avec une disjonction des termes pour reconnaître les contributions partielles. Les sources de la page sont projetées en une seule insertion SELECT dans une table FTS temporaire ; chaque champ contributeur est identifié sans test de sous-chaîne. Plusieurs sources peuvent expliquer une vidéo sans qu'une seule soit désignée comme origine de toute la requête.
 
-L'extrait de note n'est fourni que si sa colonne contient une correspondance. SQLite sélectionne une fenêtre courte (32 tokens), qui ne prétend pas montrer tous les termes. Des marqueurs choisis absents des textes sont convertis en segments texte/surlignage ; aucun HTML n'est retourné pour injection. Index, données, provenance et extrait sont lus dans le même instantané, avec un nombre constant de lectures SQL par page.
+L'extrait de note n'est fourni que si sa colonne contient une correspondance. SQLite sélectionne une fenêtre courte (32 tokens, puis au plus 600 caractères Unicode et ellipses), qui ne prétend pas montrer tous les termes. Des marqueurs choisis absents des textes sont convertis en segments texte/surlignage ; aucun HTML n'est retourné pour injection. Index, données, provenance et extrait sont lus dans le même instantané, avec un nombre constant de lectures SQL par page.
 
 ## 3. Stockage SQLite et filesystem
 
