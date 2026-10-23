@@ -135,9 +135,9 @@ export function VideoPlayer({ videoID, source, download, ref }: {
   return <section className="video-player" aria-label="Lecteur">
     <div className="player-toolbar">
       <div className="player-mode-controls">
-        <div className="player-segments" role="group" aria-label="Mode de lecture">
-          <button type="button" aria-pressed={selection?.mode === 'youtube'} disabled={!selection} onClick={() => selectMode('youtube')}>YouTube</button>
-          <button type="button" ref={localButton} aria-pressed={selection?.mode === 'local'} disabled={!selection}
+        <div className="player-segments segmented-control" role="group" aria-label="Mode de lecture">
+          <button className="segmented-button" type="button" aria-pressed={selection?.mode === 'youtube'} disabled={!selection} onClick={() => selectMode('youtube')}>YouTube</button>
+          <button className="segmented-button" type="button" ref={localButton} aria-pressed={selection?.mode === 'local'} disabled={!selection}
             onClick={() => selectMode('local')}>
             Local
           </button>

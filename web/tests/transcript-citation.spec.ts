@@ -233,7 +233,7 @@ test('clic à zéro constitue un choix explicite sans saisie préalable', async 
 test('une insertion temporelle programmée ne choisit pas implicitement un emplacement', async ({ page, request }) => {
   const { noteURL } = await openWorkspace(page, request, 'Suite')
   await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(2))
-  await page.getByRole('button', { name: '+ Temps', exact: true }).click()
+  await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
   await selectText(page)
   await page.getByRole('button', { name: 'Citer dans la note' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Placez le curseur' })).toBeVisible()

@@ -1,11 +1,15 @@
 import { useId, useState } from 'react'
 import type { ButtonHTMLAttributes, Ref } from 'react'
 
-type IconName = 'info' | 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear' | 'trash' | 'save' | 'check' | 'spinner' | 'conflict' | 'menu' | 'tags'
+type IconName = 'pencil' | 'book-open' | 'clock-plus' | 'camera' | 'info' | 'eye' | 'eye-off' | 'download' | 'refresh' | 'search' | 'quote' | 'previous' | 'next' | 'clear' | 'trash' | 'save' | 'check' | 'spinner' | 'conflict' | 'menu' | 'tags'
 
 /** Dessine les quelques commandes des panneaux sans dépendance ni texte exposé aux lecteurs d'écran. */
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
+    pencil: 'm16 3 5 5 M4 15 16 3a3.5 3.5 0 0 1 5 5L9 20l-6 1 1-6',
+    'book-open': 'M12 7v14 M3 3h3a6 6 0 0 1 6 4 6 6 0 0 1 6-4h3v17h-3a6 6 0 0 0-6 1 6 6 0 0 0-6-1H3V3',
+    'clock-plus': 'M12 8v4l2 2 M21 10a9 9 0 1 0-11 11 M18 15v6 M15 18h6',
+    camera: 'M14 4h-4L8 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-4l-2-3 M16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
     menu: 'M4 6h16 M4 12h16 M4 18h16',
     tags: 'M3 3h8l10 10-8 8L3 11V3 M7 7h.01',
     save: 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2 M7 3v6h9V3 M7 21v-8h10v8',

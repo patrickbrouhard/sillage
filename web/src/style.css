@@ -169,7 +169,13 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 .markdown-editor .cm-focused { outline: none; }
 
 .note-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; }
-.note-toolbar [aria-pressed=true] { outline: 2px solid var(--focus); }
+/* Les insertions peuvent se répartir ; les actions de mode et de sauvegarde restent solidaires. */
+.note-main-toolbar { align-items: center; gap: 12px; }
+.note-insertions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 0 1 auto; }
+.note-primary-actions { position: relative; display: flex; align-items: center; gap: 8px; margin-inline-start: auto; flex-shrink: 0; }
+/* L'aide de sauvegarde s'ancre au groupe droit pour rester dans le viewport mobile. */
+.note-primary-actions .note-save .icon-control { position: static; }
+.note-insertions .icon-tooltip { left: 0; right: auto; }
 /* Les deux modes partagent exactement la même largeur utile et les mêmes marges. */
 .markdown-reading {
   width: 100%; max-width: calc(var(--note-text-width) + 2 * var(--note-padding));
@@ -324,11 +330,11 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 
 /* Le marqueur appartient à l'interface, jamais au texte copié ou sauvegardé. */
 .capture-marker { display: inline-block; font: 0.85em system-ui, sans-serif; padding: .15em .5em; margin-inline: .2em; border: 1px solid currentColor; border-radius: .35em; opacity: .8; user-select: none; }
-.capture-marker::before, .capture-button[aria-busy="true"]::before { content: "◌"; display: inline-block; margin-right: .4em; animation: capture-spin 1.2s linear infinite; }
+.capture-marker::before { content: "◌"; display: inline-block; margin-right: .4em; animation: capture-spin 1.2s linear infinite; }
 .asset-placeholder { display: inline-block; padding: .5em; border: 1px dashed currentColor; border-radius: .35em; }
 .markdown-reading img { max-width: 100%; height: auto; }
 @keyframes capture-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .capture-marker::before, .capture-button[aria-busy="true"]::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .capture-marker::before { animation: none; } }
 
 /* Les icônes réduisent le poids visuel, pas la surface interactive. */
 .icon-control { position: relative; display: inline-flex; flex-shrink: 0; }
@@ -346,12 +352,16 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 
 /* L'en-tête garde son identité et ses cibles pendant le remplacement de la surface. */
 .player-mode-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-.player-segments { display: inline-flex; flex-shrink: 0; padding: 2px; border: 1px solid var(--subtle); border-radius: 8px; background: var(--page); }
-.player-segments button { min-height: 40px; padding: 6px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer; transition: background-color 120ms ease, color 120ms ease; }
-.player-segments button:hover { color: var(--text); }
-.player-segments button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px #0002; }
-.player-segments button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-.player-segments button:disabled { cursor: wait; opacity: .55; }
+.segmented-control { display: inline-flex; flex-shrink: 0; padding: 2px; border: 1px solid var(--subtle); border-radius: 8px; background: var(--page); }
+.segmented-control .segmented-button { min-height: 40px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer; transition: background-color 120ms ease, color 120ms ease; }
+.segmented-control .segmented-button:hover { color: var(--text); }
+.segmented-control .segmented-button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px #0002; }
+.segmented-control .segmented-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.segmented-control .segmented-button:disabled { cursor: wait; opacity: .55; }
+
+.note-mode-control { padding: 0; }
+.note-mode-control .segmented-button[aria-pressed="true"] { box-shadow: none; }
+.player-segments .segmented-button { padding: 6px 10px; }
 
 .video-player { position: relative; }
 .player-toolbar-actions { display: flex; flex-shrink: 0; gap: 0; }
@@ -359,14 +369,14 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .download-command.success, .transcript-acquisition.success { color: light-dark(#18713a, #6fe69c); }
 .download-command.failure, .transcript-acquisition.failure { color: light-dark(#b3261e, #ff9a91); }
 @media (prefers-reduced-motion: reduce) {
-  .player-segments button { transition: none; }
+  .segmented-control .segmented-button { transition: none; }
   .download-command.progress svg, .transcript-acquisition.progress svg { animation: none; }
 }
 /* À 320 px, les trois icônes gardent leurs cibles de 40 px sur la même ligne. */
 @media (max-width: 359px) {
   .player-toolbar { gap: 0; }
   .player-mode-controls { gap: 2px; }
-  .player-segments button { padding-inline: 4px; }
+  .player-segments .segmented-button { padding-inline: 4px; }
 }
 .player-information { position: absolute; z-index: 10; top: 100%; right: 0; width: min(380px, 100%); max-height: min(65dvh, 540px); overflow: auto; padding: 1rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); box-shadow: 0 8px 24px #0003; overflow-wrap: anywhere; }
 .player-information .source-section { margin: 0; padding: 0; border: 0; }
@@ -417,7 +427,7 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 /* Contenir aussi le texte accessible positionné en absolu des liens externes :
    sans ce repère, il échappe au défilement du panneau et agrandit la page. */
 .video-information { position: relative; padding: 1rem; }
-.note-controls { padding: .75rem 1rem; background: var(--surface); }
+.note-controls { padding: .375rem 1rem; background: var(--surface); }
 /* clip respecte les coins mobiles sans créer un conteneur de défilement. */
 .note-content { overflow: clip; background: var(--input); border-radius: calc(.75rem - 1px); }
 .note-content > p, .note-content > .note-conflict { margin: 1rem; }
@@ -438,16 +448,16 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 }
 
 /* Le bouton reste interactif au repos ; le point signale les modifications sans couleur seule. */
-.note-save { margin-left: auto; align-self: center; }
+.note-save { align-self: center; }
 .note-save .icon-button { position: relative; }
 .note-save-idle { color: var(--muted); }
 .note-save-pending::after { content: ''; position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.note-save-saving svg { animation: capture-spin 1s linear infinite; }
+.note-save-saving svg, .capture-button[aria-busy="true"] svg { animation: capture-spin 1s linear infinite; }
 .note-save-success { color: light-dark(#18713a, #6fe69c); }
 .note-save-error { color: light-dark(#b3261e, #ff9a91); }
 .note-save-conflict { color: var(--error); }
 .note-save-message { margin: .5rem 0 0; overflow-wrap: anywhere; }
-@media (prefers-reduced-motion: reduce) { .note-save-saving svg { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .note-save-saving svg, .capture-button[aria-busy="true"] svg { animation: none; } }
 
 /* La place de la barre de page reste stable pendant le verrouillage du volet modal. */
 html { scrollbar-gutter: stable; }
