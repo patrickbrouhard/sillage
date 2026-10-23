@@ -1201,9 +1201,18 @@ la fenêtre et ne prétend pas annuler le travail serveur. Confirmer déclenche 
 la fenêtre sans attendre son résultat. YouTube n'est ni arrêté ni remplacé.
 Le panneau Local vide après suppression utilise exactement cette même fenêtre.
 
-Un emplacement fixe devant Local accueille un spinner pendant la demande ou
-l'activité serveur, une coche verte après conservation confirmée et une croix rouge
-après échec d'une activité suivie. Les deux résultats durent cinq secondes.
+Le sélecteur segmenté contient uniquement les libellés YouTube et Local, sur un
+fond commun contrasté avec un fond distinct pour le segment actif. Ses cibles
+mesurent 40 px de haut ; ses transitions discrètes respectent prefers-reduced-motion.
+Une commande indépendante immédiatement à droite ouvre la même modale : icône de
+téléchargement sans fichier, spinner pendant la demande ou l'activité serveur,
+coche verte après conservation confirmée et croix rouge après échec d'une activité
+suivie. Les deux résultats durent cinq secondes, puis la commande disparaît si le
+fichier est disponible, ou retrouve l'icône de téléchargement après échec. Un fichier
+déjà disponible n'affiche aucune commande. L'incertitude reste consultable sans
+acquisition implicite. La disparition ne déplace pas le sélecteur et rend le focus
+à Local uniquement si la commande le détenait. La modale rend le focus à son
+déclencheur, ou à Local si ce déclencheur a disparu.
 Les annonces accessibles complètent les symboles, sans dépendre de la couleur.
 Une première consultation available/failed reste neutre ; downloading rétablit
 le spinner après rafraîchissement. Les résultats ne sont pas persistés.

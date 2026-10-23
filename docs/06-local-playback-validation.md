@@ -187,3 +187,26 @@ Les captures sont produites par player-panel.spec.ts dans web/test-results.
 Local utilise un WebM décodable ; l'iframe YouTube simulée est vide. Les mesures
 automatisées contrôlent son rectangle et ne remplacent pas l'inspection du lecteur
 réel. La validation du rendu dans Brave a été confirmée par l'utilisateur.
+
+
+## Recette — sélecteur segmenté et téléchargement séparé
+
+- Dans Brave desktop et en émulation mobile à 375 et 320 px, en clair et sombre,
+  vérifier les seuls libellés YouTube et Local, le fond commun et le segment actif.
+  Contrôler l'alignement avec les commandes Informations et Masquer, sans décalage
+  du sélecteur au changement d'icône ou à la disparition du téléchargement.
+- Sans fichier, ouvrir la modale par l'icône puis par Local : annuler avec Échap,
+  vérifier le retour au déclencheur et l'absence de téléchargement sans confirmation.
+- Confirmer : spinner consultable, puis coche pendant cinq secondes et disparition
+  après succès serveur. Le lecteur reste YouTube. Avec un fichier déjà présent,
+  aucune commande de téléchargement n'est affichée.
+- Après échec confirmé d'une activité, vérifier la croix pendant cinq secondes,
+  puis le retour à l'icône et l'accès explicite à Réessayer. Une coupure réseau
+  laisse l'incertitude consultable et ne crée ni résultat ni nouvelle tentative.
+- Parcourir au clavier YouTube, Local, téléchargement, Informations, Masquer.
+  Si le téléchargement disparaît avec le focus, celui-ci revient à Local ; s'il
+  disparaît pendant une modale ouverte, Fermer/Échap revient à Local. L'édition
+  de note conserve son focus quand la commande disparaît ailleurs.
+- Avec mouvement réduit, vérifier l'absence d'animation du spinner et des segments.
+  Vérifier ensuite bascules, masquage, positions, captures et session de note selon
+  les scénarios précédents. La modale et les retours ne remontent aucun lecteur.
