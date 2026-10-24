@@ -56,7 +56,7 @@ func explainSearch(ctx context.Context, conn *sql.Conn, results []search.Result,
 	rows, err = conn.QueryContext(ctx, `
   SELECT
    rowid,
-   snippet(video_search, 2, ?, ?, '…', 32)
+   snippet(video_search, 2, ?, ?, '…', 64)
   FROM video_search
   WHERE video_search MATCH ?
    AND rowid IN (`+placeholders+`)
@@ -73,7 +73,7 @@ func explainSearch(ctx context.Context, conn *sql.Conn, results []search.Result,
 		}
 		// snippet sur une colonne sans correspondance peut quand même retourner du texte.
 		if strings.Contains(excerpt, start) {
-			results[indices[id]].NoteExcerpt = limitSearchExcerpt(searchSegments(excerpt, start, end))
+			results[indices[id]].NoteExcerpt = searchSegments(excerpt, start, end)
 		}
 	}
 	err = rows.Err()
@@ -172,47 +172,4 @@ func searchSegments(text, start, end string) []search.Segment {
 		text = after
 	}
 	return segments
-}
-
-// limitSearchExcerpt borne aussi les tokens démesurés (chemins ou identifiants sans espaces).
-// La fenêtre garde la première marque visible, sans promettre de montrer tous les termes.
-func limitSearchExcerpt(segments []search.Segment) []search.Segment {
-	const limit = 600
-	const contextBefore = 120
-	total, firstMatch := 0, -1
-	for _, segment := range segments {
-		if segment.Highlight && firstMatch < 0 {
-			firstMatch = total
-		}
-		total += len([]rune(segment.Text))
-	}
-	if total <= limit {
-		return segments
-	}
-	start := 0
-	if firstMatch > contextBefore {
-		start = firstMatch - contextBefore
-	}
-	end := min(total, start+limit)
-	result := []search.Segment{}
-	if start > 0 {
-		result = append(result, search.Segment{Text: "…"})
-	}
-	offset := 0
-	for _, segment := range segments {
-		text := []rune(segment.Text)
-		next := offset + len(text)
-		from, to := max(start, offset), min(end, next)
-		if from < to {
-			result = append(result, search.Segment{Text: string(text[from-offset : to-offset]), Highlight: segment.Highlight})
-		}
-		offset = next
-		if offset >= end {
-			break
-		}
-	}
-	if end < total {
-		result = append(result, search.Segment{Text: "…"})
-	}
-	return result
 }

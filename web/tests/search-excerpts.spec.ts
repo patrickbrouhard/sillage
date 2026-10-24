@@ -192,3 +192,28 @@ for (const total of [undefined, -1, 1.5, '3', null]) {
     await expect(page.locator('.search-count')).toHaveCount(0)
   })
 }
+
+test('extrait FTS réel de 64 tokens : complet au dépliage, deux lignes au repos', async ({ page, request }) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/tr64excerpt' } })).json()
+  const words = Array.from({ length: 64 }, (_, i) => 'contexteparticulierementlong' + i)
+  words[30] = 'correspondanceunique64'
+  const content = words.join(' ')
+  expect(content.length).toBeGreaterThan(600)
+  expect((await request.put('/api/v1/videos/' + video.id + '/note', {
+    data: { content_md: content, expected_revision: 0 },
+  })).ok()).toBe(true)
+  await page.setViewportSize({ width: 375, height: 900 })
+  await page.goto('/search?q=correspondanceunique64')
+  const row = page.locator('.search-result')
+  await expectCompact(row)
+  const button = row.locator('.search-excerpt-toggle')
+  await expect(button).toHaveText('Voir plus')
+  const requests: string[] = []
+  page.on('request', request => { if (request.url().includes('/api/')) requests.push(request.url()) })
+  await button.click()
+  await expect(row.locator('.search-excerpt:not([aria-hidden])')).toHaveText(content)
+  await expect(button).toHaveText('Réduire')
+  await button.click()
+  await expectCompact(row)
+  expect(requests).toEqual([])
+})

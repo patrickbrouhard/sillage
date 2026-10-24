@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -94,20 +95,42 @@ func TestSearchBatchLoadsWithOneConnection(t *testing.T) {
 	}
 }
 
-func TestSearchExcerptBoundsHugeTokensWithoutBreakingUnicode(t *testing.T) {
-	input := []search.Segment{
-		{Text: strings.Repeat("é", 1000)},
-		{Text: strings.Repeat("漢", 2000), Highlight: true},
-		{Text: strings.Repeat("界", 1000)},
-	}
-	got := limitSearchExcerpt(input)
-	runes, highlighted := 0, false
-	for _, segment := range got {
-		runes += len([]rune(segment.Text))
-		highlighted = highlighted || segment.Highlight
-	}
-	if runes > 602 || !highlighted || got[0].Text != "…" || got[len(got)-1].Text != "…" {
-		t.Fatalf("length=%d highlighted=%t: %+v", runes, highlighted, got)
+// TestSearchExcerptKeeps64Tokens vérifie la fenêtre entière, même au-delà de 600 caractères.
+func TestSearchExcerptKeeps64Tokens(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t, filepath.Join(t.TempDir(), "excerpt64.db"))
+	v := searchFixture(t, db, "Document")
+	for _, count := range []int{64, 96} {
+		words := make([]string, count)
+		for i := range words {
+			words[i] = fmt.Sprintf("contexteparticulierementlong%d", i)
+		}
+		words[30] = "correspondance"
+		content := strings.Join(words, " ")
+		revision := int64(0)
+		if count == 96 {
+			revision = 1
+		}
+		if _, err := NewNoteRepository(db).Save(ctx, v.ID, content, revision, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "correspondance", 1)
+		if err != nil || len(page.Results) != 1 {
+			t.Fatalf("%+v %v", page, err)
+		}
+		var excerpt strings.Builder
+		marked := false
+		for _, segment := range page.Results[0].NoteExcerpt {
+			excerpt.WriteString(segment.Text)
+			marked = marked || segment.Highlight && segment.Text == "correspondance"
+		}
+		text := excerpt.String()
+		if got := len(strings.Fields(strings.Trim(text, "…"))); got != 64 || !marked || len([]rune(text)) <= 600 {
+			t.Fatalf("tokens=%d highlighted=%t runes=%d", got, marked, len([]rune(text)))
+		}
+		if count == 64 && text != content {
+			t.Fatalf("excerpt lost content: %q", text)
+		}
 	}
 }
 
