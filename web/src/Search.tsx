@@ -21,7 +21,9 @@ function SearchRow({ result }: { result: SearchResult }) {
       <h2><Link to={'/videos/' + video.id}>{title}</Link></h2>
       <p className="publisher">{source?.publisher?.name || 'Compte de publication non renseigné'}</p>
       {video.tags.length > 0 && <ul className="tags" aria-label="Tags">
-        {video.tags.map(tag => <li key={tag.id}>{tag.name}</li>)}
+        {video.tags.map(tag => <li key={tag.id}>
+          <Link to={'/?tag_id=' + tag.id}>{tag.name}</Link>
+        </li>)}
       </ul>}
       {source_matches.map(match => {
         const matched = video.sources.find(item => item.id === match.source_id)
