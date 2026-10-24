@@ -95,6 +95,17 @@ func (r *SearchRepository) Search(ctx context.Context, query string, page int) (
 		return result, err
 	}
 	defer conn.ExecContext(context.Background(), "ROLLBACK")
+	// Compter séparément conserve le total sur une page vide, sans calcul BM25.
+	// Ce premier SELECT fixe l'instantané différé commun à la page et aux explications.
+	expression := strings.Join(terms, " AND ")
+	if err := conn.QueryRowContext(ctx, `
+  SELECT
+   COUNT(*)
+  FROM video_search
+  WHERE video_search MATCH ?
+ `, expression).Scan(&result.Total); err != nil {
+		return result, err
+	}
 	rows, err := conn.QueryContext(ctx, `
   SELECT
    rowid
@@ -104,7 +115,7 @@ func (r *SearchRepository) Search(ctx context.Context, query string, page int) (
    bm25(video_search, 8.0, 10.0, 3.0, 2.0, 0.5),
    rowid
   LIMIT ? OFFSET ?
- `, strings.Join(terms, " AND "), search.PageSize+1, (page-1)*search.PageSize)
+ `, expression, search.PageSize+1, (page-1)*search.PageSize)
 	if err != nil {
 		return result, err
 	}

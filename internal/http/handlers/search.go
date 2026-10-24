@@ -66,5 +66,6 @@ func (h *SearchHandler) Get(w http.ResponseWriter, r *http.Request) {
 		Results []item `json:"results"`
 		Page    int    `json:"page"`
 		HasMore bool   `json:"has_more"`
-	}{items, page, result.HasMore})
+		Total   int64  `json:"total"`
+	}{items, page, result.HasMore, result.Total})
 }

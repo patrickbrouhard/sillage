@@ -110,7 +110,7 @@ func TestSearchConcurrentSaveRebuildAndReaders(t *testing.T) {
 				errs <- err
 				return
 			}
-			if len(page.Results) != 1 {
+			if len(page.Results) != 1 || page.Total != 1 {
 				errs <- fmt.Errorf("missing video")
 				return
 			}

@@ -4,7 +4,7 @@ import { errorMessage } from './api'
 import { searchVideos } from './searchApi'
 import type { SearchPage, SearchResult } from './searchApi'
 import { VideoThumbnail } from './VideoThumbnail'
-import { providerLabel } from './videoPresentation'
+import { SearchExcerpt } from './SearchExcerpt'
 
 type State = { status: 'loading' } | { status: 'ready'; page: SearchPage } | { status: 'error'; message: string }
 
@@ -18,7 +18,6 @@ function SearchRow({ result }: { result: SearchResult }) {
       <VideoThumbnail source={source} />
     </Link>
     <div className="search-result-content">
-      <p className="source-label">{providerLabel(source?.provider)}</p>
       <h2><Link to={'/videos/' + video.id}>{title}</Link></h2>
       <p className="publisher">{source?.publisher?.name || 'Compte de publication non renseigné'}</p>
       {video.tags.length > 0 && <ul className="tags" aria-label="Tags">
@@ -34,10 +33,7 @@ function SearchRow({ result }: { result: SearchResult }) {
           {fields}{match.publisher && matched?.publisher?.name ? ' (' + matched.publisher.name + ')' : ''}
         </p>
       })}
-      {note_excerpt.length > 0 && <p className="search-excerpt" aria-label="Extrait de la note">
-        {note_excerpt.map((segment, index) => segment.highlight
-          ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>)}
-      </p>}
+      {note_excerpt.length > 0 && <SearchExcerpt key={JSON.stringify(note_excerpt)} segments={note_excerpt} />}
     </div>
   </article>
 }
@@ -72,11 +68,7 @@ export function Search() {
   }
   return <>
     <title>Recherche · Sillage</title>
-    <div className="page-heading"><div>
-      <p className="eyebrow">VOTRE BASE DE CONNAISSANCES</p>
-      <h1>Recherche</h1>
-      {!invitation && <p className="intro">Résultats pour « {query} »</p>}
-    </div></div>
+    <h1 className="sr-only search-page-title">{invitation ? 'Recherche' : 'Résultats pour « ' + query + ' »'}</h1>
     {invitation ? <div className="state-panel">
       <h2>Que souhaitez-vous retrouver ?</h2>
       <p>Recherchez dans les titres, tags, notes, descriptions et publishers de votre bibliothèque.</p>
@@ -84,12 +76,13 @@ export function Search() {
       : state.status === 'error' ? <div className="state-panel error" role="alert">
         <p>{state.message}</p><button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer</button>
       </div> : <>
-        <p role="status" className="library-count">
-          {state.page.results.length} résultat{state.page.results.length > 1 ? 's' : ''} sur cette page
+        <p role="status" className="search-count">
+          {state.page.total} vidéo{state.page.total > 1 ? 's' : ''} correspondante{state.page.total > 1 ? 's' : ''}
         </p>
-        {state.page.results.length === 0 ? <div className="state-panel"><h2>Aucun résultat</h2>
-          <p>Essayez d’autres termes ou une recherche plus courte.</p></div>
-          : <div className="search-results">{state.page.results.map(result => <SearchRow key={result.video.id} result={result} />)}</div>}
+        {state.page.results.length === 0 ? <div className="state-panel"><h2>{state.page.total === 0 ? 'Aucun résultat' : 'Aucun résultat sur cette page'}</h2>
+          <p>{state.page.total === 0 ? 'Essayez d’autres termes ou une recherche plus courte.'
+            : 'Des vidéos correspondent à votre recherche. Revenez aux pages précédentes.'}</p></div>
+          : <div className="search-results">{state.page.results.map(result => <SearchRow key={key + ':' + result.video.id} result={result} />)}</div>}
         <nav className="search-pagination" aria-label="Pages de recherche">
           {state.page.page > 1 && <Link className="button" to={pageURL(state.page.page - 1)}>Page précédente</Link>}
           <span>Page {state.page.page}</span>

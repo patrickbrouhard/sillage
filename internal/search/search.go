@@ -44,6 +44,8 @@ type Result struct {
 type Page struct {
 	Results []Result
 	HasMore bool
+	// Total compte les vidéos correspondantes dans le même instantané que Results.
+	Total int64
 }
 
 // Repository est un port spécialisé sans syntaxe ni score moteur publics.

@@ -41,7 +41,7 @@ test('API réelle : note, tag et explication publisher', async ({ page, request 
   await request.post('/api/v1/videos/' + video.id + '/tags', { data: { names: ['searchunivoque'] } })
   await page.goto('/search?q=searchunivoque+cafe+kube+ateliers')
   await expect(page.locator('.search-result')).toHaveCount(1)
-  await expect(page.locator('.search-excerpt mark').first()).toBeVisible()
+  await expect(page.locator('.search-excerpt:not([aria-hidden]) mark').first()).toBeVisible()
   await expect(page.locator('.search-explanation')).toContainText('publisher')
   await page.getByRole('heading', { name: 'trsearch001' }).getByRole('link').click()
   await expect(page).toHaveURL('/videos/' + video.id)
@@ -52,7 +52,7 @@ test('pagination, rechargement, historique et nouvelle requête sur le même che
   await page.route('**/api/v1/search?**', route => {
     const params = new URL(route.request().url()).searchParams
     const number = Number(params.get('page') || 1)
-    return route.fulfill({ json: { results: [result((params.get('q') || '') + ' page ' + number)], page: number, has_more: number === 1 } })
+    return route.fulfill({ json: { results: [result((params.get('q') || '') + ' page ' + number)], page: number, total: 21, has_more: number === 1 } })
   })
   await page.goto('/search?q=initial')
   await expect(page.getByRole('heading', { name: 'initial page 1' })).toBeVisible()
@@ -80,13 +80,13 @@ test('ignore une ancienne réponse et permet de réessayer une erreur', async ({
     const query = new URL(route.request().url()).searchParams.get('q')
     if (query === 'ancienne') await gate
     if (query === 'erreur') return route.fulfill({ status: 500, json: { error: { code: 'internal_error' } } })
-    await route.fulfill({ json: { results: [result(query!)], page: 1, has_more: false } }).catch(() => {})
+    await route.fulfill({ json: { results: [result(query!)], page: 1, total: 1, has_more: false } }).catch(() => {})
   })
   await page.goto('/search?q=ancienne')
   await expect(page.getByRole('status')).toHaveText('Recherche en cours…')
   await page.getByRole('searchbox').fill('récente')
   await page.getByRole('searchbox').press('Enter')
-  await expect(page.getByRole('heading', { name: 'récente' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'récente', exact: true })).toBeVisible()
   release()
   await expect(page.getByRole('heading', { name: 'ancienne', exact: true })).toHaveCount(0)
   await page.getByRole('searchbox').fill('erreur')
@@ -127,11 +127,11 @@ for (const width of [1440, 768, 375, 320]) {
   test('résultats sûrs et sans débordement à ' + width, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 })
     await page.route('**/api/v1/search?**', route => route.fulfill({
-      json: { results: [result('Titre technique ' + 'trèslong'.repeat(32))], page: 1, has_more: true },
+      json: { results: [result('Titre technique ' + 'trèslong'.repeat(32))], page: 1, total: 21, has_more: true },
     }))
     await page.goto('/search?q=cafe')
     await expect(page.locator('.search-result')).toBeVisible()
-    await expect(page.locator('.search-excerpt')).toHaveText('<script>texte</script> Café')
+    await expect(page.locator('.search-excerpt:not([aria-hidden])')).toHaveText('<script>texte</script> Café')
     await expect(page.locator('.search-excerpt script')).toHaveCount(0)
     await expect(page.locator('.search-explanation')).toContainText('Autre source')
     for (const theme of ['light', 'dark']) {
@@ -171,11 +171,11 @@ test('soumettre une recherche identique actualise les données avec Entrée et l
   const noteURL = '/api/v1/videos/' + video.id + '/note'
   expect((await request.put(noteURL, { data: { content_md: 'actualisationunique Ancien', expected_revision: 0 } })).ok()).toBe(true)
   await page.goto('/search?q=actualisationunique')
-  await expect(page.locator('.search-excerpt')).toContainText('Ancien')
+  await expect(page.locator('.search-excerpt:not([aria-hidden])')).toContainText('Ancien')
   // Une mutation par un autre client ne change pas l’URL de la recherche ouverte.
   expect((await request.put(noteURL, { data: { content_md: 'actualisationunique Nouveau', expected_revision: 1 } })).ok()).toBe(true)
   await page.getByRole('searchbox').press('Enter')
-  await expect(page.locator('.search-excerpt')).toContainText('Nouveau')
+  await expect(page.locator('.search-excerpt:not([aria-hidden])')).toContainText('Nouveau')
   expect((await request.put(noteURL, { data: { content_md: '', expected_revision: 2 } })).ok()).toBe(true)
   await page.getByRole('button', { name: 'Lancer la recherche' }).click()
   await expect(page.getByRole('heading', { name: 'Aucun résultat' })).toBeVisible()
@@ -188,7 +188,7 @@ test('la loupe réessaie une recherche identique après une erreur', async ({ pa
     requests++
     return requests === 1
       ? route.fulfill({ status: 500, json: { error: { code: 'internal_error' } } })
-      : route.fulfill({ json: { results: [result('Résultat retrouvé')], page: 1, has_more: false } })
+      : route.fulfill({ json: { results: [result('Résultat retrouvé')], page: 1, total: 1, has_more: false } })
   })
   await page.goto('/search?q=identique')
   await expect(page.getByRole('alert')).toBeVisible()

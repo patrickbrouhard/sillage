@@ -64,14 +64,29 @@ func BenchmarkSearchLibrary(b *testing.B) {
 	}
 	save := time.Since(started) / 20
 	service := search.NewService(NewSearchRepository(db))
-	b.ResetTimer()
-	for range b.N {
-		page, err := service.Search(ctx, "kube technique", 1)
-		if err != nil || len(page.Results) != 20 || !page.HasMore {
-			b.Fatalf("page: %d, %v", len(page.Results), err)
-		}
+
+	for _, scenario := range []struct {
+		name  string
+		query string
+		page  int
+		count int
+		more  bool
+		total int64
+	}{
+		{"selective", "kube technique", 1, 20, true, 200},
+		{"frequent", "technique", 1, 20, true, 2000},
+		{"distant", "technique", 90, 20, true, 2000},
+		{"empty", "technique", 101, 0, false, 2000},
+	} {
+		b.Run(scenario.name, func(b *testing.B) {
+			for range b.N {
+				page, err := service.Search(ctx, scenario.query, scenario.page)
+				if err != nil || len(page.Results) != scenario.count || page.HasMore != scenario.more || page.Total != scenario.total {
+					b.Fatalf("page: %d, %v", len(page.Results), err)
+				}
+			}
+		})
 	}
-	b.StopTimer()
 	b.ReportMetric(float64(rebuild.Microseconds())/1000, "rebuild-ms")
 	b.ReportMetric(float64(save.Microseconds())/1000, "save-ms")
 	b.ReportMetric(2000, "videos")
