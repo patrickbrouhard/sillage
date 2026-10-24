@@ -6,6 +6,7 @@ import type { Video } from './api'
 import { useTagCatalog } from './useTagCatalog'
 import { VideoCard } from './VideoCard'
 import { LibraryFilters } from './LibraryFilters'
+import { LibraryTagFilter } from './LibraryTagFilter'
 
 type LibraryState =
   | { status: 'loading' }
@@ -71,13 +72,7 @@ export function Library({ actionsHost }: { actionsHost: HTMLDivElement | null })
       <h1 className="sr-only">Bibliothèque</h1>
       {actionsHost && createPortal(<>
         <LibraryFilters active={tagID !== undefined}>
-          <label htmlFor="tag-filter">Filtrer par tag</label>
-          <select id="tag-filter" value={tagID ?? ''} onChange={(event) => selectTag(event.target.value)}>
-            <option value="">Tous les tags</option>
-            {tagID !== undefined && !activeTag && <option value={tagID}>{filterLabel}</option>}
-            {[...catalog.tags].sort((a, b) => a.name.localeCompare(b.name, 'fr')).map((tag) =>
-              <option key={tag.id} value={tag.id}>{tag.name}</option>)}
-          </select>
+          <LibraryTagFilter tags={catalog.tags} onSelect={selectTag} />
           {tagID !== undefined && <button className="button" onClick={() => selectTag('')}>Réinitialiser</button>}
           {catalog.loading && <p className="muted">Chargement des tags…</p>}
           {catalog.error && <div role="alert" className="notice error">
@@ -97,7 +92,7 @@ export function Library({ actionsHost }: { actionsHost: HTMLDivElement | null })
         </p>}
         {tagID !== undefined && <div className="active-filter">
           <span>Tag : <strong>{filterLabel}</strong></span>
-          <button type="button" aria-label={`Retirer le filtre de tag : ${filterLabel}`} onClick={() => selectTag('')}>×</button>
+          <button type="button" aria-label={`Retirer le filtre de tag : ${filterLabel}`} onClick={() => selectTag('')}><span aria-hidden="true">×</span></button>
         </div>}
       </div>
       {state.status === 'loading' && (

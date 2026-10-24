@@ -9,7 +9,7 @@ test('affiche la bibliothèque persistée par Go et SQLite après redémarrage',
   expect(seed).toBeDefined()
   await page.goto('/')
   await expect(page.getByRole('heading', { name: seed.sources[0].title })).toBeVisible()
-  const card = page.getByRole('link', { name: `Consulter : ${seed.sources[0].title}` })
+  const card = page.locator('.video-card').filter({ has: page.getByRole('link', { name: `Consulter : ${seed.sources[0].title}` }) })
   await expect(card.getByText('Les ateliers du code')).toBeVisible()
   await expect(card.getByLabel('Tags').getByText('SQLite', { exact: true })).toBeVisible()
   await expect(card.getByText('2:05', { exact: true })).toBeVisible()

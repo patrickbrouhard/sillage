@@ -48,7 +48,7 @@ export function LibraryFilters({ active, children }: { active: boolean; children
         setOpen(visible)
         if (visible) {
           position()
-          panel.current?.querySelector('select')?.focus({ preventScroll: true })
+          panel.current?.querySelector('input')?.focus({ preventScroll: true })
         }
       }}>
       {children}

@@ -16,7 +16,6 @@ test('le panneau natif conserve le filtre immédiat, le focus et les paramètres
   await trigger.click()
   await expect(select).toBeFocused()
   await expect(trigger).toHaveAttribute('aria-expanded', 'true')
-  await select.press('Space')
   await select.press('Escape')
   await expect(panel).toBeVisible()
   await select.press('Escape')
@@ -29,7 +28,9 @@ test('le panneau natif conserve le filtre immédiat, le focus et les paramètres
   await expect(page.getByRole('link', { name: 'Ajouter une vidéo', exact: true })).toBeFocused()
   await page.keyboard.press('Escape')
   await trigger.click()
-  await select.selectOption('7')
+  await select.fill('sQL')
+  await select.press('ArrowDown')
+  await select.press('Enter')
   await expect(page).toHaveURL('/?other=kept&tag_id=7')
   await expect(panel).toBeVisible()
   await expect(trigger.locator('.filter-count')).toHaveText('1')
@@ -99,6 +100,7 @@ for (const theme of ['light', 'dark'] as const) {
       expect(panel!.x).toBeGreaterThanOrEqual(0)
       expect(panel!.x + panel!.width).toBeLessThanOrEqual(width)
       await page.keyboard.press('Escape')
+      await page.keyboard.press('Escape')
     }
     // Le zoom desktop 200 % divise le viewport CSS par deux ; la taille du texte est aussi éprouvée.
     await page.setViewportSize({ width: 720, height: 450 })
@@ -111,6 +113,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByRole('button', { name: /^Filtres/ }).click()
     const shortPanel = await page.locator('.library-filter').boundingBox()
     expect(shortPanel!.y + shortPanel!.height).toBeLessThanOrEqual(240)
+    await page.keyboard.press('Escape')
     await page.keyboard.press('Escape')
     await page.setViewportSize({ width: 320, height: 800 })
     await page.getByRole('button', { name: /^Filtres/ }).click()
@@ -131,6 +134,27 @@ for (const theme of ['light', 'dark'] as const) {
     await page.screenshot({ path: 'test-results/library-' + theme + '-usual.png' })
     await page.setViewportSize({ width: 375, height: 812 })
     await page.screenshot({ path: 'test-results/library-' + theme + '-usual-mobile.png' })
+    await page.route('**/api/v1/tags', route => route.fulfill({ json: { tags: [{ id: 7, name: 'SQLite' }, { id: 8, name: 'Architecture' }] } }))
+    await page.goto('/?tag_id=7')
+    const remove = page.getByRole('button', { name: 'Retirer le filtre de tag : SQLite', exact: true })
+    await remove.hover()
+    const target = await remove.boundingBox()
+    expect(target!.width).toBe(40)
+    expect(target!.height).toBe(40)
+    expect(await remove.evaluate(button => getComputedStyle(button).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
+    const hover = await remove.locator('span').boundingBox()
+    expect(hover!.width).toBe(24)
+    expect(hover!.height).toBe(24)
+    await page.locator('.library-summary').screenshot({ path: 'test-results/library-' + theme + '-remove-hover.png' })
+    await page.getByRole('button', { name: /^Filtres/ }).click()
+    await page.getByRole('combobox', { name: 'Filtrer par tag' }).fill('sql')
+    await page.screenshot({ path: 'test-results/library-' + theme + '-suggestions-mobile.png' })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.screenshot({ path: 'test-results/library-' + theme + '-suggestions-desktop.png' })
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page.locator('.video-card').first().getByRole('link', { name: 'SQLite', exact: true }).focus()
+    await page.screenshot({ path: 'test-results/library-' + theme + '-tag-focus.png' })
   })
 }
 
@@ -157,3 +181,94 @@ test('le filtre se retire pendant une réponse retardée sans attendre le compte
   await expect(page.locator('.video-card').first()).toBeVisible()
   await expect(page.locator('.active-filter')).toHaveCount(0)
 })
+
+test('autocomplétion de filtrage : catalogue long, recherche locale, clavier et aucune création', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 500 })
+  const tags = Array.from({ length: 60 }, (_, index) => ({ id: index + 1, name: 'Tag ' + String(index + 1).padStart(2, '0') }))
+  tags.push({ id: 70, name: 'Agents IA' }, { id: 71, name: 'Architecture agents' })
+  await page.route('**/api/v1/tags', route => route.fulfill({ json: { tags } }))
+  let reads = 0
+  let writes = 0
+  page.on('request', request => { if (request.method() !== 'GET') writes++ })
+  await page.route('**/api/v1/videos*', route => {
+    reads++
+    return route.fulfill({ json: { videos: [] } })
+  })
+  await page.goto('/?tag_id=999&other=kept')
+  await expect(page.getByRole('status')).toHaveText('0 vidéo')
+  const trigger = page.getByRole('button', { name: /^Filtres/ })
+  const input = page.getByRole('combobox', { name: 'Filtrer par tag' })
+  await trigger.click()
+  await expect(input).toBeFocused()
+  await expect(page.getByRole('option')).toHaveCount(62)
+  await input.press('ArrowUp')
+  const last = page.getByRole('option', { name: 'Tag 60', exact: true })
+  await expect(last).toHaveAttribute('aria-selected', 'true')
+  await expect(last).toBeInViewport()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  await input.fill('aGeNt')
+  await expect(page.getByRole('option')).toHaveCount(2)
+  await input.press('ArrowDown')
+  await input.press('ArrowDown')
+  await input.press('ArrowUp')
+  await expect(page.getByRole('option', { name: 'Agents IA', exact: true })).toHaveAttribute('aria-selected', 'true')
+  expect(reads).toBe(1)
+  await input.press('Enter')
+  await expect(page).toHaveURL('/?tag_id=70&other=kept')
+  await expect(input).toBeFocused()
+  await expect(input).toHaveValue('')
+  await expect(page.locator('.active-filter')).toContainText('Agents IA')
+  await input.fill('Tag totalement absent')
+  await input.press('Enter')
+  await expect(page.getByText('Aucun tag correspondant.')).toBeVisible()
+  await expect(page).toHaveURL('/?tag_id=70&other=kept')
+  await expect(page.getByRole('option')).toHaveCount(0)
+  expect(writes).toBe(0)
+  await input.press('Escape')
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  await expect(trigger).toBeFocused()
+})
+
+for (const width of [375, 1440]) {
+  test('liens indépendants de carte et de tags, souris, clavier et nouvel onglet à ' + width + ' px', async ({ page, context }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.route(/\/api\/v1\/videos(\?.*)?$/, route => route.fulfill({ json: { videos: [{
+      id: 42, created_at: '2026-10-10T12:00:00Z', person_ids: [],
+      tags: [{ id: 7, name: 'Agents' }, { id: 8, name: 'SQLite' }],
+      sources: [{ id: 1, provider: 'youtube', title: 'Vidéo de finition', publisher: null, duration_ms: 0, thumbnail_url: null }],
+    }] } }))
+    await page.goto('/?tag_id=8')
+    const card = page.locator('.video-card')
+    const detail = card.getByRole('link', { name: 'Consulter : Vidéo de finition' })
+    const agents = card.getByRole('link', { name: 'Agents', exact: true })
+    await expect(card.locator('a a')).toHaveCount(0)
+    await expect(agents).toHaveAttribute('href', '/?tag_id=7')
+    await detail.focus()
+    await page.keyboard.press('Tab')
+    await expect(agents).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL('/?tag_id=7')
+    await page.goBack()
+    await expect(page).toHaveURL('/?tag_id=8')
+    await agents.click()
+    await expect(page).toHaveURL('/?tag_id=7')
+    const [tagTab] = await Promise.all([
+      context.waitForEvent('page'),
+      agents.click({ modifiers: ['ControlOrMeta'] }),
+    ])
+    await tagTab.waitForURL('**/?tag_id=7')
+    await tagTab.close()
+    await expect(page).toHaveURL('/?tag_id=7')
+    const [detailTab] = await Promise.all([
+      context.waitForEvent('page'),
+      card.click({ position: { x: 20, y: 20 }, modifiers: ['ControlOrMeta'] }),
+    ])
+    await detailTab.waitForURL('**/videos/42')
+    await detailTab.close()
+    await expect(page).toHaveURL('/?tag_id=7')
+    // Le publisher, comme la miniature et les marges, appartient à la surface native du lien.
+    const publisher = await card.locator('.publisher').boundingBox()
+    await page.mouse.click(publisher!.x + 5, publisher!.y + 5)
+    await expect(page).toHaveURL('/videos/42')
+  })
+}

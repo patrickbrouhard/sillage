@@ -78,9 +78,17 @@ h1 { font-size: clamp(32px, 4vw, 46px); line-height: 1.15; letter-spacing: -1.6p
 .page-actions { display: flex; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
 .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .primary:hover { background: var(--accent-hover); }
-.card-link { display: block; text-decoration: none; border-radius: inherit; }
-.card-link:hover h2 { text-decoration: underline; text-underline-offset: 3px; }
-.card-link:focus-visible { outline-offset: -3px; }
+/* Le pseudo-élément étend le lien natif du titre ; les tags passent au-dessus. */
+.video-card { position: relative; }
+.card-link { text-decoration: none; }
+.card-link::after { content: ''; position: absolute; inset: 0; border-radius: 11px; z-index: 1; }
+.card-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.card-link:focus-visible { outline: none; }
+.card-link:focus-visible::after { outline: 3px solid var(--focus); outline-offset: -3px; }
+.video-card .tags li { padding: 0; }
+.video-card .tags a { position: relative; z-index: 2; display: block; padding: 4px 9px; border-radius: inherit; text-decoration: none; }
+.video-card .tags a:hover { background: var(--hover); text-decoration: underline; }
+.video-card .tags a:focus-visible { outline-offset: 1px; }
 .back-link { display: inline-block; margin-bottom: 28px; font-size: 14px; text-underline-offset: 4px; }
 .narrow-page { max-width: 720px; margin: auto; }
 .add-form { margin-top: 32px; padding: 28px; border: 1px solid var(--subtle); border-radius: 12px; background: var(--surface); }
@@ -120,7 +128,7 @@ main:focus { outline: none; }
 summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
 
 .library-filter label, .tag-editor label { display: block; font-weight: 650; margin-bottom: 8px; }
-.library-filter select, .tag-editor input {
+.library-filter input, .tag-editor input {
   font: inherit; color: inherit; border: 1px solid var(--border); border-radius: 6px;
   padding: 12px; background: var(--input); max-width: 100%; min-width: 0;
 }
@@ -624,7 +632,9 @@ main.library-main { padding: 20px 32px 48px; }
 .library-count + .active-filter::before { content: "·"; margin-right: 4px; }
 .library-summary .active-filter > span { min-width: 0; overflow-wrap: anywhere; }
 .active-filter button { flex: none; min-width: 40px; min-height: 40px; padding: 4px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; font-size: 20px; }
-.active-filter button:hover { background: var(--hover); }
+.active-filter button { display: grid; place-items: center; }
+.active-filter button > span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; }
+.active-filter button:hover > span { background: var(--hover); color: var(--text); }
 .library-main .video-grid { gap: 16px; }
 .video-card .card-content { padding: 13px; }
 .video-card h2 { margin-bottom: 6px; }
@@ -642,7 +652,8 @@ main.library-main { padding: 20px 32px 48px; }
 .library-filter { position: fixed; inset: auto; margin: 0; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); overflow: auto; box-shadow: 0 8px 24px #0003; }
 .library-filter:popover-open { display: flex; flex-direction: column; gap: 12px; }
 .library-filter label, .library-filter p { margin: 0; }
-.library-filter select { width: 100%; }
+.library-filter input { width: 100%; }
+.library-tag-filter { display: flex; flex-direction: column; gap: 8px; }
 .library-filter .button { align-self: flex-start; }
 .library-filter .notice { margin: 0; padding: 12px; }
 @media (max-width: 1199px) {

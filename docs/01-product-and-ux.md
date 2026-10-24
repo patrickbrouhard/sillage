@@ -41,8 +41,8 @@ Les sources locales, autres plateformes et autres points d'entrée (extension, C
 - La bibliothèque conserve un `h1` « Bibliothèque » masqué visuellement et le titre de l'onglet, sans surtitre,
   grand titre visible ni accroche. Ses marges sont compactes : 16–20 px au-dessus du contenu, 16 px latéraux sur
   mobile et 32 px sur desktop. Le compteur n'a pas de séparateur supérieur ; aucune action Actualiser.
-- Les cartes entièrement cliquables gardent leur grille responsive et leurs miniatures 16:9. La provenance
-  apparaît en badge contrasté en haut à droite de la miniature, la durée en bas à droite (zéro reste valide).
+- Les cartes cliquables vers la fiche, sauf leurs liens de tags, gardent leur grille responsive et leurs
+  miniatures 16:9. La provenance apparaît en badge contrasté en haut à droite de la miniature, la durée en bas à droite (zéro reste valide).
   Ce badge est réservé aux cartes de bibliothèque et n'indique ni média local ni mode de lecture.
   Titre, publisher et tags complets se replient ; les métadonnées absentes gardent leurs replis, sauf « Aucun
   tag » qui est supprimé sans espace réservé. Padding de 13 px, grille espacée de 16 px, survol sans mouvement
@@ -53,15 +53,19 @@ Les sources locales, autres plateformes et autres points d'entrée (extension, C
 - L'utilisateur peut ouvrir une fiche, ajouter une vidéo, gérer les tags des vidéos et filtrer la bibliothèque
   par **un tag**. Le filtre est porté par l'URL (`/?tag_id=7`), réutilisable à la navigation.
 - Filtres ouvre un popover natif non modal, vertical, borné au viewport et défilable si nécessaire.
-  Le sélecteur natif propose les tags existants et « Tous les tags ». Le choix s'applique immédiatement dans
-  l'URL, préserve les autres paramètres et laisse le panneau ouvert ; Réinitialiser apparaît si un filtre existe.
+  Un champ avec autocomplétion recherche les tags existants par correspondance partielle, sans distinction
+  de casse, sans création de tag. Une saisie vide propose le catalogue ; une saisie sans correspondance
+  l'indique sans modifier le filtre. Flèches haut/bas parcourent les suggestions ; Entrée valide la suggestion
+  active, un clic la sélectionne aussi. La saisie seule ne déclenche aucune requête de vidéos.
+  Le choix d'un seul tag s'applique immédiatement dans l'URL, préserve les autres paramètres et laisse le panneau ouvert ; Réinitialiser apparaît si un filtre existe.
   Aucun état provisoire ni bouton Appliquer. Ouvrir/fermer le panneau n'envoie aucune requête de vidéos.
 - Le bouton expose son état et son panneau contrôlé, sans badge au repos, avec un discret « 1 » pour le
   critère tag présent, même inconnu ou invalide. Les répétitions ne comptent pas comme des critères supplémentaires.
   Le tag actif est aussi visible près du compteur, avec retrait direct explicitement nommé, disponible pendant
-  le chargement et les erreurs. Un ID inconnu reste identifiable et supprimable.
-- À l'ouverture le sélecteur reçoit le focus. Échap ferme et restitue le focus au déclencheur, en préservant
-  d'abord la fermeture native d'un sélecteur déplié. Second clic et clic extérieur ferment ; le clic extérieur
+  le chargement et les erreurs. La croix garde une cible de 40 × 40 px et un focus visible ; seul son centre
+  de 24 × 24 px se colore au survol. Un ID inconnu reste identifiable et supprimable.
+- À l'ouverture le champ reçoit le focus. Un premier Échap replie les suggestions ouvertes ; le suivant
+  ferme le panneau et restitue le focus au déclencheur. Second clic et clic extérieur ferment ; le clic extérieur
   garde sa destination de focus. Aucun piège de focus. Navigation hors bibliothèque et ouverture du hamburger
   ferment le panneau ; un défilement extérieur le ferme pour préserver son ancrage. Un changement de filtre
   le conserve.
@@ -69,7 +73,10 @@ Les sources locales, autres plateformes et autres points d'entrée (extension, C
   normalisation silencieuse. L'échec du catalogue n'empêche ni les vidéos ni le retrait du filtre ; son erreur
   et sa relance restent dans le panneau. Les réponses obsolètes sont annulées ou ignorées. Les erreurs de
   vidéos gardent Réessayer, sans synchronisation automatique.
-- Les tags des cartes sont informatifs ; ceux de la fiche sont des liens vers la bibliothèque filtrée.
+- Les tags des cartes, des fiches et des résultats de recherche sont des liens natifs vers `/?tag_id=...`.
+  Ils remplacent le filtre existant, sans combinaison multitag. Les cartes séparent le lien vers la fiche
+  (surface étendue à la carte) et les liens de tags, sans liens imbriqués. Le clavier et les ouvertures dans
+  un nouvel onglet conservent les comportements natifs ; un clic sur un tag n'ouvre pas la fiche.
 - Le bouton précédent du navigateur conserve l'historique et le filtre d'origine. Le logo Sillage mène à la
   bibliothèque sans filtre. La fiche ne contient pas de lien « Revenir à la bibliothèque » dédié.
 - Bibliothèque vide, filtre sans résultat, chargement et erreur sont des états distincts. Une erreur API ne doit
