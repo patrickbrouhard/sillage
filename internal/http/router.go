@@ -103,3 +103,11 @@ func NewRouter(
 	})
 	return r
 }
+
+// WithSearch ajoute le parcours de recherche au routeur existant.
+func WithSearch(next http.Handler, service handlers.SearchService) http.Handler {
+	r := chi.NewRouter()
+	r.Get("/api/v1/search", handlers.NewSearchHandler(service).Get)
+	r.Mount("/", next)
+	return r
+}

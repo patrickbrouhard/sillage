@@ -79,6 +79,9 @@ func (r *TagRepository) Add(ctx context.Context, id video.VideoID, names []video
 	if err != nil {
 		return nil, err
 	}
+	if err := rebuildSearchVideo(ctx, tx, id); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -99,6 +102,9 @@ func (r *TagRepository) Remove(ctx context.Context, id video.VideoID, tagID vide
 		DELETE FROM video_tags
 		WHERE video_id = ? AND tag_id = ?
 	`, id, tagID); err != nil {
+		return err
+	}
+	if err := rebuildSearchVideo(ctx, tx, id); err != nil {
 		return err
 	}
 	return tx.Commit()

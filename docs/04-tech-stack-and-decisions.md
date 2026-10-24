@@ -32,7 +32,7 @@ Documents complémentaires :
 | Lecteurs | IFrame Player API YouTube + `<video>` HTML5 natif, sans bibliothèque de lecteur | Acté et implémenté |
 | Distribution | Docker multi-stage, frontend statique servi par Go, dépendances externes épinglées | Acté et implémenté |
 | Journalisation | `log/slog`, sortie standard, texte local ou JSON en Docker, rotation Docker | Acté et implémenté |
-| Recherche globale | SQLite FTS5 après un éventuel premier incrément plus simple | Orientation privilégiée |
+| Recherche globale | SQLite FTS5, projection transactionnelle par vidéo | Acté et implémenté |
 | MCP | Serveur Go s'appuyant directement sur les services applicatifs ; SDK Go officiel privilégié | Architecture envisagée, non livrée |
 | IA / STT | Fournisseurs et moteurs à choisir ; pas de dépendance du domaine à un fournisseur | Ouvert |
 | Desktop | Éventuelle application Wails, sans engagement | Ouvert |
@@ -126,6 +126,12 @@ Un tag est identifié après suppression des espaces aux extrémités, normalisa
 L'implémentation utilise `golang.org/x/text` et une `identity_key` unique en SQL ; la casse d'affichage initiale est conservée. Ainsi `DevOps` et `devops` sont identiques, mais `Café` et `Cafe` sont distincts ; le repli peut aussi rapprocher `Straße` et `STRASSE`. Une modification future de l'algorithme doit vérifier **les collisions possibles entre tags déjà persistés**.
 
 Les tags inutilisés demeurent dans le catalogue. Les associations avec vidéos, publishers et personnes ne s'héritent pas ; leurs ajouts multiples et retraits respectent transactions et unicité.
+
+### 3.7 Recherche globale
+
+SQLite FTS5 permet une recherche locale sans service externe et une projection cohérente avec les transactions métier. Le texte des notes est dérivé avec Goldmark/GFM, sans modifier le Markdown original. Cette recherche lexicale n'introduit ni embeddings ni infrastructure supplémentaire.
+
+La [référence technique de recherche](search.md) porte la configuration du tokenizer, les limites Unicode, l'extraction, les pondérations et le cycle de vie de la projection.
 
 ## 4. `yt-dlp` : sources et métadonnées
 
@@ -331,9 +337,9 @@ SQLite conserve les entités, relations, états et chemins nécessaires. Le file
 
 Les sauvegardes, restaurations et changements de chemins doivent préserver **simultanément** la cohérence de la base et des fichiers. La configuration de stockages externes/NAS, la maintenance des orphelins et une stratégie de backup en ligne restent à définir.
 
-## 11. Recherche future, limites et décisions non prises
+## 11. Limites et décisions non prises
 
-**SQLite FTS5** est privilégié pour la recherche plein texte transversale dans les titres, descriptions, notes, transcriptions et futurs artefacts textuels ; une première recherche simple peut le précéder. Le schéma d'indexation, la pertinence, les timestamps retrouvables et les opérations de réindexation doivent être cadrés lors de l'étape 8. Ne pas ajouter prématurément une base vectorielle.
+La recherche globale FTS5 est décrite en section 3.7. Transcriptions avec passages/timestamps et futurs artefacts IA restent hors de son périmètre actuel. Une éventuelle recherche sémantique nécessite une décision distincte ; aucune base vectorielle n'est introduite.
 
 À reconsidérer uniquement lorsque le besoin est établi : WAL ; Goose ; import de `VideoSource` locale ; format et rétention des snapshots ; plusieurs qualités et audio seul ; règles de suppression/soft delete ; sauvegarde et restauration avancées ; jobs persistants ; recherche hybride ; auth/multi-utilisateur ; desktop ; providers IA/STT ; transport et permissions MCP. La liste et les questions détaillées vivent dans [Open questions](06-open-questions.md), pas dans un journal ajouté ici.
 

@@ -48,6 +48,7 @@ export function SiteNavigation() {
       <nav aria-label="Navigation principale">
         {/* Fermer synchroniquement avant que React Router ne déclenche le garde de la note. */}
         <Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined} onClick={close}>Bibliothèque</Link>
+        <Link to="/search" state={{ focusSearch: true }} aria-current={location.pathname === '/search' ? 'page' : undefined} onClick={close}>Rechercher</Link>
         <Link to="/videos/new" aria-current={location.pathname === '/videos/new' ? 'page' : undefined} onClick={close}>Ajouter une vidéo</Link>
       </nav>
       <ThemeSelector />

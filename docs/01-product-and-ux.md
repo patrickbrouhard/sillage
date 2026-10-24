@@ -49,7 +49,7 @@ Les sources locales, autres plateformes et autres points d'entrée (extension, C
 - Bibliothèque vide, filtre sans résultat, chargement et erreur sont des états distincts. Une erreur API ne doit
   pas être masquée par un repli SPA.
 
-La recherche **globale**, les filtres combinés, les tris personnalisés et les vues enregistrées ne sont pas assimilés au filtre existant ; voir [Roadmap](05-roadmap.md) et [Open questions](06-open-questions.md).
+Les filtres combinés, tris personnalisés et vues enregistrées restent des extensions futures. La recherche globale est un parcours distinct décrit ci-dessous.
 
 ### 1.3 Gestion des tags
 
@@ -66,13 +66,29 @@ La recherche **globale**, les filtres combinés, les tris personnalisés et les 
   déjà. Les homonymes de personnes ne sont pas fusionnés, et une personne associée à un publisher n'est pas
   automatiquement associée à toutes ses vidéos.
 
+### 1.4 Recherche globale
+
+`/search` invite à rechercher ; `/search?q=...&page=...` porte une requête partageable. Entrée ou la loupe soumet la saisie ; aucune requête n'est déclenchée pendant la frappe. Une nouvelle requête revient en première page. Rechargement, précédent et suivant restaurent requête et page ; les réponses obsolètes sont annulées ou ignorées.
+
+La recherche retourne des vidéos, une fois chacune, à partir des titres et descriptions de toutes leurs sources, noms des publishers, tags directs et texte des notes. Les tags de publishers/personnes et transcriptions ne sont pas hérités ou indexés. Une citation copiée dans une note reste du texte de note.
+
+Tous les termes sont obligatoires, même répartis entre champs ou sources. La casse et les accents latins pris en charge par SQLite sont ignorés. À partir de quatre lettres/chiffres, le préfixe est automatique : `kube` retrouve Kubernetes ; `Go`, `API`, `SQL` et `net` restent entiers. `.NET` peut correspondre à net ; `node.js` donne node en préfixe ET js entier. `C++`, `C#`, `C` restent distincts. Aucune syntaxe FTS ou expression exacte entre guillemets n'est exposée.
+
+Les résultats forment une liste horizontale avec miniature, titre et publisher de la première source REST, tags et ouverture vers la fiche. Leurs tags sont des liens vers la bibliothèque filtrée par l'ID du tag : toutes les vidéos directement associées sont affichées, indépendamment de la recherche précédente. Le retour navigateur restaure la recherche et sa page. Les résultats sont espacés sans séparateur horizontal. Aucun libellé de plateforme ne précède le titre. Une explication discrète identifie les autres sources contributrices et les correspondances en description/publisher. Plusieurs sources peuvent contribuer sans désigner une origine unique. Un extrait apparaît seulement si la note correspond ; ses marques de surlignage portent sur du texte littéral et ne prétendent pas montrer tous les termes. Il est présenté en texte continu et sur deux lignes visuelles au maximum, en conservant une correspondance visible. Le contexte précédent peut être abrégé par une ellipse ; un token exceptionnellement long conserve une portion surlignée visible. Les blancs sont réduits sans fusionner les mots ni déplacer les attributions ou corps de citations.
+
+L’extrait sert à comprendre le contexte de la correspondance pour décider d’ouvrir la fiche vidéo ; il ne remplace pas la lecture de la note. Le contexte disponible est borné côté serveur selon le [contrat technique des extraits](search.md#explications-et-extraits).
+
+« Voir plus » apparaît seulement si l'extrait disponible est abrégé à l'affichage. Il restitue tout l'extrait déjà reçu, sans charger la note ni faire d'appel réseau ; « Réduire » rétablit la fenêtre compacte. Chaque résultat possède son état indépendant, réinitialisé pour une nouvelle recherche ou un extrait remplacé. Le bouton garde le focus et expose son état et son contenu contrôlé aux technologies d'assistance. Le calcul des deux lignes suit la largeur et la taille du texte.
+
+La page affiche le nombre total exact de vidéos correspondantes, indépendamment du nombre de résultats sur la page courante. Une page vide avec un total positif annonce « Aucun résultat sur cette page », distinct d'une recherche sans correspondance. La pagination propose 20 résultats par page et un lien suivant lorsque d'autres résultats existent, sans garantie d'instantané entre requêtes. La page reste compacte : aucun bandeau visible « Recherche », sous-titre de requête ou séparateur au-dessus du compteur. Un titre principal masqué visuellement conserve le contexte pour les lecteurs d'écran. Invitation, chargement, résultats et erreur avec nouvelle tentative restent annoncés. Les longues chaînes se replient sur petit écran sans débordement.
+
 ## 2. Navigation générale et fiche vidéo
 
 ### 2.1 En-tête et volet de navigation
 
 - Le bouton hamburger précède la signature Sillage sur toutes les pages. Il ouvre un **volet gauche superposé**,
   fermé par défaut, sans redimensionner le workspace et sans agir sur les lecteurs.
-- Le volet contient actuellement Bibliothèque, Ajouter une vidéo et le choix de thème **Clair / Sombre /
+- Le volet contient Bibliothèque, Rechercher, Ajouter une vidéo et le choix de thème **Clair / Sombre /
   Système**. Ne pas afficher de faux contrôles Paramètres ou Compte avant leur implémentation.
 - L'arrière-plan est rendu inerte pendant l'ouverture ; le focus reste dans le volet. Échap, le bouton Fermer et
   le clic extérieur ferment le volet. Lors d'une navigation, le volet se ferme d'abord pour laisser apparaître
@@ -83,13 +99,15 @@ La recherche **globale**, les filtres combinés, les tris personnalisés et les 
 - La palette actuelle est bleutée (bleu nuit en sombre), avec un signal d'erreur distinct. Le contenu intégré de
   YouTube conserve son propre thème.
 
+L'action Rechercher ferme le volet avant le garde de note. Elle focalise le champ seulement après une navigation autorisée, y compris depuis `/search` lui-même. Ce focus est coordonné avec l'annonce du contenu principal ; réponses et pagination ne le déplacent pas. Ouvrir/fermer le volet conserve lecteur, éditeur, sélection, Undo/Redo, conflit et autosauvegarde.
+
 Le hamburger utilise une cible de 40 × 40 px et une icône 24 px. L'en-tête utilise des marges latérales de 16 px
 et ne doit pas créer de débordement horizontal.
 
 ### 2.2 En-tête compact de la fiche
 
 La fiche vidéo possède un bandeau transparent, sans séparateur horizontal ni footer, comprenant le hamburger, la
-signature Sillage, le titre et les tags. Les autres pages conservent leur propre bandeau et leur footer.
+signature Sillage, le titre et les tags. Bibliothèque et recherche partagent ses dimensions compactes, son fond transparent et son absence de bordure, avec un champ centré par rapport au bandeau entier. Sur mobile, ce champ occupe une ligne distincte. Ajout/erreur utilisent la coque compacte sans champ ; les pages autres que la fiche gardent leur footer. La fiche ne contient aucun champ de recherche et conserve son portail titre/tags.
 
 - Le titre provient actuellement de la **première source REST**, sans requête supplémentaire ni titre
   personnalisé. Chargement et erreur ont leurs propres libellés. Le titre intégral reste sélectionnable dans
@@ -576,7 +594,7 @@ La galerie, la réinsertion, l'import d'images et les clips vidéo sont des pist
 
 ## 7. Recherche, IA et pistes non livrées
 
-- **Recherche globale** : future étape distincte de la recherche locale dans une transcription. La direction prévue va d'une recherche simple sur titres/tags/notes à une recherche plein texte pouvant retrouver un passage horodaté ; voir [Roadmap](05-roadmap.md).
+- **Extensions de recherche** : passages de transcription, navigation temporelle, filtres avancés et recherche sémantique restent distincts de la V1 globale décrite en section 1.4 ; voir [Roadmap](05-roadmap.md).
 - **MCP** : interface future pour exposer les cas d'usage métier à un agent, sans accès direct aux primitives de
   persistance ; outils et permissions restent à décider.
 - **IA intégrée** : facultative, postérieure aux primitives métier ; candidates : résumés, tags suggérés,

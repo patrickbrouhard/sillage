@@ -23,7 +23,7 @@ Documents complémentaires :
                     │
                     ▼
           Services applicatifs Go
-       video · note · transcript · media · asset
+       video · note · transcript · media · asset · search
                     │
           ports et interfaces ciblés
              ┌──────┴─────────┐
@@ -98,6 +98,12 @@ Le navigateur dispose d'une session locale d'édition ; elle n'est pas l'autorit
 Le port de provider retourne un contenu normalisé et les octets source opaques ; la connaissance de JSON3 et des formats `yt-dlp` reste dans l'adapter. La langue audio de la source ne doit jamais être déduite de la caption. La sélection originale est une préférence explicite, **pas une garantie** d'identité avec la piste audio.
 
 Publication d'un snapshot : écriture d'un nouveau temporaire, synchronisation, fermeture et renommage, **puis transaction SQLite courte**. Aucune transaction SQL n'est maintenue pendant le réseau ou l'écriture du fichier. L'ancien snapshot reste disponible pour les lecteurs ; un crash ou un échec SQL peut laisser un fichier orphelin, qui n'est pas effacé arbitrairement. Le `GET` lit et parse le snapshot référencé ; son absence/corruption est une erreur locale, sans réacquisition implicite.
+
+### 2.5 Recherche globale
+
+`search.Service` expose un port spécialisé indépendant de HTTP et de SQLite, réutilisable par les interfaces non HTTP. L'adapter SQLite maintient une projection FTS5 reconstructible, avec un document par vidéo, dans les transactions des écritures métier. Une recherche lit total, résultats et explications dans un même instantané ; les appels successifs restent indépendants.
+
+La [référence technique de recherche](search.md) décrit la constitution et le cycle de vie de l'index, les requêtes, le contrat REST, les extraits et les validations. Les règles de présentation restent dans [Product & UX](01-product-and-ux.md).
 
 ## 3. Stockage SQLite et filesystem
 
@@ -282,7 +288,7 @@ Un format validé par `ffprobe` n'est pas nécessairement décodable dans un nav
 
 ### 8.1 SPA et navigation
 
-React/TypeScript/Vite consomme REST avec des chemins relatifs ; Vite proxy `/api` en développement, Go sert les fichiers de production. Les routes React Router gèrent bibliothèque, ajout et fiche vidéo ; les réponses réseau tardives et lectures annulées ne doivent jamais remplacer les données de la page suivante.
+React/TypeScript/Vite consomme REST avec des chemins relatifs ; Vite proxy `/api` en développement, Go sert les fichiers de production. Les routes React Router gèrent bibliothèque, recherche, ajout et fiche vidéo ; les réponses réseau tardives et lectures annulées ne doivent jamais remplacer les données de la page suivante.
 
 Le data router prend en charge les protections de navigation de la note, y compris l'historique. L'état reste local aux composants et services de session ; pas de store global imposé. La SPA n'a pas d'accès direct à SQLite ni aux fichiers bruts du serveur.
 
@@ -389,7 +395,7 @@ La CI déterministe couvre services/SQLite, REST/Postman, React/Playwright et Do
 
 ## 11. Extensions futures et règles de maintenance
 
-La recherche globale (éventuellement FTS5), MCP, IA/STT, imports locaux, autres providers, sauvegarde avancée et desktop doivent conserver les **frontières métier** ci-dessus. Leur existence dans la roadmap ou dans les questions ouvertes **n'autorise pas** à créer immédiatement ports, routes, jobs ou tables anticipés.
+Les extensions de recherche, MCP, IA/STT, imports locaux, autres providers, sauvegarde avancée et desktop doivent conserver les **frontières métier** ci-dessus. Leur existence dans la roadmap ou dans les questions ouvertes **n'autorise pas** à créer immédiatement ports, routes, jobs ou tables anticipés.
 
 Lorsque le code change :
 

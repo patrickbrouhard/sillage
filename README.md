@@ -4,7 +4,7 @@
 
 YouTube est actuellement la source prise en charge. La conception distingue la vidéo comme objet de connaissance (`Video`), sa provenance (`VideoSource`) et son éventuel fichier local (`MediaFile`). Le projet est **self-hosted**, utilisable sans intelligence artificielle et toujours en développement.
 
-> **État du projet :** le socle de travail vidéo est fonctionnel. La recherche globale, MCP et l'IA intégrée restent à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
+> **État du projet :** le socle de travail vidéo est fonctionnel. MCP et l'IA intégrée restent à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
 
 ## Fonctionnalités disponibles
 
@@ -15,9 +15,10 @@ YouTube est actuellement la source prise en charge. La conception distingue la v
 - **Transcriptions YouTube** : acquisition explicite de sous-titres automatiques sélectionnés, conservation du JSON3, lecture hors réseau depuis le snapshot, recherche textuelle locale, navigation par timestamp et citation d'extraits dans la note.
 - **Lecture distante et locale** : lecteur YouTube ou HTML5 natif, conservation volontaire d'une vidéo avec `yt-dlp`, suivi du téléchargement, consultation des propriétés techniques, suppression explicite du fichier et bascule entre lecteurs. Si le fichier est disponible à l'ouverture, **Local** est sélectionné en premier ; aucune lecture ne démarre automatiquement.
 - **Captures PNG** : extraction d'une image au temps courant avec `ffmpeg`, insertion dans la note et conservation indépendante du fichier vidéo et du Markdown qui la référence.
+- **Recherche globale** : titres et descriptions des sources, publishers, tags directs et notes ; résultats paginés, extraits et explications.
 - **API REST** : accès aux vidéos, notes, tags, transcriptions, publishers, personnes, fichiers locaux et captures.
 
-La recherche **dans une transcription ouverte** est disponible. Elle ne doit pas être confondue avec une recherche dans toute la bibliothèque. Le serveur MCP, l'IA intégrée, l'import de vidéos locales et les annotations structurées constituent des travaux futurs, pas des fonctionnalités livrées.
+La recherche **dans une transcription ouverte** reste distincte de la recherche globale, qui n’indexe pas les transcriptions. Le serveur MCP, l'IA intégrée, l'import de vidéos locales et les annotations structurées constituent des travaux futurs, pas des fonctionnalités livrées.
 
 ## Démarrage rapide avec Docker
 
@@ -168,6 +169,32 @@ Sur une fiche vidéo, le lecteur et la transcription s'appuient sur la même **s
 - **Captures** : `+ Capture` demande un PNG au temps courant ; l'Asset est conservé séparément de son insertion Markdown. Retirer une référence de la note ne supprime pas l'image.
 
 Le comportement détaillé des lecteurs, de l'éditeur et des interactions est spécifié dans [Product & UX](docs/01-product-and-ux.md). Une [recette manuelle ciblée](docs/07-local-playback-validation.md) couvre les interactions que les simulations de navigateur ne suffisent pas à confirmer.
+
+## Recherche globale et maintenance
+
+`GET /api/v1/search?q=kube&page=1` recherche les titres et descriptions de toutes les sources, leurs publishers, les tags directement associés aux vidéos et le texte dérivé des notes. Une vidéo apparaît une seule fois. Les transcriptions et tags indirects sont exclus.
+
+Les termes sont combinés par ET, même entre champs ou sources. Les tokens de quatre lettres ou chiffres Unicode ou plus utilisent un préfixe ; les termes courts et techniques (`C++`, `C#`) restent entiers. Les guillemets et opérateurs ne donnent accès à aucune syntaxe FTS. La recherche ignore la casse et les accents latins pris en charge par SQLite unicode61.
+
+La réponse contient `results`, `page`, `has_more` et `total`, avec 20 résultats par page. `total` compte toutes les vidéos correspondantes, indépendamment de la page. Chaque résultat fournit la vidéo, un extrait de note en segments texte/surlignage et les sources contributrices. Les extraits donnent un contexte borné, pas la note entière. La saisie est limitée à 1 024 octets UTF-8 et 32 tokens ; les pages vont de 1 à 1 000. Les paramètres invalides donnent une erreur 400.
+
+Le [contrat technique de recherche](docs/search.md) détaille les paramètres et réponses REST, la tokenisation, les extraits et les garanties de cohérence.
+
+Une recherche sans correspondance retourne par exemple :
+
+```json
+{"results": [], "page": 1, "has_more": false, "total": 0}
+```
+
+Sur une page au-delà des résultats, `results` est vide et `has_more` vaut `false`, mais `total` conserve le nombre de vidéos correspondantes.
+
+L'ouverture de la base applique la migration additive puis initialise la projection versionnée depuis les données originales dans une transaction atomique. Pour régénérer explicitement cette projection, arrêter le serveur puis lancer depuis la racine :
+
+```bash
+go run ./cmd/search-rebuild -db data/sillage.db
+```
+
+Cette opération réextrait les notes sans modifier leur Markdown, dates ou révisions. Un échec ou une interruption annule la reconstruction. La prochaine ouverture reprend une initialisation encore nécessaire ; si la version était déjà courante, relancer explicitement la commande de maintenance. Il ne s'agit pas de la commande interne FTS `rebuild`.
 
 ## API REST
 
@@ -443,6 +470,6 @@ Les instructions de travail propres au dépôt sont dans [AGENTS.md](AGENTS.md).
 
 ## Prochaines étapes
 
-La prochaine grande étape planifiée est la **recherche globale** dans la bibliothèque, avec une première recherche transversale puis, selon son cadrage, une recherche plein texte avec SQLite FTS5 et des résultats reliés aux passages temporels. MCP et IA intégrée viendront ensuite, sans calendrier fixé.
+La recherche globale SQLite FTS5 est disponible dans la bibliothèque. Les prochaines directions sont MCP et l’IA intégrée, sans calendrier fixé. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
 
 La [roadmap](docs/05-roadmap.md) donne l'état des jalons et leurs objectifs ; [les questions ouvertes](docs/06-open-questions.md) recensent les choix qui ne sont pas encore tranchés. Leur présence dans ces fichiers ne signifie pas qu'ils sont implémentés ou approuvés.

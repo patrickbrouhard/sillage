@@ -214,6 +214,9 @@ func (r *PublisherRepository) SetSource(ctx context.Context, id video.VideoID, s
 	if _, err := tx.ExecContext(ctx, "UPDATE video_sources SET publisher_id = ? WHERE id = ?", publisher, source); err != nil {
 		return err
 	}
+	if err := rebuildSearchVideo(ctx, tx, id); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 

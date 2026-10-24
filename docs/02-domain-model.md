@@ -73,6 +73,8 @@ Le titre présenté actuellement dans le Web peut provenir de la première sourc
 
 De même, un éventuel `updated_at` de vidéo exige une sémantique explicite : modification utilisateur, nouvelle acquisition ou rafraîchissement distant ne sont pas nécessairement équivalents. Ne pas introduire cette donnée par simple commodité technique.
 
+La recherche globale conserve cette identité : un résultat par `Video`, même si plusieurs sources contribuent. Sa projection textuelle est reconstructible depuis les sources, publishers, tags directs et note ; elle ne crée ni titre principal, ni association héritée, ni nouvelle entité de connaissance. Une citation de transcription copiée dans la note est recherchable comme texte utilisateur ; la transcription d'origine reste hors de cet index.
+
 ## 3. `VideoSource`, `Publisher` et `Person`
 
 ### 3.1 `VideoSource` : provenance et identité
@@ -435,7 +437,7 @@ Un ajout par noms est **additif et atomique**, création de nouveaux tags compri
 
 Le retrait supprime uniquement une association. Un tag devenu inutilisé reste dans le catalogue ; aucune suppression automatique ou quota métier arbitraire n'est prévu. Les tables associatives possèdent des clés étrangères et une unicité des paires d'IDs : aucune table polymorphe générique n'est introduite.
 
-Les tags **ne sont pas hérités** : taguer une personne ou un publisher ne tague pas ses vidéos. Le filtre vidéo `tag_id` s'applique uniquement aux tags associés directement aux vidéos. Une recherche future traversant les relations devra le faire explicitement, sans modifier ces liens.
+Les tags **ne sont pas hérités** : taguer une personne ou un publisher ne tague pas ses vidéos. Le filtre vidéo `tag_id` s'applique uniquement aux tags associés directement aux vidéos. Toute extension de recherche traversant ces associations devra le faire explicitement, sans modifier les liens ni hériter de leurs tags.
 
 Renommage, fusion, suppression globale, alias, hiérarchie, catégories et couleurs sont des évolutions ouvertes, pas des opérations existantes.
 

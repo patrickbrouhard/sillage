@@ -91,11 +91,14 @@ func TestMediaMigrationPreservesHistory(t *testing.T) {
 			if err := migrate(ctx, db, files); err != nil {
 				t.Fatal(err)
 			}
-			videos := NewVideoRepository(db)
-			v, err := videos.Create(ctx, video.Video{CreatedAt: time.Now().UTC(), Sources: []video.VideoSource{{Provider: "youtube", ExternalID: "abcdefghijk", Title: "old"}}})
-			if err != nil {
+			// La fixture historique écrit le schéma v6 sans appeler un repository actuel.
+			if _, err := db.Exec("INSERT INTO videos (id, created_at) VALUES (1, ?)", formatDate(time.Now())); err != nil {
 				t.Fatal(err)
 			}
+			if _, err := db.Exec("INSERT INTO video_sources (id, video_id, provider, title) VALUES (1, 1, 'youtube', 'old')"); err != nil {
+				t.Fatal(err)
+			}
+			v := video.Video{ID: 1, Sources: []video.VideoSource{{ID: 1}}}
 			repo := NewMediaRepository(db)
 			source := v.Sources[0].ID
 			original := media.File{VideoID: v.ID, OriginSourceID: &source, Path: "old.mp4", Format: "mp4", Size: 8, DurationMS: 1000, AddedAt: time.Now().UTC().Truncate(time.Millisecond)}
