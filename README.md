@@ -176,7 +176,9 @@ Le comportement détaillé des lecteurs, de l'éditeur et des interactions est s
 
 Les termes sont combinés par ET, même entre champs ou sources. Les tokens de quatre lettres ou chiffres Unicode ou plus utilisent un préfixe ; les termes courts et techniques (`C++`, `C#`) restent entiers. Les guillemets et opérateurs ne donnent accès à aucune syntaxe FTS. La recherche ignore la casse et les accents latins pris en charge par SQLite unicode61.
 
-La réponse contient `results`, `page`, `has_more` et `total`, avec 20 résultats par page. `total` est le nombre exact de vidéos correspondant à tous les termes, y compris sur une page vide au-delà des derniers résultats. Chaque résultat contient `video`, `note_excerpt` (segments `text` / `highlight`, sans HTML) et `source_matches` (ID de source et indicateurs `title`, `description`, `publisher`). L’extrait est absent si la note ne correspond pas et ne couvre pas nécessairement tous les termes. Il est limité à 64 tokens puis à 4 096 caractères Unicode (hors ellipses ajoutées), en conservant une correspondance surlignée. Les paramètres inconnus ou répétés, pages hors de 1 à 1000, saisies UTF-8 invalides ou de plus de 1024 octets et saisies de plus de 32 tokens sont refusés (400). Une saisie sans token exploitable retourne une page vide avec `total: 0`, sans appeler MATCH. Le total et la page sont lus dans le même instantané ; aucun instantané entre requêtes distinctes n'est garanti.
+La réponse contient `results`, `page`, `has_more` et `total`, avec 20 résultats par page. `total` compte toutes les vidéos correspondantes, indépendamment de la page. Chaque résultat fournit la vidéo, un extrait de note en segments texte/surlignage et les sources contributrices. Les extraits donnent un contexte borné, pas la note entière. La saisie est limitée à 1 024 octets UTF-8 et 32 tokens ; les pages vont de 1 à 1 000. Les paramètres invalides donnent une erreur 400.
+
+Le [contrat technique de recherche](docs/search.md) détaille les paramètres et réponses REST, la tokenisation, les extraits et les garanties de cohérence.
 
 Une recherche sans correspondance retourne par exemple :
 
@@ -192,7 +194,7 @@ L'ouverture de la base applique la migration additive puis initialise la project
 go run ./cmd/search-rebuild -db data/sillage.db
 ```
 
-Cette opération réextrait les notes sans modifier leur Markdown, dates ou révisions. Un échec ou une interruption annule la reconstruction ; la prochaine ouverture reprend l'initialisation nécessaire. Il ne s'agit pas de la commande interne FTS `rebuild`.
+Cette opération réextrait les notes sans modifier leur Markdown, dates ou révisions. Un échec ou une interruption annule la reconstruction. La prochaine ouverture reprend une initialisation encore nécessaire ; si la version était déjà courante, relancer explicitement la commande de maintenance. Il ne s'agit pas de la commande interne FTS `rebuild`.
 
 ## API REST
 

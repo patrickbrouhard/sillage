@@ -20,6 +20,7 @@ Read only the documents relevant to the task; do not load the entire documentati
 | `docs/01-product-and-ux.md` | Current user-visible behavior and UX contracts |
 | `docs/02-domain-model.md` | Domain entities, identities and invariants |
 | `docs/03-architecture.md` | Services, adapters, persistence and API boundaries |
+| `docs/search.md` | Primary reference for global-search changes: projection lifecycle, queries, contracts, excerpts and validation |
 | `docs/04-tech-stack-and-decisions.md` | Current technical choices and their rationale |
 | `docs/05-roadmap.md` | Completed milestones, planned work and priorities |
 | `docs/06-open-questions.md` | Unresolved decisions and exploratory possibilities |

@@ -127,17 +127,11 @@ L'implémentation utilise `golang.org/x/text` et une `identity_key` unique en SQ
 
 Les tags inutilisés demeurent dans le catalogue. Les associations avec vidéos, publishers et personnes ne s'héritent pas ; leurs ajouts multiples et retraits respectent transactions et unicité.
 
-### 3.7 Recherche : projection et tokenisation
+### 3.7 Recherche globale
 
-FTS5 utilise `unicode61 remove_diacritics 2 tokenchars '+#'` ; le point sépare les tokens. `C++`, `C#` et `C` sont distincts. `node.js` donne deux termes indépendants ; `.NET` donne `net`. La conservation de ponctuation s'applique aussi à `#devops` et `a+b`, qui restent des tokens entiers distincts de `devops` ou `a b`. Des symboles seuls ne sont pas une recherche exploitable.
+SQLite FTS5 permet une recherche locale sans service externe et une projection cohérente avec les transactions métier. Le texte des notes est dérivé avec Goldmark/GFM, sans modifier le Markdown original. Cette recherche lexicale n'introduit ni embeddings ni infrastructure supplémentaire.
 
-La segmentation de la saisie passe par le même tokenizer réel dans une table FTS temporaire et `fts5vocab(instance)`, sur une connexion réservée. Chaque token est cité séparément ; seuls les tokens entièrement composés de lettres/chiffres Unicode et de longueur au moins quatre prennent un astérisque contrôlé. Les termes sont combinés par ET, sans stop words, stemming ou syntaxe publique.
-
-Les accents latins composés et décomposés courants sont équivalents. unicode61 applique les règles Unicode de SQLite, pas une normalisation linguistique universelle : ni translittération générale, ni équivalence garantie entre toutes les écritures ou ligatures. En particulier, `Straße` ne correspond pas à `STRASSE`, `œuvre` à `oeuvre`, ni les caractères pleine chasse à leurs équivalents ASCII. La ponctuation conservée empêche le préfixe automatique sur les termes techniques.
-
-Goldmark avec GFM extrait le texte serveur des notes : blocs séparés, liens par libellé, images par alternatif, tableaux et code conservés ; destinations, langages des blocs, marqueurs et URI d'en-têtes Sillage exclus. Le HTML brut est ignoré comme dans le rendu sécurisé ; le texte entre balises inline reste lisible. Le Markdown original n'est jamais réécrit.
-
-BM25 pondère titres 8, tags 10, note 3, publishers 2 et descriptions 0,5, puis départage par ID vidéo. Ces poids ne promettent pas une priorité absolue de champ.
+La [référence technique de recherche](search.md) porte la configuration du tokenizer, les limites Unicode, l'extraction, les pondérations et le cycle de vie de la projection.
 
 ## 4. `yt-dlp` : sources et métadonnées
 
