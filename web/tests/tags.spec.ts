@@ -71,6 +71,7 @@ test('classe deux vidéos via Go/SQLite et conserve les associations partagées'
   await page.getByRole('link', { name, exact: true }).click()
   await expect(page.locator('.video-card')).toHaveCount(2)
   await page.reload()
+  await page.getByRole('button', { name: /^Filtres/ }).click()
   await expect(page.getByLabel('Filtrer par tag')).toHaveValue(filterURL!.split('=')[1])
   await page.getByRole('link', { name: `Consulter : sillage-tags-${run}-a` }).click()
   await page.reload()
@@ -85,7 +86,7 @@ test('classe deux vidéos via Go/SQLite et conserve les associations partagées'
   await page.goBack()
   await expect(page.locator('.video-card')).toHaveCount(1)
   await expect(page.getByRole('link', { name: `Consulter : sillage-tags-${run}-b` })).toBeVisible()
-  await page.getByRole('button', { name: 'Retirer le filtre' }).click()
+  await page.getByRole('button', { name: /^Retirer le filtre de tag/ }).click()
   await expect(page).toHaveURL('/')
   await page.goBack()
   await expect(page).toHaveURL(filterURL!)
@@ -237,7 +238,7 @@ for (const query of ['tag_id=invalid', 'tag_id=0', 'tag_id=1&tag_id=2']) {
   test(`un filtre invalide reste explicite : ${query}`, async ({ page }) => {
     await page.goto('/?' + query)
     await expect(page.getByRole('alert')).toContainText(/invalide|Un seul filtre/)
-    await page.getByRole('button', { name: 'Retirer le filtre' }).click()
+    await page.getByRole('button', { name: /^Retirer le filtre de tag/ }).click()
     await expect(page).toHaveURL('/')
     await expect(page.getByRole('link', { name: 'Consulter : Comprendre SQLite et ses transactions' })).toBeVisible()
   })
@@ -246,7 +247,7 @@ for (const query of ['tag_id=invalid', 'tag_id=0', 'tag_id=1&tag_id=2']) {
 test('un filtre inconnu ne prétend pas que toute la bibliothèque est vide', async ({ page }) => {
   await page.goto('/?tag_id=999999999')
   await expect(page.getByRole('heading', { name: 'Aucune vidéo pour ce tag' })).toBeVisible()
-  await expect(page.getByText('Filtre actif :')).toContainText('999999999')
+  await expect(page.locator('.active-filter')).toContainText('999999999')
   await expect(page.getByRole('heading', { name: 'Votre bibliothèque est encore vide' })).toHaveCount(0)
 })
 
@@ -292,12 +293,13 @@ test('un ancien filtre lent ne remplace pas la sélection suivante', async ({ pa
   await page.route('**/api/v1/videos?tag_id=102', (route) => route.fulfill({ json: { videos: [fixture] } }))
   await page.goto('/?tag_id=101')
   await expect(page.getByRole('status')).toContainText('Chargement')
+  await page.getByRole('button', { name: /^Filtres/ }).click()
   await page.getByLabel('Filtrer par tag').selectOption('102')
   await expect(page.getByRole('heading', { name: 'Vidéo de classement' })).toBeVisible()
   release()
   await done
   await expect(page.getByRole('heading', { name: 'Ancien résultat' })).toHaveCount(0)
-  await expect(page.getByText('Filtre actif :')).toContainText('Second filtre')
+  await expect(page.locator('.active-filter')).toContainText('Second filtre')
 })
 
 test('un échec de retrait conserve le tag et permet une nouvelle tentative', async ({ page }) => {
@@ -335,6 +337,7 @@ test('la bibliothèque reste lisible quand le catalogue échoue', async ({ page 
   await page.route('**/api/v1/tags', (route) => route.fulfill({ status: 500, json: { error: { code: 'internal_error' } } }))
   await page.goto('/')
   await expect(page.getByRole('link', { name: 'Consulter : Comprendre SQLite et ses transactions' })).toBeVisible()
+  await page.getByRole('button', { name: /^Filtres/ }).click()
   await expect(page.getByRole('alert')).toContainText('indépendante du catalogue')
   await page.getByRole('button', { name: 'Réessayer les tags' }).click()
   await expect(page.getByRole('link', { name: 'Consulter : Comprendre SQLite et ses transactions' })).toBeVisible()

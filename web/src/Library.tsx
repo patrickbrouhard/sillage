@@ -1,9 +1,11 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { errorMessage, listVideos } from './api'
 import type { Video } from './api'
 import { useTagCatalog } from './useTagCatalog'
 import { VideoCard } from './VideoCard'
+import { LibraryFilters } from './LibraryFilters'
 
 type LibraryState =
   | { status: 'loading' }
@@ -11,7 +13,7 @@ type LibraryState =
   | { status: 'error'; message: string }
 
 /** Charge une vue cohérente et annule sa lecture au démontage ou à la relance. */
-export function Library() {
+export function Library({ actionsHost }: { actionsHost: HTMLDivElement | null }) {
   const [params, setParams] = useSearchParams()
   const values = params.getAll('tag_id')
   const tagID = values[0]
@@ -66,39 +68,38 @@ export function Library() {
   return (
     <>
       <title>Bibliothèque · Sillage</title>
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">VOTRE BASE DE CONNAISSANCES</p>
-          <h1>Bibliothèque</h1>
-          <p className="intro">Les vidéos que vous souhaitez garder à portée de pensée.</p>
-        </div>
-        <div className="page-actions">
-          <Link className="button primary" to="/videos/new">Ajouter une vidéo</Link>
-          <button className="button" onClick={refresh} disabled={state.status === 'loading'}>
-            Actualiser
-          </button>
-        </div>
-      </div>
-      <section className="library-filter" aria-label="Filtrage de la bibliothèque">
-        <label htmlFor="tag-filter">Filtrer par tag</label>
-        <select id="tag-filter" value={tagID ?? ''} onChange={(event) => selectTag(event.target.value)}>
-          <option value="">Tous les tags</option>
-          {tagID !== undefined && !activeTag && <option value={tagID}>{filterLabel}</option>}
-          {[...catalog.tags].sort((a, b) => a.name.localeCompare(b.name, 'fr')).map((tag) =>
-            <option key={tag.id} value={tag.id}>{tag.name}</option>)}
-        </select>
+      <h1 className="sr-only">Bibliothèque</h1>
+      {actionsHost && createPortal(<>
+        <LibraryFilters active={tagID !== undefined}>
+          <label htmlFor="tag-filter">Filtrer par tag</label>
+          <select id="tag-filter" value={tagID ?? ''} onChange={(event) => selectTag(event.target.value)}>
+            <option value="">Tous les tags</option>
+            {tagID !== undefined && !activeTag && <option value={tagID}>{filterLabel}</option>}
+            {[...catalog.tags].sort((a, b) => a.name.localeCompare(b.name, 'fr')).map((tag) =>
+              <option key={tag.id} value={tag.id}>{tag.name}</option>)}
+          </select>
+          {tagID !== undefined && <button className="button" onClick={() => selectTag('')}>Réinitialiser</button>}
+          {catalog.loading && <p className="muted">Chargement des tags…</p>}
+          {catalog.error && <div role="alert" className="notice error">
+            <p>{catalog.error} La liste des vidéos reste indépendante du catalogue.</p>
+            <button className="button" onClick={catalog.refresh}>Réessayer les tags</button>
+          </div>}
+          {!catalog.loading && !catalog.error && catalog.tags.length === 0 &&
+            <p className="muted">Aucun tag dans le catalogue pour le moment.</p>}
+        </LibraryFilters>
+        <Link className="button primary library-add" to="/videos/new" aria-label="Ajouter une vidéo">
+          <span className="library-add-label">Ajouter une vidéo</span><span className="library-add-symbol" aria-hidden="true">+</span>
+        </Link>
+      </>, actionsHost)}
+      <div className="library-summary">
+        {state.status === 'ready' && <p className="library-count" role="status">
+          {state.videos.length} vidéo{state.videos.length > 1 ? 's' : ''}
+        </p>}
         {tagID !== undefined && <div className="active-filter">
-          <span>Filtre actif : <strong>{filterLabel}</strong></span>
-          <button className="button" onClick={() => selectTag('')}>Retirer le filtre</button>
+          <span>Tag : <strong>{filterLabel}</strong></span>
+          <button type="button" aria-label={`Retirer le filtre de tag : ${filterLabel}`} onClick={() => selectTag('')}>×</button>
         </div>}
-        {catalog.loading && <p className="muted">Chargement des tags…</p>}
-        {catalog.error && <div role="alert" className="notice error">
-          <p>{catalog.error} La liste des vidéos reste indépendante du catalogue.</p>
-          <button className="button" onClick={catalog.refresh}>Réessayer les tags</button>
-        </div>}
-        {!catalog.loading && !catalog.error && catalog.tags.length === 0 &&
-          <p className="muted">Aucun tag dans le catalogue pour le moment.</p>}
-      </section>
+      </div>
       {state.status === 'loading' && (
         <div className="state-panel" role="status">Chargement de la bibliothèque…</div>
       )}
@@ -111,9 +112,6 @@ export function Library() {
       )}
       {state.status === 'ready' && (
         <>
-          <p className="library-count" role="status">
-            {state.videos.length} vidéo{state.videos.length > 1 ? 's' : ''}
-          </p>
           {state.videos.length === 0 ? (
             <div className="state-panel">
               <h2>{tagID === undefined ? 'Votre bibliothèque est encore vide' : 'Aucune vidéo pour ce tag'}</h2>

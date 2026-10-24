@@ -18,7 +18,7 @@ test('affiche la bibliothèque persistée par Go et SQLite après redémarrage',
   await expect(card.getByText('Aucun aperçu disponible')).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { name: seed.sources[0].title })).toBeVisible()
-  await page.getByRole('button', { name: 'Actualiser' }).click()
+  await expect(page.getByRole('button', { name: 'Actualiser', exact: true })).toHaveCount(0)
   await expect(page.getByRole('status')).toHaveText(/^[1-9]\d* vidéos?$/)
 })
 
@@ -38,7 +38,7 @@ test('garde un chargement explicite puis permet de reprendre après une erreur A
   })
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Chargement de la bibliothèque…')
-  await expect(page.getByRole('button', { name: 'Actualiser' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Actualiser', exact: true })).toHaveCount(0)
   release()
   await expect(page.getByRole('alert')).toContainText('Impossible de charger')
   await page.unroute('**/api/v1/videos')
@@ -68,7 +68,7 @@ test('respecte la première source, les champs nuls et une durée de zéro sur �
   await expect(page.getByText('Deuxième source')).toHaveCount(0)
   await expect(page.getByText('Compte de publication sans nom')).toBeVisible()
   await expect(page.getByText('0:00', { exact: true })).toBeVisible()
-  await expect(page.getByText('Aucun tag', { exact: true })).toBeVisible()
+  await expect(page.getByText('Aucun tag', { exact: true })).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
 })
 
@@ -78,7 +78,7 @@ test('sépare navigation directe, erreurs API et assets manquants', async ({ pag
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Page introuvable' })).toBeVisible()
   await page.getByRole('link', { name: 'Revenir à la bibliothèque' }).click()
-  await expect(page.getByRole('heading', { name: 'Bibliothèque', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Bibliothèque', exact: true })).toHaveClass('sr-only')
   for (const url of ['/api/v1/inconnue', '/assets/inconnu.js', '/data/sillage.db']) {
     const response = await request.get(url)
     expect(response.status()).toBe(404)

@@ -24,7 +24,12 @@ export function SiteNavigation() {
   return <>
     <IconButton ref={trigger} icon="menu" label="Ouvrir la navigation" className="navigation-trigger"
       aria-expanded={open} aria-controls="site-navigation" aria-haspopup="dialog"
-      onClick={() => { dialog.current?.showModal(); setOpen(true) }} />
+      onClick={() => {
+        // Le panneau non modal doit disparaître avant l'ouverture du volet modal.
+        document.querySelectorAll<HTMLElement>('.library-filter:popover-open').forEach(panel => panel.hidePopover())
+        dialog.current?.showModal()
+        setOpen(true)
+      }} />
     <dialog id="site-navigation" ref={dialog} className="site-navigation" aria-labelledby="navigation-title"
       onClose={() => setOpen(false)}
       onCancel={event => { event.preventDefault(); close(); trigger.current?.focus({ preventScroll: true }) }}

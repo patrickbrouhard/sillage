@@ -18,17 +18,17 @@ export function VideoCard({ video }: { video: Video }) {
         to={`/videos/${video.id}`}
         aria-label={`Consulter : ${title}`}
       >
-        <VideoThumbnail source={source} />
+        <div className="library-thumbnail">
+          <VideoThumbnail source={source} />
+          <span className="provider-badge">{providerLabel(source?.provider)}</span>
+        </div>
         <div className="card-content">
-          <p className="source-label">{providerLabel(source?.provider)}</p>
           <h2>{title}</h2>
           <p className="publisher">{publisher}</p>
-          {video.tags.length > 0 ? (
+          {video.tags.length > 0 && (
             <ul className="tags" aria-label="Tags">
               {video.tags.map((tag) => <li key={tag.id}>{tag.name}</li>)}
             </ul>
-          ) : (
-            <p className="no-tags">Aucun tag</p>
           )}
         </div>
       </Link>
