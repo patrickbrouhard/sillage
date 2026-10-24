@@ -45,7 +45,7 @@ test('ajout et doublon via Go/SQLite, fiche directe et historique navigateur', a
   await expect(page).toHaveURL(detailURL)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Une nouvelle vidéo pour apprendre')
   await page.goForward()
-  await expect(page.getByRole('heading', { name: 'Bibliothèque', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Bibliothèque', exact: true })).toHaveClass('sr-only')
   await page.getByRole('link', { name: 'Ajouter une vidéo', exact: true }).click()
   await page.getByLabel('URL YouTube').fill(inputURL)
   const duplicate = page.waitForResponse((response) =>
@@ -225,7 +225,7 @@ test('permet de relire une fiche après une erreur serveur', async ({ page }) =>
   await expect(page).toHaveTitle('Une fiche de test · Sillage')
 })
 
-test('titre du bandeau, requête unique et footer ciblé', async ({ page }) => {
+test('titre du bandeau, requête unique et absence globale du footer', async ({ page }) => {
   let reads = 0
   const title = 'Un très long titre de vidéo '.repeat(25).trim()
   await page.route('**/api/v1/videos/42', route => {
@@ -248,5 +248,5 @@ test('titre du bandeau, requête unique et footer ciblé', async ({ page }) => {
   }
   await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await expect(page.locator('header h1')).toHaveCount(0)
-  await expect(page.locator('footer')).toBeVisible()
+  await expect(page.locator('footer')).toHaveCount(0)
 })

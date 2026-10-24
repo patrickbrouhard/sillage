@@ -11,6 +11,7 @@ import { SearchForm } from './SearchForm'
 export function App() {
   const location = useLocation()
   const videoPage = Boolean(useMatch('/videos/:videoId')) && location.pathname !== '/videos/new'
+  const [actionsHost, setActionsHost] = useState<HTMLDivElement | null>(null)
   const [titleHost, setTitleHost] = useState<HTMLDivElement | null>(null)
   const main = useRef<HTMLElement>(null)
 
@@ -29,7 +30,7 @@ export function App() {
   return (
     <>
       <a className="skip-link" href="#main">Aller au contenu</a>
-      <header className={`site-header${videoPage ? ' site-header-compact' : ' site-header-common' + (searchHeader ? ' site-header-search' : '')}`}>
+      <header className={`site-header${videoPage ? ' site-header-compact' : ' site-header-common' + (searchHeader ? ' site-header-search' : '') + (location.pathname === '/' ? ' site-header-library' : '')}`}>
         <div className="header-navigation">
           <SiteNavigation />
           <Link className="brand" to="/" aria-label="Sillage, accueil">
@@ -38,10 +39,11 @@ export function App() {
         </div>
         {videoPage && <div className="video-header-content" ref={setTitleHost} />}
         {searchHeader && <SearchForm />}
+        {location.pathname === '/' && <div className="library-header-actions" ref={setActionsHost} />}
       </header>
-      <main id="main" ref={main} tabIndex={-1} aria-labelledby={videoPage ? 'video-title' : undefined}>
+      <main className={location.pathname === '/' ? 'library-main' : undefined} id="main" ref={main} tabIndex={-1} aria-labelledby={videoPage ? 'video-title' : undefined}>
         <Routes>
-          <Route path="/" element={<Library />} />
+          <Route path="/" element={<Library actionsHost={actionsHost} />} />
           <Route path="/search" element={<Search />} />
           <Route path="/videos/new" element={<AddVideo />} />
           <Route path="/videos/:videoId" element={<VideoPage titleHost={titleHost} />} />
@@ -55,7 +57,6 @@ export function App() {
           } />
         </Routes>
       </main>
-      {!videoPage && <footer>Des vidéos aux idées.</footer>}
     </>
   )
 }

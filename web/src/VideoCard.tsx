@@ -13,25 +13,25 @@ export function VideoCard({ video }: { video: Video }) {
 
   return (
     <article className="video-card">
-      <Link
-        className="card-link"
-        to={`/videos/${video.id}`}
-        aria-label={`Consulter : ${title}`}
-      >
+      <div className="library-thumbnail">
         <VideoThumbnail source={source} />
-        <div className="card-content">
-          <p className="source-label">{providerLabel(source?.provider)}</p>
-          <h2>{title}</h2>
-          <p className="publisher">{publisher}</p>
-          {video.tags.length > 0 ? (
-            <ul className="tags" aria-label="Tags">
-              {video.tags.map((tag) => <li key={tag.id}>{tag.name}</li>)}
-            </ul>
-          ) : (
-            <p className="no-tags">Aucun tag</p>
-          )}
-        </div>
-      </Link>
+        <span className="provider-badge">{providerLabel(source?.provider)}</span>
+      </div>
+      <div className="card-content">
+        <h2>
+          <Link className="card-link" to={`/videos/${video.id}`} aria-label={`Consulter : ${title}`}>
+            {title}
+          </Link>
+        </h2>
+        <p className="publisher">{publisher}</p>
+        {video.tags.length > 0 && (
+          <ul className="tags" aria-label="Tags">
+            {video.tags.map((tag) => <li key={tag.id}>
+              <Link to={'/?tag_id=' + tag.id}>{tag.name}</Link>
+            </li>)}
+          </ul>
+        )}
+      </div>
     </article>
   )
 }
