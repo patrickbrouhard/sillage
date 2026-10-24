@@ -92,7 +92,14 @@ export function Library({ actionsHost }: { actionsHost: HTMLDivElement | null })
         </p>}
         {tagID !== undefined && <div className="active-filter">
           <span>Tag : <strong>{filterLabel}</strong></span>
-          <button type="button" aria-label={`Retirer le filtre de tag : ${filterLabel}`} onClick={() => selectTag('')}><span aria-hidden="true">×</span></button>
+          <button type="button" aria-label={`Retirer le filtre de tag : ${filterLabel}`} onClick={() => selectTag('')}>
+            <span aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+                <path d="m6 6 12 12 M6 18 18 6" />
+              </svg>
+            </span>
+          </button>
         </div>}
       </div>
       {state.status === 'loading' && (
