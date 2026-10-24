@@ -217,3 +217,32 @@ test('extrait FTS réel de 64 tokens : complet au dépliage, deux lignes au repo
   await expectCompact(row)
   expect(requests).toEqual([])
 })
+
+
+test('token géant : contexte borné dès la réponse et dépliage sans charger la note', async ({ page, request }) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trHugeEx001' } })).json()
+  const content = 'x'.repeat(1_000_000) + ' correspondancegeanteunique'
+  expect((await request.put('/api/v1/videos/' + video.id + '/note', {
+    data: { content_md: content, expected_revision: 0 },
+  })).ok()).toBe(true)
+  const response = await request.get('/api/v1/search?q=correspondancegeanteunique')
+  expect(response.ok()).toBe(true)
+  const result = (await response.json()).results[0] as SearchResult
+  const excerpt = result.note_excerpt.map(segment => segment.text).join('')
+  expect([...excerpt].length).toBeLessThanOrEqual(4098)
+  expect(excerpt.startsWith('…')).toBe(true)
+  expect(excerpt).toContain('correspondancegeanteunique')
+  await page.setViewportSize({ width: 375, height: 900 })
+  await page.goto('/search?q=correspondancegeanteunique')
+  const row = page.locator('.search-result')
+  await expectCompact(row)
+  const requests: string[] = []
+  page.on('request', request => { if (request.url().includes('/api/')) requests.push(request.url()) })
+  const button = row.locator('.search-excerpt-toggle')
+  await button.click()
+  await expect(row.locator('.search-excerpt:not([aria-hidden])')).toHaveText(excerpt)
+  await expect(button).toHaveText('Réduire')
+  await button.click()
+  await expectCompact(row)
+  expect(requests).toEqual([])
+})

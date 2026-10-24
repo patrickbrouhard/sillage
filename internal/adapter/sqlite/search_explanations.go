@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/patrickbrouhard/sillage/internal/search"
 	"github.com/patrickbrouhard/sillage/internal/video"
@@ -73,7 +74,7 @@ func explainSearch(ctx context.Context, conn *sql.Conn, results []search.Result,
 		}
 		// snippet sur une colonne sans correspondance peut quand même retourner du texte.
 		if strings.Contains(excerpt, start) {
-			results[indices[id]].NoteExcerpt = searchSegments(excerpt, start, end)
+			results[indices[id]].NoteExcerpt = limitSearchExcerpt(searchSegments(excerpt, start, end))
 		}
 	}
 	err = rows.Err()
@@ -172,4 +173,53 @@ func searchSegments(text, start, end string) []search.Segment {
 		text = after
 	}
 	return segments
+}
+
+// limitSearchExcerpt borne le contexte transmis, même lorsqu'un token FTS est immense.
+// Le plafond compte les points de code Unicode, hors ellipses ajoutées.
+func limitSearchExcerpt(segments []search.Segment) []search.Segment {
+	const limit = 4096
+	const contextBefore = 256
+	total, firstMatch := 0, -1
+	for _, segment := range segments {
+		if segment.Highlight && segment.Text != "" && firstMatch < 0 {
+			firstMatch = total
+		}
+		total += utf8.RuneCountInString(segment.Text)
+	}
+	if total <= limit {
+		return segments
+	}
+	start := max(0, firstMatch-contextBefore)
+	start = min(start, total-limit)
+	end := start + limit
+	result := []search.Segment{}
+	if start > 0 {
+		result = append(result, search.Segment{Text: "…"})
+	}
+	// Parcourir les runes évite une copie en []rune du token géant ; seuls les
+	// caractères retenus sont copiés, sans conserver son stockage dans la réponse.
+	position := 0
+	for _, segment := range segments {
+		var text strings.Builder
+		for _, char := range segment.Text {
+			if position >= end {
+				break
+			}
+			if position >= start {
+				text.WriteRune(char)
+			}
+			position++
+		}
+		if text.Len() > 0 {
+			result = append(result, search.Segment{Text: text.String(), Highlight: segment.Highlight})
+		}
+		if position >= end {
+			break
+		}
+	}
+	if end < total {
+		result = append(result, search.Segment{Text: "…"})
+	}
+	return result
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/patrickbrouhard/sillage/internal/search"
 	"github.com/patrickbrouhard/sillage/internal/video"
@@ -178,5 +179,102 @@ func TestSearchCalloutOrderAfterProjectionUpgrade(t *testing.T) {
 	var version int
 	if err := reopened.QueryRow("SELECT version FROM search_projection WHERE id = 1").Scan(&version); err != nil || version != searchProjectionVersion {
 		t.Fatalf("version = %d, err = %v", version, err)
+	}
+}
+
+func TestLimitSearchExcerpt(t *testing.T) {
+	for _, tc := range []struct {
+		name                 string
+		before, match, after string
+	}{
+		{"exact limit", strings.Repeat("a", 4090), "needle", ""},
+		{"giant match", "", "needle" + strings.Repeat("x", 1000000), ""},
+		{"late match", strings.Repeat("x", 1000000), "needle", ""},
+		{"unicode", strings.Repeat("界", 5000), "éclair", strings.Repeat("🙂", 5000)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			segments := []search.Segment{{Text: tc.before}, {Text: tc.match, Highlight: true}, {Text: tc.after}}
+			got := limitSearchExcerpt(segments)
+			var text, marked strings.Builder
+			for _, segment := range got {
+				if !utf8.ValidString(segment.Text) {
+					t.Fatal("invalid UTF-8")
+				}
+				text.WriteString(segment.Text)
+				if segment.Highlight {
+					marked.WriteString(segment.Text)
+				}
+			}
+			if marked.Len() == 0 || !strings.HasPrefix(tc.match, marked.String()) {
+				t.Fatalf("lost match: %q", marked.String())
+			}
+			want := tc.before + tc.match + tc.after
+			if utf8.RuneCountInString(want) <= 4096 {
+				if text.String() != want {
+					t.Fatal("bounded excerpt changed")
+				}
+			} else {
+				if utf8.RuneCountInString(strings.Trim(text.String(), "…")) != 4096 {
+					t.Fatal("incorrect bound")
+				}
+				if !strings.HasPrefix(text.String(), "…") && !strings.HasSuffix(text.String(), "…") {
+					t.Fatal("missing ellipsis")
+				}
+				if !strings.Contains(want, strings.Trim(text.String(), "…")) {
+					t.Fatal("context reordered")
+				}
+			}
+		})
+	}
+}
+
+func TestSearchExcerptGiantTokens(t *testing.T) {
+	for _, content := range []string{
+		"needle" + strings.Repeat("x", 999994),
+		strings.Repeat("x", 1000000) + " needle",
+	} {
+		db := openTestDB(t, filepath.Join(t.TempDir(), "giant.db"))
+		ctx := context.Background()
+		v := searchFixture(t, db, "Document")
+		saved, err := NewNoteRepository(db).Save(ctx, v.ID, content, 0, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "needle", 1)
+		if err != nil || len(page.Results) != 1 || page.Total != 1 {
+			t.Fatalf("search failed: %v", err)
+		}
+		length, highlighted := 0, false
+		for _, segment := range page.Results[0].NoteExcerpt {
+			if !utf8.ValidString(segment.Text) {
+				t.Fatal("invalid UTF-8")
+			}
+			length += utf8.RuneCountInString(segment.Text)
+			highlighted = highlighted || segment.Highlight && strings.Contains(segment.Text, "needle")
+		}
+		if length > 4098 || !highlighted {
+			t.Fatalf("length=%d highlighted=%t", length, highlighted)
+		}
+		note, err := NewNoteRepository(db).Get(ctx, v.ID)
+		if err != nil || note != saved.Note {
+			t.Fatal("note changed")
+		}
+	}
+}
+
+// BenchmarkLimitSearchExcerpt mesure le coût du bornage seul, hors extraction FTS.
+func BenchmarkLimitSearchExcerpt(b *testing.B) {
+	for _, size := range []int{10000, 1000000} {
+		b.Run(fmt.Sprintf("late_match_%d", size), func(b *testing.B) {
+			segments := []search.Segment{
+				{Text: strings.Repeat("x", size)},
+				{Text: "needle", Highlight: true},
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = limitSearchExcerpt(segments)
+			}
+		})
 	}
 }
