@@ -62,8 +62,10 @@ Les sources locales, autres plateformes et autres points d'entrée (extension, C
 - Le bouton expose son état et son panneau contrôlé, sans badge au repos, avec un discret « 1 » pour le
   critère tag présent, même inconnu ou invalide. Les répétitions ne comptent pas comme des critères supplémentaires.
   Le tag actif est aussi visible près du compteur, avec retrait direct explicitement nommé, disponible pendant
-  le chargement et les erreurs. La croix garde une cible de 40 × 40 px et un focus visible ; seul son centre
-  de 24 × 24 px se colore au survol. Un ID inconnu reste identifiable et supprimable.
+  le chargement et les erreurs. Le nom complet et sa croix partagent une pilule : le retrait est ainsi associé
+  visuellement à ce tag, y compris lorsque son nom se replie. La croix garde une cible de 40 × 40 px et un focus
+  visible ; seul son centre de 24 × 24 px se colore au survol. Le retrait direct rend le focus à Filtres ;
+  Réinitialiser le rend au champ du panneau. Un ID inconnu reste identifiable et supprimable.
 - À l'ouverture le champ reçoit le focus. Un premier Échap replie les suggestions ouvertes ; le suivant
   ferme le panneau et restitue le focus au déclencheur. Second clic et clic extérieur ferment ; le clic extérieur
   garde sa destination de focus. Aucun piège de focus. Navigation hors bibliothèque et ouverture du hamburger

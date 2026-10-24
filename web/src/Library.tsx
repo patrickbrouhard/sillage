@@ -73,7 +73,11 @@ export function Library({ actionsHost }: { actionsHost: HTMLDivElement | null })
       {actionsHost && createPortal(<>
         <LibraryFilters active={tagID !== undefined}>
           <LibraryTagFilter tags={catalog.tags} onSelect={selectTag} />
-          {tagID !== undefined && <button className="button" onClick={() => selectTag('')}>Réinitialiser</button>}
+          {tagID !== undefined && <button className="button" onClick={event => {
+            // La commande disparaît après le retrait : garder le clavier dans le panneau.
+            event.currentTarget.closest('.library-filter')?.querySelector('input')?.focus()
+            selectTag('')
+          }}>Réinitialiser</button>}
           {catalog.loading && <p className="muted">Chargement des tags…</p>}
           {catalog.error && <div role="alert" className="notice error">
             <p>{catalog.error} La liste des vidéos reste indépendante du catalogue.</p>
@@ -92,7 +96,11 @@ export function Library({ actionsHost }: { actionsHost: HTMLDivElement | null })
         </p>}
         {tagID !== undefined && <div className="active-filter">
           <span>Tag : <strong>{filterLabel}</strong></span>
-          <button type="button" aria-label={`Retirer le filtre de tag : ${filterLabel}`} onClick={() => selectTag('')}>
+          <button type="button" aria-label={`Retirer le filtre de tag : ${filterLabel}`} onClick={() => {
+            // Le filtre retiré n'a plus de commande ; revenir au point d'entrée du filtrage.
+            actionsHost?.querySelector<HTMLButtonElement>('.library-filter-trigger')?.focus({ preventScroll: true })
+            selectTag('')
+          }}>
             <span aria-hidden="true">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">

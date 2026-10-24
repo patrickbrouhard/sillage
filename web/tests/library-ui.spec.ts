@@ -36,6 +36,7 @@ test('le panneau natif conserve le filtre immédiat, le focus et les paramètres
   await expect(trigger.locator('.filter-count')).toHaveText('1')
   await page.getByRole('button', { name: 'Réinitialiser' }).click()
   await expect(page).toHaveURL('/?other=kept')
+  await expect(select).toBeFocused()
   await expect(panel).toBeVisible()
   await trigger.click()
   await expect(panel).not.toBeVisible()
@@ -44,6 +45,7 @@ test('le panneau natif conserve le filtre immédiat, le focus et les paramètres
   await page.reload()
   await expect(page.locator('.active-filter')).toContainText('SQLite')
   await page.getByRole('button', { name: /Retirer le filtre de tag/ }).click()
+  await expect(trigger).toBeFocused()
   await expect(page).toHaveURL('/?other=kept')
   await trigger.click()
   await page.getByRole('searchbox').click()
@@ -87,6 +89,15 @@ for (const theme of ['light', 'dark'] as const) {
     for (const width of [320, 359, 360, 375, 599, 600, 601, 768, 1024, 1199, 1200, 1201, 1440]) {
       await page.setViewportSize({ width, height: 900 })
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
+      // Le retrait reste dans la pilule et centré sur le nom, même sur plusieurs lignes.
+      const chip = page.locator('.active-filter')
+      const chipBox = await chip.boundingBox()
+      const labelBox = await chip.locator(':scope > span').boundingBox()
+      const removeBox = await chip.getByRole('button').boundingBox()
+      expect(removeBox!.x).toBeGreaterThanOrEqual(labelBox!.x + labelBox!.width - 1)
+      expect(removeBox!.x + removeBox!.width).toBeLessThanOrEqual(chipBox!.x + chipBox!.width)
+      expect(Math.abs(removeBox!.y + removeBox!.height / 2 - labelBox!.y - labelBox!.height / 2)).toBeLessThan(1)
+
       const search = await page.getByRole('search').boundingBox()
       const header = await page.locator('.site-header').boundingBox()
       const actions = await page.locator('.library-header-actions').boundingBox()
