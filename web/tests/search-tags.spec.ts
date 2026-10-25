@@ -136,7 +136,9 @@ for (const width of [1440, 375]) {
     for (const theme of ['light', 'dark']) {
       await selectTheme(page, theme)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-      await expect(rows.first().locator('.search-explanation')).toContainText('Autre source')
+      await rows.first().getByRole('button', { name: 'Pourquoi cette vidéo apparaît' }).click()
+      await expect(page.getByRole('region', { name: 'Explications de la recherche' })).toContainText('Autre source')
+      await page.keyboard.press('Escape')
       await page.screenshot({ path: info.outputPath('tags-' + theme + '-compact.png'), fullPage: true })
       const toggle = rows.first().locator('.search-excerpt-toggle')
       await toggle.click()

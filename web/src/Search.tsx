@@ -5,6 +5,9 @@ import { searchVideos } from './searchApi'
 import type { SearchPage, SearchResult } from './searchApi'
 import { VideoThumbnail } from './VideoThumbnail'
 import { SearchExcerpt } from './SearchExcerpt'
+import { SearchInfo } from './SearchInfo'
+
+const addedDate = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
 type State = { status: 'loading' } | { status: 'ready'; page: SearchPage } | { status: 'error'; message: string }
 
@@ -13,28 +16,34 @@ function SearchRow({ result }: { result: SearchResult }) {
   const { video, note_excerpt, source_matches } = result
   const source = video.sources[0]
   const title = source?.title || 'Vidéo sans titre'
+  // Le titre de première source est déjà visible ; seules les contributions complémentaires ouvrent la couche.
+  const explanations = source_matches.filter(match => match.source_id !== source?.id || match.description || match.publisher)
   return <article className="search-result">
     <Link className="search-thumbnail" to={'/videos/' + video.id} aria-label={'Consulter : ' + title} tabIndex={-1}>
       <VideoThumbnail source={source} />
     </Link>
     <div className="search-result-content">
       <h2><Link to={'/videos/' + video.id}>{title}</Link></h2>
-      <p className="publisher">{source?.publisher?.name || 'Compte de publication non renseigné'}</p>
+      <div className="publisher search-metadata">
+        {source?.publisher?.name || 'Compte de publication non renseigné'} · {' '}
+        <time dateTime={video.created_at}>Ajoutée le {addedDate.format(new Date(video.created_at))}</time>
+        {explanations.length > 0 && <SearchInfo>
+          {explanations.map(match => {
+            const matched = video.sources.find(item => item.id === match.source_id)
+            const secondary = match.source_id !== source?.id
+            const fields = [match.title && 'titre', match.description && 'description', match.publisher && 'publisher'].filter(Boolean).join(', ')
+            return <p key={match.source_id} className="search-explanation">
+              {secondary ? 'Autre source : ' + (matched?.title || 'Sans titre') + ' — ' : 'Correspondance : '}
+              {fields}{match.publisher && matched?.publisher?.name ? ' (' + matched.publisher.name + ')' : ''}
+            </p>
+          })}
+        </SearchInfo>}
+      </div>
       {video.tags.length > 0 && <ul className="tags" aria-label="Tags">
         {video.tags.map(tag => <li key={tag.id}>
           <Link to={'/?tag_id=' + tag.id}>{tag.name}</Link>
         </li>)}
       </ul>}
-      {source_matches.map(match => {
-        const matched = video.sources.find(item => item.id === match.source_id)
-        const secondary = match.source_id !== source?.id
-        if (!secondary && !match.description && !match.publisher) return null
-        const fields = [match.title && 'titre', match.description && 'description', match.publisher && 'publisher'].filter(Boolean).join(', ')
-        return <p key={match.source_id} className="search-explanation">
-          {secondary ? 'Autre source : ' + (matched?.title || 'Sans titre') + ' — ' : 'Correspondance : '}
-          {fields}{match.publisher && matched?.publisher?.name ? ' (' + matched.publisher.name + ')' : ''}
-        </p>
-      })}
       {note_excerpt.length > 0 && <SearchExcerpt key={JSON.stringify(note_excerpt)} segments={note_excerpt} />}
     </div>
   </article>

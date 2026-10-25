@@ -282,8 +282,14 @@ La soumission est explicite et revient à la première page. Une soumission iden
 nouvelle navigation et relit les données ; les réponses obsolètes sont annulées ou ignorées.
 La pagination conserve la requête et les tags ouvrent la bibliothèque filtrée par leur ID.
 
-La première source REST fournit l'identité visuelle ; les contributions secondaires sont expliquées
-séparément. `SearchExcerpt` réduit les blancs, mesure deux lignes autour d'une marque et recalcule
+La première source REST fournit l'identité visuelle. Sa chaîne et la date d'ajout `video.created_at`
+sont affichées sur la même ligne, avec une date française abrégée dans le fuseau du navigateur.
+Les explications complémentaires conservent leur contenu dans un popover natif, ouvert par une icône
+d'information après la date. L'icône est absente si seule la première source contribue par son titre.
+Survol, clic, Entrée et Espace permettent la consultation ; Échap ou clic extérieur ferment la couche.
+Le panneau est borné au viewport, défilable au clavier et au toucher ; les interactions ne font aucun appel réseau.
+
+`SearchExcerpt` réduit les blancs, mesure deux lignes autour d'une marque et recalcule
 selon les dimensions. Sa sonde est hors du flux et de l'arbre accessible.
 « Voir plus » utilise uniquement l'extrait reçu, sans appel réseau ; son état est propre au résultat
 et réinitialisé lorsque la recherche ou l'extrait change.

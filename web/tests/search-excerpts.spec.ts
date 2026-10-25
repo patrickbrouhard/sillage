@@ -63,7 +63,8 @@ test('extrait court continu : blancs intersegments, caractères littéraux et au
   await expect(page.locator('.source-label, .page-heading, .eyebrow, .intro')).toHaveCount(0)
   await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName('Résultats pour « cafe »')
   await expect(page.locator('.search-count')).toHaveCSS('border-top-width', '0px')
-  await expect(row.locator('.search-explanation')).toContainText('description')
+  await row.getByRole('button', { name: 'Pourquoi cette vidéo apparaît' }).click()
+  await expect(page.getByRole('region', { name: 'Explications de la recherche' })).toContainText('description')
 })
 
 for (const width of [1440, 375, 320]) {
@@ -114,17 +115,17 @@ test('résultats indépendants et état remis à zéro après remplacement et no
   await page.goto('/search?q=cafe')
   const rows = page.locator('.search-result')
   await rows.nth(0).getByRole('button', { name: 'Voir plus' }).click()
-  await expect(rows.nth(0).getByRole('button')).toHaveAttribute('aria-expanded', 'true')
-  await expect(rows.nth(1).getByRole('button')).toHaveAttribute('aria-expanded', 'false')
+  await expect(rows.nth(0).locator('.search-excerpt-toggle')).toHaveAttribute('aria-expanded', 'true')
+  await expect(rows.nth(1).locator('.search-excerpt-toggle')).toHaveAttribute('aria-expanded', 'false')
   await page.getByRole('searchbox').fill('autre')
   await page.getByRole('searchbox').press('Enter')
-  await expect(rows.nth(0).getByRole('button')).toHaveAttribute('aria-expanded', 'false')
-  await rows.nth(0).getByRole('button').click()
+  await expect(rows.nth(0).locator('.search-excerpt-toggle')).toHaveAttribute('aria-expanded', 'false')
+  await rows.nth(0).locator('.search-excerpt-toggle').click()
   replacement = true
   await page.getByRole('searchbox').press('Enter')
   await expect(rows).toHaveCount(1)
   await expect(rows.locator('.search-excerpt:not([aria-hidden])')).toHaveText('Nouveau Café')
-  await expect(rows.getByRole('button')).toHaveCount(0)
+  await expect(rows.locator('.search-excerpt-toggle')).toHaveCount(0)
 })
 
 test('recalcul de largeur, taille de texte, zoom et token exceptionnellement long', async ({ page }, info) => {
@@ -159,9 +160,9 @@ test('agrandir la largeur supprime Voir plus lorsque tout tient effectivement', 
   await page.setViewportSize({ width: 320, height: 900 })
   await page.goto('/search?q=cafe')
   const row = page.locator('.search-result')
-  await expect(row.getByRole('button')).toBeVisible()
+  await expect(row.locator('.search-excerpt-toggle')).toBeVisible()
   await page.setViewportSize({ width: 1920, height: 900 })
-  await expect(row.getByRole('button')).toHaveCount(0)
+  await expect(row.locator('.search-excerpt-toggle')).toHaveCount(0)
   await expectCompact(row)
 })
 
