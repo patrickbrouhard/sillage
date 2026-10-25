@@ -364,7 +364,34 @@ L'éditeur affiche un ancrage visuel pendant l'acceptation de la capture, **sans
 
 L'acceptation persistée produit une unique insertion Markdown isolée dans Undo/Redo. Retirer le lien ou annuler son insertion ne supprime pas l'Asset et n'annule pas son opération serveur. Les images du mode Lecture consultent leur état par identité ; elles ne déclenchent aucune génération et ne commandent pas le lecteur.
 
-### 8.8 Gestion des tags et en-tête
+### 8.8 Consultation et réinsertion des assets
+
+Images interroge une collection bornée par vidéo, sans reconstruire le catalogue depuis Markdown ni lancer
+de GET individuel pour chaque carte. Seules les pages contenant `pending` sont actualisées pendant leur
+consultation ; erreur ou état terminal arrête ce suivi, et quitter ou changer de page annule les réponses
+obsolètes. Les images utilisent les octets PNG existants avec `loading=lazy` et décodage asynchrone.
+La page précédente est démontée au changement de page, sans accumulation de la grille entière.
+
+Un même arbre de sélecteur utilise `dialog.show()` sur desktop et `showModal()` sous 1 100 px. Le panneau
+recouvre la colonne droite et rend ses commandes inertes ; ni note, ni lecteurs, ni transcription ne sont
+remontés. Une visionneuse modale interne conserve la miniature de retour et le défilement. Les modales
+natives protègent aussi le focus des dialogues de départ de note. Les gestionnaires Échap respectent
+la surface modale active et les événements déjà traités.
+
+`prepareImages` et `releaseImages` sont distincts de `stop`, du masquage et des changements de mode.
+YouTube confirme une pause dans un budget borné avant ouverture et protège les reprises tardives ; sans
+confirmation, la surface reste accessible ou le sélecteur se ferme avec une erreur. Aucune destruction de
+secours ni restauration depuis une cible ancienne. Local n'interrompt pas sa lecture.
+
+La réinsertion passe synchroniquement par VideoNote puis le handle de la vue CodeMirror **courante**.
+Le contrôle d'emplacement explicite est remis à zéro à chaque remplacement de session. La transaction
+ajoute après `selection.main.to`, avance le curseur et s'isole dans l'historique ; elle ne vole pas le focus.
+Un plugin de décorations suit la sélection et le point d'ajout pendant Images, sans modification de texte.
+NoteSession reçoit le changement normalement, y compris en conflit, sans nouvel endpoint ni ancrage différé.
+Sur mobile, le sélecteur est fermé avant de rendre le focus à la note. L'annonce d'insertion appartient à
+VideoNote et survit à cette fermeture.
+
+### 8.9 Gestion des tags et en-tête
 
 Les mutations de tags sont des opérations successives et persistées immédiatement ; la fermeture de la modale ne les annule pas. Le frontend fournit une autocomplétion accessible sans réimplémenter la normalisation métier Go. Les fiches affichent les tags dans leur en-tête, avec un préfixe mesuré et un compteur `+n` pour le surplus ; la liste garde l'ordre REST et n'impose pas de quota arbitraire.
 

@@ -71,7 +71,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onIma
             else if (Date.now() >= deadline) finish(new Error('La pause YouTube n’a pas été confirmée. Réessayez Images ou mettez le lecteur en pause.'))
           } catch { finish(new Error('Impossible de confirmer la pause YouTube. Réessayez Images.')) }
         }, 50)
-        pauseImages.current = () => finish(new Error('Ouverture Images interrompue.'))
+        pauseImages.current = () => finish(new DOMException('Ouverture Images interrompue.', 'AbortError'))
       })
     } catch (error) {
       throw error instanceof Error ? error : new Error('Impossible de mettre YouTube en pause. Réessayez Images.')
@@ -139,6 +139,9 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onIma
         // Une référence demande une navigation réelle ; seul paused conserve la pause.
         // Le départ sans lecture reste réservé à l'initialisation d'une bascule.
         prepared.current = undefined
+        // Une navigation admissible quitte Images : sa pause ne doit pas neutraliser le seek explicite.
+        images.current = false
+        pauseImages.current?.()
         current.seekTo(seconds, true)
         setNavigation(value => value + 1)
         return ''

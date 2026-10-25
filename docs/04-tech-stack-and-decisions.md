@@ -261,7 +261,7 @@ Les composants d'interface ne doivent pas recréer les identités métier, impl�
 - Les représentations visuelles enrichies reposent sur des **décorations CodeMirror**, non sur une transformation persistée du Markdown. Les callouts `quote`/`quote:tr` utilisent une reconnaissance ciblée ; pas de moteur générique extensible ou de Live Preview complet.
 - Les références temporelles canoniques peuvent être compactées ou révélées en Édition ; la copie, la sélection, la composition IME et les gestes d'édition doivent rester sûrs.
 - L'activation temporelle en Édition se fait par **Ctrl/Cmd+clic** ou **Ctrl/Cmd+Entrée** pour les formes admissibles ; elle réutilise les contrôles de navigation de la transcription et du mode Lecture, sans écrire dans la note.
-- L'insertion d'une citation ou capture acceptée utilise une transaction CodeMirror isolée dans Undo/Redo et laisse l'autosauvegarde habituelle gérer l'écriture.
+- L'insertion d'une citation, d'une capture acceptée ou d'un asset connu utilise une transaction CodeMirror isolée dans Undo/Redo et laisse l'autosauvegarde habituelle gérer l'écriture.
 
 Les grammaires exactes et cas limites des callouts, widgets et citations sont décrits dans [Product & UX](01-product-and-ux.md) ; leur composition interne figure dans [Architecture](03-architecture.md).
 
@@ -288,6 +288,7 @@ La surface distante utilise directement **l'IFrame Player API YouTube**, et la s
 - Une **navigation explicite** depuis une référence appelle `seekTo` ; elle conserve la pause depuis `paused` et demande le démarrage depuis les autres états connus. `cueVideoById` reste réservé à la préparation lors des bascules.
 - Une éventuelle notification `onAutoplayBlocked` affiche une aide, sans échec forcé, délai de détection inventé ou relance automatique. L'ouverture de la fiche et les bascules ne sollicitent aucun autoplay.
 - Local utilise `currentTime` et refuse une position tant que le seek ou le chargement rend la mesure inadmissible. Une erreur de décodage ne supprime pas le média et n'impose pas de bascule vers YouTube.
+- Images utilise une commande distincte : pause YouTube confirmée sans déchargement ni reprise, maintien de la lecture locale. Un refus de pause laisse l'instance accessible, sans destruction de secours.
 - Masquer un lecteur l'interrompt en pause ; réafficher ne redémarre pas la lecture. L'instance distante doit préserver les garanties de pause pendant les opérations de masquage et de destruction.
 - La diffusion locale utilise des routes contrôlées **GET/HEAD/Range** avec `net/http.ServeContent` et autorisation de l'identité exacte du média. Aucun accès direct à `data/media` ; la réservation concerne le transfert HTTP et ne révoque pas les octets déjà mis en tampon par un client.
 - `canPlayType` et les noms de codecs retournés par `ffprobe` ne suffisent pas à garantir la lisibilité par le navigateur ; une erreur réelle est présentée sans attribuer systématiquement la cause au codec.

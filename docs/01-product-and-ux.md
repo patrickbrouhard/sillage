@@ -267,15 +267,15 @@ La commande de sauvegarde reste visible et interactive au repos.
 
 ### 3.4 Présentation de la note
 
-- La barre permanente place les insertions Temps (`clock-plus`) et Capture (`camera`) à gauche ; la sauvegarde
+- La barre permanente place Images puis les insertions Temps (`clock-plus`) et Capture (`camera`) à gauche ; la sauvegarde
   puis le sélecteur Édition/Lecture à l'extrémité droite. Aucune commande ne flotte au survol du texte.
 - Les commandes à icônes conservent des cibles **40 × 40 px**, sur mobile aussi. Les insertions sont espacées de
   4 px, le sélecteur et la sauvegarde de 8 px, les deux groupes d'au moins 12 px. Le sélecteur partage le fond
   commun, les segments arrondis et l'état actif du sélecteur YouTube/Local. Celui de la note mesure **42 px**
   de haut, bordure de 1 px comprise, sans padding extérieur ni ombre sur le segment actif ; le focus reste visible.
-- À 320/375 px, les commandes tiennent sur une ligne et les infobulles restent dans le viewport ; celles des
-  insertions sont alignées à gauche. Si de futurs outils nécessitent plus de place, les insertions peuvent se
-  répartir ; le groupe droit reste indivisible et peut passer entier à la ligne, aligné à droite.
+- Les infobulles restent dans le viewport et celles des insertions sont ancrées à gauche de leur groupe.
+  À 320/375 px, Images, Temps et Capture partagent une ligne ; le groupe sauvegarde/modes reste indivisible
+  et passe entier à la ligne, aligné à droite. Les insertions peuvent se répartir si la largeur l'exige.
 - Édition et Lecture utilisent la **police système, 16 px CSS, interligne 1,5**, avec une colonne de texte
   centrée de **700 px utiles maximum**, sans inclure les marges/paddings.
 - Le code inline et les blocs de code restent monospace dans les deux modes ; les styles du code, citations,
@@ -669,6 +669,29 @@ de catalogue possède son propre réessai. Les réponses obsolètes sont annulé
 chargés paresseusement ; pagination et démontage de la page précédente bornent le volume affiché.
 La réduction CSS ne réduit pas les octets transférés. Aucune miniature dérivée ni politique de rétention
 supplémentaire n'est introduite.
+
+En Lecture, la consultation reste disponible mais les boutons d'insertion sont désactivés ; une aide indique
+qu'il faut passer en Édition, sans bascule automatique. En Édition, le bouton **+** est distinct de
+l'agrandissement, sans commandes sous l'image. Sa cible de 40 px et son focus sont visibles ; le bouton
+apparaît au survol ou au focus sur desktop à souris et reste visible sur écran étroit ou tactile,
+y compris si une souris est également présente.
+
+Une note strictement vide accepte un ajout au début. Toute note non vide, y compris des blancs, exige un
+emplacement choisi explicitement par un geste de rédaction ou de déplacement ; le focus automatique ne
+suffit pas. Chaque clic lit la sélection **actuelle** de CodeMirror et ajoute après sa borne supérieure,
+sans remplacer le texte sélectionné. La référence canonique vers l'Asset existant et son espace final
+suivent les conventions des captures. Le texte environnant reste intact, en LF.
+
+Le point logique avance après l'ajout pour les insertions successives et suit tout nouveau placement ou
+édition de la note. Sur desktop, le drawer reste ouvert et la commande conserve le focus ; une décoration
+non persistée montre la sélection et le point d'ajout, même lorsque l'éditeur n'a plus le focus. L'insertion
+est révélée dans le défilement de note. Une insertion acceptée depuis Informations révèle Note sans déplacer le focus de la galerie. Sur mobile, une réussite ferme Images et focalise le point d'ajout ;
+un refus le laisse ouvert. Fermer sans insertion conserve le contexte de note.
+
+Chaque ajout est une unique étape Undo/Redo, sans extraction ni sauvegarde indépendante. Le cycle normal de
+NoteSession gère révisions, erreurs et protection de départ. En conflit, les ajouts locaux restent possibles
+et l'autosauvegarde reste suspendue. Un remplacement explicite de session invalide l'ancien emplacement ;
+aucune insertion tardive ni aucun ancrage asynchrone de capture ne sert à la réinsertion.
 
 ## 7. Recherche, IA et pistes non livrées
 

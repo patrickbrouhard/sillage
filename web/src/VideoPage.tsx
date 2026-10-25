@@ -3,6 +3,7 @@ import { createPortal, flushSync } from 'react-dom'
 import { useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
+import type { Asset } from './assetApi'
 import { Images, useNarrowWorkspace } from './Images'
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
@@ -60,12 +61,13 @@ function SourceDetails({ source, index, working }: { source: VideoSource; index:
 /** Relit une fiche par son identité Sillage, sans dépendre de la navigation précédente. */
 function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | null }) {
   const narrow = useNarrowWorkspace()
+  const [readingNote, setReadingNote] = useState(false)
   const [imagesOpen, setImagesOpen] = useState(false)
   const [imagesBusy, setImagesBusy] = useState(false)
   const [imagesError, setImagesError] = useState('')
   const imagesReturn = useRef<HTMLElement | null>(null)
   const alive = useRef(true)
-  useEffect(() => () => { alive.current = false }, [])
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
 
   /** La pause précède l'occultation ; un refus laisse le lecteur accessible et intact. */
   async function openImages() {
@@ -200,6 +202,8 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                   videoID={state.video.id}
                   visible={tab === 'note'}
                   onReveal={revealNote}
+                  onReadingChange={setReadingNote}
+                  onRevealImageInsertion={() => flushSync(() => setTab('note'))}
                   onOpenImages={() => void openImages()}
                   imagesOpen={imagesOpen}
                   imagesBusy={imagesBusy}
@@ -252,7 +256,15 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
               }}
               onNavigate={navigate} />}
             {imagesOpen && <Images videoID={state.video.id} sources={state.video.sources}
-              narrow={narrow} returnTo={imagesReturn.current} onClose={closeImages} />}
+              narrow={narrow} returnTo={imagesReturn.current} onClose={closeImages}
+              reading={readingNote} onInsert={(asset: Asset) => {
+                if (!note.current) throw new Error('La note n’est pas disponible.')
+                note.current.insertAsset(asset)
+                if (narrow) {
+                  flushSync(closeImages)
+                  note.current?.focusInsertion()
+                }
+              }} />}
           </div>
         </>
       )}

@@ -125,6 +125,14 @@ export function VideoPlayer({ videoID, source, download, ref, covered = false, o
     setSelection({ mode, startMs })
   }
 
+  useEffect(() => {
+    // Une surface peut devenir prête après l'ouverture du catalogue, sans autoplay intermédiaire.
+    if (covered) void player.current?.prepareImages().catch(error => {
+      if (error.name !== 'AbortError') onImagesFailure(error.message)
+    })
+    else player.current?.releaseImages()
+  }, [covered, selection?.mode])
+
   const file = download.state?.status === 'available' ? download.file : null
   const url = file && file.id !== unloaded ? `/api/v1/videos/${videoID}/media-files/${file.id}/content` : undefined
   const activity = download.requesting || download.state?.status === 'downloading'

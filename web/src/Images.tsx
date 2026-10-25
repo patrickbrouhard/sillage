@@ -30,7 +30,9 @@ function CatalogueImage({ asset, enlarged = false }: { asset: Asset; enlarged?: 
 }
 
 /** Catalogue temporaire : drawer non modal à droite, même arbre dans une modale étroite. */
-export function Images({ videoID, sources, narrow, returnTo, onClose }: {
+export function Images({ videoID, sources, narrow, returnTo, onClose, reading, onInsert }: {
+  reading: boolean
+  onInsert: (asset: Asset) => void
   videoID: number
   sources: VideoSource[]
   narrow: boolean
@@ -38,10 +40,12 @@ export function Images({ videoID, sources, narrow, returnTo, onClose }: {
   onClose: () => void
 }) {
   const panel = useRef<HTMLDialogElement>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
   const viewer = useRef<HTMLDialogElement>(null)
   const thumbnail = useRef<HTMLButtonElement | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
+  const [insertionError, setInsertionError] = useState('')
   const [enlarged, setEnlarged] = useState<Asset | null>(null)
   const [page, setPage] = useState(1)
   const [result, setResult] = useState<AssetPage | null>(null)
@@ -118,9 +122,11 @@ export function Images({ videoID, sources, narrow, returnTo, onClose }: {
     aria-modal={narrow ? true : undefined}
     onCancel={event => { event.preventDefault(); event.stopPropagation(); close() }}>
     <header className="images-heading">
-      <h2 id="images-title">Images</h2>
+      <h2 ref={heading} id="images-title" tabIndex={-1}>Images</h2>
       <button ref={closeButton} type="button" className="button" onClick={close}>Fermer Images</button>
     </header>
+    {reading && <p className="images-help">Passez en Édition pour insérer une image.</p>}
+    {insertionError && <p role="alert" className="images-help">{insertionError}</p>}
     <div ref={scroller} className="images-scroll" aria-busy={busy}>
       {error && <p role="alert">{error} <button type="button" className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer le catalogue</button></p>}
       {!result && busy && <p role="status">Chargement des images…</p>}
@@ -136,15 +142,20 @@ export function Images({ videoID, sources, narrow, returnTo, onClose }: {
               aria-label={`Agrandir la capture à ${time}, ${provenance}`} onClick={event => {
                 thumbnail.current = event.currentTarget; setEnlarged(asset)
               }} />}
+            <button type="button" className="image-insert" disabled={reading || asset.status !== 'available'}
+              aria-label={`Insérer la capture à ${time}, ${provenance}`} onClick={() => {
+                try { onInsert(asset); setInsertionError('') }
+                catch (error) { setInsertionError(error instanceof Error ? error.message : 'Insertion impossible.') }
+              }}>+</button>
             <span className="image-provenance" title={source?.title}>{provenance}</span>
             <span className="image-time">{time}</span>
           </div>
         })}
       </div>
       {result && <nav className="images-pagination" aria-label="Pages d’images">
-        <button type="button" className="button" disabled={page === 1 || busy} onClick={() => { setPage(value => value - 1); scroller.current?.scrollTo(0, 0) }}>Précédent</button>
+        <button type="button" className="button" disabled={page === 1 || busy} onClick={() => { setPage(value => value - 1); scroller.current?.scrollTo(0, 0); heading.current?.focus({ preventScroll: true }) }}>Précédent</button>
         <span>Page {page}</span>
-        <button type="button" className="button" disabled={!result.has_more || busy} onClick={() => { setPage(value => value + 1); scroller.current?.scrollTo(0, 0) }}>Suivant</button>
+        <button type="button" className="button" disabled={!result.has_more || busy} onClick={() => { setPage(value => value + 1); scroller.current?.scrollTo(0, 0); heading.current?.focus({ preventScroll: true }) }}>Suivant</button>
       </nav>}
     </div>
     <dialog ref={viewer} className="image-viewer" aria-label="Agrandissement de l’image"

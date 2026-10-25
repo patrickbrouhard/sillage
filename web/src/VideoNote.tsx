@@ -1,5 +1,5 @@
 import { assetMarkdown, createCapture } from './assetApi'
-import type { CaptureTarget } from './assetApi'
+import type { Asset, CaptureTarget } from './assetApi'
 import { useAsset } from './useAsset'
 import { formatDuration } from './videoPresentation'
 import { lazy, Suspense, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
@@ -18,10 +18,30 @@ const MarkdownReading = lazy(() => import('./MarkdownReading').then(module => ({
 export interface VideoNoteHandle {
   /** Refuse la lecture ou une session indisponible avant toute modification. */
   insertCitation(markdown: string): void
+  /** Réinsère un asset disponible de cette vidéo via la session courante. */
+  insertAsset(asset: Asset): void
+  /** Rend le focus à l'emplacement après une insertion mobile réussie. */
+  focusInsertion(): void
 }
 
 /** Présente une note locale et son état confirmé, avec modes partageant la même source. */
-export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavigate, visible = true, onReveal, onOpenImages, imagesOpen, imagesBusy, imagesError, ref }: {
+export function VideoNote({
+  videoID,
+  getTimeReference,
+  getCaptureTarget,
+  onNavigate,
+  visible = true,
+  onReveal,
+  onOpenImages,
+  imagesOpen,
+  imagesBusy,
+  imagesError,
+  onReadingChange,
+  onRevealImageInsertion,
+  ref,
+}: {
+  onRevealImageInsertion: () => void
+  onReadingChange: (reading: boolean) => void
   onOpenImages: () => void
   imagesOpen: boolean
   imagesBusy: boolean
@@ -38,6 +58,7 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
   const conflict = useRef<HTMLDivElement>(null)
   const [navigationMessage, setNavigationMessage] = useState('')
   const [insertionError, setInsertionError] = useState('')
+  const [imageInsertions, setImageInsertions] = useState(0)
   const [session] = useState(() => new NoteSession(videoID))
   const state = useSyncExternalStore(session.subscribe, session.snapshot)
   const [accepting, setAccepting] = useState(false)
@@ -48,8 +69,17 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
   const captureBusy = accepting || (captureID !== null && (!captureState.asset || captureState.asset.status === 'pending'))
   useEffect(() => () => captureRequest.current?.abort(), [])
   const [reading, setReading] = useState(false)
+  useEffect(() => { onReadingChange(reading) }, [reading, onReadingChange])
   const [initial, setInitial] = useState<{ content: string; version: number } | null>(null)
   useImperativeHandle(ref, () => ({
+    insertAsset(asset) {
+      if (reading) throw new Error('Passez en Édition pour insérer une image.')
+      if (!editor.current || initial?.version !== state.editorVersion) throw new Error('La session de note a changé. Choisissez un nouvel emplacement.')
+      if (asset.video_id !== videoID || asset.status !== 'available') throw new Error('Cette image n’est pas disponible pour cette vidéo.')
+      editor.current.insertAsset(assetMarkdown(asset, formatDuration(asset.timestamp_ms)), onRevealImageInsertion)
+      setImageInsertions(value => value + 1)
+    },
+    focusInsertion() { editor.current?.focusInsertion() },
     insertCitation(markdown) {
       if (reading) throw new Error('Passez en Édition, placez le curseur dans la note, puis recommencez la sélection de transcription.')
       if (!editor.current) throw new Error('La note n’est pas disponible. Recommencez la sélection une fois prête.')
@@ -198,6 +228,7 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
               key={initial.version}
               initial={initial.content}
               active={!reading}
+              imagesOpen={imagesOpen}
               visible={visible}
               onNavigate={reference => setNavigationMessage(onNavigate(reference))}
               onChange={session.change}
@@ -230,6 +261,7 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
         <button className="button" onClick={onReveal}>Revenir à la note</button>
       </div>
     )}
+    <p role="status" aria-label="Insertion d’image" className="sr-only">{imageInsertions ? `Image insérée dans la note. ${imageInsertions} insertion${imageInsertions > 1 ? 's' : ''}.` : ''}</p>
     <dialog ref={leaveDialog} className="note-navigation" aria-labelledby="leave-note-title"
       onCancel={event => { event.preventDefault(); if (blocker.state === 'blocked') blocker.reset() }}>
       <h2 id="leave-note-title">Quitter la note ?</h2>
