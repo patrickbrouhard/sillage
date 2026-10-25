@@ -267,15 +267,15 @@ La commande de sauvegarde reste visible et interactive au repos.
 
 ### 3.4 Présentation de la note
 
-- La barre permanente place Images puis les insertions Temps (`clock-plus`) et Capture (`camera`) à gauche ; la sauvegarde
+- La barre permanente place les insertions Temps (`clock-plus`) et Capture (`camera`) à gauche ; la sauvegarde
   puis le sélecteur Édition/Lecture à l'extrémité droite. Aucune commande ne flotte au survol du texte.
 - Les commandes à icônes conservent des cibles **40 × 40 px**, sur mobile aussi. Les insertions sont espacées de
   4 px, le sélecteur et la sauvegarde de 8 px, les deux groupes d'au moins 12 px. Le sélecteur partage le fond
   commun, les segments arrondis et l'état actif du sélecteur YouTube/Local. Celui de la note mesure **42 px**
   de haut, bordure de 1 px comprise, sans padding extérieur ni ombre sur le segment actif ; le focus reste visible.
 - Les infobulles restent dans le viewport et celles des insertions sont ancrées à gauche de leur groupe.
-  À 320/375 px, Images, Temps et Capture partagent une ligne ; le groupe sauvegarde/modes reste indivisible
-  et passe entier à la ligne, aligné à droite. Les insertions peuvent se répartir si la largeur l'exige.
+  À 320/375 px, Temps, Capture et le groupe sauvegarde/modes tiennent sur une ligne. Le groupe droit
+  reste indivisible et peut passer entier à la ligne si la largeur l'exige.
 - Édition et Lecture utilisent la **police système, 16 px CSS, interligne 1,5**, avec une colonne de texte
   centrée de **700 px utiles maximum**, sans inclure les marges/paddings.
 - Le code inline et les blocs de code restent monospace dans les deux modes ; les styles du code, citations,
@@ -634,7 +634,10 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 
 ### 6.7 Images de la vidéo
 
-**Images**, dans la barre de note en Édition et Lecture, ouvre les captures de la vidéo courante,
+Le bouton à icône **Images**, à droite de Note/Informations et hors du `tablist`, ouvre ou ferme les captures
+sans changer d'onglet, en Édition comme en Lecture. Son état actif, son nom accessible et son infobulle
+identifient le toggle. Une préparation en cours peut être annulée ; aucun retour tardif ne rouvre le panneau.
+Les messages de préparation et d'erreur restent accessibles depuis les deux onglets. Il présente la vidéo courante,
 toutes sources confondues, même sans référence dans la note. Le catalogue ne crée ni note ni asset,
 ne commande aucun seek et ne répare pas un fichier par une nouvelle génération.
 
@@ -654,9 +657,17 @@ Une référence temporelle admissible depuis la note ferme Images et révèle le
 laisse le panneau ouvert, sans navigation différée.
 
 La grille présente 12 captures au plus par page, par **timestamp croissant puis ID croissant**, sans prétendre
-synchroniser les sources. Les cadres 16:9 affichent les images entières ; provenance `VideoSource` et temps
-sont superposés. Plusieurs sources sont distinguées par leur identité. Le badge ne désigne pas le fichier
-local ou le flux ayant fourni les pixels et ne sert pas à naviguer.
+synchroniser les sources. Les cadres 16:9 affichent les images entières. Sous chaque miniature, une petite
+barre place le temps à gauche et l'insertion à droite. La provenance n'est affichée que si la vidéo possède
+plusieurs sources, même si la page de captures n'en montre qu'une. Ces badges distinguent les `VideoSource`
+par leur identité ; ils ne désignent pas le support des pixels et ne servent pas à naviguer.
+
+Un indicateur discret `×1`, `×2`, etc., absent à zéro, compte les images visant cet Asset dans le Markdown
+courant de la session, sauvegardé ou non. Il suit collages, suppressions, Undo/Redo, versions remplacées,
+Lecture et Informations. Images directes et références résolues sont comptées selon le rendu, y compris dans
+citations, listes et liens. Texte brut, liens ordinaires, code, syntaxes échappées, définitions inutilisées
+et images littérales des en-têtes de callout ne sont pas des utilisations rendues. Aucun enregistrement
+ni chargement d'image supplémentaire ne découle du comptage.
 
 Le clic sur l'image ouvre une visionneuse modale ajustée à la fenêtre. Sa fermeture rend le focus à la
 miniature, sans perdre le défilement. Échap traite d'abord la surface modale la plus interne ; le drawer
@@ -671,10 +682,12 @@ La réduction CSS ne réduit pas les octets transférés. Aucune miniature déri
 supplémentaire n'est introduite.
 
 En Lecture, la consultation reste disponible mais les boutons d'insertion sont désactivés ; une aide indique
-qu'il faut passer en Édition, sans bascule automatique. En Édition, le bouton **+** est distinct de
-l'agrandissement, sans commandes sous l'image. Sa cible de 40 px et son focus sont visibles ; le bouton
-apparaît au survol ou au focus sur desktop à souris et reste visible sur écran étroit ou tactile,
-y compris si une souris est également présente.
+qu'il faut passer en Édition, sans bascule automatique. Le bouton d'insertion à icône SVG **plus**, dans la
+barre sous l'image, reste toujours visible avec une cible de 40 px et un focus visible. Il est indépendant
+de l'agrandissement et des réessais. L'insertion attend un premier affichage réussi. Une indisponibilité
+constatée dans la miniature ou la visionneuse la bloque sur les deux surfaces ; un réessai reste bloquant
+jusqu'à son succès. Cela ne constitue pas une validation réseau systématique ni une garantie contre une
+disparition ultérieure du fichier. L'état métier de génération reste inchangé.
 
 Une note strictement vide accepte un ajout au début. Toute note non vide, y compris des blancs, exige un
 emplacement choisi explicitement par un geste de rédaction ou de déplacement ; le focus automatique ne

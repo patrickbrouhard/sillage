@@ -370,7 +370,17 @@ Images interroge une collection bornée par vidéo, sans reconstruire le catalog
 de GET individuel pour chaque carte. Seules les pages contenant `pending` sont actualisées pendant leur
 consultation ; erreur ou état terminal arrête ce suivi, et quitter ou changer de page annule les réponses
 obsolètes. Les images utilisent les octets PNG existants avec `loading=lazy` et décodage asynchrone.
-La page précédente est démontée au changement de page, sans accumulation de la grille entière.
+La page précédente est démontée au changement de page, sans accumulation de la grille entière. Un état
+d'affichage partagé, borné à la page, relie miniature et visionneuse : une erreur interdit l'insertion,
+seul un réessai explicitement réussi la rétablit. Les événements d'anciennes tentatives sont ignorés.
+Aucun contrôle réseau additionnel n'accompagne l'insertion et le statut métier n'est pas modifié.
+
+La fiche possède l'unique NoteSession, toujours démarrée et arrêtée avec VideoNote. Images s'abonne à
+son instantané courant et dérive ses compteurs avec la chaîne unified/remark du rendu (GFM, callouts,
+résolution des références puis arbre HTML). Seules les images à URL interne canonique sont comptées.
+Aucun second brouillon, montage React de lecture, effet réseau ou écriture ne sert à ce calcul.
+Le toggle à icône reste hors du tablist et ses messages hors des panneaux masqués ; un jeton synchrone
+exclut les ouvertures concurrentes et invalide les réponses d'une préparation annulée.
 
 Un même arbre de sélecteur utilise `dialog.show()` sur desktop et `showModal()` sous 1 100 px. Le panneau
 recouvre la colonne droite et rend ses commandes inertes ; ni note, ni lecteurs, ni transcription ne sont

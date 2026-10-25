@@ -23,20 +23,10 @@ for (const width of [320, 375, 1440]) {
       expect(box!.width).toBe(40)
       expect(box!.height).toBe(40)
     }
-    const imagesBox = (await images.boundingBox())!
-    expect(imagesBox.width).toBeGreaterThanOrEqual(40)
-    expect(imagesBox.height).toBe(40)
-    expect(imagesBox.y).toBe(boxes[0]!.y)
-    expect(boxes[1]!.y).toBe(boxes[0]!.y)
-    expect(boxes[3]!.y).toBe(boxes[2]!.y)
-    expect(boxes[4]!.y).toBe(boxes[2]!.y)
+    expect(await images.locator('xpath=ancestor::*[@role="tablist"]').count()).toBe(0)
+    for (const box of boxes) expect(box!.y).toBe(boxes[0]!.y)
     expect(boxes[1]!.x - boxes[0]!.x).toBe(44)
-    // Avec Images, le groupe droit peut passer entier à la ligne sur écran étroit.
-    if (width < 1100) expect(boxes[2]!.y - boxes[0]!.y).toBeGreaterThanOrEqual(52)
-    else {
-      expect(boxes[2]!.y).toBe(boxes[0]!.y)
-      expect(boxes[2]!.x - boxes[1]!.x - 40).toBeGreaterThanOrEqual(12)
-    }
+    expect(boxes[2]!.x - boxes[1]!.x - 40).toBeGreaterThanOrEqual(12)
     expect(boxes[3]!.x - boxes[2]!.x - 40).toBe(9)
     expect(boxes[4]!.x - boxes[3]!.x).toBe(40)
     await expect(modes).toHaveCSS('height', '42px')
@@ -71,9 +61,7 @@ for (const width of [320, 375, 1440]) {
       }
     }
     await page.getByRole('tab', { name: 'Note', exact: true }).hover()
-    await images.focus()
-    await images.press('Tab')
-    await expect(time).toBeFocused()
+    await time.focus()
     await time.press('Tab')
     await expect(capture).toBeFocused()
     await capture.press('Tab')

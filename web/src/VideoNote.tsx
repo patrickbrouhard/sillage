@@ -8,7 +8,7 @@ import { useBlocker } from 'react-router'
 import { MarkdownEditor } from './MarkdownEditor'
 import type { MarkdownEditorHandle } from './MarkdownEditor'
 import type { TemporalReference } from './temporalReference'
-import { NoteSession } from './noteSession'
+import type { NoteSession } from './noteSession'
 import { NoteSaveButton } from './NoteSaveButton'
 import { IconButton } from './IconButton'
 
@@ -27,26 +27,22 @@ export interface VideoNoteHandle {
 /** Présente une note locale et son état confirmé, avec modes partageant la même source. */
 export function VideoNote({
   videoID,
+  session,
   getTimeReference,
   getCaptureTarget,
   onNavigate,
   visible = true,
   onReveal,
-  onOpenImages,
   imagesOpen,
-  imagesBusy,
-  imagesError,
   onReadingChange,
   onRevealImageInsertion,
   ref,
 }: {
   onRevealImageInsertion: () => void
   onReadingChange: (reading: boolean) => void
-  onOpenImages: () => void
   imagesOpen: boolean
-  imagesBusy: boolean
-  imagesError: string
   videoID: number
+  session: NoteSession
   visible?: boolean
   onReveal?: () => void
   getTimeReference: () => string
@@ -59,7 +55,6 @@ export function VideoNote({
   const [navigationMessage, setNavigationMessage] = useState('')
   const [insertionError, setInsertionError] = useState('')
   const [imageInsertions, setImageInsertions] = useState(0)
-  const [session] = useState(() => new NoteSession(videoID))
   const state = useSyncExternalStore(session.subscribe, session.snapshot)
   const [accepting, setAccepting] = useState(false)
   const [captureID, setCaptureID] = useState<number | null>(null)
@@ -188,8 +183,6 @@ export function VideoNote({
         <div className="note-controls">
           <div className="note-toolbar note-main-toolbar">
             <div className="note-insertions">
-              <button type="button" className="button images-command" aria-expanded={imagesOpen}
-                aria-haspopup="dialog" disabled={imagesBusy} onClick={onOpenImages}>Images</button>
               <IconButton icon="clock-plus" label="Insérer le temps actuel"
                 disabled={reading || initial === null} onClick={insertTime} />
               <IconButton icon={captureBusy ? 'spinner' : 'camera'} label="Capturer une image de la vidéo"
@@ -214,8 +207,6 @@ export function VideoNote({
           {captureError && <p role="alert">{captureError}</p>}
           {captureState.error && <p role="status">{captureState.error}</p>}
           {captureState.asset?.status === 'failed' && <p role="alert">La génération de la capture a échoué ou a été interrompue. Sa référence est conservée dans la note.</p>}
-          {imagesBusy && <p role="status">Mise en pause de YouTube avant Images…</p>}
-          {imagesError && <p role="alert">{imagesError}</p>}
           {insertionError && <p role="alert">{insertionError}</p>}
           <div role="status" aria-label="Navigation temporelle" hidden={reading}>{navigationMessage}</div>
           <p role="status" aria-label="État de la note"

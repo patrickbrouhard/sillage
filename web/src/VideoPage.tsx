@@ -5,6 +5,8 @@ import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
 import type { Asset } from './assetApi'
 import { Images, useNarrowWorkspace } from './Images'
+import { IconButton } from './IconButton'
+import { NoteSession } from './noteSession'
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { VideoTranscript } from './VideoTranscript'
@@ -60,30 +62,44 @@ function SourceDetails({ source, index, working }: { source: VideoSource; index:
 
 /** Relit une fiche par son identité Sillage, sans dépendre de la navigation précédente. */
 function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | null }) {
+  const [noteSession] = useState(() => new NoteSession(Number(id)))
   const narrow = useNarrowWorkspace()
   const [readingNote, setReadingNote] = useState(false)
   const [imagesOpen, setImagesOpen] = useState(false)
   const [imagesBusy, setImagesBusy] = useState(false)
   const [imagesError, setImagesError] = useState('')
   const imagesReturn = useRef<HTMLElement | null>(null)
+  const opening = useRef<symbol | null>(null)
   const alive = useRef(true)
-  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  useEffect(() => { alive.current = true; return () => { alive.current = false; opening.current = null } }, [])
 
-  /** La pause précède l'occultation ; un refus laisse le lecteur accessible et intact. */
-  async function openImages() {
-    if (imagesBusy || imagesOpen) return
+  /** Un jeton synchrone empêche les doublons et invalide les retours après fermeture. */
+  async function toggleImages() {
+    if (imagesOpen || opening.current) { closeImages(); return }
+    const request = Symbol()
+    opening.current = request
     imagesReturn.current = document.activeElement as HTMLElement | null
     setImagesBusy(true); setImagesError('')
     try {
       await player.current?.prepareImages()
-      if (alive.current) setImagesOpen(true)
+      if (alive.current && opening.current === request) setImagesOpen(true)
     } catch (error) {
-      player.current?.releaseImages()
-      if (alive.current) setImagesError(error instanceof Error ? error.message : 'Impossible de préparer Images.')
-    } finally { if (alive.current) setImagesBusy(false) }
+      if (alive.current && opening.current === request) {
+        player.current?.releaseImages()
+        setImagesError(error instanceof Error ? error.message : 'Impossible de préparer Images.')
+      }
+    } finally {
+      if (alive.current && opening.current === request) {
+        opening.current = null
+        setImagesBusy(false)
+      }
+    }
   }
 
+  /** Annule aussi une ouverture en préparation, sans reprise du lecteur. */
   function closeImages() {
+    opening.current = null
+    setImagesBusy(false)
     setImagesOpen(false)
     player.current?.releaseImages()
   }
@@ -169,28 +185,36 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
               }} />
               : <section inert={imagesOpen} className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
-              <div className="note-tabs" role="tablist" aria-label="Contenu de la vidéo">
-                {(['note', 'information'] as const).map((value, index) => (
-                  <button
-                    key={value}
-                    ref={element => { tabButtons.current[index] = element }}
-                    className="button"
-                    role="tab"
-                    id={value + '-tab'}
-                    aria-controls={value + '-panel'}
-                    aria-selected={tab === value}
-                    tabIndex={tab === value ? 0 : -1}
-                    onClick={() => setTab(value)}
-                    onKeyDown={event => {
-                      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-                      event.preventDefault()
-                      const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index
-                      setTab(next === 0 ? 'note' : 'information')
-                      tabButtons.current[next]?.focus()
-                    }}
-                  >{value === 'note' ? 'Note' : 'Informations'}</button>
-                ))}
+              <div className="note-tabs-bar">
+                <div className="note-tabs" role="tablist" aria-label="Contenu de la vidéo">
+                  {(['note', 'information'] as const).map((value, index) => (
+                    <button
+                      key={value}
+                      ref={element => { tabButtons.current[index] = element }}
+                      className="button"
+                      role="tab"
+                      id={value + '-tab'}
+                      aria-controls={value + '-panel'}
+                      aria-selected={tab === value}
+                      tabIndex={tab === value ? 0 : -1}
+                      onClick={() => setTab(value)}
+                      onKeyDown={event => {
+                        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+                        event.preventDefault()
+                        const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index
+                        setTab(next === 0 ? 'note' : 'information')
+                        tabButtons.current[next]?.focus()
+                      }}
+                    >{value === 'note' ? 'Note' : 'Informations'}</button>
+                  ))}
+                </div>
+                <IconButton icon="images" label="Images" className="images-command"
+                  aria-pressed={imagesOpen || imagesBusy} aria-expanded={imagesOpen}
+                  aria-controls="images-selector" aria-haspopup="dialog" aria-busy={imagesBusy}
+                  onClick={() => void toggleImages()} />
               </div>
+              {imagesBusy && <p className="images-opening-message" role="status">Mise en pause de YouTube avant Images…</p>}
+              {imagesError && <p className="images-opening-message" role="alert">{imagesError}</p>}
               <Suspense fallback={
                 <section id="note-panel" className="note-panel" role="tabpanel"
                   aria-labelledby="note-tab" tabIndex={0} hidden={tab !== 'note'}>
@@ -199,15 +223,13 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
               }>
                 <VideoNote
                   ref={note}
+                  session={noteSession}
                   videoID={state.video.id}
                   visible={tab === 'note'}
                   onReveal={revealNote}
                   onReadingChange={setReadingNote}
                   onRevealImageInsertion={() => flushSync(() => setTab('note'))}
-                  onOpenImages={() => void openImages()}
                   imagesOpen={imagesOpen}
-                  imagesBusy={imagesBusy}
-                  imagesError={imagesError}
                   onNavigate={reference => {
                     if (reference.videoID !== state.video.id) return 'Cette référence concerne une autre vidéo. Aucune navigation effectuée.'
                     if (!source) return 'Navigation non effectuée : aucun lecteur disponible pour cette vidéo.'
@@ -257,7 +279,7 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
               onNavigate={navigate} />}
             {imagesOpen && <Images videoID={state.video.id} sources={state.video.sources}
               narrow={narrow} returnTo={imagesReturn.current} onClose={closeImages}
-              reading={readingNote} onInsert={(asset: Asset) => {
+              session={noteSession} reading={readingNote} onInsert={(asset: Asset) => {
                 if (!note.current) throw new Error('La note n’est pas disponible.')
                 note.current.insertAsset(asset)
                 if (narrow) {
