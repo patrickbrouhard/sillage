@@ -593,7 +593,12 @@ html:has(.site-navigation[open]) { overflow: hidden; }
 .search-result .tags a { display: block; padding: 4px 9px; border-radius: inherit; text-decoration: none; }
 .search-result .tags a:hover { background: var(--hover); text-decoration: underline; }
 .search-result .tags a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.search-explanation { font-size: 12px; color: var(--muted); margin: 10px 0; }
+.search-info { display: inline-flex; vertical-align: middle; transform: translateY(-2px); align-items: center; justify-content: center; width: 22px; height: 22px; margin-left: 6px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 17px; cursor: pointer; }
+.search-info:hover, .search-info[aria-expanded=true] { color: var(--text); }
+.search-info:focus-visible { outline-offset: 0; }
+.search-info-popover { position: fixed; inset: auto; box-sizing: border-box; margin: 0; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); overflow: auto; overflow-wrap: anywhere; box-shadow: 0 8px 24px #0003; }
+.search-explanation { font-size: 12px; line-height: 1.6; color: var(--muted); margin: 0; }
+.search-explanation + .search-explanation { margin-top: 8px; }
 .search-excerpt { white-space: normal; overflow-wrap: anywhere; font-size: 14px; line-height: 1.65; margin-bottom: 0; }
 .search-excerpt mark { background: var(--tag); color: var(--text); font-weight: 700; border-radius: 2px; }
 .search-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; margin-top: 32px; }
@@ -620,7 +625,10 @@ html:has(.site-navigation[open]) { overflow: hidden; }
 .search-excerpt-container { position: relative; }
 .search-excerpt-measure { position: absolute; inset: 0 0 auto; margin: 0; visibility: hidden; pointer-events: none; }
 .search-excerpt-toggle { margin-top: 6px; padding: 4px 0; border: 0; background: transparent; color: var(--muted); text-decoration: underline; cursor: pointer; }
-.search-count { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+.search-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 22px; }
+.search-count { color: var(--muted); font-size: 13px; margin: 0; }
+.search-sort { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 13px; }
+.search-sort select { min-height: 36px; max-width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--input); color: var(--text); font: inherit; }
 main:has(.search-page-title) { padding-top: 24px; }
 
 /* La bibliothèque garde une densité propre, indépendante des pages de travail. */

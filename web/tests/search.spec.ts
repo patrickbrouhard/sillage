@@ -42,7 +42,9 @@ test('API réelle : note, tag et explication publisher', async ({ page, request 
   await page.goto('/search?q=searchunivoque+cafe+kube+ateliers')
   await expect(page.locator('.search-result')).toHaveCount(1)
   await expect(page.locator('.search-excerpt:not([aria-hidden]) mark').first()).toBeVisible()
-  await expect(page.locator('.search-explanation')).toContainText('publisher')
+  await page.getByRole('button', { name: 'Pourquoi cette vidéo apparaît' }).click()
+  await expect(page.getByRole('region', { name: 'Explications de la recherche' })).toContainText('publisher')
+  await page.keyboard.press('Escape')
   await page.getByRole('heading', { name: 'trsearch001' }).getByRole('link').click()
   await expect(page).toHaveURL('/videos/' + video.id)
   await expect(page.getByRole('searchbox')).toHaveCount(0)
@@ -133,9 +135,11 @@ for (const width of [1440, 768, 375, 320]) {
     await expect(page.locator('.search-result')).toBeVisible()
     await expect(page.locator('.search-excerpt:not([aria-hidden])')).toHaveText('<script>texte</script> Café')
     await expect(page.locator('.search-excerpt script')).toHaveCount(0)
-    await expect(page.locator('.search-explanation')).toContainText('Autre source')
+    await expect(page.getByRole('button', { name: 'Pourquoi cette vidéo apparaît' })).toBeVisible()
+    await expect(page.locator('.search-explanation')).toBeHidden()
     for (const theme of ['light', 'dark']) {
       await selectTheme(page, theme)
+      await expect(page.getByRole('combobox', { name: 'Trier par' })).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       await page.screenshot({ path: info.outputPath('search-' + theme + '.png'), fullPage: true })
     }
@@ -146,6 +150,7 @@ for (const width of [1440, 768, 375, 320]) {
       })
       expect(Math.abs(center.center - center.band)).toBeLessThan(18)
       await page.evaluate(() => { document.body.style.zoom = '2' })
+      await expect(page.getByRole('combobox', { name: 'Trier par' })).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       await page.screenshot({ path: info.outputPath('search-zoom.png'), fullPage: true })
     }
@@ -196,3 +201,122 @@ test('la loupe réessaie une recherche identique après une erreur', async ({ pa
   await expect(page.getByRole('heading', { name: 'Résultat retrouvé' })).toBeVisible()
   expect(requests).toBe(2)
 })
+
+
+test('tri : page 2, brouillon, focus, historique, rechargement et soumissions', async ({ page }) => {
+  const searches: string[] = []
+  await page.route('**/api/v1/search?**', route => {
+    const params = new URL(route.request().url()).searchParams
+    searches.push(params.toString())
+    const number = Number(params.get('page') || 1)
+    const title = `${params.get('q')} ${params.get('sort') || 'relevance'} ${number}`
+    return route.fulfill({ json: { results: [result(title)], page: number, total: 21, has_more: number === 1 } })
+  })
+  await page.goto('/search?q=initial&page=2')
+  await expect(page.getByRole('heading', { name: 'initial relevance 2' })).toBeVisible()
+  const field = page.getByRole('searchbox')
+  const sort = page.getByRole('combobox', { name: 'Trier par' })
+  await field.fill('brouillon')
+  await sort.focus()
+  await sort.press('ArrowDown')
+  await sort.press('Enter')
+  await expect(page).toHaveURL('/search?q=initial&sort=newest')
+  await expect(page.getByRole('heading', { name: 'initial newest 1' })).toBeVisible()
+  await expect(field).toHaveValue('brouillon')
+  await expect(sort).toBeFocused()
+  await page.getByRole('link', { name: 'Page suivante' }).click()
+  await expect(page).toHaveURL('/search?q=initial&sort=newest&page=2')
+  await expect(page.getByRole('heading', { name: 'initial newest 2' })).toBeVisible()
+  await page.reload()
+  await expect(sort).toHaveValue('newest')
+  await expect(field).toHaveValue('initial')
+  await expect(page.getByRole('heading', { name: 'initial newest 2' })).toBeVisible()
+  await field.fill('nouvelle')
+  await field.press('Enter')
+  await expect(page).toHaveURL('/search?q=nouvelle&sort=newest')
+  await expect(page.getByRole('heading', { name: 'nouvelle newest 1' })).toBeVisible()
+  const count = searches.length
+  await field.press('Enter')
+  await expect.poll(() => searches.length).toBe(count + 1)
+  await expect(page.getByRole('heading', { name: 'nouvelle newest 1' })).toBeVisible()
+  await page.goBack()
+  await page.goBack()
+  await expect(page).toHaveURL('/search?q=initial&sort=newest&page=2')
+  await expect(field).toHaveValue('initial')
+  await expect(sort).toHaveValue('newest')
+  await page.goForward()
+  await expect(field).toHaveValue('nouvelle')
+  await sort.selectOption('relevance')
+  await expect(page).toHaveURL('/search?q=nouvelle')
+  await expect(sort).toHaveValue('relevance')
+})
+
+test('tri stable pendant le chargement et réponse obsolète après changements rapides', async ({ page }) => {
+  let release = () => {}
+  const gate = new Promise<void>(resolve => { release = resolve })
+  let finishObsolete = () => {}
+  const obsoleteFinished = new Promise<void>(resolve => { finishObsolete = resolve })
+  let started = false
+  await page.route('**/api/v1/search?**', async route => {
+    const sort = new URL(route.request().url()).searchParams.get('sort') || 'relevance'
+    if (sort === 'newest') { started = true; await gate }
+    await route.fulfill({ json: { results: [result(sort)], page: 1, total: 1, has_more: false } }).catch(() => {})
+    if (sort === 'newest') finishObsolete()
+  })
+  await page.goto('/search?q=stable')
+  await expect(page.getByRole('heading', { name: 'relevance', exact: true })).toBeVisible()
+  const sort = page.getByRole('combobox', { name: 'Trier par' })
+  await sort.focus()
+  await sort.selectOption('newest')
+  await expect.poll(() => started).toBe(true)
+  await expect(page.getByRole('status')).toHaveText('Recherche en cours…')
+  await expect(sort).toBeFocused()
+  await sort.selectOption('relevance')
+  await expect(page.getByRole('heading', { name: 'relevance', exact: true })).toBeVisible()
+  release()
+  await obsoleteFinished
+  await expect(page.getByRole('heading', { name: 'newest', exact: true })).toHaveCount(0)
+  await expect(sort).toBeFocused()
+})
+
+test('API réelle : tri chronologique, liens explicites et pages vides', async ({ page, request }) => {
+  const first = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trsort00001' } })).json()
+  const second = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trsort00002' } })).json()
+  for (const video of [first, second]) {
+    await request.post(`/api/v1/videos/${video.id}/tags`, { data: { names: ['chronologieunivoque'] } })
+  }
+  await page.goto('/search?q=chronologieunivoque&sort=relevance')
+  const links = page.locator('.search-result h2 a')
+  await expect(links).toHaveText(['trsort00001', 'trsort00002'])
+  const sort = page.getByRole('combobox', { name: 'Trier par' })
+  await expect(sort).toHaveValue('relevance')
+  await sort.selectOption('newest')
+  await expect(links).toHaveText(['trsort00002', 'trsort00001'])
+  await expect(page.getByRole('status')).toHaveText('2 vidéos correspondantes')
+  await page.reload()
+  await expect(links).toHaveText(['trsort00002', 'trsort00001'])
+  await page.goto('/search?q=chronologieunivoque&sort=newest&page=4')
+  await expect(page.getByRole('heading', { name: 'Aucun résultat sur cette page' })).toBeVisible()
+  await expect(sort).toBeVisible()
+  await sort.selectOption('relevance')
+  await expect(page).toHaveURL('/search?q=chronologieunivoque')
+  await expect(links).toHaveCount(2)
+  await page.goto('/search?q=chronologieabsente&sort=newest')
+  await expect(page.getByRole('heading', { name: 'Aucun résultat', exact: true })).toBeVisible()
+  await expect(sort).toHaveValue('newest')
+  // Quitter le parcours efface le choix : aucune préférence globale n'est conservée.
+  await page.goto('/')
+  await page.getByRole('searchbox').fill('chronologieunivoque')
+  await page.getByRole('searchbox').press('Enter')
+  await expect(page).toHaveURL('/search?q=chronologieunivoque')
+  await expect(sort).toHaveValue('relevance')
+})
+
+for (const params of ['sort=', 'sort=unknown', 'sort=Newest', 'sort=newest&sort=relevance']) {
+  test('API réelle : tri invalide sans requête non masqué : ' + params, async ({ page }) => {
+    await page.goto('/search?' + params)
+    await expect(page.getByRole('alert')).toContainText('Recherche invalide')
+    await expect(page.getByRole('heading', { name: 'Que souhaitez-vous retrouver ?' })).toHaveCount(0)
+    await expect(page.getByRole('combobox', { name: 'Trier par' })).toHaveValue('')
+  })
+}

@@ -175,9 +175,11 @@ Le comportement détaillé des lecteurs, de l'éditeur et des interactions est s
 
 `GET /api/v1/search?q=kube&page=1` recherche les titres et descriptions de toutes les sources, leurs publishers, les tags directement associés aux vidéos et le texte dérivé des notes. Une vidéo apparaît une seule fois. Les transcriptions et tags indirects sont exclus.
 
+Le paramètre facultatif `sort` accepte exactement `relevance` (défaut : BM25 puis ID vidéo croissant) et `newest` (date d'ajout dans Sillage décroissante, puis ID décroissant). Par exemple : `GET /api/v1/search?q=Kubernetes&sort=newest`. La date n'est ni celle de publication ni celle de modification. Un tri vide, inconnu, de casse différente ou répété donne HTTP 400 (`bad_request`).
+
 Les termes sont combinés par ET, même entre champs ou sources. Les tokens de quatre lettres ou chiffres Unicode ou plus utilisent un préfixe ; les termes courts et techniques (`C++`, `C#`) restent entiers. Les guillemets et opérateurs ne donnent accès à aucune syntaxe FTS. La recherche ignore la casse et les accents latins pris en charge par SQLite unicode61.
 
-La réponse contient `results`, `page`, `has_more` et `total`, avec 20 résultats par page. `total` compte toutes les vidéos correspondantes, indépendamment de la page. Chaque résultat fournit la vidéo, un extrait de note en segments texte/surlignage et les sources contributrices. Les extraits donnent un contexte borné, pas la note entière. La saisie est limitée à 1 024 octets UTF-8 et 32 tokens ; les pages vont de 1 à 1 000. Les paramètres invalides donnent une erreur 400.
+La réponse contient `results`, `page`, `has_more` et `total`, avec 20 résultats par page. `total` compte toutes les vidéos correspondantes, indépendamment de la page et du tri. Chaque résultat fournit la vidéo, un extrait de note en segments texte/surlignage et les sources contributrices. Les extraits donnent un contexte borné, pas la note entière. La saisie est limitée à 1 024 octets UTF-8 et 32 tokens ; les pages vont de 1 à 1 000. Les paramètres invalides donnent une erreur 400.
 
 Le [contrat technique de recherche](docs/search.md) détaille les paramètres et réponses REST, la tokenisation, les extraits et les garanties de cohérence.
 

@@ -18,7 +18,15 @@ import (
 func TestSearchREST(t *testing.T) {
 	base, db := knowledgeAPI(t)
 	h := api.WithSearch(base, search.NewService(sqlite.NewSearchRepository(db)))
-	for _, query := range []string{"q=Original", "q=Original&page=1", "q=", "q=%22%20*%20%22", "q=unknown"} {
+	for _, query := range []string{
+		"q=Original",
+		"q=Original&page=1",
+		"q=Original&sort=relevance",
+		"q=Original&sort=newest",
+		"q=",
+		"q=%22%20*%20%22",
+		"q=unknown",
+	} {
 		res := request(h, "GET", "/api/v1/search?"+query, "", "")
 		if res.Code != 200 {
 			t.Fatalf("%s: %d %s", query, res.Code, res.Body.String())
@@ -32,14 +40,45 @@ func TestSearchREST(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, query := range []string{"q=a&q=b", "page=1&page=2", "page=0", "page=-1", "page=1001", "page=", "page=abc", "q=%ff", "q=%zz", "unknown=x", "q=" + strings.Repeat("a", 1025), "q=" + strings.Repeat("go+", 33)} {
+	for _, query := range []string{
+		"sort=",
+		"sort=unknown",
+		"sort=Newest",
+		"sort=RELEVANCE",
+		"sort=relevance&sort=newest",
+		"sort=newest&sort=newest",
+		"sort=&sort=relevance",
+		"q=a&q=b",
+		"page=1&page=2",
+		"page=0",
+		"page=-1",
+		"page=1001",
+		"page=",
+		"page=abc",
+		"q=%ff",
+		"q=%zz",
+		"unknown=x",
+		"q=" + strings.Repeat("a",
+			1025),
+		"q=" + strings.Repeat("go+",
+			33),
+	} {
 		res := request(h, "GET", "/api/v1/search?"+query, "", "")
 		// + est un espace URL : ce cas couvre bien 33 termes courts.
-		if res.Code != 400 {
+		if res.Code != 400 || !strings.Contains(res.Body.String(), `"code":"bad_request"`) {
 			t.Fatalf("%s: %d", query, res.Code)
 		}
 	}
-	if _, err := search.NewService(sqlite.NewSearchRepository(db)).Search(context.Background(), "Original", 1); err != nil {
+	defaultResponse := request(h, "GET", "/api/v1/search?q=Original", "", "")
+	explicitResponse := request(h, "GET", "/api/v1/search?q=Original&sort=relevance", "", "")
+	if defaultResponse.Body.String() != explicitResponse.Body.String() {
+		t.Fatal("explicit relevance differs from default")
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(explicitResponse.Body.Bytes(), &fields); err != nil || len(fields) != 4 {
+		t.Fatalf("unexpected response: %s", explicitResponse.Body.String())
+	}
+	if _, err := search.NewService(sqlite.NewSearchRepository(db)).Search(context.Background(), "Original", 1, ""); err != nil {
 		t.Fatal(err)
 	}
 }

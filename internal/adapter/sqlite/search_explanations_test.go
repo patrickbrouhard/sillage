@@ -29,7 +29,7 @@ func TestSearchExcerptsAndMultipleSourceContributions(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := search.NewService(NewSearchRepository(db))
-	page, err := service.Search(ctx, "alpha cafe kube gamma", 1)
+	page, err := service.Search(ctx, "alpha cafe kube gamma", 1, "")
 	if err != nil || len(page.Results) != 1 {
 		t.Fatalf("%+v %v", page, err)
 	}
@@ -49,17 +49,17 @@ func TestSearchExcerptsAndMultipleSourceContributions(t *testing.T) {
 	if !found {
 		t.Fatal("no note match")
 	}
-	page, err = service.Search(ctx, "alpha", 1)
+	page, err = service.Search(ctx, "alpha", 1, "")
 	if err != nil || len(page.Results[0].NoteExcerpt) != 0 {
 		t.Fatalf("%+v %v", page, err)
 	}
-	page, err = service.Search(ctx, "cafe\u0301", 1)
+	page, err = service.Search(ctx, "cafe\u0301", 1, "")
 	if err != nil || len(page.Results[0].NoteExcerpt) == 0 {
 		t.Fatalf("%+v %v", page, err)
 	}
 	// Une sous-chaîne n'est jamais une preuve : Go ne doit pas expliquer Google.
 	other := searchFixture(t, db, "Go", "Google")
-	page, err = service.Search(ctx, "Go", 1)
+	page, err = service.Search(ctx, "Go", 1, "")
 	if err != nil || len(page.Results) != 1 || page.Results[0].Video.ID != other.ID || len(page.Results[0].Sources) != 1 || page.Results[0].Sources[0].SourceID != other.Sources[0].ID {
 		t.Fatalf("%+v %v", page, err)
 	}
@@ -85,7 +85,7 @@ func TestSearchBatchLoadsWithOneConnection(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "batch secondary", 1)
+	page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "batch secondary", 1, "")
 	if err != nil || len(page.Results) != 20 || !page.HasMore {
 		t.Fatalf("%+v %v", page, err)
 	}
@@ -115,7 +115,7 @@ func TestSearchExcerptKeeps64Tokens(t *testing.T) {
 		if _, err := NewNoteRepository(db).Save(ctx, v.ID, content, revision, time.Now()); err != nil {
 			t.Fatal(err)
 		}
-		page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "correspondance", 1)
+		page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "correspondance", 1, "")
 		if err != nil || len(page.Results) != 1 {
 			t.Fatalf("%+v %v", page, err)
 		}
@@ -164,7 +164,7 @@ func TestSearchCalloutOrderAfterProjectionUpgrade(t *testing.T) {
 	if err != nil || got != saved.Note {
 		t.Fatalf("note changed: %+v, %v", got, err)
 	}
-	page, err := search.NewService(NewSearchRepository(reopened)).Search(ctx, "Alice Kubernetes", 1)
+	page, err := search.NewService(NewSearchRepository(reopened)).Search(ctx, "Alice Kubernetes", 1, "")
 	if err != nil || len(page.Results) != 1 {
 		t.Fatalf("page = %+v, err = %v", page, err)
 	}
@@ -240,7 +240,7 @@ func TestSearchExcerptGiantTokens(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "needle", 1)
+		page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "needle", 1, "")
 		if err != nil || len(page.Results) != 1 || page.Total != 1 {
 			t.Fatalf("search failed: %v", err)
 		}

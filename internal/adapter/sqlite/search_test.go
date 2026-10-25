@@ -36,7 +36,7 @@ func searchFixture(t *testing.T, db *sql.DB, titles ...string) video.Video {
 // searchIDs traverse le même service que REST.
 func searchIDs(t *testing.T, db *sql.DB, q string) []video.VideoID {
 	t.Helper()
-	page, err := search.NewService(NewSearchRepository(db)).Search(context.Background(), q, 1)
+	page, err := search.NewService(NewSearchRepository(db)).Search(context.Background(), q, 1, "")
 	if err != nil {
 		t.Fatalf("search %q: %v", q, err)
 	}
@@ -88,7 +88,7 @@ func TestSearchTokenizerAndBooleanRules(t *testing.T) {
 		}
 	}
 	for _, q := range []string{strings.Repeat("x", search.MaxQueryBytes+1), strings.Repeat("go ", search.MaxTerms+1)} {
-		_, err := search.NewService(NewSearchRepository(db)).Search(context.Background(), q, 1)
+		_, err := search.NewService(NewSearchRepository(db)).Search(context.Background(), q, 1, "")
 		if !errors.Is(err, search.ErrInvalidInput) {
 			t.Fatal(err)
 		}
@@ -268,7 +268,7 @@ func TestSearchPagination(t *testing.T) {
 	service := search.NewService(NewSearchRepository(db))
 	seen := map[video.VideoID]bool{}
 	for page := 1; page <= 3; page++ {
-		got, err := service.Search(context.Background(), "common", page)
+		got, err := service.Search(context.Background(), "common", page, "")
 		want := 20
 		if page == 3 {
 			want = 1

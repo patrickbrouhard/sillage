@@ -74,9 +74,10 @@ func searchTerms(ctx context.Context, conn *sql.Conn, query string) ([]string, e
 
 // Search garde index et relations dans un court instantané de lecture différé.
 // BEGIN est explicite ici car BeginTx utilise le verrou immédiat réservé aux écritures.
-func (r *SearchRepository) Search(ctx context.Context, query string, page int) (search.Page, error) {
+func (r *SearchRepository) Search(ctx context.Context, query string, page int, sort search.Sort) (search.Page, error) {
 	result := search.Page{Results: []search.Result{}}
-	if !utf8.ValidString(query) || len(query) > search.MaxQueryBytes || page < 1 || page > search.MaxPage {
+	if !utf8.ValidString(query) || len(query) > search.MaxQueryBytes || page < 1 || page > search.MaxPage ||
+		(sort != search.SortRelevance && sort != search.SortNewest) {
 		return result, search.ErrInvalidInput
 	}
 	conn, err := r.db.Conn(ctx)
@@ -106,7 +107,7 @@ func (r *SearchRepository) Search(ctx context.Context, query string, page int) (
  `, expression).Scan(&result.Total); err != nil {
 		return result, err
 	}
-	rows, err := conn.QueryContext(ctx, `
+	selection := `
   SELECT
    rowid
   FROM video_search
@@ -115,7 +116,23 @@ func (r *SearchRepository) Search(ctx context.Context, query string, page int) (
    bm25(video_search, 8.0, 10.0, 3.0, 2.0, 0.5),
    rowid
   LIMIT ? OFFSET ?
- `, expression, search.PageSize+1, (page-1)*search.PageSize)
+ `
+	// Seules ces variantes internes construisent le SQL ; le tri ne change pas MATCH.
+	if sort == search.SortNewest {
+		selection = `
+  SELECT
+   v.id
+  FROM video_search
+  JOIN videos v
+   ON v.id = video_search.rowid
+  WHERE video_search MATCH ?
+  ORDER BY
+   v.created_at DESC,
+   v.id DESC
+  LIMIT ? OFFSET ?
+ `
+	}
+	rows, err := conn.QueryContext(ctx, selection, expression, search.PageSize+1, (page-1)*search.PageSize)
 	if err != nil {
 		return result, err
 	}

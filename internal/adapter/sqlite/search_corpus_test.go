@@ -51,7 +51,7 @@ func TestSearchRankingCorpus(t *testing.T) {
 	for i := range 12 {
 		makeVideo(fmt.Sprintf("Fond %d", i), "autre contenu", "", "sans rapport", "")
 	}
-	page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "kube", 1)
+	page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "kube", 1, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestSearchConcurrentSaveRebuildAndReaders(t *testing.T) {
 	})
 	wg.Go(func() {
 		for range 20 {
-			page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "concurrence", 1)
+			page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "concurrence", 1, "")
 			if err != nil {
 				errs <- err
 				return

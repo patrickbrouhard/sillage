@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { errorMessage } from './api'
 import { searchVideos } from './searchApi'
 import type { SearchPage, SearchResult } from './searchApi'
 import { VideoThumbnail } from './VideoThumbnail'
 import { SearchExcerpt } from './SearchExcerpt'
+import { SearchInfo } from './SearchInfo'
+
+const addedDate = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
 type State = { status: 'loading' } | { status: 'ready'; page: SearchPage } | { status: 'error'; message: string }
 
@@ -13,28 +16,34 @@ function SearchRow({ result }: { result: SearchResult }) {
   const { video, note_excerpt, source_matches } = result
   const source = video.sources[0]
   const title = source?.title || 'Vidéo sans titre'
+  // Le titre de première source est déjà visible ; seules les contributions complémentaires ouvrent la couche.
+  const explanations = source_matches.filter(match => match.source_id !== source?.id || match.description || match.publisher)
   return <article className="search-result">
     <Link className="search-thumbnail" to={'/videos/' + video.id} aria-label={'Consulter : ' + title} tabIndex={-1}>
       <VideoThumbnail source={source} />
     </Link>
     <div className="search-result-content">
       <h2><Link to={'/videos/' + video.id}>{title}</Link></h2>
-      <p className="publisher">{source?.publisher?.name || 'Compte de publication non renseigné'}</p>
+      <div className="publisher search-metadata">
+        {source?.publisher?.name || 'Compte de publication non renseigné'} · {' '}
+        <time dateTime={video.created_at}>Ajoutée le {addedDate.format(new Date(video.created_at))}</time>
+        {explanations.length > 0 && <SearchInfo>
+          {explanations.map(match => {
+            const matched = video.sources.find(item => item.id === match.source_id)
+            const secondary = match.source_id !== source?.id
+            const fields = [match.title && 'titre', match.description && 'description', match.publisher && 'publisher'].filter(Boolean).join(', ')
+            return <p key={match.source_id} className="search-explanation">
+              {secondary ? 'Autre source : ' + (matched?.title || 'Sans titre') + ' — ' : 'Correspondance : '}
+              {fields}{match.publisher && matched?.publisher?.name ? ' (' + matched.publisher.name + ')' : ''}
+            </p>
+          })}
+        </SearchInfo>}
+      </div>
       {video.tags.length > 0 && <ul className="tags" aria-label="Tags">
         {video.tags.map(tag => <li key={tag.id}>
           <Link to={'/?tag_id=' + tag.id}>{tag.name}</Link>
         </li>)}
       </ul>}
-      {source_matches.map(match => {
-        const matched = video.sources.find(item => item.id === match.source_id)
-        const secondary = match.source_id !== source?.id
-        if (!secondary && !match.description && !match.publisher) return null
-        const fields = [match.title && 'titre', match.description && 'description', match.publisher && 'publisher'].filter(Boolean).join(', ')
-        return <p key={match.source_id} className="search-explanation">
-          {secondary ? 'Autre source : ' + (matched?.title || 'Sans titre') + ' — ' : 'Correspondance : '}
-          {fields}{match.publisher && matched?.publisher?.name ? ' (' + matched.publisher.name + ')' : ''}
-        </p>
-      })}
       {note_excerpt.length > 0 && <SearchExcerpt key={JSON.stringify(note_excerpt)} segments={note_excerpt} />}
     </div>
   </article>
@@ -43,9 +52,14 @@ function SearchRow({ result }: { result: SearchResult }) {
 /** Charge une requête URL soumise et protège la page contre les réponses obsolètes. */
 export function Search() {
   const location = useLocation()
+  const navigate = useNavigate()
   const params = new URLSearchParams(location.search)
   const query = params.get('q') ?? ''
-  const invitation = !query.trim() && params.getAll('q').length <= 1 && !params.has('page')
+  const sortValues = params.getAll('sort')
+  const sort = sortValues[0] ?? 'relevance'
+  const validSort = sortValues.length <= 1 && (sort === 'relevance' || sort === 'newest')
+  const invitation = !query.trim() && params.getAll('q').length <= 1 && !params.has('page') &&
+    validSort && [...params.keys()].every(key => key === 'q' || key === 'sort')
   // Une soumission identique crée une nouvelle navigation et doit relire la bibliothèque.
   const key = location.key
   const search = location.search
@@ -66,11 +80,31 @@ export function Search() {
   function pageURL(page: number): string {
     const next = new URLSearchParams(location.search)
     next.set('page', String(page))
+    if (next.get('sort') === 'relevance') next.delete('sort')
     return '/search?' + next.toString()
   }
   return <>
     <title>Recherche · Sillage</title>
     <h1 className="sr-only search-page-title">{invitation ? 'Recherche' : 'Résultats pour « ' + query + ' »'}</h1>
+    <div className="search-summary">
+      {state.status === 'ready' && !invitation && <p role="status" className="search-count">
+        {state.page.total} vidéo{state.page.total > 1 ? 's' : ''} correspondante{state.page.total > 1 ? 's' : ''}
+      </p>}
+      <label className="search-sort">Trier par
+        <select value={validSort ? sort : ''} onChange={event => {
+          // Le tri utilise la requête soumise, jamais le brouillon du formulaire.
+          const next = new URLSearchParams(location.search)
+          next.delete('page')
+          next.delete('sort')
+          if (event.target.value === 'newest') next.set('sort', 'newest')
+          navigate('/search?' + next.toString())
+        }}>
+          {!validSort && <option value="" disabled>Tri invalide</option>}
+          <option value="relevance">Pertinence</option>
+          <option value="newest">Ajout le plus récent</option>
+        </select>
+      </label>
+    </div>
     {invitation ? <div className="state-panel">
       <h2>Que souhaitez-vous retrouver ?</h2>
       <p>Recherchez dans les titres, tags, notes, descriptions et publishers de votre bibliothèque.</p>
@@ -78,9 +112,6 @@ export function Search() {
       : state.status === 'error' ? <div className="state-panel error" role="alert">
         <p>{state.message}</p><button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer</button>
       </div> : <>
-        <p role="status" className="search-count">
-          {state.page.total} vidéo{state.page.total > 1 ? 's' : ''} correspondante{state.page.total > 1 ? 's' : ''}
-        </p>
         {state.page.results.length === 0 ? <div className="state-panel"><h2>{state.page.total === 0 ? 'Aucun résultat' : 'Aucun résultat sur cette page'}</h2>
           <p>{state.page.total === 0 ? 'Essayez d’autres termes ou une recherche plus courte.'
             : 'Des vidéos correspondent à votre recherche. Revenez aux pages précédentes.'}</p></div>
