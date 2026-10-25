@@ -51,7 +51,7 @@ Les garanties essentielles sont les suivantes :
 | Commande de maintenance | [cmd/search-rebuild/main.go](../cmd/search-rebuild/main.go) |
 | Client, page et extraits Web | [searchApi.ts](../web/src/searchApi.ts), [Search.tsx](../web/src/Search.tsx), [SearchExcerpt.tsx](../web/src/SearchExcerpt.tsx) |
 
-`search.Service` valide les bornes indépendantes du moteur et appelle un port spécialisé.
+`search.Service` valide les bornes et le choix typé `search.Sort`, indépendant du moteur et du transport, puis appelle un port spécialisé.
 Le repository SQLite assure la tokenisation, la projection et les garanties de lecture.
 Le handler traduit les paramètres et la réponse HTTP ; React consomme ce contrat.
 Une autre interface doit réutiliser le service, sans dupliquer le moteur dans son transport.
@@ -193,10 +193,17 @@ La casse et les accents latins courants composés ou décomposés sont traités 
 Cela ne garantit pas une normalisation linguistique universelle : `Straße`/`STRASSE`,
 `œuvre`/`oeuvre` et caractères pleine chasse/ASCII ne sont pas des équivalences promises.
 
-La sélection applique BM25 avec les poids du tableau des colonnes, puis l'ID vidéo croissant.
-Chez FTS5, le meilleur score numérique est le plus petit : le tri SQL est croissant.
-Ces poids favorisent des champs, sans promettre qu'un titre devance toujours une note.
-La longueur des documents et la fréquence des termes interviennent aussi dans le classement.
+Deux classements sont disponibles, sans modifier les correspondances :
+
+- `relevance`, par défaut : BM25 avec les poids du tableau des colonnes, puis ID vidéo croissant.
+  Chez FTS5, le meilleur score numérique est le plus petit : le tri SQL est croissant.
+  Ces poids favorisent des champs, sans promettre qu'un titre devance toujours une note.
+  La longueur des documents et la fréquence des termes interviennent aussi dans le classement.
+- `newest` : `Video.CreatedAt` décroissant, puis ID vidéo décroissant à date égale, comme la bibliothèque.
+  Il s'agit de la date d'ajout dans Sillage, jamais de publication ou de modification.
+
+Ce choix ne modifie ni le texte projeté ni sa version : aucune migration ou reconstruction
+de projection n'est nécessaire pour utiliser le tri chronologique.
 
 ## Lecture et contrat public
 
@@ -209,18 +216,28 @@ SQLite est utilisé sans activation de WAL : cette transaction n'élimine pas to
 
 Le total est un `COUNT(*)` sur `video_search MATCH ?`, avec la même expression ET que la sélection.
 Il ne nécessite ni jointure, ni DISTINCT, ni classement BM25. Son coût dépend des correspondances.
-La sélection classée lit 21 IDs pour restituer 20 vidéos et calculer `has_more`.
+Le total est indépendant du tri. La sélection classée lit 21 IDs pour restituer 20 vidéos et calculer `has_more`.
+Pour `newest`, les correspondances FTS sont jointes à `videos` par leur identité ; les dates UTC
+canoniques à largeur fixe et à la milliseconde se classent lexicalement. `created_at DESC, id DESC`
+est appliqué avant LIMIT/OFFSET dans le même instantané. Aucune jointure avec les sources ou tags
+ne multiplie les résultats, aucun tri en mémoire ne reclasse une page déjà sélectionnée.
+Les variantes SQL sont internes et contrôlées ; aucune expression de classement ne vient de la saisie.
 Les détails sont chargés par lots, remis dans l'ordre des IDs classés, puis expliqués.
 Une page vide conserve le total exact. Une saisie sans token exploitable évite MATCH et donne zéro.
 
 Total, détails, explications et index sont lus dans le même instantané, avec un nombre constant
 de lectures SQL par page. Deux appels ne partagent pas d'instantané : des modifications peuvent
-changer l'ordre ou le total pendant la pagination. OFFSET rend les pages profondes plus coûteuses.
+changer l'ordre ou le total pendant la pagination. Les départages par ID rendent chaque sélection
+déterministe sur une base stable, sans garantir l'absence de doublons ou d'omissions entre appels
+si la bibliothèque change. OFFSET rend les pages profondes plus coûteuses.
 
 ### Service et REST
 
-`Search(ctx, query, page)` retourne une `search.Page` ou une erreur.
-Le service valide UTF-8, taille de saisie et page ; le nombre de tokens est validé après
+`Search(ctx, query, page, sort)` retourne une `search.Page` ou une erreur.
+Le service résout le choix vide (`search.Sort("")`) vers `search.SortRelevance` et rejette tout autre
+mode inconnu avec `ErrInvalidInput` avant d'appeler le moteur. Les futures interfaces non HTTP
+partagent donc le même défaut. Le port reçoit le choix typé résolu.
+Le service valide aussi UTF-8, taille de saisie et page ; le nombre de tokens est validé après
 segmentation dans l'adapter. Le handler ajoute les contraintes de forme des paramètres HTTP.
 
 | Entrée | Contrat |
@@ -228,16 +245,18 @@ segmentation dans l'adapter. Le handler ajoute les contraintes de forme des para
 | Route | `GET /api/v1/search` |
 | `q` | Facultatif, vide par défaut ; UTF-8 valide, au plus 1 024 octets |
 | `page` | Entier de 1 à 1 000 ; 1 si absent |
+| `sort` | Exactement `relevance` ou `newest` ; `relevance` si absent, valeur explicitement vide interdite |
 | Tokens | Au plus 32 tokens produits, avant exclusion des tokens sans lettre/chiffre |
-| Paramètres REST | Seuls `q` et `page`, chacun au plus une fois |
+| Paramètres REST | Seuls `q`, `page` et `sort`, chacun au plus une fois |
 
-Une entrée invalide donne HTTP 400 (`bad_request`) ; une erreur interne n'expose pas le détail SQL.
+Une entrée invalide donne HTTP 400 (`bad_request`), notamment un tri vide, inconnu, de casse différente
+ou répété. Une erreur interne n'expose pas le détail SQL. Le corps de réponse ne contient pas de champ `sort`.
 La limite de saisie porte sur les octets UTF-8, pas sur le nombre de caractères du champ Web.
 
 | Champ REST | Sens |
 | --- | --- |
 | `results` | Tableau de résultats, au plus 20 |
-| `total` | Nombre exact de vidéos correspondantes, indépendant de la page |
+| `total` | Nombre exact de vidéos correspondantes, indépendant de la page et du tri |
 | `page` | Numéro demandé, ajouté par le handler |
 | `has_more` | Présence de résultats après la page courante |
 | `results[].video` | Représentation vidéo REST habituelle |
@@ -278,9 +297,20 @@ Il aide à décider d'ouvrir la vidéo ; il ne sert pas à lire toute la note da
 ## Intégration Web
 
 [SearchForm.tsx](../web/src/SearchForm.tsx) sépare saisie et requête soumise dans l'URL.
-La soumission est explicite et revient à la première page. Une soumission identique crée une
-nouvelle navigation et relit les données ; les réponses obsolètes sont annulées ou ignorées.
-La pagination conserve la requête et les tags ouvrent la bibliothèque filtrée par leur ID.
+L'URL est la source de vérité pour la requête, la page et le tri : absence de `sort` ou lien explicite
+`sort=relevance` signifie « Pertinence » ; `sort=newest` signifie « Ajout le plus récent ».
+Un sélecteur natif « Trier par », compact près du compteur, reste monté pendant le chargement pour
+préserver son focus, et disponible sur les pages vides. Un mode invalide est signalé, même sans requête ;
+l'invitation ne doit pas le masquer et il n'est pas converti en pertinence.
+
+Changer le tri conserve la requête soumise, jamais le brouillon du champ, et supprime `page`.
+Revenir à Pertinence retire `sort` des URL produites. La pagination conserve requête et tri ;
+rechargement et historique restaurent les trois paramètres.
+La soumission est explicite, conserve le tri courant depuis `/search` et revient à la première page.
+Depuis un autre parcours, une recherche commence en pertinence ; aucune préférence globale n'est stockée.
+Une soumission identique crée une nouvelle navigation et relit les données ; les réponses obsolètes
+sont annulées ou ignorées, y compris après des changements rapides de tri.
+Les tags ouvrent la bibliothèque filtrée par leur ID.
 
 La première source REST fournit l'identité visuelle. Sa chaîne et la date d'ajout `video.created_at`
 sont affichées sur la même ligne, avec une date française abrégée dans le fuseau du navigateur.
@@ -310,10 +340,11 @@ lorsque le comportement change ; ne pas exposer de détail moteur dans les inter
 | Tokenizer, préfixes, classement | `search_test.go`, `search_corpus_test.go` : termes techniques, Unicode, corpus et exclusions |
 | Projection et écritures | Mêmes fichiers : révisions, rollback, concurrence, ouverture, interruption et crash |
 | Extraction Markdown | `search_markdown_test.go`, `search_explanations_test.go` : code, callouts, ordre et version précédente |
-| Total et pagination | `search_total_test.go`, `search_test.go` : pages partielles/vides et instantané commun |
+| Tri, total et pagination | `search_sort_test.go`, `search_total_test.go`, `search_test.go` : dates indépendantes des IDs, égalités, différence avec BM25, ensemble et explications identiques, frontières de pages, pages partielles/vides et instantané commun sous mutations pour les deux modes |
+| Service | `internal/search/search_test.go` : défaut, transmission du type et rejet avant le moteur |
 | Extraits et provenance | `search_explanations_test.go` : multi-sources, collisions, UTF-8, tokens géants, note intacte |
 | REST et confidentialité | `internal/http/search_test.go`, `internal/http/search_logging_test.go` |
-| Intégration Web | `web/tests/search.spec.ts`, `search-excerpts.spec.ts`, `search-tags.spec.ts` |
+| Intégration Web | `web/tests/search.spec.ts`, `search-excerpts.spec.ts`, `search-tags.spec.ts` : réseau contrôlé et REST/SQLite réels, URL, historique, rechargement, soumissions, brouillon, réponses tardives, clavier/focus, thèmes, petits écrans et zoom |
 
 Commandes depuis la racine, à sélectionner selon le changement :
 
@@ -326,7 +357,7 @@ git diff --check
 ```
 
 Les benchmarks utilisent des données temporaires : bibliothèque de 2 000 vidéos, requêtes
-sélectives/fréquentes, pages profondes/vides, reconstruction, sauvegarde et bornage de tokens géants.
+sélectives/fréquentes et pages profondes/vides dans les deux modes, reconstruction, sauvegarde et bornage de tokens géants.
 Comparer les mesures dans un même environnement ; elles ne constituent pas une garantie de latence.
 Les tests navigateur avec doubles externes ne prouvent pas le comportement réel de YouTube.
 

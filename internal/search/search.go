@@ -4,8 +4,9 @@ package search
 import (
 	"context"
 	"errors"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"unicode/utf8"
+
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // Ces bornes limitent le travail du moteur et la pagination publique.
@@ -16,7 +17,17 @@ const (
 	MaxTerms      = 32
 )
 
-// ErrInvalidInput indique une saisie ou une pagination hors contrat.
+// Sort définit le classement des vidéos indépendamment du moteur et du transport.
+type Sort string
+
+const (
+	// SortRelevance classe par pertinence puis par identité croissante.
+	SortRelevance Sort = "relevance"
+	// SortNewest classe par date d'ajout puis par identité décroissantes.
+	SortNewest Sort = "newest"
+)
+
+// ErrInvalidInput indique une saisie, un tri ou une pagination hors contrat.
 var ErrInvalidInput = errors.New("invalid search input")
 
 // Segment est affiché littéralement, jamais comme HTML.
@@ -48,9 +59,9 @@ type Page struct {
 	Total int64
 }
 
-// Repository est un port spécialisé sans syntaxe ni score moteur publics.
+// Repository reçoit un tri résolu, sans syntaxe ni score moteur publics.
 type Repository interface {
-	Search(context.Context, string, int) (Page, error)
+	Search(context.Context, string, int, Sort) (Page, error)
 }
 
 // Service porte les validations communes à REST et aux futures interfaces MCP.
@@ -59,10 +70,16 @@ type Service struct{ repository Repository }
 // NewService utilise la projection de l'adapter.
 func NewService(repository Repository) *Service { return &Service{repository: repository} }
 
-// Search recherche tous les termes en conservant les termes courts.
-func (s *Service) Search(ctx context.Context, query string, page int) (Page, error) {
+// Search recherche tous les termes et utilise la pertinence si le tri est absent.
+func (s *Service) Search(ctx context.Context, query string, page int, sort Sort) (Page, error) {
 	if !utf8.ValidString(query) || len(query) > MaxQueryBytes || page < 1 || page > MaxPage {
 		return Page{}, ErrInvalidInput
 	}
-	return s.repository.Search(ctx, query, page)
+	if sort == "" {
+		sort = SortRelevance
+	}
+	if sort != SortRelevance && sort != SortNewest {
+		return Page{}, ErrInvalidInput
+	}
+	return s.repository.Search(ctx, query, page, sort)
 }

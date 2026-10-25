@@ -13,7 +13,7 @@ import (
 
 // SearchService est le même cas d'usage que celui des futures interfaces non HTTP.
 type SearchService interface {
-	Search(context.Context, string, int) (search.Page, error)
+	Search(context.Context, string, int, search.Sort) (search.Page, error)
 }
 
 // SearchHandler valide la forme REST avant d'appeler le service applicatif.
@@ -31,7 +31,7 @@ func (h *SearchHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for key, values := range params {
-		if (key != "q" && key != "page") || len(values) != 1 {
+		if (key != "q" && key != "page" && key != "sort") || len(values) != 1 {
 			writeError(w, r, 400, "bad_request", "invalid search parameters")
 			return
 		}
@@ -44,7 +44,12 @@ func (h *SearchHandler) Get(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	result, err := h.service.Search(r.Context(), params.Get("q"), page)
+	sort := search.Sort(params.Get("sort"))
+	if values, ok := params["sort"]; ok && values[0] == "" {
+		writeError(w, r, 400, "bad_request", "invalid search parameters")
+		return
+	}
+	result, err := h.service.Search(r.Context(), params.Get("q"), page, sort)
 	if err != nil {
 		if errors.Is(err, search.ErrInvalidInput) {
 			writeError(w, r, 400, "bad_request", "invalid search parameters")

@@ -12,6 +12,13 @@ export function SearchForm() {
     onSubmit={event => {
       event.preventDefault()
       const params = new URLSearchParams({ q: draft })
+      if (location.pathname === '/search') {
+        // Conserver aussi un tri invalide pour laisser REST signaler l'erreur.
+        const sorts = new URLSearchParams(location.search).getAll('sort')
+        if (sorts.length !== 1 || sorts[0] !== 'relevance') {
+          for (const sort of sorts) params.append('sort', sort)
+        }
+      }
       navigate('/search?' + params.toString())
     }}>
     <label className="sr-only" htmlFor="global-search">Rechercher dans la bibliothèque</label>

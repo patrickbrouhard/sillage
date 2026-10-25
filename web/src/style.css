@@ -625,7 +625,10 @@ html:has(.site-navigation[open]) { overflow: hidden; }
 .search-excerpt-container { position: relative; }
 .search-excerpt-measure { position: absolute; inset: 0 0 auto; margin: 0; visibility: hidden; pointer-events: none; }
 .search-excerpt-toggle { margin-top: 6px; padding: 4px 0; border: 0; background: transparent; color: var(--muted); text-decoration: underline; cursor: pointer; }
-.search-count { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+.search-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 22px; }
+.search-count { color: var(--muted); font-size: 13px; margin: 0; }
+.search-sort { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 13px; }
+.search-sort select { min-height: 36px; max-width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--input); color: var(--text); font: inherit; }
 main:has(.search-page-title) { padding-top: 24px; }
 
 /* La bibliothèque garde une densité propre, indépendante des pages de travail. */

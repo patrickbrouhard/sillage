@@ -13,7 +13,7 @@ export interface SearchPage { results: SearchResult[]; page: number; has_more: b
 export async function searchVideos(params: string, signal: AbortSignal): Promise<SearchPage> {
   const response = await fetch('/api/v1/search?' + params, { signal })
   if (!response.ok) throw new Error(response.status === 400
-    ? 'Recherche invalide : 1 024 octets, 32 termes et pages de 1 à 1 000 maximum.'
+    ? 'Recherche invalide : vérifiez les paramètres, le tri (relevance ou newest) et les limites de 1 024 octets, 32 termes et pages de 1 à 1 000.'
     : 'La recherche n’a pas pu aboutir. Réessayez.')
   const body = await response.json() as SearchPage
   if (!Array.isArray(body.results) || !Number.isInteger(body.page) || typeof body.has_more !== 'boolean' ||

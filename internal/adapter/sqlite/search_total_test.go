@@ -19,13 +19,13 @@ func TestSearchTotalAcrossPagesUsesAndAndCountsVideos(t *testing.T) {
 	searchFixture(t, db, "alpha")
 	service := search.NewService(NewSearchRepository(db))
 	for number, count := range []int{20, 20, 1, 0} {
-		page, err := service.Search(context.Background(), "alpha beta", number+1)
+		page, err := service.Search(context.Background(), "alpha beta", number+1, "")
 		if err != nil || page.Total != 41 || len(page.Results) != count || page.HasMore != (number < 2) {
 			t.Fatalf("page %d: total=%d results=%d more=%t error=%v", number+1, page.Total, len(page.Results), page.HasMore, err)
 		}
 	}
 	for _, query := range []string{"absent", "", " \" * + # : "} {
-		page, err := service.Search(context.Background(), query, 10)
+		page, err := service.Search(context.Background(), query, 10, "")
 		if err != nil || page.Total != 0 || len(page.Results) != 0 || page.HasMore {
 			t.Fatalf("%q: %+v %v", query, page, err)
 		}
@@ -40,7 +40,7 @@ func TestSearchTotalUpdatesAfterNoteAndTagMutations(t *testing.T) {
 	check := func(query string, total int64) {
 		t.Helper()
 		for _, number := range []int{1, 999} {
-			page, err := service.Search(ctx, query, number)
+			page, err := service.Search(ctx, query, number, "")
 			count := int(total)
 			if number == 999 {
 				count = 0
@@ -77,7 +77,7 @@ func TestSearchWithoutTokensDoesNotMatchOrCount(t *testing.T) {
 	if _, err := db.Exec("DROP TABLE video_search"); err != nil {
 		t.Fatal(err)
 	}
-	page, err := search.NewService(NewSearchRepository(db)).Search(context.Background(), " * \" +# ", 1)
+	page, err := search.NewService(NewSearchRepository(db)).Search(context.Background(), " * \" +# ", 1, "")
 	if err != nil || page.Total != 0 || len(page.Results) != 0 || page.HasMore {
 		t.Fatalf("%+v %v", page, err)
 	}
@@ -101,18 +101,20 @@ func TestSearchTotalAndPageShareSnapshotDuringNoteChanges(t *testing.T) {
 			}
 		}
 	})
-	group.Go(func() {
-		for range 30 {
-			page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "needle", 1)
-			if err != nil {
-				t.Error(err)
-				return
+	for _, sort := range []search.Sort{search.SortRelevance, search.SortNewest} {
+		group.Go(func() {
+			for range 30 {
+				page, err := search.NewService(NewSearchRepository(db)).Search(ctx, "needle", 1, sort)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if page.Total != int64(len(page.Results)) || page.HasMore || (len(page.Results) == 1 && len(page.Results[0].NoteExcerpt) == 0) {
+					t.Errorf("inconsistent snapshot: total=%d results=%d", page.Total, len(page.Results))
+					return
+				}
 			}
-			if page.Total != int64(len(page.Results)) || page.HasMore {
-				t.Errorf("inconsistent snapshot: total=%d results=%d", page.Total, len(page.Results))
-				return
-			}
-		}
-	})
+		})
+	}
 	group.Wait()
 }
