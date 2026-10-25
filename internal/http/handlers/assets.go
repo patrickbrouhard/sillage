@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +20,7 @@ import (
 
 // AssetService est partagé par REST et les futures interfaces.
 type AssetService interface {
+	List(context.Context, video.VideoID, int) (asset.Page, error)
 	Start(context.Context, video.VideoID, video.VideoSourceID, int64, string) (asset.Asset, error)
 	Get(context.Context, int64) (asset.Asset, error)
 	ByRequest(context.Context, string) (asset.Asset, error)
@@ -156,4 +158,40 @@ func respondAssetError(w http.ResponseWriter, r *http.Request, err error) {
 		requestlog.Result(r, "", err)
 		writeError(w, r, 500, "internal_error", "internal error")
 	}
+}
+
+// List expose une page du catalogue sans reconstruire les références de la note.
+func (h *AssetHandler) List(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	id, ok := knowledgeID(w, r, "video_id")
+	if !ok {
+		return
+	}
+	page := 1
+	if values, exists := r.URL.Query()["page"]; exists {
+		var err error
+		if len(values) != 1 {
+			writeError(w, r, 400, "bad_request", "invalid page")
+			return
+		}
+		page, err = strconv.Atoi(values[0])
+		if err != nil || page < 1 || page > 1000000 {
+			writeError(w, r, 400, "bad_request", "invalid page")
+			return
+		}
+	}
+	result, err := h.service.List(r.Context(), video.VideoID(id), page)
+	if err != nil {
+		respondAssetError(w, r, err)
+		return
+	}
+	items := make([]assetResponse, 0, len(result.Assets))
+	for _, a := range result.Assets {
+		items = append(items, assetDTO(a))
+	}
+	writeJSON(w, r, 200, struct {
+		Assets  []assetResponse `json:"assets"`
+		Page    int             `json:"page"`
+		HasMore bool            `json:"has_more"`
+	}{items, result.Number, result.HasMore})
 }

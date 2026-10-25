@@ -11,6 +11,7 @@ for (const width of [320, 375, 1440]) {
     const modes = page.getByRole('group', { name: 'Mode de la note', exact: true })
     const editing = modes.getByRole('button', { name: 'Édition', exact: true })
     const reading = modes.getByRole('button', { name: 'Lecture', exact: true })
+    const images = page.getByRole('button', { name: 'Images', exact: true })
     const time = page.getByRole('button', { name: 'Insérer le temps actuel', exact: true })
     const capture = page.getByRole('button', { name: 'Capturer une image de la vidéo', exact: true })
     const save = page.getByRole('button', { name: 'Enregistrer la note', exact: true })
@@ -21,8 +22,9 @@ for (const width of [320, 375, 1440]) {
     for (const box of boxes) {
       expect(box!.width).toBe(40)
       expect(box!.height).toBe(40)
-      expect(box!.y).toBe(boxes[0]!.y)
     }
+    expect(await images.locator('xpath=ancestor::*[@role="tablist"]').count()).toBe(0)
+    for (const box of boxes) expect(box!.y).toBe(boxes[0]!.y)
     expect(boxes[1]!.x - boxes[0]!.x).toBe(44)
     expect(boxes[2]!.x - boxes[1]!.x - 40).toBeGreaterThanOrEqual(12)
     expect(boxes[3]!.x - boxes[2]!.x - 40).toBe(9)

@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/patrickbrouhard/sillage/internal/asset"
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // AssetRepository conserve aussi les intentions et les échecs.
@@ -113,4 +114,30 @@ func (r *AssetRepository) Interrupt(ctx context.Context) error {
  WHERE status = 'pending'
  `)
 	return err
+}
+
+// List conserve toutes les sources et états ; l'identité départage les temps égaux.
+func (r *AssetRepository) List(ctx context.Context, videoID video.VideoID, offset, limit int) ([]asset.Asset, error) {
+	rows, err := r.db.QueryContext(ctx, `
+ SELECT `+assetColumns+`
+ FROM assets
+ WHERE video_id = ?
+ ORDER BY
+  timestamp_ms ASC,
+  id ASC
+ LIMIT ? OFFSET ?
+ `, videoID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]asset.Asset, 0)
+	for rows.Next() {
+		a, err := scanAsset(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, a)
+	}
+	return items, rows.Err()
 }

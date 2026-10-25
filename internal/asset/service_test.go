@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -286,5 +287,37 @@ func TestPublishedPNGSurvivesUncertainSQLFinalization(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestListAssetsPaginationAndMissingVideo(t *testing.T) {
+	s, repo, v, _ := setup(t, &localMedia{}, nil)
+	ctx := context.Background()
+	empty, err := s.List(ctx, v.ID, 1)
+	if err != nil || len(empty.Assets) != 0 || empty.HasMore {
+		t.Fatalf("%+v %v", empty, err)
+	}
+	source := v.Sources[0].ID
+	for i := 0; i < asset.PageSize+1; i++ {
+		timestamp := int64(i)
+		if _, err := repo.Create(ctx, asset.Asset{VideoID: v.ID, SourceID: &source, TimestampMS: &timestamp, Type: "screenshot", RequestID: fmt.Sprint("list-request", i), CreatedAt: time.Now()}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first, err := s.List(ctx, v.ID, 1)
+	if err != nil || len(first.Assets) != asset.PageSize || !first.HasMore || first.Number != 1 {
+		t.Fatalf("%+v %v", first, err)
+	}
+	next, err := s.List(ctx, v.ID, 2)
+	if err != nil || len(next.Assets) != 1 || next.HasMore || next.Number != 2 || next.Assets[0].ID == first.Assets[0].ID {
+		t.Fatalf("%+v %v", next, err)
+	}
+	if _, err := s.List(ctx, v.ID+100, 1); !errors.Is(err, video.ErrVideoNotFound) {
+		t.Fatal(err)
+	}
+	for _, page := range []int{0, -1, 1000001} {
+		if _, err := s.List(ctx, v.ID, page); !errors.Is(err, video.ErrInvalidInput) {
+			t.Fatal(err)
+		}
 	}
 }

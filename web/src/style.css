@@ -675,3 +675,75 @@ main.library-main { padding: 20px 32px 48px; }
   .site-header-library .brand { font-size: 18px; }
   .library-header-actions .library-filter-trigger { padding-inline: 8px; font-size: 13px; }
 }
+
+/* Images recouvre seulement la colonne droite ; les sessions restent dans la grille. */
+.video-workspace { position: relative; }
+.note-tabs-bar { display: flex; align-items: center; gap: 12px; margin: 0 1rem; border-bottom: 1px solid var(--border); }
+.note-tabs-bar .note-tabs { flex: 1; min-width: 0; margin: 0; border: 0; }
+.note-tabs-bar > .icon-control { flex: none; }
+.images-command[aria-pressed=true] { background: var(--tag); color: var(--label); box-shadow: inset 0 0 0 1px var(--border); }
+.images-opening-message { margin: 8px 16px; overflow-wrap: anywhere; }
+.images-selector { padding: 0; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface); color: var(--text); max-width: none; max-height: none; margin: 0; overflow: hidden; }
+.images-selector[open] { display: flex; flex-direction: column; }
+.images-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex: none; }
+.images-heading h2 { margin: 0; }
+.images-scroll { flex: 1; min-height: 0; overflow: auto; padding: 16px; }
+.images-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.image-card { background: var(--input); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.image-preview { position: relative; aspect-ratio: 16 / 9; display: grid; place-items: center; }
+.image-preview img { display: block; width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+.image-preview > [role=status] { padding: 24px 12px; font-size: .85rem; }
+.image-loading { position: absolute; pointer-events: none; text-align: center; }
+.image-decoding { opacity: 0; }
+.image-display-error { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.image-enlarge { position: absolute; inset: 0; border: 0; border-radius: inherit; background: transparent; cursor: zoom-in; }
+.image-enlarge:focus-visible, .image-card:focus-visible { outline: 3px solid var(--focus); outline-offset: -4px; }
+.image-provenance { position: absolute; top: 8px; left: 8px; pointer-events: none; background: #101725e8; color: #fff; border-radius: 4px; padding: 3px 6px; font-size: .75rem; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.image-card-bar { display: flex; align-items: center; gap: 8px; padding: 2px 8px; min-height: 44px; border-top: 1px solid var(--border); }
+.image-time { margin-right: auto; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.image-usage { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.image-card-bar .icon-tooltip { top: auto; bottom: calc(100% + 4px); }
+.images-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 16px; }
+.image-viewer { position: fixed; inset: 0; margin: 0; padding: 12px; border: 0; border-radius: 0; background: transparent; color: #fff; width: 100vw; height: 100dvh; max-width: none; max-height: none; overflow: hidden; }
+.image-viewer[open] { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; grid-template-rows: 44px minmax(0, 1fr) auto; gap: 8px; }
+.lightbox-close { grid-column: 3; grid-row: 1; justify-self: end; }
+.lightbox-previous { grid-column: 1; grid-row: 2; align-self: center; }
+.lightbox-next { grid-column: 3; grid-row: 2; align-self: center; }
+.lightbox-stage { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+.image-viewer img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+.lightbox-caption { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 12px; grid-column: 1 / -1; grid-row: 3; margin: 0; align-self: center; text-align: center; font-size: .8rem; line-height: 1.5; text-shadow: 0 1px 2px #000; }
+.lightbox-command { background: #101725d9; border-color: #ffffff80; color: #fff; }
+.lightbox-command:hover { background: #283954; }
+.lightbox-command[aria-disabled=true] { opacity: .45; cursor: default; }
+.lightbox-command:focus-visible { outline-color: #fff; }
+@media (max-width: 600px) {
+  .image-viewer { padding: 8px; }
+  .lightbox-stage { grid-column: 1 / -1; }
+  .lightbox-previous { grid-row: 3; }
+  .lightbox-next { grid-row: 3; }
+  .lightbox-caption { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 12px; grid-column: 2; font-size: .75rem; }
+}
+.image-viewer::backdrop { background: #000d; }
+.images-selector::backdrop { background: #0008; }
+/* La modale occupe aussi la gouttière native ; le drawer non modal conserve la largeur du workspace. */
+html:has(.images-selector:modal, .image-viewer:modal) { overflow: hidden; scrollbar-gutter: auto; }
+@media (min-width: 1100px) {
+  .images-selector { position: absolute; grid-column: 2; grid-row: 1 / -1; inset: 0; width: 100%; height: 100%; z-index: 5; }
+  .video-workspace.images-covered > :is(.video-player, .video-transcript) { visibility: hidden; }
+}
+@media (max-width: 1099px) {
+  .images-selector { position: fixed; inset: 0; width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
+}
+
+/* L'ajout d'Images déplace les icônes : leur aide reste ancrée dans la largeur utile. */
+.note-insertions { position: relative; }
+.note-insertions .icon-control { position: static; }
+
+.images-help { padding: 0 16px; margin: 12px 0; flex: none; }
+.image-insertion-selection { background: var(--selection); box-shadow: inset 0 -1px var(--focus); }
+.image-insertion-caret { border-left: 2px solid var(--focus); box-shadow: 1px 0 0 var(--input); margin-left: -1px; pointer-events: none; }
+
+
+.images-heading h2:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+
+.lightbox-position { font-size: .75rem; opacity: .8; white-space: nowrap; }

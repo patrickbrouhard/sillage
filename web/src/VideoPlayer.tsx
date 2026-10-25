@@ -12,7 +12,9 @@ import { VideoDownload } from './VideoDownload'
 import { PlayerInformation } from './PlayerInformation'
 
 /** Conserve l'en-tête, le focus et les interactions de conservation hors des instances de lecture. */
-export function VideoPlayer({ videoID, source, download, ref }: {
+export function VideoPlayer({ videoID, source, download, ref, covered = false, onImagesFailure }: {
+  onImagesFailure: (message: string) => void
+  covered?: boolean
   videoID: number
   source: VideoSource
   download: ReturnType<typeof useVideoDownload>
@@ -79,6 +81,8 @@ export function VideoPlayer({ videoID, source, download, ref }: {
     },
     navigate: startMs => player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.',
     stop: () => player.current?.stop(),
+    prepareImages: async () => { await player.current?.prepareImages() },
+    releaseImages: () => player.current?.releaseImages(),
   }))
 
   // Les consultations suivantes ne remplacent jamais le choix de cette session.
@@ -121,6 +125,14 @@ export function VideoPlayer({ videoID, source, download, ref }: {
     setSelection({ mode, startMs })
   }
 
+  useEffect(() => {
+    // Une surface peut devenir prête après l'ouverture du catalogue, sans autoplay intermédiaire.
+    if (covered) void player.current?.prepareImages().catch(error => {
+      if (error.name !== 'AbortError') onImagesFailure(error.message)
+    })
+    else player.current?.releaseImages()
+  }, [covered, selection?.mode])
+
   const file = download.state?.status === 'available' ? download.file : null
   const url = file && file.id !== unloaded ? `/api/v1/videos/${videoID}/media-files/${file.id}/content` : undefined
   const activity = download.requesting || download.state?.status === 'downloading'
@@ -132,7 +144,7 @@ export function VideoPlayer({ videoID, source, download, ref }: {
     ? 'Consulter le téléchargement' : 'Télécharger la vidéo')
   const error = download.error || (download.state?.error ? downloadMessage(download.state.error.code) : '')
 
-  return <section className="video-player" aria-label="Lecteur">
+  return <section inert={covered} className="video-player" aria-label="Lecteur">
     <div className="player-toolbar">
       <div className="player-mode-controls">
         <div className="player-segments segmented-control" role="group" aria-label="Mode de lecture">
@@ -169,7 +181,7 @@ export function VideoPlayer({ videoID, source, download, ref }: {
       <button className="button" onClick={showDownload}>Consulter le téléchargement</button></div>}
     {!selection ? <p role="status">Consultation du fichier local…</p> :
       selection.mode === 'youtube' ?
-        <YouTubePlayer source={source} ref={player} onVisibility={setVisibility} initialStartMs={selection.startMs} /> :
+        <YouTubePlayer onImagesFailure={onImagesFailure} source={source} ref={player} onVisibility={setVisibility} initialStartMs={selection.startMs} /> :
         <>
           {!file && <div className="local-empty"><p>{download.state?.status === 'downloading' ? 'Téléchargement en cours sur le serveur…' :
             download.state?.status === 'not_downloaded' ? 'Aucun fichier local. Téléchargez cette source pour la regarder ici.' :

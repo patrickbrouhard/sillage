@@ -1,6 +1,6 @@
 # Roadmap — Sillage
 
-Dernière consolidation : 23 octobre 2026.
+Dernière consolidation : 25 octobre 2026.
 
 Ce document donne **l'état d'avancement et les prochaines directions de développement**. Il ne décrit ni les contrats techniques en vigueur, ni le détail des tests effectués à chaque commit, ni toutes les décisions encore ouvertes.
 
@@ -11,7 +11,7 @@ Ce document donne **l'état d'avancement et les prochaines directions de dévelo
 
 ## 1. État actuel
 
-**Le socle fonctionnel de Sillage est en place.** Il est possible d'ajouter une vidéo YouTube, de la retrouver dans la bibliothèque, de la consulter, de prendre des notes Markdown, de travailler avec sa transcription et ses références temporelles, de conserver son média localement et de produire des captures.
+**Le socle fonctionnel de Sillage est en place.** Il est possible d'ajouter une vidéo YouTube, de la retrouver dans la bibliothèque, de la consulter, de prendre des notes Markdown, de travailler avec sa transcription et ses références temporelles, de conserver son média localement, de produire des captures et de consulter/réinsérer les images de chaque vidéo.
 
 Les dernières tranches ont également apporté la lecture locale, la journalisation structurée et la réorganisation de la fiche vidéo (navigation, en-tête, onglets, panneaux et surfaces de lecture).
 
@@ -29,7 +29,7 @@ Les dernières tranches ont également apporté la lecture locale, la journalisa
 | 5 — Interface Web | Bibliothèque, fiche vidéo, lecteur YouTube, éditeur Markdown et sauvegarde fiable | Réalisé |
 | 6 — Interactions temporelles | Recherche dans une transcription ouverte, citations, références Markdown et navigation | Réalisé |
 | UX 1 — Confort de rédaction | Callouts, présentation de l'éditeur et références compactes/interactives | Réalisé |
-| 7 — Médias | Téléchargement et conservation des fichiers, captures PNG | Réalisé |
+| 7 — Médias | Téléchargement et conservation des fichiers, captures PNG, consultation et réinsertion par vidéo | Réalisé |
 | 8 — Recherche globale | FTS5 transactionnel, notes et métadonnées, API et parcours Web paginés | Réalisé |
 | Consolidations postérieures | Journalisation structurée, lecture locale, ergonomie du lecteur et nouvelle disposition du workspace | Réalisé |
 
@@ -71,7 +71,7 @@ Ces pistes **ne constituent ni des jalons approuvés ni un ordre de priorité**.
 
 - **Sources et transcriptions** : import de fichiers locaux, autres plateformes, choix de pistes, STT et enrichissements de transcription.
 - **Bibliothèque et connaissance** : annotations structurées, plages temporelles, gestion avancée des tags et des personnes, collections, playlists et vues sauvegardées.
-- **Médias** : galerie d'images, réinsertion et gestion des captures, clips durables, qualités multiples et audio seul.
+- **Médias** : import d'images, gestion et suppression explicite des captures, clips durables, qualités multiples et audio seul. La consultation et la réinsertion par vidéo sont déjà réalisées.
 - **Expérience de travail** : panneaux redimensionnables, reprise de lecture entre sessions, notifications et présentation Markdown enrichie.
 - **Distribution et intégrations** : extension navigateur, version desktop éventuelle (par exemple avec Wails), import/export et sauvegarde complète.
 

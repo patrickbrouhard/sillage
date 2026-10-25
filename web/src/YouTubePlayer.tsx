@@ -7,7 +7,8 @@ import { revealPlayer } from './player'
 import type { PlayerSurfaceHandle, PlayerVisibility } from './player'
 
 /** Présente un lecteur YouTube isolé ; une pause confirmée précède son masquage. */
-export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
+export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onImagesFailure }: {
+  onImagesFailure: (message: string) => void
   source: VideoSource
   ref: Ref<PlayerSurfaceHandle>
   onVisibility: (state: PlayerVisibility) => void
@@ -21,6 +22,8 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
   const host = useRef<HTMLDivElement>(null)
   const player = useRef<Player | null>(null)
   const failPlayer = useRef<((description: string) => void) | null>(null)
+  const images = useRef(false)
+  const pauseImages = useRef<(() => void) | null>(null)
   const conceal = useRef(false)
   const concealed = useRef(false)
   const concealTimer = useRef<number | undefined>(undefined)
@@ -43,8 +46,42 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
     revealPlayer(host.current)
   }, [navigation])
 
+  /** Confirme la pause sans perdre l’instance ; un échec rend la surface accessible. */
+  async function prepareImages() {
+    images.current = true
+    const current = player.current
+    // L'initialisation n'a aucun autoplay ; les callbacks protègent aussi un démarrage tardif.
+    if (!current) return
+    try {
+      if (![1, 3].includes(current.getPlayerState())) return
+      current.pauseVideo()
+      if (![1, 3].includes(current.getPlayerState())) return
+      await new Promise<void>((resolve, reject) => {
+        const finish = (error?: Error) => {
+          window.clearInterval(timer)
+          pauseImages.current = null
+          if (error) reject(error); else resolve()
+        }
+        const deadline = Date.now() + 1000
+        // Interroger aussi l'état : son callback peut ne pas être livré.
+        const timer = window.setInterval(() => {
+          try {
+            if (player.current !== current) finish(new Error('Le lecteur a changé pendant la pause. Réessayez Images.'))
+            else if (![1, 3].includes(current.getPlayerState())) finish()
+            else if (Date.now() >= deadline) finish(new Error('La pause YouTube n’a pas été confirmée. Réessayez Images ou mettez le lecteur en pause.'))
+          } catch { finish(new Error('Impossible de confirmer la pause YouTube. Réessayez Images.')) }
+        }, 50)
+        pauseImages.current = () => finish(new DOMException('Ouverture Images interrompue.', 'AbortError'))
+      })
+    } catch (error) {
+      throw error instanceof Error ? error : new Error('Impossible de mettre YouTube en pause. Réessayez Images.')
+    }
+  }
+
   useImperativeHandle(ref, () => ({
     stop() { stopPlayer.current?.() },
+    releaseImages() { images.current = false; pauseImages.current?.() },
+    prepareImages,
     toggleVisibility: toggle,
     getTransferPosition() {
       if (uncertain.current || hiding) return { kind: 'uncertain' }
@@ -102,6 +139,9 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
         // Une référence demande une navigation réelle ; seul paused conserve la pause.
         // Le départ sans lecture reste réservé à l'initialisation d'une bascule.
         prepared.current = undefined
+        // Une navigation admissible quitte Images : sa pause ne doit pas neutraliser le seek explicite.
+        images.current = false
+        pauseImages.current?.()
         current.seekTo(seconds, true)
         setNavigation(value => value + 1)
         return ''
@@ -174,6 +214,9 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
             catch { fail('Impossible de préparer la position YouTube. Réessayez le lecteur.') }
           }
           if (conceal.current) event.target.pauseVideo()
+          if (images.current) void prepareImages().catch(error => {
+            if (images.current) onImagesFailure(error.message)
+          })
         },
         onStateChange: event => {
           if (disposed || failed) return
@@ -186,6 +229,11 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
           // Les états admissibles rétablissent la lecture du temps courant, sans
           // chercher un accusé de fin de seek que l'API ne garantit pas.
           if ([0, 1, 2].includes(event.data)) uncertain.current = false
+          if (images.current && [1, 3].includes(event.data)) {
+            if (!pauseImages.current) void prepareImages().catch(error => {
+              if (images.current) onImagesFailure(error.message)
+            })
+          }
           if (!conceal.current) return
           if ([1, 3].includes(event.data)) {
             // Une reprise tardive après masquage ne doit pas devenir une lecture en arrière-plan.
@@ -219,6 +267,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs }: {
 
     return () => {
       disposed = true
+      pauseImages.current?.()
       failPlayer.current = null
       stopPlayer.current = null
       window.clearTimeout(readyTimer)

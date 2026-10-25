@@ -273,9 +273,9 @@ La commande de sauvegarde reste visible et interactive au repos.
   4 px, le sélecteur et la sauvegarde de 8 px, les deux groupes d'au moins 12 px. Le sélecteur partage le fond
   commun, les segments arrondis et l'état actif du sélecteur YouTube/Local. Celui de la note mesure **42 px**
   de haut, bordure de 1 px comprise, sans padding extérieur ni ombre sur le segment actif ; le focus reste visible.
-- À 320/375 px, les commandes tiennent sur une ligne et les infobulles restent dans le viewport ; celles des
-  insertions sont alignées à gauche. Si de futurs outils nécessitent plus de place, les insertions peuvent se
-  répartir ; le groupe droit reste indivisible et peut passer entier à la ligne, aligné à droite.
+- Les infobulles restent dans le viewport et celles des insertions sont ancrées à gauche de leur groupe.
+  À 320/375 px, Temps, Capture et le groupe sauvegarde/modes tiennent sur une ligne. Le groupe droit
+  reste indivisible et peut passer entier à la ligne si la largeur l'exige.
 - Édition et Lecture utilisent la **police système, 16 px CSS, interligne 1,5**, avec une colonne de texte
   centrée de **700 px utiles maximum**, sans inclure les marges/paddings.
 - Le code inline et les blocs de code restent monospace dans les deux modes ; les styles du code, citations,
@@ -629,10 +629,102 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 - En Lecture, l'image affiche son état de préparation, de disponibilité ou d'échec ; une erreur de consultation
   est distinguée de l'échec de génération. La note Markdown reste intacte si la génération échoue. L'image ne
   commande pas le lecteur.
-- Une seule capture à la fois est traitée par instance serveur. Il n'existe pas de galerie complète ni de
+- Une seule capture à la fois est traitée par instance serveur. Le catalogue Images donne accès aux captures de la vidéo, sans
   compteur global d'activité. Retirer la référence Markdown **ne supprime pas** l'`Asset` ou son PNG.
 
-La galerie, la réinsertion, l'import d'images et les clips vidéo sont des pistes de développement, documentées dans [Open questions](06-open-questions.md).
+### 6.7 Images de la vidéo
+
+Le bouton à icône **Images**, à droite de Note/Informations et hors du `tablist`, ouvre ou ferme les captures
+sans changer d'onglet, en Édition comme en Lecture. Son état actif, son nom accessible et son infobulle
+identifient le toggle. Une préparation en cours peut être annulée ; aucun retour tardif ne rouvre le panneau.
+Le sélecteur est chargé à la demande ; son attente est annoncée et annulable. Les messages de préparation
+et d'erreur restent accessibles depuis les deux onglets. Il présente la vidéo courante,
+toutes sources confondues, même sans référence dans la note. Le catalogue ne crée ni note ni asset,
+ne commande aucun seek et ne répare pas un fichier par une nouvelle génération.
+
+À partir de 1 100 px, un drawer **non modal** recouvre le cadre Lecteur/Transcription sans redimensionner
+la note. Les composants restent montés ; les commandes recouvertes sont inertes. La note reste interactive,
+un clic dans celle-ci ne ferme pas Images. Sous ce seuil, le même sélecteur devient une modale plein écran.
+Un changement responsive conserve le catalogue, son défilement et les sessions. Pendant « Quitter la note ? »,
+les changements de présentation native sont différés : la protection reste prioritaire sur Images et la
+lightbox, puis la présentation adaptée à la largeur courante est rétablie. Le panneau possède un en-tête,
+une croix de fermeture nommée accessible à droite et un défilement interne. Son ouverture n'est pas conservée entre vidéos.
+
+Ouvrir Images met YouTube en pause s'il joue ou bufferise, sans utiliser `stop()` ni décharger son iframe.
+Un échec de confirmation de pause refuse l'ouverture et laisse le lecteur accessible avec un message explicite ;
+une reprise tardive impossible à remettre en pause ferme Images avec une erreur, sans destruction du lecteur.
+L'initialisation reste sans autoplay.
+Local continue à jouer. Fermer ne révèle pas une surface volontairement masquée et ne reprend aucune lecture.
+Ces règles ne modifient ni Masquer, ni les bascules de lecteur, ni les autres dialogues.
+Une référence temporelle admissible depuis la note ferme Images et révèle le lecteur ; un refus explicite
+laisse le panneau ouvert, sans navigation différée.
+
+La grille présente 12 captures au plus par page, par **timestamp croissant puis ID croissant**, sans prétendre
+synchroniser les sources. Les cadres 16:9 affichent les images entières. Sous chaque miniature, une petite
+barre place le temps à gauche et l'insertion à droite. La provenance n'est affichée que si la vidéo possède
+plusieurs sources, même si la page de captures n'en montre qu'une. Ces badges distinguent les `VideoSource`
+par leur identité ; ils ne désignent pas le support des pixels et ne servent pas à naviguer.
+
+Un indicateur discret `×1`, `×2`, etc., absent à zéro, compte les images visant cet Asset dans le Markdown
+courant de la session, sauvegardé ou non. Il suit collages, suppressions, Undo/Redo, versions remplacées,
+Lecture et Informations. Images directes et références résolues sont comptées selon le rendu, y compris dans
+citations, listes et liens. Texte brut, liens ordinaires, code, syntaxes échappées, définitions inutilisées
+et images littérales des en-têtes de callout ne sont pas des utilisations rendues. Aucun enregistrement
+ni chargement d'image supplémentaire ne découle du comptage. Un léger retard est admis : les rafales de frappe
+sont regroupées et la frappe continue conserve une actualisation périodique. Les anciens résultats ne sont
+pas réappliqués après une modification ou un remplacement explicite de version.
+
+Le clic sur l'image ouvre une lightbox modale : image flottante entière sur fond assombri, sans cadre
+visible. Une croix en haut à droite, Échap ou un clic sur le fond la ferment ; image, navigation et réessai
+ne la ferment pas. Chargement et erreur restent lisibles. Précédent/Suivant et les flèches gauche/droite
+parcourent uniquement les captures `available` de la **page courante**, dans son ordre, sans boucle ni
+franchissement de page. Les bornes et cette limite sont explicites. `pending` et `failed` sont ignorés ;
+un PNG `available` illisible reste une étape avec erreur et réessai, sans changer son état métier.
+La légende privilégie le timestamp et, si la vidéo a plusieurs sources, sa provenance ; une position
+compacte (`3 / 10`) accompagne l'image. La limite de page est disponible dans la description accessible
+et l'aide de position, sans phrase permanente dans la légende. Aucun préchargement du reste du catalogue
+n'est ajouté.
+
+La fermeture rend le focus à la miniature d'origine, même après navigation dans la lightbox, sans perdre
+le défilement. Si sa commande a disparu après une erreur d'affichage, sa carte reste la cible de retour. Si une actualisation
+retire l'image consultée de la page, la lightbox se ferme avec une explication ; l'en-tête de la galerie
+sert de retour lorsque la carte d'origine n'est plus présente.
+Échap traite d'abord la surface modale la plus interne ; le drawer ne piège pas le focus et sa fermeture
+ne reprend pas celui d'une note active. Les protections de départ restent au-dessus de la consultation.
+
+L'acceptation d'une nouvelle capture depuis la fiche actualise uniquement la page de catalogue ouverte,
+sans navigation automatique vers une autre page et en conservant le tri chronologique.
+`pending` affiche l'attente et actualise temporairement la page ; `failed` explique l'échec sans régénération.
+Un PNG `available` illisible propose de réessayer l'affichage, sans changer son état de génération. Une erreur
+de catalogue possède son propre réessai. Les réponses obsolètes sont annulées. Les PNG pleins formats sont
+chargés paresseusement ; pagination et démontage de la page précédente bornent le volume affiché.
+La réduction CSS ne réduit pas les octets transférés. Aucune miniature dérivée ni politique de rétention
+supplémentaire n'est introduite.
+
+En Lecture, la consultation reste disponible mais les boutons d'insertion sont désactivés ; une aide indique
+qu'il faut passer en Édition, sans bascule automatique. Le bouton d'insertion à icône SVG **plus**, dans la
+barre sous l'image, reste toujours visible avec une cible de 40 px et un focus visible. Il est indépendant
+de l'agrandissement et des réessais. L'insertion attend un premier affichage réussi. Une indisponibilité
+constatée dans la miniature ou la visionneuse la bloque sur les deux surfaces ; un réessai reste bloquant
+jusqu'à son succès. Cela ne constitue pas une validation réseau systématique ni une garantie contre une
+disparition ultérieure du fichier. L'état métier de génération reste inchangé.
+
+Une note strictement vide accepte un ajout au début. Toute note non vide, y compris des blancs, exige un
+emplacement choisi explicitement par un geste de rédaction ou de déplacement ; le focus automatique ne
+suffit pas. Chaque clic lit la sélection **actuelle** de CodeMirror et ajoute après sa borne supérieure,
+sans remplacer le texte sélectionné. La référence canonique vers l'Asset existant et son espace final
+suivent les conventions des captures. Le texte environnant reste intact, en LF.
+
+Le point logique avance après l'ajout pour les insertions successives et suit tout nouveau placement ou
+édition de la note. Sur desktop, le drawer reste ouvert et la commande conserve le focus ; une décoration
+non persistée montre la sélection et le point d'ajout, même lorsque l'éditeur n'a plus le focus. L'insertion
+est révélée dans le défilement de note. Une insertion acceptée depuis Informations révèle Note sans déplacer le focus de la galerie. Sur mobile, une réussite ferme Images et focalise le point d'ajout ;
+un refus le laisse ouvert. Fermer sans insertion conserve le contexte de note.
+
+Chaque ajout est une unique étape Undo/Redo, sans extraction ni sauvegarde indépendante. Le cycle normal de
+NoteSession gère révisions, erreurs et protection de départ. En conflit, les ajouts locaux restent possibles
+et l'autosauvegarde reste suspendue. Un remplacement explicite de session invalide l'ancien emplacement ;
+aucune insertion tardive ni aucun ancrage asynchrone de capture ne sert à la réinsertion.
 
 ## 7. Recherche, IA et pistes non livrées
 
@@ -642,7 +734,7 @@ La galerie, la réinsertion, l'import d'images et les clips vidéo sont des pist
 - **IA intégrée** : facultative, postérieure aux primitives métier ; candidates : résumés, tags suggérés,
   chapitrage, questions/réponses et extraction d'informations. Aucun provider n'est choisi.
 - **Autres pistes** : annotations structurées, plages temporelles, sources supplémentaires, STT, sélection de
-  pistes, bibliothèque de captures, clips durables, redimensionnement des panneaux, reprise de lecture et
+  pistes, import d’images, clips durables, redimensionnement des panneaux, reprise de lecture et
   export. Elles ne doivent pas être traitées comme des fonctionnalités déjà implémentées.
 
 Pour les objectifs des étapes futures, voir [05-roadmap.md](05-roadmap.md). Pour leurs arbitrages encore ouverts, voir [06-open-questions.md](06-open-questions.md). Ne pas dupliquer ici leurs spécifications tant qu'elles ne sont pas implémentées.

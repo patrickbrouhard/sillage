@@ -204,6 +204,14 @@ Chaque demande possède une clé de commande générée côté client et réutil
 
 La génération est distinguée de la **consultation de son fichier** : un Asset `available` dont le PNG est inaccessible ne doit pas être requalifié arbitrairement en `failed`.
 
+### 5.4 Catalogue par vidéo
+
+Le service vérifie l'existence de la vidéo puis le repository lit les captures de toutes ses sources,
+indépendamment des références de note et sans tester les fichiers. Le tri `timestamp_ms ASC, id ASC` est
+stable ; il n'affirme aucune synchronisation entre timelines. Un index `(video_id, timestamp_ms, id)`
+sert cet ordre. Une page contient au plus 12 éléments ; un treizième détecte la suite. L'offset ne fournit
+pas un instantané entre requêtes concurrentes. Le transport distingue vidéo absente, page vide et erreur.
+
 ## 6. API HTTP / Chi
 
 ### 6.1 Conventions
@@ -262,6 +270,7 @@ Les relations directes et indirectes restent distinctes ; `all` déduplique les 
 | `DELETE` | `/api/v1/videos/{video_id}/media-files/{media_file_id}` | Suppression explicite d'une identité exacte, protégée par réservation |
 | `GET/HEAD` | `/api/v1/videos/{video_id}/media-files/{media_file_id}/content` | Diffusion par `ServeContent` avec `Range` et requêtes conditionnelles |
 | `POST` | `/api/v1/videos/{video_id}/sources/{source_id}/captures` | Demande avec timestamp et clé ; `202 pending`, `200` si répétition terminée |
+| `GET` | `/api/v1/videos/{video_id}/assets?page=1` | Catalogue par pages de 12 : `assets`, `page`, `has_more` ; page entière 1–1 000 000 |
 | `GET` | `/api/v1/assets/requests/{request_id}` | Retrouver l'Asset d'une demande de capture incertaine |
 | `GET` | `/api/v1/assets/{asset_id}` | État, provenance et identité publics |
 | `GET` | `/api/v1/assets/{asset_id}/content` | PNG publié, **sans** création implicite |
@@ -355,7 +364,62 @@ L'éditeur affiche un ancrage visuel pendant l'acceptation de la capture, **sans
 
 L'acceptation persistée produit une unique insertion Markdown isolée dans Undo/Redo. Retirer le lien ou annuler son insertion ne supprime pas l'Asset et n'annule pas son opération serveur. Les images du mode Lecture consultent leur état par identité ; elles ne déclenchent aucune génération et ne commandent pas le lecteur.
 
-### 8.8 Gestion des tags et en-tête
+### 8.8 Consultation et réinsertion des assets
+
+Images interroge une collection bornée par vidéo, sans reconstruire le catalogue depuis Markdown ni lancer
+de GET individuel pour chaque carte. Seules les pages contenant `pending` sont actualisées pendant leur
+consultation ; erreur ou état terminal arrête ce suivi, et quitter ou changer de page annule les réponses
+obsolètes. VideoNote notifie la fiche après une acceptation confirmée de capture, même si son insertion
+asynchrone a été abandonnée : une invalidation locale relit uniquement la page courante d'Images, sans
+synchronisation permanente ni changement de page. Les images utilisent les octets PNG existants avec `loading=lazy` et décodage asynchrone.
+La page précédente est démontée au changement de page, sans accumulation de la grille entière. Un état
+d'affichage partagé, borné à la page, relie miniature et visionneuse : une erreur interdit l'insertion,
+seul un réessai explicitement réussi la rétablit. Les événements d'anciennes tentatives sont ignorés.
+Aucun contrôle réseau additionnel n'accompagne l'insertion et le statut métier n'est pas modifié.
+
+La fiche possède l'unique NoteSession, toujours démarrée et arrêtée avec VideoNote. Images s'abonne à
+son instantané courant et dérive ses compteurs avec la chaîne unified/remark du rendu (GFM, callouts,
+résolution des références puis arbre HTML). Seules les images à URL interne canonique sont comptées.
+Les recalculs sont programmés après 250 ms sans changement, avec un plafond de 1 s pendant une frappe
+continue. Le rendu et la transaction de frappe n'appellent pas le parseur. Avant analyse et publication,
+contenu et version d'éditeur sont comparés à l'instantané courant ; les temporisations obsolètes sont
+annulées. Un remplacement explicite invalide immédiatement les anciens compteurs. Une analyse individuelle
+reste synchrone sur le thread principal, sans worker. Aucun second brouillon, montage React de lecture,
+effet réseau ou écriture ne sert à ce calcul.
+Le toggle à icône reste hors du tablist et ses messages hors des panneaux masqués ; un jeton synchrone
+exclut les ouvertures concurrentes et invalide les réponses d'une préparation annulée.
+
+Un même arbre de sélecteur utilise `dialog.show()` sur desktop et `showModal()` sous 1 100 px. Le panneau
+recouvre la colonne droite et rend ses commandes inertes ; ni note, ni lecteurs, ni transcription ne sont
+remontés. Une lightbox modale native interne conserve la miniature d'origine et le défilement. Sa navigation
+par boutons/flèches filtre les états `available` de la page courante, sans boucle, cache général ou
+franchissement de pagination. Une erreur de contenu reste une étape consultable avec réessai ; les états
+d'affichage partagés bloquent l'insertion jusqu'au succès. Le fond ferme uniquement la lightbox et ses
+commandes ne déclenchent pas cette fermeture. Si la miniature d'origine est retirée après erreur, la carte
+conservée fournit le retour de focus. Les modales
+natives protègent aussi le focus des dialogues de départ de note. VideoNote signale ce blocage à la fiche :
+les adaptations natives responsive d'Images et de la lightbox sont différées jusqu'à la fin de la protection,
+sans fermer ni remonter leurs composants. Les gestionnaires Échap respectent la surface modale active et
+les événements déjà traités.
+
+La fiche importe Images à la demande après la commande d'ouverture, avec une attente annoncée et annulable.
+Le hook responsive reste dans un module léger indépendant ; le sélecteur et sa chaîne de parsing ne sont
+pas des dépendances initiales de la fiche. Le jeton d'ouverture invalide aussi un chargement de module tardif.
+
+`prepareImages` et `releaseImages` sont distincts de `stop`, du masquage et des changements de mode.
+YouTube confirme une pause dans un budget borné avant ouverture et protège les reprises tardives ; sans
+confirmation, la surface reste accessible ou le sélecteur se ferme avec une erreur. Aucune destruction de
+secours ni restauration depuis une cible ancienne. Local n'interrompt pas sa lecture.
+
+La réinsertion passe synchroniquement par VideoNote puis le handle de la vue CodeMirror **courante**.
+Le contrôle d'emplacement explicite est remis à zéro à chaque remplacement de session. La transaction
+ajoute après `selection.main.to`, avance le curseur et s'isole dans l'historique ; elle ne vole pas le focus.
+Un plugin de décorations suit la sélection et le point d'ajout pendant Images, sans modification de texte.
+NoteSession reçoit le changement normalement, y compris en conflit, sans nouvel endpoint ni ancrage différé.
+Sur mobile, le sélecteur est fermé avant de rendre le focus à la note. L'annonce d'insertion appartient à
+VideoNote et survit à cette fermeture.
+
+### 8.9 Gestion des tags et en-tête
 
 Les mutations de tags sont des opérations successives et persistées immédiatement ; la fermeture de la modale ne les annule pas. Le frontend fournit une autocomplétion accessible sans réimplémenter la normalisation métier Go. Les fiches affichent les tags dans leur en-tête, avec un préfixe mesuré et un compteur `+n` pour le surplus ; la liste garde l'ordre REST et n'impose pas de quota arbitraire.
 

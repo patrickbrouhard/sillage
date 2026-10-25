@@ -54,6 +54,7 @@ func NewRouter(
 	p := handlers.NewPeopleHandler(publishers, persons, postTimeout)
 	if len(captures) > 0 && captures[0] != nil {
 		a := handlers.NewAssetHandler(captures[0])
+		r.Get("/api/v1/videos/{video_id}/assets", a.List)
 		r.Post("/api/v1/videos/{video_id}/sources/{source_id}/captures", a.Start)
 		r.Get("/api/v1/assets/requests/{request_id}", a.ByRequest)
 		r.Get("/api/v1/assets/{asset_id}", a.Get)

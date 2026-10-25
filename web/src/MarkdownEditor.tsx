@@ -4,8 +4,9 @@ import type { TemporalReference } from './temporalReference'
 import type { Ref } from 'react'
 import { compactTemporalReferences } from './compactTemporalReferences'
 import { markdownDecorations } from './markdownDecorations'
-import { EditorState } from '@codemirror/state'
-import { EditorView, keymap } from '@codemirror/view'
+import { EditorState, StateEffect } from '@codemirror/state'
+import { Decoration, EditorView, keymap, ViewPlugin, WidgetType } from '@codemirror/view'
+import type { ViewUpdate } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap, isolateHistory, redo } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
@@ -17,11 +18,26 @@ const highlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map(sty
   ...(style.color ? { color: `light-dark(${style.color}, var(--syntax))` } : {}),
 })))
 
+const refreshImagePosition = StateEffect.define<null>()
+
+/** Marque le point d'ajout sans texte temporaire ni transaction d'historique. */
+class ImageInsertionCaret extends WidgetType {
+  toDOM() {
+    const element = document.createElement('span')
+    element.className = 'image-insertion-caret'
+    element.setAttribute('aria-hidden', 'true')
+    element.title = 'Prochaine image insérée ici'
+    element.textContent = '\u200b'
+    return element
+  }
+}
+
 interface Props {
   ref: Ref<MarkdownEditorHandle>
   initial: string
   active: boolean
   visible?: boolean
+  imagesOpen?: boolean
   onChange: (content: string) => void
   onSave: () => void
   onNavigate: (reference: TemporalReference) => void
@@ -31,6 +47,10 @@ interface Props {
 export interface MarkdownEditorHandle {
   /** Insère après la sélection sans effacer son texte, puis rend le focus au curseur. */
   insert(text: string): void
+  /** Ajoute une référence connue au choix courant, sans remplacer la sélection ni voler le focus. */
+  insertAsset(markdown: string, beforeInsert?: () => void): void
+  /** Rend le focus au point courant après fermeture de la modale mobile. */
+  focusInsertion(): void
   /** Réserve visuellement la position après sélection sans modifier la note. */
   beginCapture(id: string, label: string): void
   /** Insère une seule fois si l'intention existe toujours dans cette session. */
@@ -42,11 +62,22 @@ export interface MarkdownEditorHandle {
 }
 
 /** Garde l'état CodeMirror stable ; seules les actions utilisateur modifient le texte. */
-export function MarkdownEditor({ initial, active, visible = true, onChange, onSave, onNavigate, ref }: Props) {
+export function MarkdownEditor({
+  initial,
+  active,
+  visible = true,
+  imagesOpen = false,
+  onChange,
+  onSave,
+  onNavigate,
+  ref,
+}: Props) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
   const wasActive = useRef(active)
   const explicitPosition = useRef(false)
+  const showImagePosition = useRef(false)
+  showImagePosition.current = imagesOpen && active
   const callbacks = useRef({ onChange, onSave, onNavigate })
   callbacks.current = { onChange, onSave, onNavigate }
   /** Ajoute uniquement du texte ; les séparateurs de bloc font partie du même Undo. */
@@ -78,6 +109,23 @@ export function MarkdownEditor({ initial, active, visible = true, onChange, onSa
   }
   useImperativeHandle(ref, () => ({
     insert: text => insert(text),
+    insertAsset(markdown, beforeInsert) {
+      const view = editor.current
+      if (!view || !active) throw new Error('Passez en Édition pour insérer une image.')
+      if (view.state.doc.length && !explicitPosition.current) {
+        throw new Error('Placez explicitement le curseur dans la note avant d’insérer une image.')
+      }
+      beforeInsert?.()
+      const position = view.state.selection.main.to
+      explicitPosition.current = true
+      view.dispatch({
+        changes: { from: position, insert: markdown },
+        selection: { anchor: position + markdown.length },
+        annotations: isolateHistory.of('full'),
+        scrollIntoView: true,
+      })
+    },
+    focusInsertion() { editor.current?.focus() },
     beginCapture(id, label) {
       const view = editor.current
       if (!view || !active) throw new Error('Passez en Édition pour capturer une image.')
@@ -115,13 +163,33 @@ export function MarkdownEditor({ initial, active, visible = true, onChange, onSa
   }))
   useEffect(() => {
     explicitPosition.current = false
+    /** La décoration suit toujours la sélection actuelle, même lorsque la galerie détient le focus. */
+    function imagePosition(view: EditorView) {
+      if (!showImagePosition.current || (view.state.doc.length && !explicitPosition.current)) return Decoration.none
+      const { from, to } = view.state.selection.main
+      const ranges = []
+      if (from !== to) ranges.push(Decoration.mark({ class: 'image-insertion-selection' }).range(from, to))
+      ranges.push(Decoration.widget({ widget: new ImageInsertionCaret(), side: 1 }).range(to))
+      return Decoration.set(ranges, true)
+    }
+    const positionPlugin = ViewPlugin.fromClass(class {
+      decorations
+      constructor(view: EditorView) { this.decorations = imagePosition(view) }
+      update(update: ViewUpdate) {
+        if (update.view.hasFocus && update.transactions.some(transaction =>
+          ['select', 'input', 'delete', 'undo', 'redo'].some(event => transaction.isUserEvent(event)))) {
+          explicitPosition.current = true
+        }
+        this.decorations = imagePosition(update.view)
+      }
+    }, { decorations: plugin => plugin.decorations })
     const view = new EditorView({
       parent: host.current!,
       state: EditorState.create({
         doc: initial,
         extensions: [
           // Le découpage natif accepte CRLF, CR et LF ; la sérialisation produit du LF.
-          history(), captureMarker, markdown(), syntaxHighlighting(highlightStyle),
+          history(), captureMarker, positionPlugin, markdown(), syntaxHighlighting(highlightStyle),
           EditorView.lineWrapping, markdownDecorations,
           compactTemporalReferences(reference => callbacks.current.onNavigate(reference)),
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
@@ -132,23 +200,20 @@ export function MarkdownEditor({ initial, active, visible = true, onChange, onSa
             ...defaultKeymap, ...historyKeymap,
           ]),
           EditorView.domEventHandlers({
-            pointerdown(event) {
+            pointerdown(event, view) {
               if (event.button === 0 && event.target instanceof Element && event.target.closest('.cm-content')) {
                 explicitPosition.current = true
+                view.dispatch({ effects: refreshImagePosition.of(null), annotations: captureVisualTransaction })
               }
             },
-            keydown(event) {
+            keydown(event, view) {
               if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) {
                 explicitPosition.current = true
+                view.dispatch({ effects: refreshImagePosition.of(null), annotations: captureVisualTransaction })
               }
             },
           }),
           EditorView.updateListener.of((update) => {
-            // Une saisie ou sélection utilisateur compte ; focus et insertion programmatiques non.
-            if (update.view.hasFocus && update.transactions.some(transaction =>
-              ['select', 'input', 'delete', 'undo', 'redo'].some(event => transaction.isUserEvent(event)))) {
-              explicitPosition.current = true
-            }
             if (update.docChanged) callbacks.current.onChange(update.state.sliceDoc())
           }),
         ],
@@ -165,6 +230,9 @@ export function MarkdownEditor({ initial, active, visible = true, onChange, onSa
     }
     wasActive.current = active
   }, [active])
+  useLayoutEffect(() => {
+    editor.current?.dispatch({ effects: refreshImagePosition.of(null), annotations: captureVisualTransaction })
+  }, [imagesOpen, active, initial])
   useLayoutEffect(() => {
     // Réafficher un onglet ne reprend pas le focus détenu par son bouton.
     if (visible) editor.current?.requestMeasure()

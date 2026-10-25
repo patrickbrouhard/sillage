@@ -83,3 +83,22 @@ export function assetIDFromURL(value: string | undefined): number | null {
 export function assetMarkdown(a: Asset, label: string): string {
   return `![Capture à ${label}](/api/v1/assets/${a.id}/content) `
 }
+
+/** Page bornée du catalogue vidéo, sans relation avec le contenu de la note. */
+export interface AssetPage { assets: Asset[]; page: number; has_more: boolean }
+
+/** Consulte toutes les sources et tous les états, sans acquisition implicite. */
+export async function listAssets(videoID: number, page: number, signal: AbortSignal): Promise<AssetPage> {
+  const response = await fetch(`/api/v1/videos/${videoID}/assets?page=${page}`, {
+    cache: 'no-store', signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]),
+  })
+  if (!response.ok) throw new Error(response.status === 404
+    ? 'Cette vidéo n’existe plus.' : 'Impossible de consulter les images. Réessayez.')
+  const value = await response.json()
+  if (!Array.isArray(value.assets) || value.assets.length > 12 ||
+      !value.assets.every((a: unknown) => validAsset(a) && a.video_id === videoID) ||
+      value.page !== page || typeof value.has_more !== 'boolean') {
+    throw new Error('Réponse du catalogue invalide.')
+  }
+  return value
+}
