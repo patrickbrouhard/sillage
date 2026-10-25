@@ -184,6 +184,26 @@ Questions techniques :
 - Quelle politique de quotas, de reprise et de rétention adopter si des caches de captures sont introduits ?
 - Comment gérer les références Markdown lorsqu'un asset est explicitement supprimé ?
 
+#### Piste : usages des assets dans les notes (non décidée)
+
+Le compteur actuel d'Images analyse le brouillon Markdown de la note courante tant que le sélecteur est ouvert. Il aide à repérer les captures déjà insérées et suit les modifications non sauvegardées, sans offrir de vue globale sur les usages.
+
+**Orientation à explorer, sans engagement d'implémentation :** envisager une projection SQLite reconstructible des références d'`Asset` dans les notes **enregistrées**, plutôt qu'une association métier modifiable indépendamment du texte.
+
+Le Markdown resterait la source de vérité. Une relation note (identifiée par `video_id`) / asset pourrait conserver le nombre d'occurrences, y compris lorsqu'une note cite un asset d'une autre vidéo.
+
+À l'image de l'index FTS5, cette projection pourrait être recalculée lors d'une sauvegarde acceptée modifiant la note, dans la même transaction, et reconstruite à partir des notes existantes. Elle compléterait le compteur local, qui continuerait à refléter le brouillon en cours d'édition.
+
+Cette projection pourrait alimenter une future galerie globale : nombre d'utilisations, notes et vidéos référençant une image, captures **sans référence dans les notes enregistrées**. Une capture non référencée n'est pas nécessairement inutile, ni un fichier orphelin sur le disque ; cet état n'autoriserait aucune suppression automatique.
+
+**Questions avant décision :**
+
+- Quelle sémantique donner aux occurrences (images réellement rendues, références indirectes, callouts) et comment assurer la cohérence entre les parseurs Markdown Go et React ?
+- Une analyse à la demande des notes enregistrées serait-elle suffisante, ou le volume et les usages justifieraient-ils une projection persistée ?
+- Quels contrats de consultation, garanties de reconstruction et traitements des conflits de sauvegarde seraient nécessaires ?
+
+Aucune table, API, fonctionnalité de gestion ni échéance ne sont décidées. L'indexation d'autres références Markdown (temps, citations, annotations, clips) reste une piste distincte, sans abstraction générique anticipée.
+
 ### 3.4 Clips vidéo durables
 
 **Piste exploratoire, sans modèle ni implémentation décidés.**
