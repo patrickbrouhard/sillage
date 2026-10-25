@@ -378,7 +378,12 @@ Aucun contrôle réseau additionnel n'accompagne l'insertion et le statut métie
 La fiche possède l'unique NoteSession, toujours démarrée et arrêtée avec VideoNote. Images s'abonne à
 son instantané courant et dérive ses compteurs avec la chaîne unified/remark du rendu (GFM, callouts,
 résolution des références puis arbre HTML). Seules les images à URL interne canonique sont comptées.
-Aucun second brouillon, montage React de lecture, effet réseau ou écriture ne sert à ce calcul.
+Les recalculs sont programmés après 250 ms sans changement, avec un plafond de 1 s pendant une frappe
+continue. Le rendu et la transaction de frappe n'appellent pas le parseur. Avant analyse et publication,
+contenu et version d'éditeur sont comparés à l'instantané courant ; les temporisations obsolètes sont
+annulées. Un remplacement explicite invalide immédiatement les anciens compteurs. Une analyse individuelle
+reste synchrone sur le thread principal, sans worker. Aucun second brouillon, montage React de lecture,
+effet réseau ou écriture ne sert à ce calcul.
 Le toggle à icône reste hors du tablist et ses messages hors des panneaux masqués ; un jeton synchrone
 exclut les ouvertures concurrentes et invalide les réponses d'une préparation annulée.
 
@@ -390,8 +395,14 @@ franchissement de pagination. Une erreur de contenu reste une étape consultable
 d'affichage partagés bloquent l'insertion jusqu'au succès. Le fond ferme uniquement la lightbox et ses
 commandes ne déclenchent pas cette fermeture. Si la miniature d'origine est retirée après erreur, la carte
 conservée fournit le retour de focus. Les modales
-natives protègent aussi le focus des dialogues de départ de note. Les gestionnaires Échap respectent
-la surface modale active et les événements déjà traités.
+natives protègent aussi le focus des dialogues de départ de note. VideoNote signale ce blocage à la fiche :
+les adaptations natives responsive d'Images et de la lightbox sont différées jusqu'à la fin de la protection,
+sans fermer ni remonter leurs composants. Les gestionnaires Échap respectent la surface modale active et
+les événements déjà traités.
+
+La fiche importe Images à la demande après la commande d'ouverture, avec une attente annoncée et annulable.
+Le hook responsive reste dans un module léger indépendant ; le sélecteur et sa chaîne de parsing ne sont
+pas des dépendances initiales de la fiche. Le jeton d'ouverture invalide aussi un chargement de module tardif.
 
 `prepareImages` et `releaseImages` sont distincts de `stop`, du masquage et des changements de mode.
 YouTube confirme une pause dans un budget borné avant ouverture et protège les reprises tardives ; sans

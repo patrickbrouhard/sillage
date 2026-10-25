@@ -1,23 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { IconButton } from './IconButton'
-import { countAssetImages } from './assetUsage'
+import { useAssetUsage } from './useAssetUsage'
 import type { NoteSession } from './noteSession'
 import type { VideoSource } from './api'
 import { listAssets } from './assetApi'
 import type { Asset, AssetPage } from './assetApi'
 import { formatDuration, providerLabel } from './videoPresentation'
-
-/** Suit le même seuil que la grille, sans remplacer ses composants. */
-export function useNarrowWorkspace() {
-  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 1099px)').matches)
-  useEffect(() => {
-    const query = window.matchMedia('(max-width: 1099px)')
-    const change = () => setNarrow(query.matches)
-    query.addEventListener('change', change)
-    return () => query.removeEventListener('change', change)
-  }, [])
-  return narrow
-}
 
 interface ImageDisplay {
   status: 'loading' | 'loaded' | 'error'
@@ -48,7 +36,8 @@ function CatalogueImage({ asset, display, onStatus, onRetry, enlarged = false }:
 }
 
 /** Catalogue temporaire : drawer non modal à droite, même arbre dans une modale étroite. */
-export function Images({ videoID, sources, narrow, returnTo, onClose, reading, onInsert, session }: {
+export function Images({ videoID, sources, narrow, returnTo, onClose, reading, onInsert, session, departureBlocked }: {
+  departureBlocked: boolean
   session: NoteSession
   reading: boolean
   onInsert: (asset: Asset) => void
@@ -59,7 +48,7 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
   onClose: () => void
 }) {
   const note = useSyncExternalStore(session.subscribe, session.snapshot)
-  const uses = useMemo(() => countAssetImages(note.content), [note.content])
+  const usage = useAssetUsage(session, note)
   const panel = useRef<HTMLDialogElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
@@ -111,6 +100,8 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
   const [attempt, setAttempt] = useState(0)
 
   useLayoutEffect(() => {
+    // Ne pas remonter Images ou la lightbox dans la pile native au-dessus de la protection de départ.
+    if (departureBlocked) return
     const dialog = panel.current!
     const focused = document.activeElement as HTMLElement | null
     const scroll = scroller.current?.scrollTop ?? 0
@@ -121,7 +112,7 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
     if (scroller.current) scroller.current.scrollTop = scroll
     // La visionneuse reste la surface la plus interne après un changement responsive.
     if (viewer.current?.open) { viewer.current.close(); viewer.current.showModal() }
-  }, [narrow])
+  }, [narrow, departureBlocked])
 
   useEffect(() => () => { viewer.current?.close(); panel.current?.close() }, [])
 
@@ -172,8 +163,8 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
   }, [videoID, page, attempt])
 
   useLayoutEffect(() => {
-    if (enlarged && !viewer.current?.open) viewer.current?.showModal()
-  }, [enlarged])
+    if (!departureBlocked && enlarged && !viewer.current?.open) viewer.current?.showModal()
+  }, [enlarged, departureBlocked])
 
   /** Le retour vise la commande d'origine et conserve le défilement de la grille. */
   function closeViewer() {
@@ -227,7 +218,7 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
           const provenance = `${source ? providerLabel(source.provider) : 'Source'}${sources.length > 1 ? ` · source ${asset.source_id}` : ''}`
           const time = formatDuration(asset.timestamp_ms)
           const display = displayFor(asset.id)
-          const count = uses.get(asset.id) ?? 0
+          const count = usage.counts.get(asset.id) ?? 0
           return <div className="image-card" key={asset.id} id={`image-card-${asset.id}`} tabIndex={-1}>
             <div className="image-preview">
               {renderImage(asset)}
@@ -241,7 +232,7 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
             </div>
             <div className="image-card-bar">
               <span className="image-time">{time}</span>
-              {count > 0 && <span className="image-usage" aria-label={`${count} utilisation${count > 1 ? 's' : ''} dans la note courante`}>×{count}</span>}
+              {count > 0 && <span className="image-usage" aria-busy={usage.pending} aria-label={`${count} utilisation${count > 1 ? 's' : ''} dans la note courante`}>×{count}</span>}
               <IconButton icon="plus" className="image-insert" label={`Insérer la capture à ${time}, ${provenance}`}
                 disabled={reading || asset.status !== 'available' || display.status !== 'loaded'} onClick={() => {
                   try {

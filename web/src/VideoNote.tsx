@@ -2,7 +2,7 @@ import { assetMarkdown, createCapture } from './assetApi'
 import type { Asset, CaptureTarget } from './assetApi'
 import { useAsset } from './useAsset'
 import { formatDuration } from './videoPresentation'
-import { lazy, Suspense, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
 import type { Ref } from 'react'
 import { useBlocker } from 'react-router'
 import { MarkdownEditor } from './MarkdownEditor'
@@ -35,10 +35,12 @@ export function VideoNote({
   onReveal,
   imagesOpen,
   onReadingChange,
+  onDepartureChange,
   onRevealImageInsertion,
   ref,
 }: {
   onRevealImageInsertion: () => void
+  onDepartureChange: (blocked: boolean) => void
   onReadingChange: (reading: boolean) => void
   imagesOpen: boolean
   videoID: number
@@ -95,17 +97,23 @@ export function VideoNote({
     }
   }, [state.loaded, state.content, state.editorVersion, initial])
 
+  useLayoutEffect(() => {
+    // La fiche apprend le blocage avant toute adaptation responsive des surfaces Images.
+    if (blocker.state === 'blocked') leaveDialog.current?.showModal()
+    else leaveDialog.current?.close()
+    onDepartureChange(blocker.state === 'blocked')
+  }, [blocker.state, onDepartureChange])
+
   useEffect(() => {
-    if (blocker.state !== 'blocked') { leaveDialog.current?.close(); return }
+    if (blocker.state !== 'blocked') return
     let canceled = false
-    leaveDialog.current?.showModal()
     setLeaving(true)
     void session.flush().then(confirmed => {
       if (canceled) return
       setLeaving(false)
       if (confirmed) blocker.proceed()
     })
-    return () => { canceled = true; leaveDialog.current?.close() }
+    return () => { canceled = true }
     // Une tentative par destination : un échec attend un choix, pas une boucle de réessais.
   }, [blocker.state, blocker.location?.key, session])
 

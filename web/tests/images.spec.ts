@@ -454,7 +454,7 @@ test('toggle extérieur aux onglets, disponible depuis Informations et annulatio
   await expect(c.images).toHaveAttribute('aria-pressed', 'false')
   await page.evaluate(() => { window.youtubeTest.confirmPause = false; window.youtubeTest.players.at(-1)!.emitState(1) })
   await c.images.click()
-  await expect(page.getByRole('status').filter({ hasText: 'Mise en pause de YouTube avant Images' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Chargement d’Images' })).toBeVisible()
   await c.images.click()
   await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(2))
   await page.waitForTimeout(1100)
@@ -666,4 +666,123 @@ test('actualisation de la page pendant la lightbox : fermeture et retour accessi
   await expect(viewer).not.toBeVisible()
   await expect(c.panel.getByRole('alert')).toContainText('Le catalogue a changé')
   await expect(c.panel.getByRole('heading', { name: 'Images', exact: true })).toBeFocused()
+})
+
+for (const withViewer of [false, true]) {
+  test(`la protection de départ reste prioritaire au redimensionnement, lightbox ${withViewer}`, async ({ page, request }) => {
+    const c = await setup(page, request)
+    // Une entrée SPA permet au bouton précédent du navigateur de traverser le garde de note.
+    await page.getByRole('link', { name: 'Sillage, accueil', exact: true }).first().click()
+    await page.locator(`a[href="/videos/${c.video.id}"]`).first().click()
+    await expect(c.editor).toBeVisible()
+    await page.route(`**${c.noteURL}`, route => route.request().method() === 'PUT'
+      ? route.fulfill({ status: 503 }) : route.continue())
+    await c.editor.click()
+    await page.keyboard.press('Control+End')
+    await page.keyboard.type(' locale')
+    await c.images.click()
+    await expect(c.panel).toBeVisible()
+    const thumbnail = c.panel.getByRole('button', { name: 'Agrandir la capture à 0:00, YouTube', exact: true })
+    if (withViewer) await thumbnail.click()
+    await page.goBack()
+    const leave = page.getByRole('dialog', { name: 'Quitter la note ?' })
+    const stay = leave.getByRole('button', { name: 'Rester sur la note' })
+    await expect(leave).toBeVisible()
+    for (const width of [390, 1440, 390]) {
+      await page.setViewportSize({ width, height: 900 })
+      await stay.focus()
+      await expect(stay).toBeFocused()
+      expect(await stay.evaluate(button => {
+        const box = button.getBoundingClientRect()
+        return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === button
+      })).toBe(true)
+    }
+    // Échap doit annuler uniquement le départ, puis retrouver la consultation en cours.
+    await page.keyboard.press('Escape')
+    await expect(leave).not.toBeVisible()
+    await expect(c.panel).toBeVisible()
+    expect(await c.panel.evaluate(dialog => dialog.matches(':modal'))).toBe(true)
+    if (withViewer) {
+      await expect(page.getByRole('dialog', { name: 'Agrandissement de l’image' })).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(c.panel).toBeVisible()
+    }
+    await page.keyboard.press('Escape')
+    await expect(c.editor).toHaveText('alpha omega locale')
+    await c.editor.focus()
+    await page.keyboard.type(' suite')
+    await expect(c.editor).toHaveText('alpha omega locale suite')
+  })
+}
+
+test('Images et le parseur sont chargés à la demande, attente accessible et fermeture sans retour tardif', async ({ page, request }) => {
+  const scripts: string[] = []
+  page.on('request', request => { if (request.resourceType() === 'script') scripts.push(request.url()) })
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/assets/Images-*.js', async route => { await gate; await route.continue() })
+  const c = await setup(page, request)
+  expect(scripts.some(url => /\/(Images|remarkCallouts)-/.test(url))).toBe(false)
+  await c.images.click()
+  await expect(page.getByRole('status').filter({ hasText: 'Chargement d’Images…' })).toBeVisible()
+  await expect(c.panel).toHaveCount(0)
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
+  await c.images.click()
+  release()
+  await expect.poll(() => scripts.some(url => /\/Images-/.test(url))).toBe(true)
+  await page.waitForTimeout(300)
+  await expect(c.panel).toHaveCount(0)
+  await expect(c.images).toHaveAttribute('aria-busy', 'false')
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(1)
+  await c.images.click()
+  await expect(c.panel).toBeVisible()
+  expect(scripts.some(url => /\/remarkCallouts-/.test(url))).toBe(true)
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.state)).toBe(2)
+  expect(c.counts().writes).toBe(0)
+})
+
+test('longue note : comptage regroupé hors frappe, plafond continu et résultats courants après Undo/Redo', async ({ page, request }) => {
+  const content = 'Une phrase **dense** avec un lien [source](https://example.test).\n\n'.repeat(2000) + '![a](/api/v1/assets/800/content)'
+  const c = await setup(page, request, content)
+  await page.clock.install({ time: new Date('2026-10-25T12:00:00Z') })
+  await page.clock.pauseAt(new Date('2026-10-25T12:00:01Z'))
+  await c.images.click()
+  await expect(c.panel).toBeVisible()
+  const usage = page.locator('#image-card-800 .image-usage')
+  await expect(usage).toHaveCount(0)
+  await page.clock.runFor(250)
+  await expect(usage).toHaveText('×1')
+  expect(c.counts().writes).toBe(0)
+  await c.editor.click()
+  await page.keyboard.press('Control+End')
+  const start = performance.now()
+  await page.keyboard.type(' suite de frappe continue avec plusieurs caractères')
+  const insert = c.panel.getByRole('button', { name: 'Insérer la capture à 0:00, YouTube', exact: true })
+  await insert.click()
+  await expect(usage).toHaveText('×1')
+  await expect(usage).toHaveAttribute('aria-busy', 'true')
+  await page.clock.runFor(249)
+  await expect(usage).toHaveText('×1')
+  await page.clock.runFor(1)
+  await expect(usage).toHaveText('×2')
+  await c.editor.focus()
+  await page.keyboard.press('Control+z')
+  await page.clock.runFor(249)
+  await page.keyboard.press('Control+Shift+Z')
+  await page.clock.runFor(1)
+  await expect(usage).toHaveText('×2')
+  await page.clock.runFor(250)
+  await expect(usage).toHaveText('×2')
+  await page.keyboard.press('Control+End')
+  for (let index = 0; index < 5; index++) {
+    await page.keyboard.insertText(' ![b](/api/v1/assets/800/content)')
+    await page.clock.runFor(200)
+    if (index < 4) await expect(usage).toHaveText('×2')
+  }
+  await expect(usage).toHaveText('×7')
+  await expect(usage).toHaveAttribute('aria-busy', 'false')
+  await test.info().attach('long-note.json', {
+    contentType: 'application/json',
+    body: JSON.stringify({ markdown_characters: content.length, interaction_elapsed_ms: Math.round(performance.now() - start) }),
+  })
 })

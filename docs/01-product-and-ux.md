@@ -637,14 +637,17 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 Le bouton à icône **Images**, à droite de Note/Informations et hors du `tablist`, ouvre ou ferme les captures
 sans changer d'onglet, en Édition comme en Lecture. Son état actif, son nom accessible et son infobulle
 identifient le toggle. Une préparation en cours peut être annulée ; aucun retour tardif ne rouvre le panneau.
-Les messages de préparation et d'erreur restent accessibles depuis les deux onglets. Il présente la vidéo courante,
+Le sélecteur est chargé à la demande ; son attente est annoncée et annulable. Les messages de préparation
+et d'erreur restent accessibles depuis les deux onglets. Il présente la vidéo courante,
 toutes sources confondues, même sans référence dans la note. Le catalogue ne crée ni note ni asset,
 ne commande aucun seek et ne répare pas un fichier par une nouvelle génération.
 
 À partir de 1 100 px, un drawer **non modal** recouvre le cadre Lecteur/Transcription sans redimensionner
 la note. Les composants restent montés ; les commandes recouvertes sont inertes. La note reste interactive,
 un clic dans celle-ci ne ferme pas Images. Sous ce seuil, le même sélecteur devient une modale plein écran.
-Un changement responsive conserve le catalogue, son défilement et les sessions. Le panneau possède un en-tête,
+Un changement responsive conserve le catalogue, son défilement et les sessions. Pendant « Quitter la note ? »,
+les changements de présentation native sont différés : la protection reste prioritaire sur Images et la
+lightbox, puis la présentation adaptée à la largeur courante est rétablie. Le panneau possède un en-tête,
 une croix de fermeture nommée accessible à droite et un défilement interne. Son ouverture n'est pas conservée entre vidéos.
 
 Ouvrir Images met YouTube en pause s'il joue ou bufferise, sans utiliser `stop()` ni décharger son iframe.
@@ -667,7 +670,9 @@ courant de la session, sauvegardé ou non. Il suit collages, suppressions, Undo/
 Lecture et Informations. Images directes et références résolues sont comptées selon le rendu, y compris dans
 citations, listes et liens. Texte brut, liens ordinaires, code, syntaxes échappées, définitions inutilisées
 et images littérales des en-têtes de callout ne sont pas des utilisations rendues. Aucun enregistrement
-ni chargement d'image supplémentaire ne découle du comptage.
+ni chargement d'image supplémentaire ne découle du comptage. Un léger retard est admis : les rafales de frappe
+sont regroupées et la frappe continue conserve une actualisation périodique. Les anciens résultats ne sont
+pas réappliqués après une modification ou un remplacement explicite de version.
 
 Le clic sur l'image ouvre une lightbox modale : image flottante entière sur fond assombri, sans cadre
 visible. Une croix en haut à droite, Échap ou un clic sur le fond la ferment ; image, navigation et réessai

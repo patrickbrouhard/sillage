@@ -4,7 +4,7 @@ import { useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
 import type { Asset } from './assetApi'
-import { Images, useNarrowWorkspace } from './Images'
+import { useNarrowWorkspace } from './useNarrowWorkspace'
 import { IconButton } from './IconButton'
 import { NoteSession } from './noteSession'
 import { VideoTags } from './VideoTags'
@@ -65,6 +65,8 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
   const [noteSession] = useState(() => new NoteSession(Number(id)))
   const narrow = useNarrowWorkspace()
   const [readingNote, setReadingNote] = useState(false)
+  const [departureBlocked, setDepartureBlocked] = useState(false)
+  const [ImagesView, setImagesView] = useState<typeof import('./Images').Images | null>(null)
   const [imagesOpen, setImagesOpen] = useState(false)
   const [imagesBusy, setImagesBusy] = useState(false)
   const [imagesError, setImagesError] = useState('')
@@ -81,8 +83,16 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
     imagesReturn.current = document.activeElement as HTMLElement | null
     setImagesBusy(true); setImagesError('')
     try {
+      const module = await import('./Images').catch(() => {
+        throw new Error('Impossible de charger Images. Rechargez la page pour réessayer.')
+      })
+      if (!alive.current || opening.current !== request) return
+      // Le mode de lecture peut avoir changé pendant le téléchargement du module.
       await player.current?.prepareImages()
-      if (alive.current && opening.current === request) setImagesOpen(true)
+      if (alive.current && opening.current === request) {
+        setImagesView(() => module.Images)
+        setImagesOpen(true)
+      }
     } catch (error) {
       if (alive.current && opening.current === request) {
         player.current?.releaseImages()
@@ -213,7 +223,7 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                   aria-controls="images-selector" aria-haspopup="dialog" aria-busy={imagesBusy}
                   onClick={() => void toggleImages()} />
               </div>
-              {imagesBusy && <p className="images-opening-message" role="status">Mise en pause de YouTube avant Images…</p>}
+              {imagesBusy && <p className="images-opening-message" role="status">Chargement d’Images…</p>}
               {imagesError && <p className="images-opening-message" role="alert">{imagesError}</p>}
               <Suspense fallback={
                 <section id="note-panel" className="note-panel" role="tabpanel"
@@ -228,6 +238,7 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                   visible={tab === 'note'}
                   onReveal={revealNote}
                   onReadingChange={setReadingNote}
+                  onDepartureChange={setDepartureBlocked}
                   onRevealImageInsertion={() => flushSync(() => setTab('note'))}
                   imagesOpen={imagesOpen}
                   onNavigate={reference => {
@@ -277,7 +288,7 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                 note.current.insertCitation(transcriptCitation(excerpt, state.video.id, source.id))
               }}
               onNavigate={navigate} />}
-            {imagesOpen && <Images videoID={state.video.id} sources={state.video.sources}
+            {imagesOpen && ImagesView && <ImagesView departureBlocked={departureBlocked} videoID={state.video.id} sources={state.video.sources}
               narrow={narrow} returnTo={imagesReturn.current} onClose={closeImages}
               session={noteSession} reading={readingNote} onInsert={(asset: Asset) => {
                 if (!note.current) throw new Error('La note n’est pas disponible.')
