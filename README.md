@@ -166,7 +166,7 @@ Sur une fiche vidéo, le lecteur et la transcription s'appuient sur la même **s
 - **Citations Markdown** : les callouts `[!quote]` et `[!quote:tr]` sont reconnus en Lecture ; les références temporelles canoniques disposent également d'une présentation et de gestes adaptés dans CodeMirror.
 - **YouTube / Local** : la bascule s'effectue sans lecture automatique ; elle tente de conserver une position admissible dans la session. Les actions d'annotation nécessitent une **position courante réellement disponible**, et non un simple départ préparé.
 - **Conservation** : cliquer Local sans fichier peut proposer le téléchargement. Le fichier reste une représentation de la source, pas une nouvelle vidéo. Le lecteur Local repose sur les capacités HTML5 du navigateur : un fichier valide n'est pas forcément décodable par celui-ci.
-- **Images** : le bouton de la note retrouve les captures de la vidéo, toutes sources et même sans référence Markdown ; consultation en Lecture, réinsertion en Édition au point explicitement choisi.
+- **Images** : le bouton à côté de Note/Informations retrouve les captures de la vidéo, toutes sources et même sans référence Markdown ; consultation en Lecture, réinsertion en Édition au point explicitement choisi.
 - **Captures** : `+ Capture` demande un PNG au temps courant ; l'Asset est conservé séparément de son insertion Markdown. Retirer une référence de la note ne supprime pas l'image.
 
 Le comportement détaillé des lecteurs, de l'éditeur et des interactions est spécifié dans [Product & UX](docs/01-product-and-ux.md). Une [recette manuelle ciblée](docs/07-local-playback-validation.md) couvre les interactions que les simulations de navigateur ne suffisent pas à confirmer.

@@ -65,6 +65,7 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
   const closeButton = useRef<HTMLButtonElement>(null)
   const viewer = useRef<HTMLDialogElement>(null)
   const thumbnail = useRef<HTMLButtonElement | null>(null)
+  const originAsset = useRef<number | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const [insertionError, setInsertionError] = useState('')
   const [enlarged, setEnlarged] = useState<Asset | null>(null)
@@ -87,6 +88,11 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
   }
 
   function retryDisplay(id: number) {
+    // Le bouton de réessai disparaît pendant le chargement : garder un contrôle de clavier stable.
+    const target = viewer.current?.contains(document.activeElement)
+      ? viewer.current.querySelector<HTMLButtonElement>('.lightbox-close button')
+      : document.getElementById(`image-card-${id}`)
+    target?.focus({ preventScroll: true })
     setDisplays(previous => {
       const items = previous.page === page ? previous.items : {}
       return { page, items: { ...items, [id]: { status: 'loading', attempt: (items[id]?.attempt ?? 0) + 1 } } }
@@ -147,6 +153,14 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
         const value = await listAssets(videoID, page, controller.signal)
         if (controller.signal.aborted) return
         setResult(value); setError('')
+        // Ne conserver que l'état d'affichage de la page reçue, même si des captures s'y ajoutent.
+        setDisplays(previous => ({
+          page,
+          items: Object.fromEntries(value.assets.flatMap(asset => {
+            const display = previous.page === page ? previous.items[asset.id] : undefined
+            return display ? [[asset.id, display]] : []
+          })),
+        }))
         // Seule une page contenant une génération active nécessite un suivi temporaire.
         if (value.assets.some(a => a.status === 'pending')) timer = setTimeout(() => void load(), 2000)
       } catch (error) {
@@ -158,18 +172,41 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
   }, [videoID, page, attempt])
 
   useLayoutEffect(() => {
-    if (enlarged) viewer.current?.showModal()
+    if (enlarged && !viewer.current?.open) viewer.current?.showModal()
   }, [enlarged])
 
   /** Le retour vise la commande d'origine et conserve le défilement de la grille. */
   function closeViewer() {
     viewer.current?.close()
     setEnlarged(null)
-    if (thumbnail.current?.isConnected) thumbnail.current.focus({ preventScroll: true })
-    else if (enlarged) document.getElementById(`image-card-${enlarged.id}`)?.focus({ preventScroll: true })
+    const origin = thumbnail.current?.isConnected ? thumbnail.current
+      : originAsset.current !== null ? document.getElementById(`image-card-${originAsset.current}`) : null
+    const target = origin ?? heading.current
+    target?.focus({ preventScroll: true })
   }
 
+  useEffect(() => {
+    if (enlarged && result?.page === page && !result.assets.some(asset => asset.id === enlarged.id && asset.status === 'available')) {
+      closeViewer()
+      setInsertionError('Le catalogue a changé. Choisissez une image de cette page.')
+    }
+  }, [result, page, enlarged])
+
   const items = result?.page === page ? result.assets : []
+  // La navigation reste dans la page consultée ; les opérations non terminées ne sont pas des images.
+  const viewable = items.filter(asset => asset.status === 'available')
+  const viewIndex = viewable.findIndex(asset => asset.id === enlarged?.id)
+
+  function moveImage(direction: -1 | 1) {
+    const next = viewable[viewIndex + direction]
+    if (next) {
+      // Une flèche depuis une erreur peut retirer le bouton focalisé avec son image.
+      if (viewer.current?.querySelector('.lightbox-stage')?.contains(document.activeElement)) {
+        viewer.current.querySelector<HTMLButtonElement>(direction < 0 ? '.lightbox-previous button' : '.lightbox-next button')?.focus({ preventScroll: true })
+      }
+      setEnlarged(next)
+    }
+  }
   return <dialog id="images-selector" ref={panel} className="images-selector" aria-labelledby="images-title"
     aria-modal={narrow ? true : undefined}
     onCancel={event => { event.preventDefault(); event.stopPropagation(); close() }}>
@@ -196,7 +233,9 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
               {renderImage(asset)}
               {asset.status === 'available' && display.status !== 'error' && <button type="button" className="image-enlarge"
                 aria-label={`Agrandir la capture à ${time}, ${provenance}`} onClick={event => {
-                  thumbnail.current = event.currentTarget; setEnlarged(asset)
+                  thumbnail.current = event.currentTarget
+                  originAsset.current = asset.id
+                  setEnlarged(asset)
                 }} />}
               {sources.length > 1 && <span className="image-provenance" title={source?.title}>{provenance}</span>}
             </div>
@@ -222,9 +261,36 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
       </nav>}
     </div>
     <dialog ref={viewer} className="image-viewer" aria-label="Agrandissement de l’image"
+      aria-describedby="image-viewer-position"
+      onClick={event => {
+        event.stopPropagation()
+        if (event.target === event.currentTarget) closeViewer()
+      }}
+      onKeyDown={event => {
+        if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+        event.preventDefault(); event.stopPropagation()
+        moveImage(event.key === 'ArrowLeft' ? -1 : 1)
+      }}
       onCancel={event => { event.preventDefault(); event.stopPropagation(); closeViewer() }}>
-      <button type="button" className="button" onClick={closeViewer}>Fermer l’agrandissement</button>
-      {enlarged && renderImage(enlarged, true)}
+      <div className="lightbox-close">
+        <IconButton icon="clear" label="Fermer l’agrandissement" className="lightbox-command" onClick={closeViewer} />
+      </div>
+      <div className="lightbox-previous">
+        <IconButton icon="previous" label="Image précédente" className="lightbox-command"
+          aria-disabled={viewIndex <= 0} onClick={() => { if (viewIndex > 0) moveImage(-1) }} />
+      </div>
+      <div className="lightbox-stage" onClick={event => { if (event.target === event.currentTarget) closeViewer() }}>
+        {enlarged && renderImage(enlarged, true)}
+      </div>
+      <div className="lightbox-next">
+        <IconButton icon="next" label="Image suivante" className="lightbox-command"
+          aria-disabled={viewIndex >= viewable.length - 1} onClick={() => { if (viewIndex < viewable.length - 1) moveImage(1) }} />
+      </div>
+      <p id="image-viewer-position" className="lightbox-caption" role="status">
+        Image {viewIndex + 1} sur {viewable.length} · page {page}<br />
+        Navigation limitée aux images disponibles de cette page.
+      </p>
     </dialog>
   </dialog>
 }

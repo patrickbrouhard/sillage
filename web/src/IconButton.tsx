@@ -51,7 +51,7 @@ export function IconButton({ icon, label, tooltip = label, ref, className = '', 
   // prochain survol ou geste clavier, sans confondre focus souris et focus visible.
   return <span className={`icon-control${dismissed ? ' tooltip-dismissed' : ''}`}
     onMouseEnter={() => setDismissed(false)} onMouseLeave={() => setDismissed(true)}
-    onFocus={() => setDismissed(false)} onBlur={() => setDismissed(false)}
+    onFocus={() => setDismissed(false)} onBlur={() => setDismissed(true)}
     onClick={() => setDismissed(true)}
     onKeyDown={event => setDismissed(event.key === 'Escape')}>
     <button {...props} ref={ref} type="button" className={`button icon-button ${className}`}

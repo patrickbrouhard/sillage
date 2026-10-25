@@ -704,17 +704,35 @@ main.library-main { padding: 20px 32px 48px; }
 .image-usage { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
 .image-card-bar .icon-tooltip { top: auto; bottom: calc(100% + 4px); }
 .images-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 16px; }
-.image-viewer { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); }
-.image-viewer[open] { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.image-viewer img { display: block; max-width: 100%; max-height: calc(100dvh - 100px); object-fit: contain; }
-.image-viewer::backdrop, .images-selector::backdrop { background: #0008; }
-html:has(.images-selector:modal, .image-viewer:modal) { overflow: hidden; }
+.image-viewer { position: fixed; inset: 0; margin: 0; padding: 12px; border: 0; border-radius: 0; background: transparent; color: #fff; width: 100vw; height: 100dvh; max-width: none; max-height: none; overflow: hidden; }
+.image-viewer[open] { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; grid-template-rows: 44px minmax(0, 1fr) auto; gap: 8px; }
+.lightbox-close { grid-column: 3; grid-row: 1; justify-self: end; }
+.lightbox-previous { grid-column: 1; grid-row: 2; align-self: center; }
+.lightbox-next { grid-column: 3; grid-row: 2; align-self: center; }
+.lightbox-stage { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+.image-viewer img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+.lightbox-caption { grid-column: 1 / -1; grid-row: 3; margin: 0; align-self: center; text-align: center; font-size: .8rem; line-height: 1.5; text-shadow: 0 1px 2px #000; }
+.lightbox-command { background: #101725d9; border-color: #ffffff80; color: #fff; }
+.lightbox-command:hover { background: #283954; }
+.lightbox-command[aria-disabled=true] { opacity: .45; cursor: default; }
+.lightbox-command:focus-visible { outline-color: #fff; }
+@media (max-width: 600px) {
+  .image-viewer { padding: 8px; }
+  .lightbox-stage { grid-column: 1 / -1; }
+  .lightbox-previous { grid-row: 3; }
+  .lightbox-next { grid-row: 3; }
+  .lightbox-caption { grid-column: 2; font-size: .75rem; }
+}
+.image-viewer::backdrop { background: #000d; }
+.images-selector::backdrop { background: #0008; }
+/* La modale occupe aussi la gouttière native ; le drawer non modal conserve la largeur du workspace. */
+html:has(.images-selector:modal, .image-viewer:modal) { overflow: hidden; scrollbar-gutter: auto; }
 @media (min-width: 1100px) {
   .images-selector { position: absolute; grid-column: 2; grid-row: 1 / -1; inset: 0; width: 100%; height: 100%; z-index: 5; }
   .video-workspace.images-covered > :is(.video-player, .video-transcript) { visibility: hidden; }
 }
 @media (max-width: 1099px) {
-  .images-selector { position: fixed; inset: 0; width: 100%; height: 100dvh; border: 0; border-radius: 0; }
+  .images-selector { position: fixed; inset: 0; width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
 }
 
 /* L'ajout d'Images déplace les icônes : leur aide reste ancrée dans la largeur utile. */

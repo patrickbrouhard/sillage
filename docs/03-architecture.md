@@ -384,7 +384,12 @@ exclut les ouvertures concurrentes et invalide les réponses d'une préparation 
 
 Un même arbre de sélecteur utilise `dialog.show()` sur desktop et `showModal()` sous 1 100 px. Le panneau
 recouvre la colonne droite et rend ses commandes inertes ; ni note, ni lecteurs, ni transcription ne sont
-remontés. Une visionneuse modale interne conserve la miniature de retour et le défilement. Les modales
+remontés. Une lightbox modale native interne conserve la miniature d'origine et le défilement. Sa navigation
+par boutons/flèches filtre les états `available` de la page courante, sans boucle, cache général ou
+franchissement de pagination. Une erreur de contenu reste une étape consultable avec réessai ; les états
+d'affichage partagés bloquent l'insertion jusqu'au succès. Le fond ferme uniquement la lightbox et ses
+commandes ne déclenchent pas cette fermeture. Si la miniature d'origine est retirée après erreur, la carte
+conservée fournit le retour de focus. Les modales
 natives protègent aussi le focus des dialogues de départ de note. Les gestionnaires Échap respectent
 la surface modale active et les événements déjà traités.
 

@@ -645,7 +645,7 @@ ne commande aucun seek et ne répare pas un fichier par une nouvelle génératio
 la note. Les composants restent montés ; les commandes recouvertes sont inertes. La note reste interactive,
 un clic dans celle-ci ne ferme pas Images. Sous ce seuil, le même sélecteur devient une modale plein écran.
 Un changement responsive conserve le catalogue, son défilement et les sessions. Le panneau possède un en-tête,
-une fermeture explicite et un défilement interne. Son ouverture n'est pas conservée entre vidéos.
+une croix de fermeture nommée accessible à droite et un défilement interne. Son ouverture n'est pas conservée entre vidéos.
 
 Ouvrir Images met YouTube en pause s'il joue ou bufferise, sans utiliser `stop()` ni décharger son iframe.
 Un échec de confirmation de pause refuse l'ouverture et laisse le lecteur accessible avec un message explicite ;
@@ -669,10 +669,20 @@ citations, listes et liens. Texte brut, liens ordinaires, code, syntaxes échapp
 et images littérales des en-têtes de callout ne sont pas des utilisations rendues. Aucun enregistrement
 ni chargement d'image supplémentaire ne découle du comptage.
 
-Le clic sur l'image ouvre une visionneuse modale ajustée à la fenêtre. Sa fermeture rend le focus à la
-miniature, sans perdre le défilement. Échap traite d'abord la surface modale la plus interne ; le drawer
-ne piège pas le focus et sa fermeture ne reprend pas celui d'une note active. Les protections de départ
-restent au-dessus de la consultation.
+Le clic sur l'image ouvre une lightbox modale : image flottante entière sur fond assombri, sans cadre
+visible. Une croix en haut à droite, Échap ou un clic sur le fond la ferment ; image, navigation et réessai
+ne la ferment pas. Chargement et erreur restent lisibles. Précédent/Suivant et les flèches gauche/droite
+parcourent uniquement les captures `available` de la **page courante**, dans son ordre, sans boucle ni
+franchissement de page. Les bornes et cette limite sont explicites. `pending` et `failed` sont ignorés ;
+un PNG `available` illisible reste une étape avec erreur et réessai, sans changer son état métier.
+Aucun préchargement du reste du catalogue n'est ajouté.
+
+La fermeture rend le focus à la miniature d'origine, même après navigation dans la lightbox, sans perdre
+le défilement. Si sa commande a disparu après une erreur d'affichage, sa carte reste la cible de retour. Si une actualisation
+retire l'image consultée de la page, la lightbox se ferme avec une explication ; l'en-tête de la galerie
+sert de retour lorsque la carte d'origine n'est plus présente.
+Échap traite d'abord la surface modale la plus interne ; le drawer ne piège pas le focus et sa fermeture
+ne reprend pas celui d'une note active. Les protections de départ restent au-dessus de la consultation.
 
 `pending` affiche l'attente et actualise temporairement la page ; `failed` explique l'échec sans régénération.
 Un PNG `available` illisible propose de réessayer l'affichage, sans changer son état de génération. Une erreur
