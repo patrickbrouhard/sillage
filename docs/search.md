@@ -286,7 +286,8 @@ La première source REST fournit l'identité visuelle. Sa chaîne et la date d'a
 sont affichées sur la même ligne, avec une date française abrégée dans le fuseau du navigateur.
 Les explications complémentaires conservent leur contenu dans un popover natif, ouvert par une icône
 d'information après la date. L'icône est absente si seule la première source contribue par son titre.
-Survol, clic, Entrée et Espace permettent la consultation ; Échap ou clic extérieur ferment la couche.
+Le survol ouvre après 300 ms et un passage plus bref est ignoré. Clic, Entrée et Espace ouvrent
+immédiatement ; Échap ou clic extérieur ferment la couche.
 Le panneau est borné au viewport, défilable au clavier et au toucher ; les interactions ne font aucun appel réseau.
 
 `SearchExcerpt` réduit les blancs, mesure deux lignes autour d'une marque et recalcule

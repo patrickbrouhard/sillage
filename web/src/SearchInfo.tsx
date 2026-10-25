@@ -7,8 +7,13 @@ export function SearchInfo({ children }: { children: ReactNode }) {
   const trigger = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   const pinned = useRef(false)
+  const openTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const [open, setOpen] = useState(false)
+
+  function cancelOpen() {
+    clearTimeout(openTimer.current)
+  }
 
   function cancelClose() {
     clearTimeout(timer.current)
@@ -16,6 +21,7 @@ export function SearchInfo({ children }: { children: ReactNode }) {
 
   /** Laisse traverser l'espace entre bouton et panneau sans refermer une consultation activée. */
   function scheduleClose() {
+    cancelOpen()
     cancelClose()
     timer.current = setTimeout(() => {
       if (!pinned.current && document.activeElement !== trigger.current && !panel.current?.contains(document.activeElement)) {
@@ -43,7 +49,10 @@ export function SearchInfo({ children }: { children: ReactNode }) {
     popover.style.top = top / scale + 'px'
   }
 
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(() => () => {
+    clearTimeout(openTimer.current)
+    clearTimeout(timer.current)
+  }, [])
   useLayoutEffect(() => {
     if (!open) return
     const closeOnScroll = (event: Event) => {
@@ -67,18 +76,28 @@ export function SearchInfo({ children }: { children: ReactNode }) {
       onPointerEnter={event => {
         if (event.pointerType !== 'mouse') return
         cancelClose()
-        panel.current?.showPopover()
-        position()
+        cancelOpen()
+        if (panel.current?.matches(':popover-open')) return
+        // Éviter les ouvertures lors d'un simple passage du pointeur ; le clic reste immédiat.
+        openTimer.current = setTimeout(() => {
+          panel.current?.showPopover()
+          position()
+        }, 300)
       }}
       onPointerLeave={scheduleClose}
       onClick={event => {
+        cancelOpen()
         cancelClose()
         // Un clic après survol fixe la consultation au lieu de refermer la couche déjà ouverte.
         if (!pinned.current && panel.current?.matches(':popover-open')) event.preventDefault()
         pinned.current = !pinned.current
         position()
       }}
+      onKeyDown={event => {
+        if (event.key === 'Escape') cancelOpen()
+      }}
       onBlur={event => {
+        cancelOpen()
         if (!pinned.current && !(event.relatedTarget instanceof Node && panel.current?.contains(event.relatedTarget))) {
           panel.current?.hidePopover()
         }
@@ -92,7 +111,7 @@ export function SearchInfo({ children }: { children: ReactNode }) {
         const visible = event.newState === 'open'
         setOpen(visible)
         if (visible) position()
-        else { pinned.current = false; cancelClose() }
+        else { pinned.current = false; cancelOpen(); cancelClose() }
       }}
       onKeyDown={event => {
         if (event.key === 'Escape') {

@@ -54,6 +54,43 @@ test('date ajoutée, explications inchangées et aucune icône pour le titre seu
   expect(requests).toBe(1)
 })
 
+test('délai de survol, passage bref annulé et clic immédiat sans réouverture tardive', async ({ page }) => {
+  await page.route('**/api/v1/search?**', route => route.fulfill({
+    json: { results: [item(1)], page: 1, total: 1, has_more: false },
+  }))
+  await page.goto('/search?q=kube')
+  const trigger = page.getByRole('button', { name: 'Pourquoi cette vidéo apparaît' })
+  const panel = page.getByRole('region', { name: 'Explications de la recherche' })
+  await expect(trigger).toBeVisible()
+  await page.clock.install({ time: new Date('2026-10-25T12:00:00Z') })
+  await page.clock.pauseAt(new Date('2026-10-25T12:00:01Z'))
+  await trigger.hover()
+  await page.clock.runFor(299)
+  await expect(panel).toBeHidden()
+  await page.clock.runFor(1)
+  await expect(panel).toBeVisible()
+  await page.getByRole('status').hover()
+  await page.clock.runFor(150)
+  await expect(panel).toBeHidden()
+  await trigger.hover()
+  await page.clock.runFor(100)
+  await page.getByRole('status').hover()
+  await page.clock.runFor(500)
+  await expect(panel).toBeHidden()
+  await trigger.hover()
+  await trigger.click()
+  await expect(panel).toBeVisible()
+  await trigger.click()
+  await expect(panel).toBeHidden()
+  await page.clock.runFor(500)
+  await expect(panel).toBeHidden()
+  await page.mouse.move(0, 0)
+  await trigger.hover()
+  await trigger.press('Escape')
+  await page.clock.runFor(500)
+  await expect(panel).toBeHidden()
+})
+
 test('survol traversable, clic persistant, clavier, Échap et focus', async ({ page }) => {
   await page.route('**/api/v1/search?**', route => route.fulfill({
     json: { results: [item(1)], page: 1, total: 1, has_more: false },
