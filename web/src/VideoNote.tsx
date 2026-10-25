@@ -36,10 +36,12 @@ export function VideoNote({
   imagesOpen,
   onReadingChange,
   onDepartureChange,
+  onCaptureAccepted,
   onRevealImageInsertion,
   ref,
 }: {
   onRevealImageInsertion: () => void
+  onCaptureAccepted: () => void
   onDepartureChange: (blocked: boolean) => void
   onReadingChange: (reading: boolean) => void
   imagesOpen: boolean
@@ -168,6 +170,7 @@ export function VideoNote({
       setCaptureID(null)
       const result = await createCapture(target, requestID, controller.signal)
       if (controller.signal.aborted) return
+      onCaptureAccepted()
       // Le handle capturé vise l'ancienne vue si un conflit a remplacé la session.
       const inserted = currentEditor.finishCapture(requestID, assetMarkdown(result, label))
       setCaptureID(result.id)

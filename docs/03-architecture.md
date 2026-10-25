@@ -369,7 +369,9 @@ L'acceptation persistée produit une unique insertion Markdown isolée dans Undo
 Images interroge une collection bornée par vidéo, sans reconstruire le catalogue depuis Markdown ni lancer
 de GET individuel pour chaque carte. Seules les pages contenant `pending` sont actualisées pendant leur
 consultation ; erreur ou état terminal arrête ce suivi, et quitter ou changer de page annule les réponses
-obsolètes. Les images utilisent les octets PNG existants avec `loading=lazy` et décodage asynchrone.
+obsolètes. VideoNote notifie la fiche après une acceptation confirmée de capture, même si son insertion
+asynchrone a été abandonnée : une invalidation locale relit uniquement la page courante d'Images, sans
+synchronisation permanente ni changement de page. Les images utilisent les octets PNG existants avec `loading=lazy` et décodage asynchrone.
 La page précédente est démontée au changement de page, sans accumulation de la grille entière. Un état
 d'affichage partagé, borné à la page, relie miniature et visionneuse : une erreur interdit l'insertion,
 seul un réessai explicitement réussi la rétablit. Les événements d'anciennes tentatives sont ignorés.

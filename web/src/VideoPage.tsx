@@ -66,6 +66,7 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
   const narrow = useNarrowWorkspace()
   const [readingNote, setReadingNote] = useState(false)
   const [departureBlocked, setDepartureBlocked] = useState(false)
+  const [catalogueVersion, setCatalogueVersion] = useState(0)
   const [ImagesView, setImagesView] = useState<typeof import('./Images').Images | null>(null)
   const [imagesOpen, setImagesOpen] = useState(false)
   const [imagesBusy, setImagesBusy] = useState(false)
@@ -239,6 +240,7 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                   onReveal={revealNote}
                   onReadingChange={setReadingNote}
                   onDepartureChange={setDepartureBlocked}
+                  onCaptureAccepted={() => setCatalogueVersion(version => version + 1)}
                   onRevealImageInsertion={() => flushSync(() => setTab('note'))}
                   imagesOpen={imagesOpen}
                   onNavigate={reference => {
@@ -288,7 +290,7 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                 note.current.insertCitation(transcriptCitation(excerpt, state.video.id, source.id))
               }}
               onNavigate={navigate} />}
-            {imagesOpen && ImagesView && <ImagesView departureBlocked={departureBlocked} videoID={state.video.id} sources={state.video.sources}
+            {imagesOpen && ImagesView && <ImagesView departureBlocked={departureBlocked} catalogueVersion={catalogueVersion} videoID={state.video.id} sources={state.video.sources}
               narrow={narrow} returnTo={imagesReturn.current} onClose={closeImages}
               session={noteSession} reading={readingNote} onInsert={(asset: Asset) => {
                 if (!note.current) throw new Error('La note n’est pas disponible.')

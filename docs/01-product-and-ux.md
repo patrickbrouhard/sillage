@@ -680,7 +680,10 @@ ne la ferment pas. Chargement et erreur restent lisibles. Précédent/Suivant et
 parcourent uniquement les captures `available` de la **page courante**, dans son ordre, sans boucle ni
 franchissement de page. Les bornes et cette limite sont explicites. `pending` et `failed` sont ignorés ;
 un PNG `available` illisible reste une étape avec erreur et réessai, sans changer son état métier.
-Aucun préchargement du reste du catalogue n'est ajouté.
+La légende privilégie le timestamp et, si la vidéo a plusieurs sources, sa provenance ; une position
+compacte (`3 / 10`) accompagne l'image. La limite de page est disponible dans la description accessible
+et l'aide de position, sans phrase permanente dans la légende. Aucun préchargement du reste du catalogue
+n'est ajouté.
 
 La fermeture rend le focus à la miniature d'origine, même après navigation dans la lightbox, sans perdre
 le défilement. Si sa commande a disparu après une erreur d'affichage, sa carte reste la cible de retour. Si une actualisation
@@ -689,6 +692,8 @@ sert de retour lorsque la carte d'origine n'est plus présente.
 Échap traite d'abord la surface modale la plus interne ; le drawer ne piège pas le focus et sa fermeture
 ne reprend pas celui d'une note active. Les protections de départ restent au-dessus de la consultation.
 
+L'acceptation d'une nouvelle capture depuis la fiche actualise uniquement la page de catalogue ouverte,
+sans navigation automatique vers une autre page et en conservant le tri chronologique.
 `pending` affiche l'attente et actualise temporairement la page ; `failed` explique l'échec sans régénération.
 Un PNG `available` illisible propose de réessayer l'affichage, sans changer son état de génération. Une erreur
 de catalogue possède son propre réessai. Les réponses obsolètes sont annulées. Les PNG pleins formats sont

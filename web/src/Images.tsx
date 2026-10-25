@@ -36,7 +36,8 @@ function CatalogueImage({ asset, display, onStatus, onRetry, enlarged = false }:
 }
 
 /** Catalogue temporaire : drawer non modal à droite, même arbre dans une modale étroite. */
-export function Images({ videoID, sources, narrow, returnTo, onClose, reading, onInsert, session, departureBlocked }: {
+export function Images({ videoID, sources, narrow, returnTo, onClose, reading, onInsert, session, departureBlocked, catalogueVersion }: {
+  catalogueVersion: number
   departureBlocked: boolean
   session: NoteSession
   reading: boolean
@@ -99,9 +100,14 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
   const [busy, setBusy] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
+  /** Couvre aussi le commit où la note vient d'ouvrir sa protection avant la remontée du signal React. */
+  function noteDepartureOpen() {
+    return departureBlocked || document.querySelector('dialog.note-navigation[open]') !== null
+  }
+
   useLayoutEffect(() => {
     // Ne pas remonter Images ou la lightbox dans la pile native au-dessus de la protection de départ.
-    if (departureBlocked) return
+    if (noteDepartureOpen()) return
     const dialog = panel.current!
     const focused = document.activeElement as HTMLElement | null
     const scroll = scroller.current?.scrollTop ?? 0
@@ -160,10 +166,10 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
     }
     void load()
     return () => { controller.abort(); clearTimeout(timer) }
-  }, [videoID, page, attempt])
+  }, [videoID, page, attempt, catalogueVersion])
 
   useLayoutEffect(() => {
-    if (!departureBlocked && enlarged && !viewer.current?.open) viewer.current?.showModal()
+    if (!noteDepartureOpen() && enlarged && !viewer.current?.open) viewer.current?.showModal()
   }, [enlarged, departureBlocked])
 
   /** Le retour vise la commande d'origine et conserve le défilement de la grille. */
@@ -187,6 +193,7 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
   // La navigation reste dans la page consultée ; les opérations non terminées ne sont pas des images.
   const viewable = items.filter(asset => asset.status === 'available')
   const viewIndex = viewable.findIndex(asset => asset.id === enlarged?.id)
+  const viewedSource = sources.find(source => source.id === enlarged?.source_id)
 
   function moveImage(direction: -1 | 1) {
     const next = viewable[viewIndex + direction]
@@ -252,7 +259,7 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
       </nav>}
     </div>
     <dialog ref={viewer} className="image-viewer" aria-label="Agrandissement de l’image"
-      aria-describedby="image-viewer-position"
+      aria-describedby="image-viewer-position image-viewer-scope"
       onClick={event => {
         event.stopPropagation()
         if (event.target === event.currentTarget) closeViewer()
@@ -279,9 +286,14 @@ export function Images({ videoID, sources, narrow, returnTo, onClose, reading, o
           aria-disabled={viewIndex >= viewable.length - 1} onClick={() => { if (viewIndex < viewable.length - 1) moveImage(1) }} />
       </div>
       <p id="image-viewer-position" className="lightbox-caption" role="status">
-        Image {viewIndex + 1} sur {viewable.length} · page {page}<br />
-        Navigation limitée aux images disponibles de cette page.
+        {enlarged && <span>
+          {formatDuration(enlarged.timestamp_ms)}
+          {sources.length > 1 && <> · {providerLabel(viewedSource?.provider)} · source {enlarged.source_id}</>}
+        </span>}
+        <span className="lightbox-position" aria-label={`Image ${viewIndex + 1} sur ${viewable.length}, page ${page}`}
+          title={`Images disponibles de la page ${page}`}>{viewIndex + 1} / {viewable.length}</span>
       </p>
+      <p id="image-viewer-scope" className="sr-only">Navigation limitée aux images disponibles de cette page.</p>
     </dialog>
   </dialog>
 }
