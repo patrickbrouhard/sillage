@@ -6,6 +6,10 @@ export interface PlayerHandle {
   navigate(startMs: number): string
   /** Arrête et décharge l'instance avant une bascule ou une suppression. */
   stop(): void
+  /** Prépare la superposition Images sans décharger la surface ni changer sa visibilité. */
+  prepareImages(): Promise<void>
+  /** Termine la protection de pause, sans reprendre la lecture. */
+  releaseImages(): void
 }
 
 /** Révèle le cadre dans la page sans modifier le focus ou les défilements internes. */

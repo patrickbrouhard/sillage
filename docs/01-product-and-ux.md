@@ -629,10 +629,46 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 - En Lecture, l'image affiche son état de préparation, de disponibilité ou d'échec ; une erreur de consultation
   est distinguée de l'échec de génération. La note Markdown reste intacte si la génération échoue. L'image ne
   commande pas le lecteur.
-- Une seule capture à la fois est traitée par instance serveur. Il n'existe pas de galerie complète ni de
+- Une seule capture à la fois est traitée par instance serveur. Le catalogue Images donne accès aux captures de la vidéo, sans
   compteur global d'activité. Retirer la référence Markdown **ne supprime pas** l'`Asset` ou son PNG.
 
-La galerie, la réinsertion, l'import d'images et les clips vidéo sont des pistes de développement, documentées dans [Open questions](06-open-questions.md).
+### 6.7 Images de la vidéo
+
+**Images**, dans la barre de note en Édition et Lecture, ouvre les captures de la vidéo courante,
+toutes sources confondues, même sans référence dans la note. Le catalogue ne crée ni note ni asset,
+ne commande aucun seek et ne répare pas un fichier par une nouvelle génération.
+
+À partir de 1 100 px, un drawer **non modal** recouvre le cadre Lecteur/Transcription sans redimensionner
+la note. Les composants restent montés ; les commandes recouvertes sont inertes. La note reste interactive,
+un clic dans celle-ci ne ferme pas Images. Sous ce seuil, le même sélecteur devient une modale plein écran.
+Un changement responsive conserve le catalogue, son défilement et les sessions. Le panneau possède un en-tête,
+une fermeture explicite et un défilement interne. Son ouverture n'est pas conservée entre vidéos.
+
+Ouvrir Images met YouTube en pause s'il joue ou bufferise, sans utiliser `stop()` ni décharger son iframe.
+Un échec de confirmation de pause refuse l'ouverture et laisse le lecteur accessible avec un message explicite ;
+une reprise tardive impossible à remettre en pause ferme Images avec une erreur, sans destruction du lecteur.
+L'initialisation reste sans autoplay.
+Local continue à jouer. Fermer ne révèle pas une surface volontairement masquée et ne reprend aucune lecture.
+Ces règles ne modifient ni Masquer, ni les bascules de lecteur, ni les autres dialogues.
+Une référence temporelle admissible depuis la note ferme Images et révèle le lecteur ; un refus explicite
+laisse le panneau ouvert, sans navigation différée.
+
+La grille présente 12 captures au plus par page, par **timestamp croissant puis ID croissant**, sans prétendre
+synchroniser les sources. Les cadres 16:9 affichent les images entières ; provenance `VideoSource` et temps
+sont superposés. Plusieurs sources sont distinguées par leur identité. Le badge ne désigne pas le fichier
+local ou le flux ayant fourni les pixels et ne sert pas à naviguer.
+
+Le clic sur l'image ouvre une visionneuse modale ajustée à la fenêtre. Sa fermeture rend le focus à la
+miniature, sans perdre le défilement. Échap traite d'abord la surface modale la plus interne ; le drawer
+ne piège pas le focus et sa fermeture ne reprend pas celui d'une note active. Les protections de départ
+restent au-dessus de la consultation.
+
+`pending` affiche l'attente et actualise temporairement la page ; `failed` explique l'échec sans régénération.
+Un PNG `available` illisible propose de réessayer l'affichage, sans changer son état de génération. Une erreur
+de catalogue possède son propre réessai. Les réponses obsolètes sont annulées. Les PNG pleins formats sont
+chargés paresseusement ; pagination et démontage de la page précédente bornent le volume affiché.
+La réduction CSS ne réduit pas les octets transférés. Aucune miniature dérivée ni politique de rétention
+supplémentaire n'est introduite.
 
 ## 7. Recherche, IA et pistes non livrées
 
@@ -642,7 +678,7 @@ La galerie, la réinsertion, l'import d'images et les clips vidéo sont des pist
 - **IA intégrée** : facultative, postérieure aux primitives métier ; candidates : résumés, tags suggérés,
   chapitrage, questions/réponses et extraction d'informations. Aucun provider n'est choisi.
 - **Autres pistes** : annotations structurées, plages temporelles, sources supplémentaires, STT, sélection de
-  pistes, bibliothèque de captures, clips durables, redimensionnement des panneaux, reprise de lecture et
+  pistes, import d’images, clips durables, redimensionnement des panneaux, reprise de lecture et
   export. Elles ne doivent pas être traitées comme des fonctionnalités déjà implémentées.
 
 Pour les objectifs des étapes futures, voir [05-roadmap.md](05-roadmap.md). Pour leurs arbitrages encore ouverts, voir [06-open-questions.md](06-open-questions.md). Ne pas dupliquer ici leurs spécifications tant qu'elles ne sont pas implémentées.

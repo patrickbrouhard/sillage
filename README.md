@@ -357,6 +357,7 @@ Le contenu est servi à partir de l'identité du fichier, sans exposer son chemi
 | Méthode | Route | Comportement |
 | --- | --- | --- |
 | `POST` | `/api/v1/videos/{video_id}/sources/{source_id}/captures` | Demande de capture à un timestamp avec `request_id` unique ; `202` si en cours, `200` si commande déjà terminée |
+| `GET` | `/api/v1/videos/{video_id}/assets?page=1` | Catalogue des captures, toutes sources et tous états, par pages de 12 |
 | `GET` | `/api/v1/assets/requests/{request_id}` | Retrouve l'Asset après une réponse de POST incertaine |
 | `GET` | `/api/v1/assets/{asset_id}` | Consulte l'état et la provenance |
 | `GET` | `/api/v1/assets/{asset_id}/content` | Lit le PNG publié, sans générer de nouvelle capture |
@@ -373,7 +374,7 @@ La requête JSON est limitée à **4 Kio**. Une capture acceptée renvoie son ID
 
 L'Asset est enregistré comme `pending` avant l'extraction et devient `available` ou `failed`. La clé `request_id` sert à retrouver **la même commande** après une réponse perdue : en cas de doute, consulter l'endpoint de récupération puis, si nécessaire, répéter le POST avec **la même clé**, pas avec une nouvelle. Une clé réutilisée avec d'autres paramètres reçoit `409`. Une seule capture s'exécute à la fois par instance, indépendamment du téléchargement.
 
-La capture privilégie le fichier complet de **la même source** s'il est exploitable, puis le flux distant selon une politique de repli bornée. Le fichier PNG et l'Asset restent indépendants de leur éventuelle référence dans une note. Aucun endpoint de galerie ou de suppression d'assets n'est encore disponible.
+La capture privilégie le fichier complet de **la même source** s'il est exploitable, puis le flux distant selon une politique de repli bornée. Le fichier PNG et l'Asset restent indépendants de leur éventuelle référence dans une note. Le catalogue par vidéo est indépendant du Markdown et ne teste pas les fichiers. Sa réponse contient `assets`, `page` et `has_more`, triés par `timestamp_ms ASC, id ASC`. `page` vaut 1 par défaut, accepte un entier de 1 à 1 000 000 et refuse les répétitions (`400 bad_request`). Une vidéo absente donne `404 video_not_found` ; une page vide retourne `assets: []`. La pagination ne garantit pas un instantané entre requêtes. Aucune suppression d'assets n'est exposée.
 
 ### Erreurs et limites communes
 

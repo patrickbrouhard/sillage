@@ -240,6 +240,10 @@ Une capture par instance serveur au maximum, indépendamment du téléchargement
 
 L'asset est publié et référencé durablement ; son cycle de génération `pending/available/failed` reste distinct de la consultation effective du fichier. L'insertion dans CodeMirror ne conserve aucun faux Markdown temporaire et n'efface pas l'asset lors d'un Undo : les détails de session et de rendu relèvent du [document UX](01-product-and-ux.md) et de l'[architecture](03-architecture.md).
 
+Le catalogue Images utilise les PNG existants, chargés paresseusement par pages de 12. Il ne produit pas de
+miniatures dérivées : réduction visuelle et réduction du transfert sont distinctes. Une éventuelle politique
+de génération, stockage et rétention des miniatures nécessite un cadrage séparé.
+
 ## 8. Frontend : React, CodeMirror et lecteurs
 
 ### 8.1 Distribution du frontend

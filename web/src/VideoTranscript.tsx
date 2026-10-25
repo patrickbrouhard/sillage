@@ -6,7 +6,8 @@ import { TranscriptText } from './TranscriptText'
 import { IconButton } from './IconButton'
 
 /** Garde le dernier contenu consultable indépendamment des opérations et de leurs erreurs. */
-export function VideoTranscript({ videoID, sourceID, onNavigate, onCite }: {
+export function VideoTranscript({ videoID, sourceID, onNavigate, onCite, covered = false }: {
+  covered?: boolean
   videoID: number
   sourceID: number
   onNavigate: (startMs: number) => string
@@ -118,7 +119,7 @@ export function VideoTranscript({ videoID, sourceID, onNavigate, onCite }: {
       <p>Aucune transcription enregistrée localement. Utilisez le bouton de récupération pour la télécharger.</p>}
   </>
 
-  return <section className="video-transcript" aria-labelledby="transcript-title">
+  return <section inert={covered} className="video-transcript" aria-labelledby="transcript-title">
     {content ? <TranscriptText key={`${videoID}:${sourceID}`} items={content.items} onCite={onCite}
       heading={heading} acquisition={acquisition} feedback={feedback}
       onNavigate={startMs => setNavigationMessage(onNavigate(startMs))} /> : <>

@@ -204,6 +204,14 @@ Chaque demande possède une clé de commande générée côté client et réutil
 
 La génération est distinguée de la **consultation de son fichier** : un Asset `available` dont le PNG est inaccessible ne doit pas être requalifié arbitrairement en `failed`.
 
+### 5.4 Catalogue par vidéo
+
+Le service vérifie l'existence de la vidéo puis le repository lit les captures de toutes ses sources,
+indépendamment des références de note et sans tester les fichiers. Le tri `timestamp_ms ASC, id ASC` est
+stable ; il n'affirme aucune synchronisation entre timelines. Un index `(video_id, timestamp_ms, id)`
+sert cet ordre. Une page contient au plus 12 éléments ; un treizième détecte la suite. L'offset ne fournit
+pas un instantané entre requêtes concurrentes. Le transport distingue vidéo absente, page vide et erreur.
+
 ## 6. API HTTP / Chi
 
 ### 6.1 Conventions
@@ -262,6 +270,7 @@ Les relations directes et indirectes restent distinctes ; `all` déduplique les 
 | `DELETE` | `/api/v1/videos/{video_id}/media-files/{media_file_id}` | Suppression explicite d'une identité exacte, protégée par réservation |
 | `GET/HEAD` | `/api/v1/videos/{video_id}/media-files/{media_file_id}/content` | Diffusion par `ServeContent` avec `Range` et requêtes conditionnelles |
 | `POST` | `/api/v1/videos/{video_id}/sources/{source_id}/captures` | Demande avec timestamp et clé ; `202 pending`, `200` si répétition terminée |
+| `GET` | `/api/v1/videos/{video_id}/assets?page=1` | Catalogue par pages de 12 : `assets`, `page`, `has_more` ; page entière 1–1 000 000 |
 | `GET` | `/api/v1/assets/requests/{request_id}` | Retrouver l'Asset d'une demande de capture incertaine |
 | `GET` | `/api/v1/assets/{asset_id}` | État, provenance et identité publics |
 | `GET` | `/api/v1/assets/{asset_id}/content` | PNG publié, **sans** création implicite |

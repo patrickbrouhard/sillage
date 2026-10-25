@@ -51,6 +51,26 @@ func (s *Service) Close() {
 	s.workers.Wait()
 }
 
+// List distingue une vidéo absente d'un catalogue vide, sans consulter les fichiers.
+func (s *Service) List(ctx context.Context, videoID video.VideoID, page int) (Page, error) {
+	if videoID <= 0 || page < 1 || page > 1000000 {
+		return Page{}, video.ErrInvalidInput
+	}
+	if _, err := s.videos.Get(ctx, videoID); err != nil {
+		return Page{}, err
+	}
+	items, err := s.repo.List(ctx, videoID, (page-1)*PageSize, PageSize+1)
+	if err != nil {
+		return Page{}, err
+	}
+	// L'élément supplémentaire indique la suite sans charger tout le catalogue.
+	hasMore := len(items) > PageSize
+	if hasMore {
+		items = items[:PageSize]
+	}
+	return Page{Assets: items, Number: page, HasMore: hasMore}, nil
+}
+
 var requestPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{16,80}$`)
 
 // Start retrouve la même commande ou réserve une nouvelle capture sans file d'attente.

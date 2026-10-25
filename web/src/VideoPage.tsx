@@ -3,6 +3,7 @@ import { createPortal, flushSync } from 'react-dom'
 import { useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
 import type { Tag, Video, VideoSource } from './api'
+import { Images, useNarrowWorkspace } from './Images'
 import { VideoTags } from './VideoTags'
 import { VideoThumbnail } from './VideoThumbnail'
 import { VideoTranscript } from './VideoTranscript'
@@ -58,6 +59,33 @@ function SourceDetails({ source, index, working }: { source: VideoSource; index:
 
 /** Relit une fiche par son identité Sillage, sans dépendre de la navigation précédente. */
 function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | null }) {
+  const narrow = useNarrowWorkspace()
+  const [imagesOpen, setImagesOpen] = useState(false)
+  const [imagesBusy, setImagesBusy] = useState(false)
+  const [imagesError, setImagesError] = useState('')
+  const imagesReturn = useRef<HTMLElement | null>(null)
+  const alive = useRef(true)
+  useEffect(() => () => { alive.current = false }, [])
+
+  /** La pause précède l'occultation ; un refus laisse le lecteur accessible et intact. */
+  async function openImages() {
+    if (imagesBusy || imagesOpen) return
+    imagesReturn.current = document.activeElement as HTMLElement | null
+    setImagesBusy(true); setImagesError('')
+    try {
+      await player.current?.prepareImages()
+      if (alive.current) setImagesOpen(true)
+    } catch (error) {
+      player.current?.releaseImages()
+      if (alive.current) setImagesError(error instanceof Error ? error.message : 'Impossible de préparer Images.')
+    } finally { if (alive.current) setImagesBusy(false) }
+  }
+
+  function closeImages() {
+    setImagesOpen(false)
+    player.current?.releaseImages()
+  }
+
   const note = useRef<VideoNoteHandle>(null)
   const player = useRef<PlayerHandle>(null)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
@@ -78,7 +106,9 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
     : 'Fiche vidéo'
   /** Point d'entrée commun : le lecteur décide de la disponibilité et du défilement. */
   function navigate(startMs: number): string {
-    return player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.'
+    const message = player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.'
+    if (!message && imagesOpen) closeImages()
+    return message
   }
 
   function updateTags(tags: Tag[]) {
@@ -129,9 +159,13 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
       )}
       {state.status === 'ready' && (
         <>
-          <div className={`video-workspace${source ? '' : ' without-source'}`}>
-            {source ? <VideoPlayer key={`player-${source.id}`} videoID={state.video.id} source={source} download={download} ref={player} />
-              : <section className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
+          <div className={`video-workspace${source ? '' : ' without-source'}${imagesOpen ? ' images-covered' : ''}`}>
+            {source ? <VideoPlayer key={`player-${source.id}`} videoID={state.video.id} source={source} download={download} ref={player} covered={imagesOpen}
+              onImagesFailure={message => {
+                closeImages(); setImagesError(message)
+                imagesReturn.current?.focus({ preventScroll: true })
+              }} />
+              : <section inert={imagesOpen} className="video-player"><h2>Lecteur</h2><p>Aucune source YouTube exploitable pour le lecteur et la transcription.</p></section>}
             <div className="workspace-note">
               <div className="note-tabs" role="tablist" aria-label="Contenu de la vidéo">
                 {(['note', 'information'] as const).map((value, index) => (
@@ -166,6 +200,10 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                   videoID={state.video.id}
                   visible={tab === 'note'}
                   onReveal={revealNote}
+                  onOpenImages={() => void openImages()}
+                  imagesOpen={imagesOpen}
+                  imagesBusy={imagesBusy}
+                  imagesError={imagesError}
                   onNavigate={reference => {
                     if (reference.videoID !== state.video.id) return 'Cette référence concerne une autre vidéo. Aucune navigation effectuée.'
                     if (!source) return 'Navigation non effectuée : aucun lecteur disponible pour cette vidéo.'
@@ -207,12 +245,14 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                 ))}
               </section>
             </div>
-            {source && <VideoTranscript key={source.id} videoID={state.video.id} sourceID={source.id}
+            {source && <VideoTranscript covered={imagesOpen} key={source.id} videoID={state.video.id} sourceID={source.id}
               onCite={excerpt => {
                 if (!note.current) throw new Error('La note est en cours de chargement. Recommencez la sélection une fois prête.')
                 note.current.insertCitation(transcriptCitation(excerpt, state.video.id, source.id))
               }}
               onNavigate={navigate} />}
+            {imagesOpen && <Images videoID={state.video.id} sources={state.video.sources}
+              narrow={narrow} returnTo={imagesReturn.current} onClose={closeImages} />}
           </div>
         </>
       )}

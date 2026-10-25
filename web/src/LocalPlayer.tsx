@@ -78,6 +78,8 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
 
   useImperativeHandle(ref, () => ({
     stop,
+    prepareImages: async () => {},
+    releaseImages: () => {},
     getTransferPosition() {
       const current = host.current
       if (!url) return { kind: 'empty' }

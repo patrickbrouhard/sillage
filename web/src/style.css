@@ -675,3 +675,38 @@ main.library-main { padding: 20px 32px 48px; }
   .site-header-library .brand { font-size: 18px; }
   .library-header-actions .library-filter-trigger { padding-inline: 8px; font-size: 13px; }
 }
+
+/* Images recouvre seulement la colonne droite ; les sessions restent dans la grille. */
+.video-workspace { position: relative; }
+.images-command { min-height: 40px; padding: 6px 10px; }
+.images-selector { padding: 0; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface); color: var(--text); max-width: none; max-height: none; margin: 0; overflow: hidden; }
+.images-selector[open] { display: flex; flex-direction: column; }
+.images-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex: none; }
+.images-heading h2 { margin: 0; }
+.images-scroll { flex: 1; min-height: 0; overflow: auto; padding: 16px; }
+.images-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.image-card { position: relative; aspect-ratio: 16 / 9; background: var(--input); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: grid; place-items: center; }
+.image-card img { display: block; width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+.image-card > [role=status] { position: relative; z-index: 3; padding: 28px 12px; font-size: .85rem; }
+.image-enlarge { position: absolute; inset: 0; border: 0; border-radius: inherit; background: transparent; cursor: zoom-in; }
+.image-enlarge:focus-visible { outline: 3px solid var(--focus); outline-offset: -4px; }
+.image-provenance, .image-time { position: absolute; pointer-events: none; background: #101725e8; color: #fff; border-radius: 4px; padding: 3px 6px; font-size: .75rem; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.image-provenance { top: 8px; left: 8px; }
+.image-time { bottom: 8px; right: 8px; font-variant-numeric: tabular-nums; }
+.images-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 16px; }
+.image-viewer { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); }
+.image-viewer[open] { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.image-viewer img { display: block; max-width: 100%; max-height: calc(100dvh - 100px); object-fit: contain; }
+.image-viewer::backdrop, .images-selector::backdrop { background: #0008; }
+html:has(.images-selector:modal, .image-viewer:modal) { overflow: hidden; }
+@media (min-width: 1100px) {
+  .images-selector { position: absolute; grid-column: 2; grid-row: 1 / -1; inset: 0; width: 100%; height: 100%; z-index: 5; }
+  .video-workspace.images-covered > :is(.video-player, .video-transcript) { visibility: hidden; }
+}
+@media (max-width: 1099px) {
+  .images-selector { position: fixed; inset: 0; width: 100%; height: 100dvh; border: 0; border-radius: 0; }
+}
+
+/* L'ajout d'Images déplace les icônes : leur aide reste ancrée dans la largeur utile. */
+.note-insertions { position: relative; }
+.note-insertions .icon-control { position: static; }

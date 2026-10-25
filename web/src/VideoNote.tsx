@@ -21,7 +21,11 @@ export interface VideoNoteHandle {
 }
 
 /** Présente une note locale et son état confirmé, avec modes partageant la même source. */
-export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavigate, visible = true, onReveal, ref }: {
+export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavigate, visible = true, onReveal, onOpenImages, imagesOpen, imagesBusy, imagesError, ref }: {
+  onOpenImages: () => void
+  imagesOpen: boolean
+  imagesBusy: boolean
+  imagesError: string
   videoID: number
   visible?: boolean
   onReveal?: () => void
@@ -154,6 +158,8 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
         <div className="note-controls">
           <div className="note-toolbar note-main-toolbar">
             <div className="note-insertions">
+              <button type="button" className="button images-command" aria-expanded={imagesOpen}
+                aria-haspopup="dialog" disabled={imagesBusy} onClick={onOpenImages}>Images</button>
               <IconButton icon="clock-plus" label="Insérer le temps actuel"
                 disabled={reading || initial === null} onClick={insertTime} />
               <IconButton icon={captureBusy ? 'spinner' : 'camera'} label="Capturer une image de la vidéo"
@@ -178,6 +184,8 @@ export function VideoNote({ videoID, getTimeReference, getCaptureTarget, onNavig
           {captureError && <p role="alert">{captureError}</p>}
           {captureState.error && <p role="status">{captureState.error}</p>}
           {captureState.asset?.status === 'failed' && <p role="alert">La génération de la capture a échoué ou a été interrompue. Sa référence est conservée dans la note.</p>}
+          {imagesBusy && <p role="status">Mise en pause de YouTube avant Images…</p>}
+          {imagesError && <p role="alert">{imagesError}</p>}
           {insertionError && <p role="alert">{insertionError}</p>}
           <div role="status" aria-label="Navigation temporelle" hidden={reading}>{navigationMessage}</div>
           <p role="status" aria-label="État de la note"

@@ -167,16 +167,14 @@ Les problèmes éventuels de compatibilité doivent être évalués avant de dé
 
 ### 3.3 Captures et bibliothèque d'images
 
-La génération de captures PNG, leur conservation sous forme d'`Asset` et leur insertion dans les notes sont implémentées.
+La génération de captures PNG, leur conservation sous forme d'`Asset`, leur insertion initiale et le catalogue Images par vidéo avec agrandissement sont implémentés. Les règles actuelles de consultation figurent dans [Product & UX](01-product-and-ux.md#67-images-de-la-vidéo).
 
 Évolutions à étudier :
 
-- Galerie des captures associées à une vidéo.
 - Consultation et réinsertion d'une capture existante dans une note.
 - Import d'images externes.
 - Suppression explicite des assets et gestion de leurs références.
 - Sélection et insertion de plusieurs captures.
-- Agrandissement et consultation détaillée des images.
 - Navigation vers le passage vidéo correspondant à une capture.
 - Gestion des captures dont la génération continue après navigation.
 - Indicateurs d'activité accessibles en dehors de la page d'origine.

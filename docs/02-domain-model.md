@@ -348,7 +348,7 @@ Une demande valide crée un asset `pending` avant l'extraction. La publication d
 - Un asset `available` ne garantit pas que le fichier soit encore lisible après une suppression ou une corruption extérieure : **identité/état et disponibilité effective sont distincts**.
 - Les références Markdown utilisent l'URL publique `/api/v1/assets/{id}/content`, jamais un nom de fichier comme identifiant métier.
 
-Retirer une image d'une note, annuler son insertion ou supprimer son `MediaFile` d'origine **ne supprime pas l'asset**. Les fichiers publiés et orphelins ne sont pas automatiquement nettoyés au démarrage. Galerie, import, suppression explicite et types supplémentaires nécessiteront un nouveau cadrage ; aucune hiérarchie d'assets futurs n'est anticipée.
+Retirer une image d'une note, annuler son insertion ou supprimer son `MediaFile` d'origine **ne supprime pas l'asset**. Les fichiers publiés et orphelins ne sont pas automatiquement nettoyés au démarrage. Le catalogue de la vidéo retrouve aussi les captures non référencées, toutes sources et tous états confondus. Le tri par timestamp puis identité conserve chaque source sans synchroniser ses positions avec celles des autres. Import, suppression explicite et types supplémentaires restent à cadrer ; aucune hiérarchie d'assets futurs n'est anticipée.
 
 ## 8. `MediaFile`
 

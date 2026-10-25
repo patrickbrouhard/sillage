@@ -35,6 +35,8 @@ var (
 
 // Repository conserve les intentions avant extraction.
 type Repository interface {
+	// List parcourt les captures d'une vidéo dans l'ordre temporel puis par identité.
+	List(context.Context, video.VideoID, int, int) ([]Asset, error)
 	// Get lit une identité stable.
 	Get(context.Context, int64) (Asset, error)
 	// ByRequest retrouve une commande sans relancer son travail.
@@ -76,3 +78,13 @@ type Storage interface {
 	Publish(context.Context, string, Asset) (string, int64, error)
 	Open(Asset) (Content, error)
 }
+
+// Page contient une portion bornée du catalogue, indépendante des références Markdown.
+type Page struct {
+	Assets  []Asset
+	Number  int
+	HasMore bool
+}
+
+// PageSize borne les métadonnées et les images proposées par consultation.
+const PageSize = 12
