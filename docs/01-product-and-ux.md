@@ -270,7 +270,7 @@ La commande de sauvegarde reste visible et interactive au repos.
 ### 3.4 Présentation de la note
 
 - La barre permanente place les insertions Temps (`clock-plus`) et Capture (`camera`) à gauche ; la sauvegarde
-  puis le sélecteur Édition/Lecture à l'extrémité droite. Aucune commande ne flotte au survol du texte.
+  puis le sélecteur Édition/Lecture à l'extrémité droite. La mise en forme contextuelle apparaît seulement après une sélection stabilisée (voir § 3.5).
 - Les commandes à icônes conservent des cibles **40 × 40 px**, sur mobile aussi. Les insertions sont espacées de
   4 px, le sélecteur et la sauvegarde de 8 px, les deux groupes d'au moins 12 px. Le sélecteur partage le fond
   commun, les segments arrondis et l'état actif du sélecteur YouTube/Local. Celui de la note mesure **42 px**
@@ -287,6 +287,79 @@ La commande de sauvegarde reste visible et interactive au repos.
   restent sticky.
 - Les changements d'affichage, de largeur, de thème ou d'onglet ne doivent pas provoquer de remontage de
   l'éditeur, de déplacement intempestif du curseur ni d'enregistrement.
+
+### 3.5 Mise en forme contextuelle du Markdown
+
+En Édition, une sélection continue non vide fait apparaître une barre compacte après stabilisation du geste.
+Son ordre est **Texte**, **Gras**, **Italique**, **Code inline**, **Lien**. Texte contient Paragraphe et H1 à H6 ;
+le libellé affiche le niveau reconnu, Texte ou Mixte. Une sélection simplement repliée visuellement reste
+monoligne. Aucun bouton Markdown permanent, Live Preview des titres, WYSIWYG ou nouveau raccourci de mise en
+forme n'est introduit.
+
+- La barre ne prend pas le focus à son apparition et attend la fin du glisser. Elle reste ouverte pendant
+  l'utilisation de ses commandes, de son sous-menu ou du formulaire. Les sélections multiples et la
+  composition IME ne l'affichent pas.
+- Une transformation réussie ferme la barre et conserve une sélection utile, dans le même sens lorsque
+  possible, hors des délimiteurs ajoutés. La transaction et les confirmations de sauvegarde ne la rouvrent
+  pas. Un nouveau geste de sélection, même sur le même passage, permet sa réouverture.
+- Échap, un clic extérieur, la saisie, la disparition de la sélection ou le masquage de l'éditeur la ferment.
+  Un clic extérieur conserve son propre focus. Les changements de mode, d'onglet, de disposition et de thème
+  conservent la session CodeMirror. Ouvrir, mesurer et fermer la barre ne modifie ni texte, ni historique, ni
+  sauvegarde.
+- Chaque transformation réelle forme une étape Undo/Redo distincte des saisies voisines et utilise
+  l'autosauvegarde habituelle. Aucun contenu provisoire n'est inséré.
+
+**Commandes inline.** Elles demandent une sélection monoligne de source avec du contenu utile. Les espaces
+périphériques sont conservés à l'extérieur de l'enveloppe. Gras et Italique ajoutent ou retirent une
+enveloppe exacte reconnue, sélectionnée avec ou sans ses délimiteurs. Les compositions simples utilisent au
+besoin les variantes avec underscores pour conserver des délimiteurs fiables. Code inline choisit des
+backticks plus longs que ceux du contenu et ajoute le padding Markdown nécessaire ; retirer une enveloppe
+restitue son contenu source. Les sélections partielles ambiguës dans une mise en forme sont refusées :
+aucun moteur de suppression partielle ou d'uniformisation n'est proposé.
+
+Les commandes refusent les structures protégées : code de bloc, HTML, tableaux GFM, images, définitions ou
+références de liens, ainsi que les en-têtes littéraux de callout. Les transformations inline qui touchent
+une référence temporelle, son libellé ou sa destination sont refusées. Une commande indisponible reste
+consultable au clavier ; son activation explique le refus sans modifier la note. La présence d'une syntaxe
+existante ne suffit pas à refuser une composition fiable.
+
+**Titres.** Une sélection partielle cible la ligne entière ; une fin exactement au début de la ligne
+suivante exclut cette dernière, dans les deux sens de sélection. Chaque ligne non vide reçoit le niveau
+explicitement demandé ; les lignes vides sont conservées. Le niveau existant est remplacé et choisir le
+même niveau est sans effet. Paragraphe retire le préfixe ATX reconnu et son éventuelle clôture, en conservant
+les autres mises en forme. Les titres Setext restent différés. Une liste, citation, callout, table, bloc
+de code, HTML ou définition incompatible provoque un refus global. Retirer un titre est aussi refusé
+si ses lignes voisines ou son contenu révéleraient une autre structure Markdown. Un lien temporel complet
+reste intact quand seul le préfixe de titre change.
+
+**Création de lien.** La sélection fournit le libellé. Le champ « Adresse du lien », Entrée et le bouton
+« Insérer » permettent une confirmation explicite ; Annuler ou Échap ne modifie rien. La destination suit
+le filtre des liens en Lecture (notamment HTTP(S), mailto, liens relatifs et ancres) ; les URI temporelles
+sont réservées aux actions dédiées. Les caractères spéciaux du libellé sont échappés et les destinations
+sont protégées par des chevrons et un encodage ciblé. Aucune requête réseau ni ouverture d'adresse n'est
+effectuée. La création de liens imbriqués et la modification générale des liens existants sont exclues.
+
+Le formulaire appartient à la vue et à la sélection qui l'ont ouvert. Une modification du document,
+notamment la fin d'une capture asynchrone, invalide sa cible : la confirmation est désactivée et le message
+« La note a changé depuis l’ouverture du formulaire. Sélectionnez à nouveau le texte pour insérer le lien. »
+est affiché. Une confirmation de sauvegarde sans changement du document conserve la cible. Un remplacement
+explicite de version en conflit détruit les surfaces de l'ancienne session.
+
+**Position et accessibilité.** La barre privilégie le dessus et se replie dessous. Elle suit le défilement
+extérieur à CodeMirror et les changements de géométrie ; pour une longue sélection, elle utilise
+l'extrémité active ou une portion sélectionnée encore visible. Elle est masquée si aucun ancrage n'est
+visible. Les surfaces sont bornées au viewport, défilables et adaptées aux fenêtres basses ou étroites,
+avec des cibles de 40 px et les couleurs des deux thèmes.
+
+Tab entre dans la barre depuis l'éditeur et permet d'en sortir ; les flèches parcourent les commandes,
+Home/End leurs extrémités, Entrée/Espace les activent. Le champ conserve ses touches natives. Échap ferme
+d'abord le sous-menu ou le formulaire, puis la barre. Les raccourcis existants de sauvegarde, historique
+et navigation temporelle sont conservés.
+
+Sur tactile, le délai de stabilisation est plus long et le viewport visuel tient compte du clavier
+virtuel. La sélection, les poignées et le menu natif Copier/Coller restent gérés par le navigateur.
+Une recette sur appareils réels **iOS/Safari et Android/Chrome** est nécessaire ; l'émulation de largeur
+ne suffit pas à confirmer leur comportement.
 
 ## 4. Temps, références Markdown et citations
 

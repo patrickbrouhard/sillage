@@ -1,3 +1,4 @@
+import { markdownToolbar, markdownToolbarEnabled } from './markdownToolbar'
 import { captureMarker, setCaptureMarker, captureVisualTransaction } from './captureMarker'
 import { useEffect, useLayoutEffect, useImperativeHandle, useRef } from 'react'
 import type { TemporalReference } from './temporalReference'
@@ -189,7 +190,7 @@ export function MarkdownEditor({
         doc: initial,
         extensions: [
           // Le découpage natif accepte CRLF, CR et LF ; la sérialisation produit du LF.
-          history(), captureMarker, positionPlugin, markdown(), syntaxHighlighting(highlightStyle),
+          history(), captureMarker, positionPlugin, markdown(), markdownToolbar(), syntaxHighlighting(highlightStyle),
           EditorView.lineWrapping, markdownDecorations,
           compactTemporalReferences(reference => callbacks.current.onNavigate(reference)),
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
@@ -220,6 +221,7 @@ export function MarkdownEditor({
       }),
     })
     editor.current = view
+    view.dispatch({ effects: markdownToolbarEnabled.of(active && visible) })
     return () => { view.destroy(); editor.current = null }
     // Le parent remonte cet éditeur uniquement pour une nouvelle version choisie explicitement.
   }, [initial])
@@ -233,6 +235,9 @@ export function MarkdownEditor({
   useLayoutEffect(() => {
     editor.current?.dispatch({ effects: refreshImagePosition.of(null), annotations: captureVisualTransaction })
   }, [imagesOpen, active, initial])
+  useLayoutEffect(() => {
+    editor.current?.dispatch({ effects: markdownToolbarEnabled.of(active && visible) })
+  }, [active, visible, initial])
   useLayoutEffect(() => {
     // Réafficher un onglet ne reprend pas le focus détenu par son bouton.
     if (visible) editor.current?.requestMeasure()

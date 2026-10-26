@@ -1,6 +1,6 @@
 # Roadmap — Sillage
 
-Dernière consolidation : 25 octobre 2026.
+Dernière consolidation : 26 octobre 2026.
 
 Ce document donne **l'état d'avancement et les prochaines directions de développement**. Il ne décrit ni les contrats techniques en vigueur, ni le détail des tests effectués à chaque commit, ni toutes les décisions encore ouvertes.
 
@@ -29,6 +29,7 @@ Les dernières tranches ont également apporté la lecture locale, la journalisa
 | 5 — Interface Web | Bibliothèque, fiche vidéo, lecteur YouTube, éditeur Markdown et sauvegarde fiable | Réalisé |
 | 6 — Interactions temporelles | Recherche dans une transcription ouverte, citations, références Markdown et navigation | Réalisé |
 | UX 1 — Confort de rédaction | Callouts, présentation de l'éditeur et références compactes/interactives | Réalisé |
+| UX 2 — Mise en forme contextuelle | Barre de sélection Markdown, titres ATX et création de lien ; sans Live Preview ni nouveaux raccourcis | Réalisé (V1) |
 | 7 — Médias | Téléchargement et conservation des fichiers, captures PNG, consultation et réinsertion par vidéo | Réalisé |
 | 8 — Recherche globale | FTS5 transactionnel, notes et métadonnées, API et parcours Web paginés | Réalisé |
 | Consolidations postérieures | Journalisation structurée, lecture locale, ergonomie du lecteur et nouvelle disposition du workspace | Réalisé |

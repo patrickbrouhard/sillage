@@ -258,6 +258,9 @@ Les composants d'interface ne doivent pas recréer les identités métier, impl�
 - L'instance et la session de note restent **montées** lors des changements de thème, d'onglet, de mode Édition/Lecture ou de disposition. Conserver sélection, Undo/Redo, brouillon et autosauvegarde.
 - Autosauvegarde et révisions conditionnelles appartiennent à la session de note : déclenchement après 2 s d'inactivité ou 20 s de modifications continues, sans requêtes périodiques si rien ne change.
 - Les réponses perdues, réessais réseau bornés et conflits doivent préserver le texte local et ne produire ni faux succès ni écrasement inconditionnel.
+- La barre contextuelle utilise les tooltips, sélections et transactions de CodeMirror, sans nouvelle
+  dépendance. Son validateur réutilise Remark/GFM déjà présent en Lecture pour reconnaître les structures
+  voisines, notamment les tableaux ; il ne sérialise pas le document. La grammaire CodeMirror reste CommonMark.
 - Les représentations visuelles enrichies reposent sur des **décorations CodeMirror**, non sur une transformation persistée du Markdown. Les callouts `quote`/`quote:tr` utilisent une reconnaissance ciblée ; pas de moteur générique extensible ou de Live Preview complet.
 - Les références temporelles canoniques peuvent être compactées ou révélées en Édition ; la copie, la sélection, la composition IME et les gestes d'édition doivent rester sûrs.
 - L'activation temporelle en Édition se fait par **Ctrl/Cmd+clic** ou **Ctrl/Cmd+Entrée** pour les formes admissibles ; elle réutilise les contrôles de navigation de la transcription et du mode Lecture, sans écrire dans la note.

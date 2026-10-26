@@ -755,3 +755,34 @@ html:has(.images-selector:modal, .image-viewer:modal) { overflow: hidden; scroll
 .images-heading h2:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
 
 .lightbox-position { font-size: .75rem; opacity: .8; white-space: nowrap; }
+
+/* Le tooltip sort du panneau défilant ; les couleurs suivent le thème sans remontage. */
+.cm-tooltip.markdown-formatting {
+  border: 1px solid var(--border); border-radius: 10px; padding: 4px;
+  background: var(--surface); color: var(--text); box-shadow: 0 4px 18px #0003;
+  font: 14px/1.4 system-ui, sans-serif; z-index: 30; overflow: auto;
+  max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px);
+}
+.markdown-formatting-row { display: flex; align-items: center; gap: 2px; }
+.markdown-formatting [hidden] { display: none; }
+.markdown-formatting button {
+  min-width: 40px; min-height: 40px; border: 0; border-radius: 6px;
+  padding: 6px 9px; background: transparent; color: inherit; cursor: pointer;
+}
+.markdown-formatting button:hover, .markdown-formatting button:focus-visible { background: var(--hover); }
+.markdown-formatting button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.markdown-formatting button[aria-disabled=true], .markdown-formatting button:disabled { color: var(--muted); cursor: default; }
+.markdown-formatting-bold { font-weight: 750; }
+.markdown-formatting-italic { font-style: italic; }
+.markdown-formatting-code { font-family: monospace; }
+.markdown-formatting [aria-label="Niveau du texte"] {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--subtle);
+}
+.markdown-formatting [aria-label="Niveau du texte"] button:first-child { grid-column: span 2; }
+.markdown-formatting form { display: flex; flex-wrap: wrap; gap: 4px; width: min(320px, calc(100vw - 26px)); }
+.markdown-formatting label { display: grid; gap: 4px; width: 100%; padding: 4px; }
+.markdown-formatting input {
+  width: 100%; min-width: 0; min-height: 40px; border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px; font: inherit; font-size: 16px;
+}
+.markdown-formatting-message { max-width: 300px; margin: 6px; font-size: 13px; overflow-wrap: anywhere; }

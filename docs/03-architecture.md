@@ -317,6 +317,18 @@ Le layout actuel comprend les surfaces 16:9 (avec exception de hauteur minimale 
 
 Une session locale par note porte le texte courant, la dernière version confirmée, sa révision, les délais d'autosauvegarde, les conflits et l'écriture en cours. `MarkdownEditor` conserve son `EditorView` pendant le passage Édition/Lecture, les onglets et les réponses du serveur. Le rendu Lecture utilise GFM sécurisé sans exécuter de HTML brut.
 
+La barre Markdown est une extension de la même vue : une StateField pilote les tooltips CodeMirror,
+un plugin observe la stabilisation des gestes et les changements de géométrie. Le portail sort des zones
+de clipping ; ses contrôles DOM natifs ne deviennent jamais l'autorité sur le texte sélectionné.
+Les transformations pures produisent des changements limités aux délimiteurs, préfixes et échappements,
+sans remplacer les caractères de contenu conservés : les marqueurs de capture gardent ainsi leur ancrage.
+Elles fournissent une sélection CodeMirror ; une annotation
+d'isolation les sépare des saisies voisines dans Undo/Redo. Le listener existant est l'unique chemin vers
+la sauvegarde. Le formulaire de lien conserve l'identité du document et de la sélection de son ouverture ;
+une modification l'invalide avant toute confirmation. Les réponses de sauvegarde ne remplacent pas le document.
+La destruction de la vue détruit aussi ses surfaces, timers et observateurs. Les règles de commandes et
+d'admissibilité sont détaillées dans [Product & UX](01-product-and-ux.md#35-mise-en-forme-contextuelle-du-markdown).
+
 La session travaille en LF ; le service Go normalise au moment de la sauvegarde. Une ancienne note CRLF ne doit pas être écrite simplement parce qu'on l'a ouverte. Le client peut réconcilier une réponse perdue par GET avant une nouvelle tentative ; les conflits suspendent l'autosauvegarde et demandent un choix explicite conditionnel.
 
 La sauvegarde visuelle représente la **confirmation de tout le contenu actuel**, pas la seule fin d'une promesse réseau. Les confirmations partielles ou anciennes ne déclenchent pas de coche de succès. Échec et conflit persistent jusqu'à leur résolution. Les états de présentation ne constituent ni nouveaux champs en base ni nouvelles routes.
