@@ -189,6 +189,32 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
   margin: 0 auto;
   min-height: 16rem; overflow-wrap: anywhere; padding: var(--note-padding);
 }
+
+/* Échelle commune aux notes, appliquée une seule fois au bloc et jamais aux fragments. */
+.markdown-editor .cm-note-h1, .markdown-reading h1 { --note-heading-size: 1.618em; --note-heading-weight: 700; --note-heading-height: 1.2; --note-heading-spacing: -.015em; }
+.markdown-editor .cm-note-h2, .markdown-reading h2 { --note-heading-size: 1.462em; --note-heading-weight: 680; --note-heading-height: 1.2; --note-heading-spacing: -.011em; }
+.markdown-editor .cm-note-h3, .markdown-reading h3 { --note-heading-size: 1.318em; --note-heading-weight: 660; --note-heading-height: 1.3; --note-heading-spacing: -.008em; }
+.markdown-editor .cm-note-h4, .markdown-reading h4 { --note-heading-size: 1.188em; --note-heading-weight: 640; --note-heading-height: 1.4; --note-heading-spacing: -.005em; }
+.markdown-editor .cm-note-h5, .markdown-reading h5 { --note-heading-size: 1.076em; --note-heading-weight: 620; --note-heading-height: 1.5; --note-heading-spacing: -.002em; }
+.markdown-editor .cm-note-h6, .markdown-reading h6 { --note-heading-size: 1em; --note-heading-weight: 600; --note-heading-height: 1.5; --note-heading-spacing: 0; }
+.markdown-editor .cm-note-heading,
+.video-note .markdown-reading :is(h1, h2, h3, h4, h5, h6) {
+  font-size: var(--note-heading-size);
+  font-weight: var(--note-heading-weight);
+  line-height: var(--note-heading-height);
+  letter-spacing: var(--note-heading-spacing);
+  font-style: normal;
+  text-decoration: none;
+}
+.markdown-editor .cm-note-heading {
+  --note-heading-syntax-weight: inherit;
+  --note-heading-syntax-decoration: none;
+  padding-block: .25rem .125rem;
+}
+.markdown-editor .cm-note-heading-marker { color: var(--muted); }
+.video-note .markdown-reading :is(h1, h2, h3, h4, h5, h6) { margin-block: 1rem .5rem; }
+.video-note .markdown-reading > :first-child { margin-top: 0; }
+
 .markdown-reading img { max-width: 100%; }
 .markdown-reading pre { overflow-x: auto; }
 .markdown-reading table { border-collapse: collapse; display: block; overflow-x: auto; }
