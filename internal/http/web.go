@@ -22,8 +22,9 @@ func NewWebHandler(api http.Handler, files fs.FS) (http.Handler, error) {
 	}
 	static := http.FileServerFS(files)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Toute la famille API reste au routeur, y compris ses erreurs 404/405.
-		if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
+		// Les familles API et MCP restent aux adapters, y compris leurs erreurs 404/405.
+		if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") ||
+			r.URL.Path == "/mcp" || strings.HasPrefix(r.URL.Path, "/mcp/") {
 			api.ServeHTTP(w, r)
 			return
 		}

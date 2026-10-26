@@ -33,7 +33,7 @@ Documents complémentaires :
 | Distribution | Docker multi-stage, frontend statique servi par Go, dépendances externes épinglées | Acté et implémenté |
 | Journalisation | `log/slog`, sortie standard, texte local ou JSON en Docker, rotation Docker | Acté et implémenté |
 | Recherche globale | SQLite FTS5, projection transactionnelle par vidéo | Acté et implémenté |
-| MCP | Serveur Go s'appuyant directement sur les services applicatifs ; SDK Go officiel privilégié | Architecture envisagée, non livrée |
+| MCP | SDK Go officiel v1.8.0, Streamable HTTP stateless, quatre lectures locales sur services partagés | Acté et implémenté ; validation agents à compléter |
 | IA / STT | Fournisseurs et moteurs à choisir ; pas de dépendance du domaine à un fournisseur | Ouvert |
 | Desktop | Éventuelle application Wails, sans engagement | Ouvert |
 | WAL, sauvegarde avancée, framework de migrations | À évaluer selon les besoins réels | Ouvert |
@@ -65,9 +65,9 @@ Principes en vigueur :
 
 L'application vise actuellement un usage local : ne pas déduire de l'absence d'authentification actuelle que l'API serait prête à être exposée publiquement. Pagination, permissions et authentification restent à cadrer.
 
-### 2.3 MCP et IA : frontières futures
+### 2.3 MCP local et futures fonctions IA
 
-Le futur MCP doit appeler les **services applicatifs directement**, sans requêtes HTTP vers la propre API du serveur lorsque les deux interfaces résident dans le même processus :
+MCP appelle les **services applicatifs directement**, avec les mêmes instances que REST et sans requêtes HTTP vers la propre API du serveur :
 
 ```text
 REST ──┐
@@ -75,7 +75,18 @@ REST ──┐
 MCP ──┘
 ```
 
-Le SDK MCP Go officiel est la piste privilégiée. Les outils, permissions, ressources, confirmations et transport restent à décider. Les fonctions IA et STT devront également rester derrière des abstractions ciblées : ni le domaine ni l'usage manuel ne doivent dépendre d'OpenAI, d'Ollama ou d'un autre fournisseur particulier. Voir [Open questions](06-open-questions.md).
+Le SDK officiel `github.com/modelcontextprotocol/go-sdk` v1.8.0 est épinglé :
+il gère la révision récente du protocole et l’initialisation historique sans implémentation
+protocolaire propre à Sillage. Streamable HTTP stateless et JSON conviennent aux quatre
+lectures bornées, sans session applicative ni reprise. Les versions annoncées sont
+restreintes aux trois révisions vérifiées et les lots sont refusés avant les lectures. La V1 reste optionnelle, désactivée
+par défaut et limitée au développement local, sans authentification. Les interfaces étroites
+excluent acquisitions et écritures. Contrats, sécurité et compatibilité vérifiée :
+[MCP](mcp.md).
+
+Les fonctions IA et STT resteront derrière des abstractions ciblées : ni le domaine
+ni l’usage manuel ne doivent dépendre d’un fournisseur particulier.
+Les futures écritures MCP et la sécurité homelab restent des cadrages distincts.
 
 ## 3. SQLite et modèle persistant
 
@@ -349,7 +360,7 @@ Les sauvegardes, restaurations et changements de chemins doivent préserver **si
 
 La recherche globale FTS5 est décrite en section 3.7. Transcriptions avec passages/timestamps et futurs artefacts IA restent hors de son périmètre actuel. Une éventuelle recherche sémantique nécessite une décision distincte ; aucune base vectorielle n'est introduite.
 
-À reconsidérer uniquement lorsque le besoin est établi : WAL ; Goose ; import de `VideoSource` locale ; format et rétention des snapshots ; plusieurs qualités et audio seul ; règles de suppression/soft delete ; sauvegarde et restauration avancées ; jobs persistants ; recherche hybride ; auth/multi-utilisateur ; desktop ; providers IA/STT ; transport et permissions MCP. La liste et les questions détaillées vivent dans [Open questions](06-open-questions.md), pas dans un journal ajouté ici.
+À reconsidérer uniquement lorsque le besoin est établi : WAL ; Goose ; import de `VideoSource` locale ; format et rétention des snapshots ; plusieurs qualités et audio seul ; règles de suppression/soft delete ; sauvegarde et restauration avancées ; jobs persistants ; recherche hybride ; auth/multi-utilisateur ; desktop ; providers IA/STT ; éventuelles écritures MCP et sécurité homelab de l’ensemble du serveur. La liste et les questions détaillées vivent dans [Open questions](06-open-questions.md), pas dans un journal ajouté ici.
 
 Ne pas ajouter sans justification : ORM lourd, microservices, queue distribuée, Redis, PostgreSQL/MySQL, hiérarchie générique des sources, moteur de plugins, dump permanent des métadonnées brutes ni modèle SQL mot-à-mot des transcriptions.
 

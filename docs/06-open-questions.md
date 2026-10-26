@@ -334,21 +334,17 @@ Restent à étudier :
 
 ## 6. MCP
 
-Le serveur MCP est une étape future. Il devra réutiliser les services applicatifs plutôt que manipuler directement SQLite ou les outils externes.
+La première tranche de quatre lectures locales et son transport sont définis dans
+[MCP](mcp.md). Les futurs arbitrages concernent :
 
-Questions ouvertes :
-
-- Quels outils exposer en priorité ?
-- Faut-il proposer des resources MCP en complément des tools ?
-- Quelle granularité choisir pour les opérations de lecture et d'écriture ?
-- Comment gérer les permissions selon les opérations ?
-- Quelles actions doivent nécessiter une confirmation explicite ?
-- Quel transport et quel mode d'exécution privilégier ?
-- Comment convertir les erreurs métier en erreurs MCP ?
-- Comment représenter les opérations longues ou asynchrones ?
-- Quelles garanties appliquer lors de modifications de notes ou d'autres données utilisateur par un agent ?
-
-La liste définitive des outils et les règles d'accès ne sont pas décidées.
+- Quel modèle d’authentification, de permissions et d’exposition homelab retenir pour
+  l’ensemble du serveur, y compris les écritures REST ?
+- Quelles écritures MCP apportent une valeur suffisante, avec quelles confirmations,
+  préconditions de révision et garanties de conservation ?
+- Si des clients tronquent les transcriptions représentatives, faut-il agir sur leur
+  configuration, les plafonds ou un futur contrat de lecture de contenus longs ?
+- Quels besoins concrets justifieraient resources, opérations longues ou autres capacités
+  supplémentaires, sans les anticiper dans la V1 ?
 
 ## 7. Intelligence artificielle
 

@@ -9,7 +9,7 @@ Documents complémentaires :
 - [Roadmap](05-roadmap.md), [questions ouvertes](06-open-questions.md) et [recette manuelle des lecteurs](07-local-playback-validation.md).
 - [Historique des arbitrages significatifs](history/sillage-decisions-octobre-2026.md).
 
-**Périmètre :** REST, services applicatifs, SQLite, `yt-dlp`, `ffmpeg`/`ffprobe`, stockage local, React et Docker sont implémentés. Le serveur MCP, l'IA intégrée, le STT et une application desktop restent des perspectives, pas des composants existants.
+**Périmètre :** REST, services applicatifs, SQLite, `yt-dlp`, `ffmpeg`/`ffprobe`, stockage local, React, Docker et un adapter MCP local en lecture seule sont implémentés. L'IA intégrée, le STT et une application desktop restent des perspectives, pas des composants existants.
 
 **Maintenance :** modifier les sections concernées lorsqu'un contrat évolue, sans ajouter de journal de développement. Les migrations SQL, les types et les routes du code font foi pour les détails d'implémentation ; corriger une divergence documentaire après vérification.
 
@@ -31,7 +31,8 @@ Documents complémentaires :
        SQLite / fichiers   Adapters externes
                            yt-dlp · ffmpeg · ffprobe
 
-   Futur : MCP / CLI / desktop ──► mêmes services applicatifs
+   Agents MCP / Streamable HTTP ──► adapter MCP ──► mêmes services applicatifs
+   Futur : CLI / desktop ──► mêmes services applicatifs
 ```
 
 Le **cœur applicatif n'est pas l'API HTTP**. Les handlers convertissent et valident les requêtes, appellent les services puis construisent les réponses. Ils ne portent ni SQL métier, ni invocation directe de `yt-dlp`, ni gestion autonome des fichiers métier. Les objets métier ne dépendent ni de Chi, ni de React, ni de SQLite, ni d'un provider IA.
@@ -50,7 +51,13 @@ Une source de travail unique, actuellement la première source YouTube exploitab
 
 Le serveur Go assemble services et adapters au point de composition (`cmd/server`). En développement, Vite sert le frontend et relaie `/api` vers Go. En production, le serveur Go sert le frontend compilé et l'API ; le navigateur ne lit directement ni SQLite ni `data/`.
 
-Le futur serveur MCP devra appeler les **mêmes services applicatifs** que REST, sans requêtes HTTP vers sa propre API si les deux partagent le processus. Ses outils, permissions et transports ne sont pas encore définis. Les futurs providers IA/STT seront eux aussi isolés derrière les frontières appropriées.
+L’adapter `internal/adapter/mcp` expose quatre lectures sur `/mcp`, activées explicitement.
+Il appelle directement les **mêmes instances de services applicatifs** que REST, assemblées
+dans `cmd/server`, via des interfaces restreintes à la recherche et aux lectures locales.
+SDK officiel, DTO, validation des sorties et protections HTTP restent dans l’adapter
+et la composition. Les lots sont refusés avant tout service applicatif.
+Le transport Streamable HTTP stateless, ses limites et ses contrats sont définis dans
+[MCP](mcp.md). Les futurs providers IA/STT restent derrière leurs frontières propres.
 
 ## 2. Services et transactions métier
 
@@ -453,13 +460,18 @@ Les niveaux, formats et la rotation sont définis dans [Tech stack & decisions](
 
 ### 10.1 Serveur et Docker
 
-Le serveur assemble les adapters SQLite, filesystem, `yt-dlp`, `ffmpeg`/`ffprobe`, services Go, handlers HTTP et fichiers frontend. Le build de production sert une SPA statique ; le mode API seul reste possible sans frontend. Le Dockerfile multi-stage fournit l'environnement Go/Web et les outils nécessaires dans une image finale non-root.
+Le serveur assemble les adapters MCP, SQLite, filesystem, `yt-dlp`, `ffmpeg`/`ffprobe`, services Go, handlers HTTP et fichiers frontend. Le build de production sert une SPA statique ; le mode API seul reste possible sans frontend. Le Dockerfile multi-stage fournit l'environnement Go/Web et les outils nécessaires dans une image finale non-root.
 
 Par défaut, Docker publie le port hôte sur `127.0.0.1`, malgré l'écoute interne `0.0.0.0`. Les données du bind mount restent indépendantes de l'image ; les sauvegardes/restaurations à froid doivent être cohérentes. Aucune authentification ne protège actuellement une publication réseau générale.
 
 ### 10.2 Arrêt et opérations longues
 
 Les téléchargements et captures vivent au niveau du serveur ; une déconnexion du navigateur ne les annule pas. L'arrêt doit stopper les descendants des outils externes et attendre la finalisation des opérations avant la fermeture de SQLite. Les acquisitions synchrones de métadonnées ou de transcriptions restent au contraire bornées par la requête et son contexte.
+
+Les lectures MCP ont leur propre délai et suivent la déconnexion HTTP, y compris avec
+le protocole historique. L’arrêt annule les lectures et attend les handlers SDK avant
+fermeture de SQLite. La route reste réservée quand MCP est désactivé ; elle ne passe jamais
+par le repli SPA. Voir [cycle de vie et limites MCP](mcp.md#limites-expérimentales).
 
 Une seule instance doit posséder le répertoire de données. Aucun `Job` générique persistant ni file distribuée n'est requis par l'architecture actuelle ; leur éventuelle introduction est une décision future.
 
@@ -471,7 +483,7 @@ La CI déterministe couvre services/SQLite, REST/Postman, React/Playwright et Do
 
 ## 11. Extensions futures et règles de maintenance
 
-Les extensions de recherche, MCP, IA/STT, imports locaux, autres providers, sauvegarde avancée et desktop doivent conserver les **frontières métier** ci-dessus. Leur existence dans la roadmap ou dans les questions ouvertes **n'autorise pas** à créer immédiatement ports, routes, jobs ou tables anticipés.
+Les extensions de recherche et de MCP, IA/STT, imports locaux, autres providers, sauvegarde avancée et desktop doivent conserver les **frontières métier** ci-dessus. Leur existence dans la roadmap ou dans les questions ouvertes **n'autorise pas** à créer immédiatement ports, routes, jobs ou tables anticipés.
 
 Lorsque le code change :
 
