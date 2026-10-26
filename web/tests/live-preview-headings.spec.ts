@@ -313,3 +313,64 @@ for (const reversed of [false, true]) {
     expect(writes).toEqual([])
   })
 }
+
+test.describe('composition Chromium via EditContext Android', () => {
+  test.use({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36' })
+
+  for (const sample of [
+    { name: 'retrait du titre', initial: '## Heading', replacement: '見出し', before: 1, after: 0 },
+    { name: 'création du titre', initial: 'Heading', replacement: '## 見出し', before: 0, after: 1 },
+  ]) {
+    test(sample.name + ' : recalcul après validation sans autre interaction', async ({ page, context }) => {
+      const text = 'before\n' + sample.initial + '\nafter'
+      const updated = 'before\n' + sample.replacement + '\nafter'
+      const { editor, writes } = await openEditor(page, text)
+      const original = await editor.elementHandle()
+      await editor.focus()
+      await page.evaluate(to => window.editorProbe.select(7, to), text.indexOf('\nafter'))
+      expect((await selection(editor)).editContext).toBe(true)
+      const cdp = await context.newCDPSession(page)
+      await cdp.send('Input.imeSetComposition', {
+        text: sample.replacement,
+        selectionStart: sample.replacement.length,
+        selectionEnd: sample.replacement.length,
+      })
+      expect(await selection(editor)).toMatchObject({ doc: updated, compositionStarted: true })
+      await expect(editor.locator('.cm-note-h2')).toHaveCount(sample.before)
+      await cdp.send('Input.insertText', { text: sample.replacement })
+      const committed = await selection(editor)
+      expect(committed).toMatchObject({ doc: updated, compositionStarted: false })
+      // Aucune frappe, sélection ni navigation après la validation du protocole IME.
+      await page.waitForTimeout(300)
+      await expect(editor.locator('.cm-note-heading')).toHaveCount(sample.after)
+      expect(await selection(editor)).toEqual(committed)
+      expect(await original!.evaluate(el => el === document.querySelector('.cm-content'))).toBe(true)
+      await expect(page.getByRole('toolbar', { name: 'Mise en forme Markdown' })).toHaveCount(0)
+      expect(writes).toEqual([])
+      await expect.poll(() => writes).toEqual([updated])
+      await page.keyboard.press('Control+z')
+      expect((await selection(editor)).doc).toBe(text)
+      await page.keyboard.press('Control+Shift+z')
+      expect((await selection(editor)).doc).toBe(updated)
+      await cdp.detach()
+    })
+  }
+})
+
+test('composition DOM synthétique : reprise sans frappe ni sélection supplémentaires', async ({ page }) => {
+  const text = 'before\n## Heading\nafter'
+  const { editor, writes } = await openEditor(page, text)
+  await editor.focus()
+  await page.evaluate(() => window.editorProbe.select(7, 17))
+  await editor.dispatchEvent('compositionstart')
+  await page.keyboard.insertText('見出し')
+  await expect(editor.locator('.cm-note-h2')).toHaveCount(1)
+  await editor.dispatchEvent('compositionend')
+  const committed = await selection(editor)
+  await page.waitForTimeout(300)
+  await expect(editor.locator('.cm-note-heading')).toHaveCount(0)
+  expect(await selection(editor)).toEqual(committed)
+  expect(committed.doc).toBe('before\n見出し\nafter')
+  expect(writes).toEqual([])
+  await expect(page.getByRole('toolbar', { name: 'Mise en forme Markdown' })).toHaveCount(0)
+})

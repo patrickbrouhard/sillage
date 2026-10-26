@@ -57,12 +57,38 @@ export const livePreviewHeadings = ViewPlugin.fromClass(class {
   clickCount = 0
   clickPresentation: { doc: EditorState['doc']; decorations: DecorationSet } | null = null
   timer: ReturnType<typeof setTimeout> | undefined
+  editContext: EventTarget | null = null
+  destroyed = false
 
   constructor(readonly view: EditorView) {
     this.decorations = headingDecorations(view.state, view.visibleRanges)
     window.addEventListener('mouseup', this.endDrag)
     window.addEventListener('pointercancel', this.endDrag)
     window.addEventListener('blur', this.endDrag)
+    // CodeMirror attache l'EditContext après la construction des plugins.
+    queueMicrotask(() => { if (!this.destroyed) this.observeEditContext() })
+  }
+
+  /** Écoute aussi la composition hors DOM, sans remplacer ni désactiver l'EditContext natif. */
+  observeEditContext() {
+    const context = (this.view.contentDOM as HTMLElement & { editContext?: EventTarget | null }).editContext ?? null
+    if (context === this.editContext) return
+    this.editContext?.removeEventListener('compositionstart', this.startComposition)
+    this.editContext?.removeEventListener('compositionend', this.endComposition)
+    this.editContext = context
+    context?.addEventListener('compositionstart', this.startComposition)
+    context?.addEventListener('compositionend', this.endComposition)
+  }
+
+  startComposition = () => {
+    clearTimeout(this.timer)
+    this.clickPresentation = null
+    this.composing = true
+  }
+
+  endComposition = () => {
+    this.composing = false
+    this.scheduleRefresh()
   }
 
   /** Attend la sélection finale et les dernières mutations natives avant la présentation. */
@@ -80,6 +106,7 @@ export const livePreviewHeadings = ViewPlugin.fromClass(class {
   }
 
   update(update: ViewUpdate) {
+    this.observeEditContext()
     if (update.docChanged || update.transactions.some(transaction =>
       transaction.selection && !transaction.isUserEvent('select.pointer'))) this.clickPresentation = null
     if (this.dragging || this.composing || update.view.compositionStarted) {
@@ -95,7 +122,10 @@ export const livePreviewHeadings = ViewPlugin.fromClass(class {
   }
 
   destroy() {
+    this.destroyed = true
     clearTimeout(this.timer)
+    this.editContext?.removeEventListener('compositionstart', this.startComposition)
+    this.editContext?.removeEventListener('compositionend', this.endComposition)
     window.removeEventListener('mouseup', this.endDrag)
     window.removeEventListener('pointercancel', this.endDrag)
     window.removeEventListener('blur', this.endDrag)
@@ -122,13 +152,7 @@ export const livePreviewHeadings = ViewPlugin.fromClass(class {
           : null
       }
     },
-    compositionstart() {
-      clearTimeout(this.timer)
-      this.composing = true
-    },
-    compositionend() {
-      this.composing = false
-      this.scheduleRefresh()
-    },
+    compositionstart() { this.startComposition() },
+    compositionend() { this.endComposition() },
   },
 })
