@@ -1,5 +1,22 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from './fixtures'
+import { build } from 'vite'
+
+let probeScript: string
+
+test.beforeAll(async () => {
+  const result = await build({
+    configFile: false,
+    logLevel: 'silent',
+    build: {
+      write: false,
+      lib: { entry: new URL('./editorProbe.ts', import.meta.url).pathname, name: 'editorProbe', formats: ['iife'] },
+    },
+  })
+  const output = Array.isArray(result) ? result[0] : result
+  if (!('output' in output)) throw new Error('Sonde navigateur non compilée')
+  probeScript = output.output.find(file => file.type === 'chunk')!.code
+})
 
 /** Monte la vraie session de note et observe toutes les écritures. */
 async function openEditor(page: Page, initial: string) {
@@ -16,29 +33,13 @@ async function openEditor(page: Page, initial: string) {
   await page.goto('/videos/42')
   const editor = page.getByRole('textbox', { name: 'Note Markdown' })
   await expect(editor).toBeVisible()
+  await page.addScriptTag({ content: probeScript })
   return { editor, writes }
 }
 
-/** Lit les positions DOM après révélation ; les lignes testées tiennent dans le viewport. */
+/** Observe directement la sélection documentaire de la vue CodeMirror réelle. */
 async function selection(editor: Locator) {
-  return editor.evaluate(element => {
-    const selected = getSelection()!
-    const position = (node: Node | null, offset: number) => {
-      const line = (node instanceof Element ? node : node?.parentElement)?.closest('.cm-line')
-      if (!line || !node) throw new Error('Sélection hors de la note')
-      const range = document.createRange()
-      range.setStart(line, 0)
-      range.setEnd(node, offset)
-      const lines = [...element.querySelectorAll('.cm-line')]
-      const before = lines.slice(0, lines.indexOf(line)).reduce((size, current) => size + current.textContent!.length + 1, 0)
-      return before + range.toString().length
-    }
-    return {
-      anchor: position(selected.anchorNode, selected.anchorOffset),
-      head: position(selected.focusNode, selected.focusOffset),
-      text: selected.toString(),
-    }
-  })
+  return editor.evaluate(() => window.editorProbe.snapshot())
 }
 
 /** Copie par le gestionnaire natif CodeMirror pour vérifier le Markdown documentaire. */
@@ -239,5 +240,76 @@ for (const width of [1440, 320]) {
     }
     // Seule la saisie temporaire est autorisée à déclencher une écriture.
     expect(writes.every(value => value.includes('X') || value === text)).toBe(true)
+  })
+}
+
+/** Vise le mot compact par un Range DOM ; les assertions utilisent ensuite le document. */
+async function wordPoint(heading: Locator, word: string) {
+  return heading.evaluate((element, text) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const start = node.textContent!.indexOf(text)
+      if (start < 0) continue
+      const range = document.createRange()
+      range.setStart(node, start)
+      range.setEnd(node, start + text.length)
+      const box = range.getBoundingClientRect()
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    }
+    throw new Error('Mot absent du titre')
+  }, word)
+}
+
+for (const level of [1, 6]) {
+  for (const delay of [120, 200]) {
+    test('double clic humain et cible du menu : H' + level + ', délai ' + delay, async ({ page }) => {
+      const text = 'before\n' + '#'.repeat(level) + ' Alpha Beta Gamma\nafter'
+      const { editor, writes } = await openEditor(page, text)
+      const heading = editor.locator('.cm-note-heading')
+      const point = await wordPoint(heading, 'Alpha')
+      await page.mouse.dblclick(point.x, point.y, { delay })
+      expect(await copy(editor)).toBe('Alpha')
+      const from = text.indexOf('Alpha')
+      expect(await selection(editor)).toMatchObject({ anchor: from, head: from + 5, text: 'Alpha' })
+      const toolbar = page.getByRole('toolbar', { name: 'Mise en forme Markdown' })
+      await expect(toolbar).toBeVisible()
+      expect(writes).toEqual([])
+      await toolbar.getByRole('button', { name: 'Gras', exact: true }).click()
+      expect((await selection(editor)).doc).toBe(text.replace('Alpha', '**Alpha**'))
+      expect((await selection(editor)).text).toBe('Alpha')
+      await page.keyboard.press('Control+z')
+      expect((await selection(editor)).doc).toBe(text)
+    })
+  }
+}
+
+for (const reversed of [false, true]) {
+  test('double clic puis glisser natif par mots, inversé=' + reversed, async ({ page }) => {
+    const text = 'before\n###### Alpha Beta Gamma\nafter'
+    const { editor, writes } = await openEditor(page, text)
+    const heading = editor.locator('.cm-note-heading')
+    const alpha = await wordPoint(heading, 'Alpha')
+    const gamma = await wordPoint(heading, 'Gamma')
+    const first = reversed ? gamma : alpha
+    const last = reversed ? alpha : gamma
+    await page.mouse.click(first.x, first.y)
+    await expect(heading).toHaveText('###### Alpha Beta Gamma')
+    await page.waitForTimeout(120)
+    await page.mouse.move(first.x, first.y)
+    await page.mouse.down({ clickCount: 2 })
+    await page.mouse.move(last.x, last.y, { steps: 8 })
+    await expect(heading).toHaveText('Alpha Beta Gamma')
+    await expect(page.getByRole('toolbar', { name: 'Mise en forme Markdown' })).toHaveCount(0)
+    await page.mouse.up()
+    await expect(heading).toHaveText('###### Alpha Beta Gamma')
+    expect(await copy(editor)).toBe('Alpha Beta Gamma')
+    const from = text.indexOf('Alpha')
+    const to = text.indexOf('\nafter')
+    expect(await selection(editor)).toMatchObject({
+      anchor: reversed ? to : from,
+      head: reversed ? from : to,
+      text: 'Alpha Beta Gamma',
+    })
+    expect(writes).toEqual([])
   })
 }

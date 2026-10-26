@@ -54,6 +54,8 @@ export const livePreviewHeadings = ViewPlugin.fromClass(class {
   decorations: DecorationSet
   dragging = false
   composing = false
+  clickCount = 0
+  clickPresentation: { doc: EditorState['doc']; decorations: DecorationSet } | null = null
   timer: ReturnType<typeof setTimeout> | undefined
 
   constructor(readonly view: EditorView) {
@@ -72,10 +74,14 @@ export const livePreviewHeadings = ViewPlugin.fromClass(class {
   endDrag = () => {
     if (!this.dragging) return
     this.dragging = false
+    // Un glisser du premier appui n'est pas le début d'un double clic sur un mot.
+    if (this.clickCount === 1 && !this.view.state.selection.main.empty) this.clickPresentation = null
     this.scheduleRefresh()
   }
 
   update(update: ViewUpdate) {
+    if (update.docChanged || update.transactions.some(transaction =>
+      transaction.selection && !transaction.isUserEvent('select.pointer'))) this.clickPresentation = null
     if (this.dragging || this.composing || update.view.compositionStarted) {
       // Une capture ou une saisie peut déplacer les décorations même pendant le gel.
       this.decorations = this.decorations.map(update.changes)
@@ -97,12 +103,24 @@ export const livePreviewHeadings = ViewPlugin.fromClass(class {
 }, {
   decorations: plugin => plugin.decorations,
   eventHandlers: {
-    mousedown(event) {
-      if (event.button !== 0) return
+    mousedown(event, view) {
+      if (event.button !== 0 || this.composing || view.compositionStarted) return
       clearTimeout(this.timer)
       this.dragging = true
-      // CodeMirror choisit une seule position dans la géométrie actuelle du clic.
-      // Aucune interception, seconde mesure ou transaction de sélection ici.
+      this.clickCount = event.detail
+      const plain = !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey
+      if (plain && event.detail > 1 && this.clickPresentation?.doc === view.state.doc) {
+        // Le navigateur identifie les appuis successifs. Rétablir leur présentation
+        // initiale avant la sélection native conserve la cible compacte, sans délai
+        // du clic simple ni second calcul de position après révélation.
+        this.decorations = this.clickPresentation.decorations
+        view.dispatch({ effects: refreshHeadings.of(null) })
+      } else {
+        const heading = event.target instanceof Element ? event.target.closest('.cm-note-heading') : null
+        this.clickPresentation = plain && event.detail === 1 && heading && !heading.querySelector('.cm-note-heading-marker')
+          ? { doc: view.state.doc, decorations: this.decorations }
+          : null
+      }
     },
     compositionstart() {
       clearTimeout(this.timer)
