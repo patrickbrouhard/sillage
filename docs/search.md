@@ -231,14 +231,19 @@ changer l'ordre ou le total pendant la pagination. Les départages par ID renden
 déterministe sur une base stable, sans garantir l'absence de doublons ou d'omissions entre appels
 si la bibliothèque change. OFFSET rend les pages profondes plus coûteuses.
 
-### Service et REST
+### Service, REST et MCP
 
 `Search(ctx, query, page, sort)` retourne une `search.Page` ou une erreur.
 Le service résout le choix vide (`search.Sort("")`) vers `search.SortRelevance` et rejette tout autre
-mode inconnu avec `ErrInvalidInput` avant d'appeler le moteur. Les futures interfaces non HTTP
-partagent donc le même défaut. Le port reçoit le choix typé résolu.
+mode inconnu avec `ErrInvalidInput` avant d'appeler le moteur. L’interface MCP
+partage donc le même défaut. Le port reçoit le choix typé résolu.
 Le service valide aussi UTF-8, taille de saisie et page ; le nombre de tokens est validé après
 segmentation dans l'adapter. Le handler ajoute les contraintes de forme des paramètres HTTP.
+
+L’outil MCP `search_videos` appelle la même instance de service que REST, avec les mêmes
+règles lexicales, tris, bornes, total et explications. Sa représentation compacte omet
+les descriptions complètes des sources, disponibles par `get_video` ; aucune transcription
+n’est ajoutée à l’index. Les entrées et sorties détaillées figurent dans [MCP](mcp.md).
 
 | Entrée | Contrat |
 | --- | --- |

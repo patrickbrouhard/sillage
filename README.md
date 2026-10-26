@@ -4,7 +4,7 @@
 
 YouTube est actuellement la source prise en charge. La conception distingue la vidéo comme objet de connaissance (`Video`), sa provenance (`VideoSource`) et son éventuel fichier local (`MediaFile`). Le projet est **self-hosted**, utilisable sans intelligence artificielle et toujours en développement.
 
-> **État du projet :** le socle de travail vidéo est fonctionnel. MCP et l'IA intégrée restent à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
+> **État du projet :** le socle de travail vidéo est fonctionnel. Les premières lectures MCP locales sont disponibles ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
 
 ## Fonctionnalités disponibles
 
@@ -16,9 +16,10 @@ YouTube est actuellement la source prise en charge. La conception distingue la v
 - **Lecture distante et locale** : lecteur YouTube ou HTML5 natif, conservation volontaire d'une vidéo avec `yt-dlp`, suivi du téléchargement, consultation des propriétés techniques, suppression explicite du fichier et bascule entre lecteurs. Si le fichier est disponible à l'ouverture, **Local** est sélectionné en premier ; aucune lecture ne démarre automatiquement.
 - **Captures PNG** : extraction d'une image au temps courant avec `ffmpeg`, insertion dans la note et conservation indépendante du fichier vidéo et du Markdown qui la référence.
 - **Recherche globale** : titres et descriptions des sources, publishers, tags directs et notes ; résultats paginés, extraits et explications.
+- **MCP local optionnel** : recherche et consultation en lecture seule par un agent, sans acquisition implicite ni résumé serveur.
 - **API REST** : accès aux vidéos, notes, tags, transcriptions, publishers, personnes, fichiers locaux et captures.
 
-La recherche **dans une transcription ouverte** reste distincte de la recherche globale, qui n’indexe pas les transcriptions. Le serveur MCP, l'IA intégrée, l'import de vidéos locales et les annotations structurées constituent des travaux futurs, pas des fonctionnalités livrées.
+La recherche **dans une transcription ouverte** reste distincte de la recherche globale, qui n’indexe pas les transcriptions. L’IA intégrée, l’import de vidéos locales et les annotations structurées constituent des travaux futurs.
 
 ## Démarrage rapide avec Docker
 
@@ -108,12 +109,32 @@ Ouvrir <http://127.0.0.1:5173>. Vite relaie les requêtes `/api` vers le serveur
 | --- | --- | --- |
 | `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` | Adresse d'écoute HTTP |
 | `SILLAGE_WEB_DIR` | Non défini | Répertoire du build Web à servir ; sinon API seule |
+| `SILLAGE_MCP_ENABLED` | `false` | Active les quatre lectures MCP locales |
+| `SILLAGE_MCP_ALLOWED_AUTHORITIES` | Loopback/localhost avec port d’écoute | Autorités Host/Origin explicitement autorisées ; voir [MCP](docs/mcp.md) |
 | `SILLAGE_POST_TIMEOUT` | `60s` | Délai des acquisitions synchrones de métadonnées et transcriptions |
 | `SILLAGE_DOWNLOAD_TIMEOUT` | `6h` | Délai des téléchargements médias |
 | `SILLAGE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` ou `ERROR` |
 | `SILLAGE_LOG_FORMAT` | `text` | `text` ou `json` ; Docker définit `json` par défaut |
 
 Les délais sont des durées Go strictement positives, par exemple `90s` ou `2h`. La base utilisée par le serveur reste `data/sillage.db`, chemin relatif au répertoire de travail : il n'existe pas de variable de configuration pour la déplacer indépendamment de `data/`.
+
+## Connexion MCP locale
+
+```bash
+make build
+SILLAGE_MCP_ENABLED=true SILLAGE_WEB_DIR=web/dist ./bin/sillage
+```
+
+Configurer le client MCP en **Streamable HTTP** avec l’URL
+`http://127.0.0.1:8080/mcp`. Il expose `search_videos`, `get_video`,
+`get_transcript` et `get_note`. Le résumé est produit par l’agent.
+MCP est désactivé par défaut et `/mcp` ne retourne jamais la SPA.
+
+Cette V1 sans authentification suppose un accès effectivement limité au développement local.
+Host/Origin ne sont pas une authentification ; REST conserve ses écritures et un client peut
+envoyer les données à un modèle distant. Garder l’écoute et la publication Docker sur loopback.
+La configuration Docker avec port personnalisé, les limites, contrats, compatibilités vérifiées
+et essais agents sont dans [docs/mcp.md](docs/mcp.md).
 
 ## Données, sauvegarde et mises à jour
 
@@ -451,7 +472,8 @@ Serveur Go (net/http + Chi)
      ├── yt-dlp
      └── ffmpeg / ffprobe
 
-Futur : MCP, IA intégrée et autres sources → mêmes services métier
+Agents MCP / HTTP stateless → mêmes instances de services métier
+Futur : IA intégrée et autres sources → mêmes services métier
 ```
 
 Les services applicatifs et le domaine restent indépendants des handlers HTTP, de SQLite et des outils externes. SQLite utilise `modernc.org/sqlite`, des migrations SQL embarquées et `PRAGMA user_version`. Les données temporelles dans un média sont des entiers en **millisecondes** ; les dates de calendrier sont des timestamps UTC.
@@ -464,6 +486,7 @@ La documentation de référence est organisée ainsi :
 | [01-product-and-ux.md](docs/01-product-and-ux.md) | Parcours et règles UX actuelles |
 | [02-domain-model.md](docs/02-domain-model.md) | Entités métier, identités et invariants |
 | [03-architecture.md](docs/03-architecture.md) | Services, adapters, API et garanties techniques |
+| [mcp.md](docs/mcp.md) | Lectures MCP, activation, sécurité locale, limites et recette agents |
 | [04-tech-stack-and-decisions.md](docs/04-tech-stack-and-decisions.md) | Stack et choix techniques en vigueur |
 | [05-roadmap.md](docs/05-roadmap.md) | État d'avancement et jalons futurs |
 | [06-open-questions.md](docs/06-open-questions.md) | Questions et décisions non résolues |
@@ -474,6 +497,6 @@ Les instructions de travail propres au dépôt sont dans [AGENTS.md](AGENTS.md).
 
 ## Prochaines étapes
 
-La recherche globale SQLite FTS5 est disponible dans la bibliothèque. Les prochaines directions sont MCP et l’IA intégrée, sans calendrier fixé. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
+La recherche globale SQLite FTS5 et les premières lectures MCP sont disponibles. Les essais agents représentatifs et locaux restent à compléter ; la sécurité homelab, les éventuelles écritures MCP et l’IA intégrée sont des suites distinctes. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
 
 La [roadmap](docs/05-roadmap.md) donne l'état des jalons et leurs objectifs ; [les questions ouvertes](docs/06-open-questions.md) recensent les choix qui ne sont pas encore tranchés. Leur présence dans ces fichiers ne signifie pas qu'ils sont implémentés ou approuvés.

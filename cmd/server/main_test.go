@@ -21,7 +21,16 @@ import (
 
 func clearConfig(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"SILLAGE_HTTP_ADDR", "SILLAGE_POST_TIMEOUT", "SILLAGE_WEB_DIR", "SILLAGE_DOWNLOAD_TIMEOUT", "SILLAGE_LOG_LEVEL", "SILLAGE_LOG_FORMAT"} {
+	for _, key := range []string{
+		"SILLAGE_HTTP_ADDR",
+		"SILLAGE_POST_TIMEOUT",
+		"SILLAGE_WEB_DIR",
+		"SILLAGE_DOWNLOAD_TIMEOUT",
+		"SILLAGE_LOG_LEVEL",
+		"SILLAGE_LOG_FORMAT",
+		"SILLAGE_MCP_ENABLED",
+		"SILLAGE_MCP_ALLOWED_AUTHORITIES",
+	} {
 		t.Setenv(key, "")
 		if err := os.Unsetenv(key); err != nil {
 			t.Fatal(err)

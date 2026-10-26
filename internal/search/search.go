@@ -64,7 +64,7 @@ type Repository interface {
 	Search(context.Context, string, int, Sort) (Page, error)
 }
 
-// Service porte les validations communes à REST et aux futures interfaces MCP.
+// Service porte les validations communes à REST et à MCP.
 type Service struct{ repository Repository }
 
 // NewService utilise la projection de l'adapter.
