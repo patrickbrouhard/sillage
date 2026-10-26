@@ -13,3 +13,6 @@ var ErrSelectionAmbiguous = errors.New("transcript selection ambiguous")
 
 // ErrFetchFailed indique un échec distant ou un contenu distant inexploitable.
 var ErrFetchFailed = errors.New("transcript fetch failed")
+
+// ErrReadFailed distingue un snapshot local illisible d’une acquisition absente.
+var ErrReadFailed = errors.New("transcript local read failed")

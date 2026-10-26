@@ -1,6 +1,6 @@
 # Roadmap — Sillage
 
-Dernière consolidation : 25 octobre 2026.
+Dernière consolidation : 26 octobre 2026.
 
 Ce document donne **l'état d'avancement et les prochaines directions de développement**. Il ne décrit ni les contrats techniques en vigueur, ni le détail des tests effectués à chaque commit, ni toutes les décisions encore ouvertes.
 
@@ -15,7 +15,10 @@ Ce document donne **l'état d'avancement et les prochaines directions de dévelo
 
 Les dernières tranches ont également apporté la lecture locale, la journalisation structurée et la réorganisation de la fiche vidéo (navigation, en-tête, onglets, panneaux et surfaces de lecture).
 
-**La recherche globale FTS5 (étape 8) est disponible.** Les étapes 9 (MCP) et 10 (IA intégrée) restent les prochaines directions, sans calendrier arrêté. Des améliorations ponctuelles ou des travaux de stabilisation peuvent s'intercaler selon les besoins.
+**La recherche globale FTS5 (étape 8) et la première tranche MCP locale en lecture seule
+sont implémentées.** Les essais MCP avec agents et transcriptions représentatives restent
+à compléter, notamment avec un modèle local. L’IA intégrée reste une direction future,
+sans calendrier arrêté.
 
 ### Jalons réalisés
 
@@ -31,6 +34,7 @@ Les dernières tranches ont également apporté la lecture locale, la journalisa
 | UX 1 — Confort de rédaction | Callouts, présentation de l'éditeur et références compactes/interactives | Réalisé |
 | 7 — Médias | Téléchargement et conservation des fichiers, captures PNG, consultation et réinsertion par vidéo | Réalisé |
 | 8 — Recherche globale | FTS5 transactionnel, notes et métadonnées, API et parcours Web paginés | Réalisé |
+| 9 — Première tranche MCP | Quatre lectures locales sur services partagés, transport HTTP stateless optionnel | Implémenté ; validation agents partielle |
 | Consolidations postérieures | Journalisation structurée, lecture locale, ergonomie du lecteur et nouvelle disposition du workspace | Réalisé |
 
 Ce tableau résume les capacités livrées ; il ne vaut pas une validation exhaustive de chaque navigateur ou scénario réel. Les contrats actuels se trouvent dans les documents 01 à 04. Les commits, PR et anciennes versions Git conservent le détail des implémentations et de leurs validations.
@@ -43,15 +47,20 @@ Les contrats actuels figurent dans [Product & UX](01-product-and-ux.md), [Archit
 
 ## 3. Étape 9 — MCP
 
-### Objectif
+La première tranche expose `search_videos`, `get_video`, `get_transcript` et `get_note`
+sur le serveur Go existant, en lecture locale stricte, sans accès direct des agents à SQLite
+ou aux outils externes. Les contrats et la recette reproductible vivent dans [MCP](mcp.md).
 
-Permettre à des agents externes d'utiliser les capacités métier de Sillage **sans accès direct à SQLite ou à `yt-dlp`**. Le serveur MCP s'appuiera sur les services applicatifs existants.
+Des parcours réels Codex sur corpus synthétiques et captions publiques préparées, ainsi
+qu’un déploiement Docker isolé, ont été vérifiés. Restent les essais
+avec un hôte MCP utilisant un modèle local, les autres transcriptions représentatives et une caractérisation plus large des limites
+client/contexte. Une troncature client
+éventuelle devra être arbitrée avant de changer le contrat.
 
-Outils envisagés, sans contrat encore figé : `search_videos`, `get_video`, `get_transcript`, `get_annotations`, `add_tags`, `append_note`.
+Suites distinctes, non incluses dans cette livraison :
 
-**Critère de sortie visé :** un agent peut rechercher des vidéos, lire les transcriptions disponibles et exploiter les informations correspondantes via MCP. Les capacités d'écriture nécessiteront un cadrage explicite de leurs permissions et garanties.
-
-Le choix des outils, des ressources éventuelles, du transport et des règles de confirmation demeure ouvert : voir [Open questions — MCP](06-open-questions.md#6-mcp).
+- sécurité homelab couvrant l’ensemble du serveur et les écritures REST ;
+- éventuelles écritures MCP, permissions, confirmations et protection des données utilisateur.
 
 ## 4. Étape 10 — IA intégrée
 

@@ -110,11 +110,11 @@ func (s *Service) Get(ctx context.Context, videoID video.VideoID, sourceID video
 		return Result{}, err
 	}
 	if saved.LocalPath == "" {
-		return Result{}, fmt.Errorf("transcript snapshot is absent")
+		return Result{}, fmt.Errorf("%w: snapshot is absent", ErrReadFailed)
 	}
 	content, err := s.snapshots.Read(ctx, saved.LocalPath)
 	if err != nil {
-		return Result{}, fmt.Errorf("read transcript snapshot: %w", err)
+		return Result{}, fmt.Errorf("%w: %w", ErrReadFailed, err)
 	}
 	return Result{Transcript: saved, Content: content}, nil
 }
