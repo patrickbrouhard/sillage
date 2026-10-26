@@ -273,6 +273,13 @@ Les composants d'interface ne doivent pas recréer les identités métier, impl�
   dépendance. Son validateur réutilise Remark/GFM déjà présent en Lecture pour reconnaître les structures
   voisines, notamment les tableaux ; il ne sérialise pas le document. La grammaire CodeMirror reste CommonMark.
 - Les représentations visuelles enrichies reposent sur des **décorations CodeMirror**, non sur une transformation persistée du Markdown. Les callouts `quote`/`quote:tr` utilisent une reconnaissance ciblée ; pas de moteur générique extensible ou de Live Preview complet.
+- Le Live Preview livré reste limité aux titres ATX H1–H6 racine : arbre incrémental, décorations de ligne
+  et remplacements sans widget. Le glisser et la composition suspendent le recalcul ; les plages conservées
+  sont mappées lors des éditions. Aucune couche documentaire, correction de clic/navigation ou animation
+  géométrique supplémentaire. Setext, titres imbriqués et Live Preview général restent différés.
+- Les notes partagent une échelle de titres en Édition/Lecture (proportions Obsidian 1.14.5, corps 16 px),
+  via CSS limité à leur contenu. Les tags de coloration de `@lezer/highlight`, déjà utilisé par CodeMirror,
+  sont déclarés explicitement pour neutraliser le gras/soulignement hérité sur les seuls titres admissibles.
 - Les références temporelles canoniques peuvent être compactées ou révélées en Édition ; la copie, la sélection, la composition IME et les gestes d'édition doivent rester sûrs.
 - L'activation temporelle en Édition se fait par **Ctrl/Cmd+clic** ou **Ctrl/Cmd+Entrée** pour les formes admissibles ; elle réutilise les contrôles de navigation de la transcription et du mode Lecture, sans écrire dans la note.
 - L'insertion d'une citation, d'une capture acceptée ou d'un asset connu utilise une transaction CodeMirror isolée dans Undo/Redo et laisse l'autosauvegarde habituelle gérer l'écriture.

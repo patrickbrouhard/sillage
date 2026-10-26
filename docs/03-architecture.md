@@ -336,6 +336,22 @@ une modification l'invalide avant toute confirmation. Les réponses de sauvegard
 La destruction de la vue détruit aussi ses surfaces, timers et observateurs. Les règles de commandes et
 d'admissibilité sont détaillées dans [Product & UX](01-product-and-ux.md#35-mise-en-forme-contextuelle-du-markdown).
 
+Le Live Preview des titres est un ViewPlugin local à la même vue. Il parcourt les plages visibles
+de l'arbre syntaxique incrémental CodeMirror, reconnaît uniquement les nœuds ATX enfants de Document
+et utilise leurs HeaderMark pour borner les marqueurs. Une décoration de ligne porte la typographie ;
+des remplacements sans widget masquent préfixe et clôture, sans saut de ligne. La sélection de chaque
+plage décide de la révélation, indépendamment du focus. Les titres vides restent révélés.
+
+Pendant le glisser souris ou la composition, le plugin conserve ses décorations et les mappe à travers
+les changements documentaires. Un effet de présentation sans sélection ni texte relance le calcul
+après le geste natif ou les dernières mutations de composition. Il ne recalcule jamais un clic ni
+ne corrige la navigation ou le scroll. Les mises à jour d'arbre et de viewport relancent aussi la
+reconnaissance, sans forcer l'analyse synchrone de toute une longue note.
+Les variables CSS des niveaux sont partagées entre les lignes Édition et les blocs Lecture. Le style
+de coloration hérité des headings est neutralisé seulement sur les lignes admissibles, sans
+multiplier les tailles des fragments inline. Les restrictions et compromis géométriques figurent au
+[contrat UX](01-product-and-ux.md#36-live-preview-des-titres-atx).
+
 La session travaille en LF ; le service Go normalise au moment de la sauvegarde. Une ancienne note CRLF ne doit pas être écrite simplement parce qu'on l'a ouverte. Le client peut réconcilier une réponse perdue par GET avant une nouvelle tentative ; les conflits suspendent l'autosauvegarde et demandent un choix explicite conditionnel.
 
 La sauvegarde visuelle représente la **confirmation de tout le contenu actuel**, pas la seule fin d'une promesse réseau. Les confirmations partielles ou anciennes ne déclenchent pas de coche de succès. Échec et conflit persistent jusqu'à leur résolution. Les états de présentation ne constituent ni nouveaux champs en base ni nouvelles routes.

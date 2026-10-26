@@ -293,8 +293,8 @@ La commande de sauvegarde reste visible et interactive au repos.
 En Édition, une sélection continue non vide fait apparaître une barre compacte après stabilisation du geste.
 Son ordre est **Texte**, **Gras**, **Italique**, **Code inline**, **Lien**. Texte contient Paragraphe et H1 à H6 ;
 le libellé affiche le niveau reconnu, Texte ou Mixte. Une sélection simplement repliée visuellement reste
-monoligne. Aucun bouton Markdown permanent, Live Preview des titres, WYSIWYG ou nouveau raccourci de mise en
-forme n'est introduit.
+monoligne. Aucun bouton Markdown permanent, WYSIWYG ou nouveau raccourci de mise en forme n'est introduit.
+Le Live Preview ciblé des titres est décrit au § 3.6.
 
 - La barre ne prend pas le focus à son apparition et attend la fin du glisser. Elle reste ouverte pendant
   l'utilisation de ses commandes, de son sous-menu ou du formulaire. Les sélections multiples et la
@@ -360,6 +360,55 @@ Sur tactile, le délai de stabilisation est plus long et le viewport visuel tien
 virtuel. La sélection, les poignées et le menu natif Copier/Coller restent gérés par le navigateur.
 Une recette sur appareils réels **iOS/Safari et Android/Chrome** est nécessaire ; l'émulation de largeur
 ne suffit pas à confirmer leur comportement.
+
+### 3.6 Live Preview des titres ATX
+
+Les titres ATX **H1–H6 de premier niveau de structure** ont une typographie de titre directement en Édition.
+L'analyse syntaxique reconnaît leur contexte, l'indentation admissible et la clôture ATX optionnelle.
+Hors d'une ligne active ou sélectionnée, le préfixe, ses blancs séparateurs et l'éventuelle clôture
+sont masqués **sans largeur réservée**, sans englober le saut de ligne. Les `#` du contenu restent visibles.
+Les titres vides (`#`, `## `, `### ###`) restent en source.
+
+Un curseur révèle toute sa ligne logique, même repliée sur plusieurs lignes visuelles. Toute plage de
+sélection révèle les titres qu'elle rencontre ou englobe ; une fin exactement au début de la ligne
+suivante exclut celle-ci, dans les deux sens. Cela s'applique à chaque plage sans rendre la barre
+contextuelle disponible aux sélections multiples. Le focus dans la barre ou le formulaire de lien ne
+remasque pas les titres sélectionnés.
+
+Le masquage est gelé pendant un glisser souris puis actualisé après sa sélection finale. Pendant la
+composition IME, la ligne active reste en source et les décorations conservées suivent les changements
+documentaires ; le recalcul attend la fin de la composition. Ces mesures ne remplacent pas une recette
+IME et tactile sur appareils réels.
+
+Les clics, sélections, déplacements, suppressions et l'historique restent natifs. La révélation ne
+recalcule pas une seconde position depuis les coordonnées du clic. Les déplacements horizontaux et
+changements de hauteur, notamment aux seuils de retour à la ligne, sont acceptés ; aucune animation
+de taille ou position n'est appliquée. Le défilement reste celui de `.note-content` sur desktop et de la
+page sur mobile, sans recentrage ou restauration systématique. Une référence temporelle dans le titre
+garde ses propres interactions et peut aussi changer de largeur à la révélation.
+
+Édition et Lecture partagent l'échelle du thème par défaut d'Obsidian 1.14.5, avec le corps de note de
+16 px, la police système et les couleurs Sillage :
+
+| Niveau | Taille relative au corps | Graisse | Interligne | Espacement des lettres |
+| --- | ---: | ---: | ---: | ---: |
+| H1 | 1,618 | 700 | 1,2 | −0,015 em |
+| H2 | 1,462 | 680 | 1,2 | −0,011 em |
+| H3 | 1,318 | 660 | 1,3 | −0,008 em |
+| H4 | 1,188 | 640 | 1,4 | −0,005 em |
+| H5 | 1,076 | 620 | 1,5 | −0,002 em |
+| H6 | 1 | 600 | 1,5 | 0 |
+
+Les graisses intermédiaires dépendent de la police disponible. Les titres n'ont ni italique ni
+soulignement systématique ; les styles inline, liens et code monospace restent conservés.
+L'espacement d'Édition est un padding de ligne modéré, identique en source et compact, en conservant
+les lignes vides du Markdown. Lecture utilise des marges de bloc distinctes ; l'identité pixel à pixel
+entre modes n'est pas recherchée. Ces styles restent limités au contenu des notes.
+
+Le Markdown brut reste l'unique source de vérité : ces effets ne modifient ni texte, sélection,
+historique, révision ou autosauvegarde et ne rouvrent pas la barre. **Setext, titres imbriqués dans
+listes/citations/callouts, autres syntaxes et Live Preview général restent différés.** Leur édition
+existante est conservée ; les six niveaux du rendu Lecture partagent néanmoins la même échelle.
 
 ## 4. Temps, références Markdown et citations
 
