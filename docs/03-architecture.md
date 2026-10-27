@@ -519,6 +519,11 @@ les changements de filtre ou de tri pour préserver brouillons et requêtes en c
 possède son édition et sa confirmation native ; les erreurs REST restent locales à l'opération.
 La normalisation d'identité est déléguée à `TagService`, comme dans l'autocomplétion.
 
+Chaque erreur de mutation propose une relecture explicite, sans nouvelle écriture. La page bloque
+son démarrage pendant une mutation et invalide la lecture en vol dès qu'une nouvelle mutation
+commence ; une réponse invalidée ne remplace jamais la liste. Les IDs maintiennent les autres
+éditeurs montés ; seule la ligne à l'origine d'une récupération réussie quitte son édition.
+
 Les mutations de tags sont des opérations successives et persistées immédiatement ; la fermeture de la modale ne les annule pas. Le frontend fournit une autocomplétion accessible sans réimplémenter la normalisation métier Go. Les fiches affichent les tags dans leur en-tête, avec un préfixe mesuré et un compteur `+n` pour le surplus ; la liste garde l'ordre REST et n'impose pas de quota arbitraire.
 
 Les mesures d'encombrement et changements responsive n'ajoutent ni requête REST, ni association, ni sauvegarde de note. Le volet global utilise un dialogue modal et se ferme avant une navigation protégée afin de ne pas concurrencer le dialogue de sauvegarde.

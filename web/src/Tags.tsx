@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { deleteCatalogTag, errorMessage, listTagCatalog, renameCatalogTag } from './api'
+import { APIError, deleteCatalogTag, errorMessage, listTagCatalog, renameCatalogTag } from './api'
 import type { CatalogTag, Tag } from './api'
 import { IconButton } from './IconButton'
 
@@ -20,30 +20,68 @@ function matchesName(name: string, query: string): boolean {
     .includes(query.trim().normalize('NFC').toLocaleLowerCase('fr'))
 }
 
+/** Seuls les rejets métier explicites permettent d'affirmer que l'écriture a été refusée. */
+function mutationError(reason: unknown): string {
+  const rejected = reason instanceof APIError && [
+    'bad_request', 'tag_not_found', 'tag_conflict', 'payload_too_large', 'unsupported_media_type',
+  ].includes(reason.code)
+  const message = errorMessage(reason)
+  return rejected ? message : `${message} La modification a peut-être été enregistrée. Actualisez le catalogue pour vérifier son résultat avant de réessayer.`
+}
+
 /** Administre le catalogue partagé par mises à jour locales après chaque écriture réussie. */
 export function Tags() {
   const [tags, setTags] = useState<CatalogTag[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [attempt, setAttempt] = useState(0)
+  const [mutationCount, setMutationCount] = useState(0)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('name')
   const [notice, setNotice] = useState('')
   const search = useRef<HTMLInputElement>(null)
+  const catalogRead = useRef<AbortController | null>(null)
+  const activeMutations = useRef(0)
 
-  useEffect(() => {
+  /** Relit sans relancer d'écriture ; seules les réponses encore courantes sont appliquées. */
+  async function refreshCatalog(reportError = true): Promise<boolean> {
+    if (activeMutations.current > 0 || catalogRead.current) return false
     const controller = new AbortController()
+    catalogRead.current = controller
     setLoading(true)
     setError('')
-    void listTagCatalog(controller.signal).then(result => {
-      if (!controller.signal.aborted) setTags(result)
-    }).catch((reason: unknown) => {
-      if (!controller.signal.aborted) setError(errorMessage(reason))
-    }).finally(() => {
-      if (!controller.signal.aborted) setLoading(false)
-    })
-    return () => controller.abort()
-  }, [attempt])
+    setNotice('')
+    try {
+      const result = await listTagCatalog(controller.signal)
+      if (controller.signal.aborted) return false
+      setTags(result)
+      return true
+    } catch (reason) {
+      if (!controller.signal.aborted && reportError) setError(errorMessage(reason))
+      return false
+    } finally {
+      if (catalogRead.current === controller) {
+        catalogRead.current = null
+        setLoading(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    void refreshCatalog()
+    return () => { catalogRead.current?.abort(); catalogRead.current = null }
+  }, [])
+
+  /** Une mutation invalide l'instantané en vol avant tout envoi, même si sa réponse est perdue. */
+  function changeMutationState(running: boolean) {
+    activeMutations.current += running ? 1 : -1
+    setMutationCount(activeMutations.current)
+    if (running && catalogRead.current) {
+      catalogRead.current.abort()
+      catalogRead.current = null
+      setLoading(false)
+      setNotice('Actualisation interrompue par une modification. Actualisez de nouveau le catalogue.')
+    }
+  }
 
   const ordered = [...tags].sort((a, b) => {
     const usage = (tag: CatalogTag) => tag.video_count + tag.publisher_count + tag.person_count
@@ -75,7 +113,7 @@ export function Tags() {
     <p className="tag-catalog-status" role="status">{loading ? 'Chargement des tags…' : notice || `${visible.length} tag${visible.length > 1 ? 's' : ''}`}</p>
     {error && <div className="notice error" role="alert">
       <p>{error}</p>
-      <button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer le catalogue</button>
+      <button className="button" disabled={loading || mutationCount > 0} onClick={() => void refreshCatalog()}>Réessayer le catalogue</button>
     </div>}
     {!loading && !error && tags.length === 0 && <div className="state-panel">
       <h2>Aucun tag dans le catalogue</h2>
@@ -85,6 +123,13 @@ export function Tags() {
     <ul className="tag-catalog-list" aria-label="Catalogue des tags" aria-busy={loading}>
       {/* Garder les lignes filtrées montées préserve les brouillons et les écritures en cours. */}
       {ordered.map(tag => <TagRow key={tag.id} tag={tag} hidden={!matchesName(tag.name, query)}
+        refreshDisabled={loading || mutationCount > 0}
+        onRecover={() => refreshCatalog(false)}
+        onRecovered={restoreFocus => {
+          setNotice('Catalogue actualisé.')
+          if (restoreFocus) search.current?.focus()
+        }}
+        onMutationChange={changeMutationState}
         onRenamed={(result, restoreFocus) => {
           setTags(current => current.map(item => item.id === result.id ? { ...item, name: result.name } : item))
           setNotice(`Tag renommé : ${result.name}.`)
@@ -101,9 +146,22 @@ export function Tags() {
 }
 
 /** Isole le brouillon, le dialogue et les erreurs de chaque ligne pendant les tris. */
-function TagRow({ tag, hidden, onRenamed, onDeleted }: {
+function TagRow({
+  tag,
+  hidden,
+  refreshDisabled,
+  onRecover,
+  onRecovered,
+  onMutationChange,
+  onRenamed,
+  onDeleted,
+}: {
   tag: CatalogTag
   hidden: boolean
+  refreshDisabled: boolean
+  onRecover: () => Promise<boolean>
+  onRecovered: (restoreFocus: boolean) => void
+  onMutationChange: (running: boolean) => void
   onRenamed: (tag: Tag, restoreFocus: boolean) => void
   onDeleted: () => void
 }) {
@@ -113,6 +171,7 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [recovering, setRecovering] = useState(false)
   const input = useRef<HTMLInputElement>(null)
   const rename = useRef<HTMLButtonElement>(null)
   const dialog = useRef<HTMLDialogElement>(null)
@@ -120,6 +179,8 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
   const wasEditing = useRef(false)
   const row = useRef<HTMLLIElement>(null)
   const restoreRenameFocus = useRef(false)
+  const recoveryPending = useRef(false)
+  const busy = pending || recovering
 
   useEffect(() => () => controller.current?.abort(), [])
   useLayoutEffect(() => {
@@ -139,9 +200,10 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
 
   /** Verrouille immédiatement les doubles soumissions ; une erreur conserve le brouillon. */
   async function mutate(action: 'rename' | 'delete') {
-    if (controller.current) return
+    if (controller.current || recoveryPending.current) return
     const request = new AbortController()
     controller.current = request
+    onMutationChange(true)
     setPending(true)
     setError('')
     try {
@@ -160,22 +222,54 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
       }
     } catch (reason) {
       if (!request.signal.aborted) {
-        setError(errorMessage(reason))
+        setError(mutationError(reason))
         // Revenir au champ pour corriger une collision sans fermer l'édition.
         if (action === 'rename' && ownsFocus()) input.current?.focus()
       }
     } finally {
       if (!request.signal.aborted) setPending(false)
       controller.current = null
+      onMutationChange(false)
+    }
+  }
+
+  /** Réconcilie la ligne choisie sans remonter les autres éditeurs ni rejouer la mutation. */
+  async function recover() {
+    if (controller.current || recoveryPending.current || refreshDisabled) return
+    recoveryPending.current = true
+    setRecovering(true)
+    try {
+      if (await onRecover()) {
+        // La ligne peut avoir disparu ; préserver aussi un focus déplacé vers un autre brouillon.
+        const restoreFocus = document.activeElement === document.body
+          || Boolean(row.current?.contains(document.activeElement))
+        restoreRenameFocus.current = false
+        dialog.current?.close()
+        setEditing(false)
+        setError('')
+        onRecovered(restoreFocus)
+      } else {
+        setError('Le catalogue n’a pas pu être actualisé. Réessayez l’actualisation avant de relancer la modification.')
+      }
+    } finally {
+      recoveryPending.current = false
+      setRecovering(false)
     }
   }
 
   function cancelEdit() {
-    if (controller.current) return
+    if (controller.current || recoveryPending.current) return
     restoreRenameFocus.current = true
     setEditing(false)
     setError('')
   }
+
+  const recoveryError = error && <div className="tag-catalog-error">
+    <p id={`${id}-error`} role="alert">{error}</p>
+    {editing && <p>Actualiser remplace le brouillon de cette ligne par l’état enregistré.</p>}
+    <button className="button" type="button" disabled={refreshDisabled || recovering}
+      onClick={() => void recover()}>{recovering ? 'Actualisation…' : 'Actualiser le catalogue'}</button>
+  </div>
 
   return <li ref={row} className="tag-catalog-row" hidden={hidden}>
     <div className="tag-catalog-content">
@@ -185,16 +279,16 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
           if (event.key === 'Escape') { event.preventDefault(); cancelEdit() }
         }}>
         <label htmlFor={`${id}-name`} className="sr-only">Nom du tag</label>
-        <input id={`${id}-name`} ref={input} value={name} readOnly={pending}
+        <input id={`${id}-name`} ref={input} value={name} readOnly={busy}
           aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined}
           onChange={event => setName(event.target.value)} />
         <div className="page-actions">
-          <button className="button primary" disabled={pending} type="submit">{pending ? 'Enregistrement…' : 'Enregistrer'}</button>
-          <button className="button" disabled={pending} type="button" onClick={cancelEdit}>Annuler</button>
+          <button className="button primary" disabled={busy} type="submit">{pending ? 'Enregistrement…' : 'Enregistrer'}</button>
+          <button className="button" disabled={busy} type="button" onClick={cancelEdit}>Annuler</button>
         </div>
       </form> : <span className="tag-catalog-name">{tag.name}</span>}
       <p className="tag-catalog-associations">{associations(tag)}</p>
-      {error && !deleting && <p id={`${id}-error`} role="alert" className="tag-catalog-error">{error}</p>}
+      {!deleting && recoveryError}
     </div>
     {!editing && <div className="tag-catalog-actions">
       <IconButton ref={rename} icon="pencil" label={`Renommer le tag ${tag.name}`} tooltip="Renommer"
@@ -203,17 +297,17 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
         onClick={() => { setError(''); setDeleting(true) }} />
     </div>}
     <dialog ref={dialog} className="tag-delete-dialog" aria-labelledby={`${id}-delete-title`} aria-describedby={`${id}-delete-description`}
-      onCancel={event => { if (controller.current) event.preventDefault() }}
+      onCancel={event => { if (controller.current || recoveryPending.current) event.preventDefault() }}
       onClose={() => { setDeleting(false); setError('') }}>
       <h2 id={`${id}-delete-title`}>Supprimer « {tag.name} » ?</h2>
       <div id={`${id}-delete-description`}>
         <p>{associations(tag)}</p>
         <p>Le tag et toutes ses associations seront supprimés. Les vidéos, publishers et personnes seront conservés.</p>
       </div>
-      {error && <p role="alert" className="tag-catalog-error">{error}</p>}
+      {deleting && recoveryError}
       <div className="page-actions">
-        <button className="button" autoFocus disabled={pending} onClick={() => dialog.current?.close()}>Annuler</button>
-        <button className="button danger" disabled={pending} onClick={() => void mutate('delete')}>{pending ? 'Suppression…' : 'Supprimer'}</button>
+        <button className="button" autoFocus disabled={busy} onClick={() => dialog.current?.close()}>Annuler</button>
+        <button className="button danger" disabled={busy} onClick={() => void mutate('delete')}>{pending ? 'Suppression…' : 'Supprimer'}</button>
       </div>
     </dialog>
   </li>

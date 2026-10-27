@@ -115,6 +115,14 @@ Les filtres combinés, tris personnalisés et vues enregistrées restent des ext
   conserve les entités associées et retire la ligne sans recharger la page. Le focus revient à la
   recherche après succès, au déclencheur après annulation. Les compteurs ne bloquent pas une suppression
   si d'autres associations sont ajoutées entre-temps. Un échec permet de réessayer dans le dialogue.
+- Après une erreur de mutation, « Actualiser le catalogue » relit explicitement le serveur sans rejouer
+  l'écriture, y compris depuis la confirmation de suppression. Une erreur réseau ou une réponse invalide
+  ne prouve pas l'échec : l'interface signale que la modification a peut-être été enregistrée.
+  Une relecture réussie remplace le brouillon de la seule ligne concernée par l'état enregistré, ferme
+  son édition ou dialogue et rend le focus à la recherche, sauf si l'utilisateur l'a déplacé pendant
+  la lecture. Les autres brouillons sont conservés ;
+  une relecture en échec les conserve tous et reste réessayable. La récupération attend la fin des
+  mutations en cours ; une nouvelle mutation invalide toute lecture déjà en vol.
 - Le catalogue présente ses états de chargement, d'erreur réessayable, de liste vide et de recherche sans
   résultat. Les mutations évitent les doubles soumissions. Cette page ne crée pas de tags et ne propose
   ni fusion, ni opérations en masse, ni filtre dédié aux tags inutilisés.
