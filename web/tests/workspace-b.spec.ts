@@ -21,7 +21,7 @@ test('panneau droit jointif, texte minimal et défilement de page avec recherche
   await expect(text).toContainText('Un passage')
   const editor = await page.getByRole('textbox', { name: 'Note Markdown' }).elementHandle()
   const instance = await frame.elementHandle()
-  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await page.getByRole('searchbox').fill('passage')
   await page.getByRole('button', { name: 'Actualiser la transcription', exact: true }).click()
   await expect(transcript.getByRole('alert')).toBeVisible()

@@ -60,7 +60,7 @@ async function selectText(page: Page, start = sourceText.indexOf('Bon') + 1, end
     const b = boundary(end)
     window.getSelection()!.setBaseAndExtent(...(backwards ? b : a), ...(backwards ? a : b))
   }, { start, end, backwards })
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeEnabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeEnabled()
 }
 
 /** Lit le contenu confirmé sans dépendre du rendu des fins de ligne CodeMirror. */
@@ -95,7 +95,7 @@ for (const backwards of [false, true]) {
   test('copie native entre blocs avec recherche, sélection inversée : ' + backwards, async ({ page, request }) => {
     await openWorkspace(page, request)
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
-    await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
+    await page.locator('.transcript-actions').getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
     await page.getByRole('searchbox').fill('jour')
     await selectText(page, undefined, undefined, backwards)
     await page.keyboard.press('Control+c')
@@ -114,7 +114,7 @@ test('note absente : citation à zéro, autosauvegarde et lecteur inchangé', as
     return { state: p.state, pauses: p.pauseCalls, calls: p.navigationCalls, position: p.position }
   })
   await selectText(page)
-  await page.getByRole('button', { name: 'Citer dans la note' }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
   await expect(editor).toBeFocused()
   const expected = transcriptCitation({ text: selectedText, startMs: 1234 }, video.id, video.sources[0].id) + '\n\n'
   await expect.poll(() => saved(request, noteURL)).toBe(expected)
@@ -142,10 +142,10 @@ for (const content of ['Note existante', '   ']) {
     await page.getByRole('button', { name: 'Lecture', exact: true }).click()
     await page.getByRole('button', { name: 'Édition', exact: true }).click()
     await selectText(page)
-    await page.getByRole('button', { name: 'Citer dans la note' }).click()
+    await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Placez le curseur' })).toBeVisible()
     expect(await saved(request, noteURL)).toBe(content)
-    await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+    await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
   })
 }
 
@@ -154,12 +154,12 @@ test('Lecture : refus sans bascule ni insertion différée', async ({ page, requ
   await editor.click()
   await page.getByRole('button', { name: 'Lecture', exact: true }).click()
   await selectText(page)
-  await page.getByRole('button', { name: 'Citer dans la note' }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Passez en Édition' })).toBeVisible()
   await expect(editor).toBeHidden()
   await page.getByRole('button', { name: 'Édition', exact: true }).click()
   expect(await saved(request, noteURL)).toBe('Note')
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
 })
 
 for (const backwards of [false, true]) {
@@ -175,7 +175,7 @@ for (const backwards of [false, true]) {
       for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowRight')
     }
     await selectText(page)
-    const button = page.getByRole('button', { name: 'Citer dans la note' })
+    const button = page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })
     await page.keyboard.press('Shift+Tab')
     await expect(button).toBeFocused()
     await button.press('Enter')
@@ -196,9 +196,9 @@ for (const backwards of [false, true]) {
 
 test('sélection obsolète après recherche et actualisation ; copie externe non interceptée', async ({ page, request }) => {
   await openWorkspace(page, request)
-  const button = page.getByRole('button', { name: 'Citer dans la note' })
+  const button = page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })
   await selectText(page)
-  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await page.getByRole('searchbox').fill('ami')
   await expect(button).toBeDisabled()
   await selectText(page)
@@ -224,7 +224,7 @@ test('clic à zéro constitue un choix explicite sans saisie préalable', async 
   await editor.click()
   await page.keyboard.press('Control+Home')
   await selectText(page)
-  await page.getByRole('button', { name: 'Citer dans la note' }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
   await page.keyboard.press('Control+s')
   const quote = transcriptCitation({ text: selectedText, startMs: 1234 }, video.id, video.sources[0].id)
   await expect.poll(() => saved(request, noteURL)).toBe(quote + '\n\nSuite')
@@ -235,7 +235,7 @@ test('une insertion temporelle programmée ne choisit pas implicitement un empla
   await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(2))
   await page.getByRole('button', { name: 'Insérer le temps actuel', exact: true }).click()
   await selectText(page)
-  await page.getByRole('button', { name: 'Citer dans la note' }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Placez le curseur' })).toBeVisible()
   await page.getByRole('button', { name: 'Enregistrer la note', exact: true }).click()
   await expect.poll(() => saved(request, noteURL)).toContain('](')
@@ -249,7 +249,7 @@ for (const keepLocal of [false, true]) {
     await page.keyboard.press('Control+End')
     await request.put(noteURL, { data: { content_md: 'Version distante', expected_revision: 1 } })
     await selectText(page)
-    await page.getByRole('button', { name: 'Citer dans la note' }).click()
+    await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
     await page.keyboard.press('Control+s')
     await expect(page.getByRole('region', { name: 'Résolution du conflit' })).toBeVisible()
     expect(await saved(request, noteURL)).toBe('Version distante')
@@ -262,7 +262,7 @@ for (const keepLocal of [false, true]) {
       await page.getByRole('button', { name: 'Conserver la version serveur' }).click()
       await expect(editor).toHaveText('Version distante')
       await selectText(page)
-      await page.getByRole('button', { name: 'Citer dans la note' }).click()
+      await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
       await expect(page.getByRole('status').filter({ hasText: 'Placez le curseur' })).toBeVisible()
       expect(await saved(request, noteURL)).toBe('Version distante')
     }
@@ -292,7 +292,7 @@ test('sélection réelle à la souris à travers plusieurs blocs puis copie nati
   await page.mouse.down()
   await page.mouse.move(points.end.x, points.end.y, { steps: 20 })
   await page.mouse.up()
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeEnabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeEnabled()
   await page.keyboard.press('Control+c')
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(sourceText.trim().replace(/\s+/g, ' '))
   expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([])
@@ -303,7 +303,7 @@ test('écran étroit et lecteur masqué : bouton stable utilisable, aucune repri
   await page.getByRole('button', { name: 'Masquer la vidéo' }).click()
   await page.setViewportSize({ width: 375, height: 812 })
   await selectText(page)
-  await page.getByRole('button', { name: 'Citer dans la note' }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
   await expect(editor).toContainText('onjour')
   await expect(page.locator('.youtube-frame iframe')).toBeHidden()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -329,9 +329,9 @@ test('une nouvelle vidéo abandonne la sélection et la position de la précéde
   await page.getByRole('link', { name: 'Sillage, accueil' }).click()
   await page.getByRole('link', { name: 'Consulter : ' + other.sources[0].title }).click()
   await expect(editor).toHaveText('Autre note')
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
   await selectText(page)
-  await page.getByRole('button', { name: 'Citer dans la note' }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Placez le curseur' })).toBeVisible()
 })
 
@@ -345,7 +345,7 @@ test('bornes DOM élément et sélection blanche ne capturent ni timestamps ni a
     window.getSelection()!.removeAllRanges()
     window.getSelection()!.addRange(range)
   })
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeEnabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeEnabled()
   const copied = await page.evaluate(() => {
     const event = new ClipboardEvent('copy', { bubbles: true, cancelable: true, clipboardData: new DataTransfer() })
     document.querySelector('.transcript-content')!.dispatchEvent(event)
@@ -356,7 +356,7 @@ test('bornes DOM élément et sélection blanche ne capturent ni timestamps ni a
     const node = document.querySelector('[data-transcript-text]')!.firstChild!
     window.getSelection()!.setBaseAndExtent(node, 9, node, 11)
   })
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
 })
 
 
@@ -367,7 +367,7 @@ for (const position of [5, 7]) {
     await page.keyboard.press('Control+Home')
     for (let i = 0; i < position; i++) await page.keyboard.press('ArrowRight')
     await selectText(page)
-    await page.getByRole('button', { name: 'Citer dans la note' }).click()
+    await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
     await page.keyboard.type('Suite ')
     await page.keyboard.press('Control+s')
     const quote = transcriptCitation({ text: selectedText, startMs: 1234 }, video.id, video.sources[0].id)
@@ -383,7 +383,7 @@ test('copie du champ de recherche et de la note non interceptée', async ({ page
   await page.keyboard.press('Control+a')
   await page.keyboard.press('Control+c')
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Copie de note')
-  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   const search = page.getByRole('searchbox')
   await search.fill('copie du champ')
   await search.press('Control+a')
@@ -402,7 +402,7 @@ test('une plage mêlant transcription et autre panneau est refusée', async ({ p
     window.getSelection()!.removeAllRanges()
     window.getSelection()!.addRange(range)
   })
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
 })
 
 
@@ -454,7 +454,7 @@ for (const platform of ['Win32', 'Linux x86_64']) {
       await expect(editor).toHaveText('Texte ordinaire')
     }
     await selectText(page)
-    await page.getByRole('button', { name: 'Citer dans la note' }).click()
+    await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
     const expected = 'Texte ordinaire\n\n'
       + transcriptCitation({ text: selectedText, startMs: 1234 }, video.id, video.sources[0].id)
       + '\n\n'
@@ -482,7 +482,7 @@ for (const content of ['', 'Avant']) {
     }
     await page.getByRole('tab', { name: 'Informations', exact: true }).click()
     await selectText(page)
-    await page.getByRole('button', { name: 'Citer dans la note' }).click()
+    await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
     await expect(page.getByRole('tab', { name: 'Note', exact: true })).toHaveAttribute('aria-selected', 'true')
     await expect(editor).toBeFocused()
     await expect(editor).toContainText('onjour')
@@ -505,7 +505,7 @@ for (const reading of [false, true]) {
     }
     await page.getByRole('tab', { name: 'Informations', exact: true }).click()
     await selectText(page)
-    await page.getByRole('button', { name: 'Citer dans la note' }).click()
+    await page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' }).click()
     await expect(page.getByRole('tab', { name: 'Informations', exact: true })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('status').filter({ hasText: reading ? 'Passez en Édition' : 'Placez le curseur' })).toBeVisible()
     expect(await saved(request, noteURL)).toBe('Note inchangée')
