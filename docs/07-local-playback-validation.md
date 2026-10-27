@@ -70,3 +70,24 @@ Cette recette vérifie les comportements des lecteurs **YouTube réel** et **Loc
 - Une capture extraite par ffmpeg peut différer de l'image effectivement affichée dans l'iframe YouTube, même à des timestamps proches.
 - Les tests automatisés vérifient de nombreux contrats de code, mais les comportements réels de l'iframe, du navigateur, des codecs et du plein écran nécessitent des vérifications sur les environnements concernés.
 - Ne pas transformer une recette non exécutée en validation acquise. Reporter dans la PR le navigateur, les médias utilisés, les cas effectivement testés et les éventuelles limites.
+
+## Mise en forme contextuelle de la note
+
+- [ ] Sélectionner à la souris, au clavier et en sens inverse, y compris une ligne repliée et plusieurs
+  lignes. Appliquer puis retirer Gras/Italique/Code ; vérifier le texte copié, la sélection utile, Undo/Redo,
+  la resélection du même passage et la sauvegarde habituelle. Ouvrir/fermer les surfaces sans écriture.
+- [ ] Parcourir Texte, H1–H6 et le formulaire de lien avec Tab, flèches, Entrée/Espace et Échap.
+  Vérifier les noms, le focus visible, les motifs de refus et le clic extérieur sans retour forcé du focus.
+  Essayer une destination contenant parenthèses, espaces et chevrons ; annuler puis confirmer.
+- [ ] Sélectionner une référence temporelle compacte : inline est refusé ; changer seulement le niveau du
+  titre conserve son URI et Ctrl/Cmd+clic ou Ctrl/Cmd+Entrée. Basculer Note/Informations, Édition/Lecture,
+  thème et disposition sans perdre sélection, historique ou conflit.
+- [ ] Commencer une capture, ouvrir le formulaire puis laisser l'acceptation insérer l'asset : la cible est
+  explicitement invalidée. Vérifier qu'une confirmation de sauvegarde seule ne l'invalide pas et qu'un
+  remplacement par la version serveur ferme l'ancien formulaire sans insertion tardive.
+- [ ] Dans une note longue, vérifier les bords, le défilement du panneau et de la page, les fenêtres basses,
+  320/375 px et les deux thèmes : aucun débordement, ancrage visible, H6 et confirmation accessibles.
+- [ ] Sur **iOS/Safari réel** et **Android/Chrome réel**, sélectionner puis ajuster les poignées, utiliser le
+  menu natif Copier/Coller, ouvrir le formulaire avec le clavier virtuel et changer l'orientation. Vérifier
+  que la barre attend la stabilisation, ne recouvre pas les poignées et conserve une sélection exploitable.
+  Consigner séparément cette recette : une émulation mobile ne la remplace pas.

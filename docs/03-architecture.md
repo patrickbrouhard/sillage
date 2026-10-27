@@ -324,6 +324,54 @@ Le layout actuel comprend les surfaces 16:9 (avec exception de hauteur minimale 
 
 Une session locale par note porte le texte courant, la dernière version confirmée, sa révision, les délais d'autosauvegarde, les conflits et l'écriture en cours. `MarkdownEditor` conserve son `EditorView` pendant le passage Édition/Lecture, les onglets et les réponses du serveur. Le rendu Lecture utilise GFM sécurisé sans exécuter de HTML brut.
 
+La barre Markdown est une extension de la même vue : une StateField pilote les tooltips CodeMirror,
+un plugin observe la stabilisation des gestes et les changements de géométrie. Le portail sort des zones
+de clipping ; ses contrôles DOM natifs ne deviennent jamais l'autorité sur le texte sélectionné.
+Les transformations pures produisent des changements limités aux délimiteurs, préfixes et échappements,
+sans remplacer les caractères de contenu conservés : les marqueurs de capture gardent ainsi leur ancrage.
+Elles fournissent une sélection CodeMirror ; une annotation
+d'isolation les sépare des saisies voisines dans Undo/Redo. Le listener existant est l'unique chemin vers
+la sauvegarde. Le formulaire de lien conserve l'identité du document et de la sélection de son ouverture ;
+une modification l'invalide avant toute confirmation. Les réponses de sauvegarde ne remplacent pas le document.
+La destruction de la vue détruit aussi ses surfaces, timers et observateurs. Les règles de commandes et
+d'admissibilité sont détaillées dans [Product & UX](01-product-and-ux.md#35-mise-en-forme-contextuelle-du-markdown).
+
+Le Live Preview des titres et de l'emphase utilise un seul ViewPlugin local à la même vue.
+Deux reconnaissances ciblées parcourent les plages visibles de l'arbre syntaxique incrémental CodeMirror :
+les ATX enfants de Document utilisent leurs HeaderMark, les Emphasis/StrongEmphasis leurs deux EmphasisMark.
+Une décoration de ligne porte la typographie des titres ; des remplacements sans widget masquent les seuls
+marqueurs admissibles. Les expressions multilignes ne produisent aucun remplacement de saut de ligne.
+Les paires d'emphase ont leur propre intersection documentaire avec chaque plage ; leurs ancêtres se
+révèlent naturellement avec elles. Le focus ne décide pas de la révélation.
+
+Une configuration locale de `mouseSelectionStyle` borne les groupes du double clic aux marqueurs
+d'emphase réellement remplacés. Ces remplacements portent un indicateur ciblé ; les catégories de
+caractères et les limites de graphèmes restent celles de CodeMirror. Le cycle du geste, le glisser,
+l'autoscroll et l'envoi de la sélection restent gérés par CodeMirror ; aucun correctif ultérieur de
+sélection n'est envoyé. Les marqueurs révélés, underscores ordinaires, autres gestes et commandes
+clavier conservent leurs règles natives. Les bornes du geste sont mappées lors d'une modification.
+
+Les libellés de liens/images, les zones de code/HTML littéral et les en-têtes connus de callout restent
+source. Une enveloppe extérieure peut être compactée sans remplacer une partie du widget temporel.
+La reconnaissance des liens et leur activation restent dans l'extension temporelle existante.
+
+Pendant le glisser souris ou la composition, le plugin conserve ensemble ces décorations et les mappe
+à travers les changements documentaires. Les clics successifs restaurent ce même instantané avant
+la sélection native ; deux plugins ne restaurent pas séparément des géométries incompatibles.
+Les événements DOM et ceux de l'EditContext attaché à la vue déclenchent la reprise différée après
+composition ; écouteurs et timer sont nettoyés à la destruction, sans polling permanent.
+Un effet de présentation sans sélection ni texte relance le calcul après le geste natif.
+Le plugin ne recalcule jamais un clic après révélation et ne corrige ni navigation ni scroll.
+Les mises à jour d'arbre et de viewport relancent aussi la reconnaissance, sans forcer l'analyse
+synchrone de toute une longue note.
+
+Les variables CSS des niveaux sont partagées entre les lignes Édition et les blocs Lecture. Le style
+de coloration hérité des headings est neutralisé seulement sur les lignes admissibles, sans
+multiplier les tailles des fragments inline. Le gras et l'italique réutilisent la coloration existante.
+Les restrictions et compromis géométriques figurent aux contrats UX des
+[titres](01-product-and-ux.md#36-live-preview-des-titres-atx) et de
+[l'emphase](01-product-and-ux.md#37-live-preview-du-gras-et-de-litalique).
+
 La session travaille en LF ; le service Go normalise au moment de la sauvegarde. Une ancienne note CRLF ne doit pas être écrite simplement parce qu'on l'a ouverte. Le client peut réconcilier une réponse perdue par GET avant une nouvelle tentative ; les conflits suspendent l'autosauvegarde et demandent un choix explicite conditionnel.
 
 La sauvegarde visuelle représente la **confirmation de tout le contenu actuel**, pas la seule fin d'une promesse réseau. Les confirmations partielles ou anciennes ne déclenchent pas de coche de succès. Échec et conflit persistent jusqu'à leur résolution. Les états de présentation ne constituent ni nouveaux champs en base ni nouvelles routes.
@@ -363,7 +411,28 @@ La citation passe de la sélection de transcription à une **transaction CodeMir
 
 Le rendu Markdown utilise un traitement Remark ciblé pour `quote` et `quote:tr` avec validation partagée des URI canoniques, sans moteur extensible de callouts. Les en-têtes inconnus ou invalides restent du Markdown ordinaire ; leur contenu n'est pas exécuté comme HTML. Le titre d'une citation de transcription reste du texte littéral.
 
-CodeMirror utilise ses propres arbres syntaxiques pour les décorations de blockquotes et la compaction ciblée de références temporelles, sans transformer le Markdown stocké. Le clic simple révèle la source ; le clavier, les sélections et la composition IME préservent l'édition native. **Ctrl/Cmd+clic** et **Ctrl/Cmd+Entrée** activent seulement les références reconnues et admissibles en réutilisant la navigation du mode Lecture. Les décorations visuelles ne produisent pas de sauvegarde.
+Les boutons temporels de Lecture partagent les règles CSS des pastilles CodeMirror, y compris dans les
+callouts. Leur horloge est décorative et masquée aux technologies d'assistance ; le bouton natif, sa
+description et son retour de navigation restent propres au mode Lecture.
+
+CodeMirror utilise ses propres arbres syntaxiques pour les décorations de blockquotes et la compaction
+ciblée de références temporelles, sans transformer le Markdown stocké. La reconnaissance d'un lien direct
+monoligne simple conserve les bornes documentaires de son libellé ; les URI calculées des en-têtes
+`quote:tr` n'ont pas ces bornes. Le widget adapte son indication accessible à cette distinction.
+
+Sur un widget de lien direct, `mouseSelectionStyle` fournit la plage source exacte du libellé à CodeMirror,
+qui conserve le cycle natif du geste et du glisser. Les décorations temporelles sont conservées pendant ce
+geste, puis rafraîchies au relâchement sans changer la sélection. Une série de clics commencée sur le widget
+conserve cette cible ; un nouveau clic dans la source reprend les règles natives. Le traitement local du
+tap écarte les mouvements, annulations, appuis longs et nouvelles sélections tactiles étendues. Les bornes
+mémorisées sont abandonnées si le document change, notamment lors d'une capture ; la sélection mappée par
+CodeMirror reste l'autorité. Écouteurs et timer sont nettoyés à la destruction de la vue.
+
+Le clic sur l'horloge d'un callout conserve son curseur dans l'URI. Le clavier, les sélections et la
+composition DOM/EditContext préservent l'édition source ; le remplacement du libellé ne reconstruit
+jamais le lien. **Ctrl/Cmd+clic** garde sa priorité et **Ctrl/Cmd+Entrée** exige toujours un curseur
+unique strictement intérieur, sans sélection non vide, pour activer la navigation partagée avec Lecture.
+Les opérations purement visuelles ne produisent aucune sauvegarde.
 
 ### 8.7 Insertion asynchrone des captures
 

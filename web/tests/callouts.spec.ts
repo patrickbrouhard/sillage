@@ -138,7 +138,7 @@ for (const state of [-1, 0, 1, 2, 3, 5]) {
     await page.evaluate(state => window.youtubeTest.players.at(-1)!.emitState(state), state)
     const button = page.getByLabel('Lecture de la note').getByRole('button')
     await expect(page.locator('.quote-callout-title')).toHaveText('Transcription')
-    await expect(button).toHaveText('0:40')
+    await expect(button).toHaveText('◷0:40')
     await expect(button).toHaveAccessibleDescription('Aller à 0:40 dans le lecteur')
     await button.focus()
     await button.press('Enter')

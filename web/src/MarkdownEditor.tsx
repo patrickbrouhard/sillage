@@ -1,9 +1,12 @@
+import { markdownToolbar, markdownToolbarEnabled } from './markdownToolbar'
 import { captureMarker, setCaptureMarker, captureVisualTransaction } from './captureMarker'
 import { useEffect, useLayoutEffect, useImperativeHandle, useRef } from 'react'
 import type { TemporalReference } from './temporalReference'
 import type { Ref } from 'react'
 import { compactTemporalReferences } from './compactTemporalReferences'
 import { markdownDecorations } from './markdownDecorations'
+import { livePreviewMarkdown } from './livePreviewMarkdown'
+import { tags } from '@lezer/highlight'
 import { EditorState, StateEffect } from '@codemirror/state'
 import { Decoration, EditorView, keymap, ViewPlugin, WidgetType } from '@codemirror/view'
 import type { ViewUpdate } from '@codemirror/view'
@@ -15,6 +18,12 @@ import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@code
 // Les distinctions typographiques du Markdown sont conservées dans les deux modes.
 const highlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map(style => ({
   ...style,
+  // Les titres hors périmètre gardent le style source ; les lignes ATX admissibles
+  // neutralisent seulement ce style hérité, sans écraser les liens et le code inline.
+  ...(style.tag === tags.heading ? {
+    fontWeight: 'var(--note-heading-syntax-weight, bold)',
+    textDecoration: 'var(--note-heading-syntax-decoration, underline)',
+  } : {}),
   ...(style.color ? { color: `light-dark(${style.color}, var(--syntax))` } : {}),
 })))
 
@@ -189,8 +198,8 @@ export function MarkdownEditor({
         doc: initial,
         extensions: [
           // Le découpage natif accepte CRLF, CR et LF ; la sérialisation produit du LF.
-          history(), captureMarker, positionPlugin, markdown(), syntaxHighlighting(highlightStyle),
-          EditorView.lineWrapping, markdownDecorations,
+          history(), captureMarker, positionPlugin, markdown(), markdownToolbar(), syntaxHighlighting(highlightStyle),
+          EditorView.lineWrapping, markdownDecorations, livePreviewMarkdown,
           compactTemporalReferences(reference => callbacks.current.onNavigate(reference)),
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
           keymap.of([
@@ -220,6 +229,7 @@ export function MarkdownEditor({
       }),
     })
     editor.current = view
+    view.dispatch({ effects: markdownToolbarEnabled.of(active && visible) })
     return () => { view.destroy(); editor.current = null }
     // Le parent remonte cet éditeur uniquement pour une nouvelle version choisie explicitement.
   }, [initial])
@@ -233,6 +243,9 @@ export function MarkdownEditor({
   useLayoutEffect(() => {
     editor.current?.dispatch({ effects: refreshImagePosition.of(null), annotations: captureVisualTransaction })
   }, [imagesOpen, active, initial])
+  useLayoutEffect(() => {
+    editor.current?.dispatch({ effects: markdownToolbarEnabled.of(active && visible) })
+  }, [active, visible, initial])
   useLayoutEffect(() => {
     // Réafficher un onglet ne reprend pas le focus détenu par son bouton.
     if (visible) editor.current?.requestMeasure()

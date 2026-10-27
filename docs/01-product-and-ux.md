@@ -270,7 +270,7 @@ La commande de sauvegarde reste visible et interactive au repos.
 ### 3.4 Présentation de la note
 
 - La barre permanente place les insertions Temps (`clock-plus`) et Capture (`camera`) à gauche ; la sauvegarde
-  puis le sélecteur Édition/Lecture à l'extrémité droite. Aucune commande ne flotte au survol du texte.
+  puis le sélecteur Édition/Lecture à l'extrémité droite. La mise en forme contextuelle apparaît seulement après une sélection stabilisée (voir § 3.5).
 - Les commandes à icônes conservent des cibles **40 × 40 px**, sur mobile aussi. Les insertions sont espacées de
   4 px, le sélecteur et la sauvegarde de 8 px, les deux groupes d'au moins 12 px. Le sélecteur partage le fond
   commun, les segments arrondis et l'état actif du sélecteur YouTube/Local. Celui de la note mesure **42 px**
@@ -288,6 +288,182 @@ La commande de sauvegarde reste visible et interactive au repos.
 - Les changements d'affichage, de largeur, de thème ou d'onglet ne doivent pas provoquer de remontage de
   l'éditeur, de déplacement intempestif du curseur ni d'enregistrement.
 
+### 3.5 Mise en forme contextuelle du Markdown
+
+En Édition, une sélection continue non vide fait apparaître une barre compacte après stabilisation du geste.
+Son ordre est **Texte**, **Gras**, **Italique**, **Code inline**, **Lien**. Texte contient Paragraphe et H1 à H6 ;
+le libellé affiche le niveau reconnu, Texte ou Mixte. Une sélection simplement repliée visuellement reste
+monoligne. Aucun bouton Markdown permanent, WYSIWYG ou nouveau raccourci de mise en forme n'est introduit.
+Le Live Preview ciblé des titres est décrit au § 3.6.
+
+- La barre ne prend pas le focus à son apparition et attend la fin du glisser. Elle reste ouverte pendant
+  l'utilisation de ses commandes, de son sous-menu ou du formulaire. Les sélections multiples et la
+  composition IME ne l'affichent pas.
+- Une transformation réussie ferme la barre et conserve une sélection utile, dans le même sens lorsque
+  possible, hors des délimiteurs ajoutés. La transaction et les confirmations de sauvegarde ne la rouvrent
+  pas. Un nouveau geste de sélection, même sur le même passage, permet sa réouverture.
+- Échap, un clic extérieur, la saisie, la disparition de la sélection ou le masquage de l'éditeur la ferment.
+  Un clic extérieur conserve son propre focus. Les changements de mode, d'onglet, de disposition et de thème
+  conservent la session CodeMirror. Ouvrir, mesurer et fermer la barre ne modifie ni texte, ni historique, ni
+  sauvegarde.
+- Chaque transformation réelle forme une étape Undo/Redo distincte des saisies voisines et utilise
+  l'autosauvegarde habituelle. Aucun contenu provisoire n'est inséré.
+
+**Commandes inline.** Elles demandent une sélection monoligne de source avec du contenu utile. Les espaces
+périphériques sont conservés à l'extérieur de l'enveloppe. Gras et Italique ajoutent ou retirent une
+enveloppe exacte reconnue, sélectionnée avec ou sans ses délimiteurs. Les compositions simples utilisent au
+besoin les variantes avec underscores pour conserver des délimiteurs fiables. Code inline choisit des
+backticks plus longs que ceux du contenu et ajoute le padding Markdown nécessaire ; retirer une enveloppe
+restitue son contenu source. Les sélections partielles ambiguës dans une mise en forme sont refusées :
+aucun moteur de suppression partielle ou d'uniformisation n'est proposé.
+
+Les commandes refusent les structures protégées : code de bloc, HTML, tableaux GFM, images, définitions ou
+références de liens, ainsi que les en-têtes littéraux de callout. Les transformations inline qui touchent
+une référence temporelle, son libellé ou sa destination sont refusées. Une commande indisponible reste
+consultable au clavier ; son activation explique le refus sans modifier la note. La présence d'une syntaxe
+existante ne suffit pas à refuser une composition fiable.
+
+**Titres.** Une sélection partielle cible la ligne entière ; une fin exactement au début de la ligne
+suivante exclut cette dernière, dans les deux sens de sélection. Chaque ligne non vide reçoit le niveau
+explicitement demandé ; les lignes vides sont conservées. Le niveau existant est remplacé et choisir le
+même niveau est sans effet. Paragraphe retire le préfixe ATX reconnu et son éventuelle clôture, en conservant
+les autres mises en forme. Les titres Setext restent différés. Une liste, citation, callout, table, bloc
+de code, HTML ou définition incompatible provoque un refus global. Retirer un titre est aussi refusé
+si ses lignes voisines ou son contenu révéleraient une autre structure Markdown. Un lien temporel complet
+reste intact quand seul le préfixe de titre change.
+
+**Création de lien.** La sélection fournit le libellé. Le champ « Adresse du lien », Entrée et le bouton
+« Insérer » permettent une confirmation explicite ; Annuler ou Échap ne modifie rien. La destination suit
+le filtre des liens en Lecture (notamment HTTP(S), mailto, liens relatifs et ancres) ; les URI temporelles
+sont réservées aux actions dédiées. Les caractères spéciaux du libellé sont échappés et les destinations
+sont protégées par des chevrons et un encodage ciblé. Aucune requête réseau ni ouverture d'adresse n'est
+effectuée. La création de liens imbriqués et la modification générale des liens existants sont exclues.
+
+Le formulaire appartient à la vue et à la sélection qui l'ont ouvert. Une modification du document,
+notamment la fin d'une capture asynchrone, invalide sa cible : la confirmation est désactivée et le message
+« La note a changé depuis l’ouverture du formulaire. Sélectionnez à nouveau le texte pour insérer le lien. »
+est affiché. Une confirmation de sauvegarde sans changement du document conserve la cible. Un remplacement
+explicite de version en conflit détruit les surfaces de l'ancienne session.
+
+**Position et accessibilité.** La barre privilégie le dessus et se replie dessous. Elle suit le défilement
+extérieur à CodeMirror et les changements de géométrie ; pour une longue sélection, elle utilise
+l'extrémité active ou une portion sélectionnée encore visible. Elle est masquée si aucun ancrage n'est
+visible. Les surfaces sont bornées au viewport, défilables et adaptées aux fenêtres basses ou étroites,
+avec des cibles de 40 px et les couleurs des deux thèmes.
+
+Tab entre dans la barre depuis l'éditeur et permet d'en sortir ; les flèches parcourent les commandes,
+Home/End leurs extrémités, Entrée/Espace les activent. Le champ conserve ses touches natives. Échap ferme
+d'abord le sous-menu ou le formulaire, puis la barre. Les raccourcis existants de sauvegarde, historique
+et navigation temporelle sont conservés.
+
+Sur tactile, le délai de stabilisation est plus long et le viewport visuel tient compte du clavier
+virtuel. La sélection, les poignées et le menu natif Copier/Coller restent gérés par le navigateur.
+Une recette sur appareils réels **iOS/Safari et Android/Chrome** est nécessaire ; l'émulation de largeur
+ne suffit pas à confirmer leur comportement.
+
+### 3.6 Live Preview des titres ATX
+
+Les titres ATX **H1–H6 de premier niveau de structure** ont une typographie de titre directement en Édition.
+L'analyse syntaxique reconnaît leur contexte, l'indentation admissible et la clôture ATX optionnelle.
+Hors d'une ligne active ou sélectionnée, le préfixe, ses blancs séparateurs et l'éventuelle clôture
+sont masqués **sans largeur réservée**, sans englober le saut de ligne. Les `#` du contenu restent visibles.
+Les titres vides (`#`, `## `, `### ###`) restent en source.
+
+Un curseur révèle toute sa ligne logique, même repliée sur plusieurs lignes visuelles. Toute plage de
+sélection révèle les titres qu'elle rencontre ou englobe ; une fin exactement au début de la ligne
+suivante exclut celle-ci, dans les deux sens. Cela s'applique à chaque plage sans rendre la barre
+contextuelle disponible aux sélections multiples. Le focus dans la barre ou le formulaire de lien ne
+remasque pas les titres sélectionnés.
+
+Le masquage est gelé pendant un glisser souris puis actualisé après sa sélection finale. Pendant la
+composition IME, la ligne active reste en source et les décorations conservées suivent les changements
+documentaires ; le recalcul attend la fin de la composition. Ces mesures ne remplacent pas une recette
+IME et tactile sur appareils réels.
+
+Les clics, sélections, déplacements, suppressions et l'historique restent natifs. La révélation ne
+recalcule pas une seconde position depuis les coordonnées du clic. Les déplacements horizontaux et
+changements de hauteur, notamment aux seuils de retour à la ligne, sont acceptés ; aucune animation
+de taille ou position n'est appliquée. Le défilement reste celui de `.note-content` sur desktop et de la
+page sur mobile, sans recentrage ou restauration systématique. Une référence temporelle dans le titre
+garde ses propres interactions et peut aussi changer de largeur à la révélation.
+
+Édition et Lecture partagent l'échelle du thème par défaut d'Obsidian 1.14.5, avec le corps de note de
+16 px, la police système et les couleurs Sillage :
+
+| Niveau | Taille relative au corps | Graisse | Interligne | Espacement des lettres |
+| --- | ---: | ---: | ---: | ---: |
+| H1 | 1,618 | 700 | 1,2 | −0,015 em |
+| H2 | 1,462 | 680 | 1,2 | −0,011 em |
+| H3 | 1,318 | 660 | 1,3 | −0,008 em |
+| H4 | 1,188 | 640 | 1,4 | −0,005 em |
+| H5 | 1,076 | 620 | 1,5 | −0,002 em |
+| H6 | 1 | 600 | 1,5 | 0 |
+
+Les graisses intermédiaires dépendent de la police disponible. Les titres n'ont ni italique ni
+soulignement systématique ; les styles inline, liens et code monospace restent conservés.
+L'espacement d'Édition est un padding de ligne modéré, identique en source et compact, en conservant
+les lignes vides du Markdown. Lecture utilise des marges de bloc distinctes ; l'identité pixel à pixel
+entre modes n'est pas recherchée. Ces styles restent limités au contenu des notes.
+
+Le Markdown brut reste l'unique source de vérité : ces effets ne modifient ni texte, sélection,
+historique, révision ou autosauvegarde et ne rouvrent pas la barre. **Setext, titres imbriqués dans
+listes/citations/callouts et Live Preview général restent différés.** Leur édition
+existante est conservée ; les six niveaux du rendu Lecture partagent néanmoins la même échelle.
+
+### 3.7 Live Preview du gras et de l'italique
+
+Édition compacte les paires reconnues par la grammaire Markdown CodeMirror : `**gras**`, `__gras__`,
+`*italique*` et `_italique_`, y compris les imbrications comme `***texte***`,
+`**gras et *italique***` et `**_texte_**`. Seuls leurs marqueurs syntaxiques sont remplacés, sans largeur
+réservée ; les espaces du contenu et les sauts de ligne ne sont jamais masqués. La mise en forme existante
+est conservée, en source comme en compact, y compris dans les titres sans changer leur échelle.
+
+La révélation suit **chaque expression**, indépendamment des autres expressions de sa ligne :
+
+- Un curseur révèle l'ouverture et la fermeture lorsqu'il se trouve dans le contenu, dans un marqueur,
+  ou exactement à l'une des deux frontières de l'expression. L'entrée et la suppression restent natives.
+- Une sélection non vide utilise l'intersection documentaire à borne haute exclusive ; une sélection
+  seulement adjacente ne révèle pas l'expression voisine. Les sélections inversées et chaque plage
+  supplémentaire utilisent la même règle, sans élargir le périmètre du menu.
+- Une expression imbriquée révèle ses enveloppes ancêtres concernées ; ses expressions sœurs restent
+  compactes si elles ne rencontrent aucune plage.
+- Le focus dans le menu ou son formulaire de lien conserve cette révélation. La sélection et la copie
+  restent celles du Markdown source : les marqueurs englobés sont copiés, même lors d'un glisser compact.
+
+Lors d'un double clic et de son glisser par mots, les marqueurs d'emphase effectivement masqués
+bornent les groupes sélectionnés : `__Alpha__` compact donne `Alpha`, et `**_Alpha_**` compact donne
+également `Alpha`. L'adaptation utilise les catégories de caractères et graphèmes de CodeMirror,
+sans retrancher les underscores ordinaires du contenu (`snake_case`). Elle ne change ni les clics
+simples, ni les gestes modifiés ou à plages multiples, ni les sélections clavier. Les marqueurs déjà
+révélés restent soumis aux groupes source natifs ; `__Alpha__` révélé peut donc être sélectionné
+avec ses underscores. Un glisser conserve tous les marqueurs intermédiaires dans sa plage source,
+même si les marqueurs masqués aux bornes du mot visé n'en font pas partie.
+
+Le gras et l'italique sont pris en charge dans les paragraphes, titres, listes et corps de citations ou
+callouts. Une paire peut traverser plusieurs lignes logiques ; cela n'étend pas les commandes inline du
+menu, qui restent monolignes. Les formes échappées, incomplètes ou littérales suivent l'analyse syntaxique :
+aucune recherche globale d'astérisques ou d'underscores ne décide du masquage.
+
+Les **libellés de liens et d'images** gardent leurs marqueurs source, y compris les liens temporels
+enrichis. Les destinations, titres de liens, code et HTML littéral (blocs, tags et attributs) restent aussi
+en source. Le Markdown situé entre des tags HTML inline reste analysé normalement. Une enveloppe
+d'emphase extérieure à un lien ou à une image peut être compactée : ses marqueurs restent hors de la
+plage du lien ou du widget temporel et ne changent ni sa reconnaissance ni son activation.
+Les en-têtes littéraux connus de callout restent source, même invalides ou imbriqués ; une expression
+traversant un tel en-tête reste entièrement source.
+
+Titres et emphases partagent un seul gel de présentation pendant le glisser et la composition DOM ou
+EditContext, avec mapping des décorations conservées puis reprise après les mutations natives.
+Les clics successifs utilisent un même instantané de présentation avant la sélection native, sans
+retarder le clic simple. Ces effets n'écrivent pas le document, ne déplacent pas la sélection, ne créent
+pas d'étape Undo et ne rouvrent pas le menu. Ils ne corrigent ni la navigation ni le défilement.
+La géométrie peut changer à la révélation, sans animation ; les conteneurs existants restent utilisés.
+
+Le barré, le code inline, les liens et images ne reçoivent pas de nouvelle compaction dans cette tranche.
+Le Live Preview général, Setext et la compaction des marqueurs des autres structures restent différés.
+Une simulation Chromium de composition et une émulation responsive ne remplacent pas la recette IME et
+tactile sur appareils réels.
+
 ## 4. Temps, références Markdown et citations
 
 ### 4.1 Référence temporelle canonique
@@ -299,9 +475,9 @@ en **millisecondes** :
 [12:42](sillage://videos/5/sources/5?start_ms=762345)
 ```
 
-Le libellé (`m:ss` ou `h:mm:ss`) est destiné à l'affichage : **`start_ms` est seul faisant foi**. L'autorité
-logique de l'URI est `videos`. `end_ms` est réservé aux futures plages temporelles et n'est pas une fonction
-prise en charge aujourd'hui.
+Le libellé, temporel (`m:ss` ou `h:mm:ss`) ou descriptif, est destiné à l'affichage : **`start_ms` est seul
+faisant foi**. L'autorité logique de l'URI est `videos`. `end_ms` est réservé aux futures plages temporelles
+et n'est pas une fonction prise en charge aujourd'hui.
 
 ### 4.2 Insérer le temps courant
 
@@ -319,8 +495,14 @@ prise en charge aujourd'hui.
 
 ### 4.3 Navigation depuis les références
 
-- En Lecture, une référence canonique est interactive. En Édition, les références reconnues utilisent les gestes
-  spécifiques décrits plus bas ; une forme invalide reste du Markdown ordinaire.
+- En Lecture, clic simple, Entrée ou Espace sur une référence canonique activent sa navigation. En Édition,
+  les références reconnues utilisent les gestes spécifiques décrits plus bas ; une forme invalide reste du
+  Markdown ordinaire.
+- Les deux modes partagent la pastille compacte : même horloge décorative, couleurs de thème, fond et
+  espacements. Le libellé Markdown d'origine est conservé, même descriptif ; les libellés longs se replient
+  sans déborder sur mobile. Les horloges des callouts `quote:tr` reprennent cette apparence, avec leur temps
+  calculé. L'horloge n'ajoute rien au nom accessible ; le bouton de Lecture conserve son focus et ses messages
+  de navigation. Les liens ordinaires gardent leur présentation.
 - La navigation est autorisée uniquement pour **la vidéo et la source de travail courantes**. Une autre identité
   ne déclenche ni changement de fiche ni changement de lecteur : un message explique le refus.
 - Un lecteur indisponible ou en cours de masquage refuse la commande et invite à réessayer. Aucune navigation
@@ -370,14 +552,35 @@ CodeMirror enrichit la présentation **sans modifier le Markdown persisté** :
   lien, images, code, formes multilignes ou invalides — restent visibles en source.
 - Dans les en-têtes admissibles de `quote:tr`, seule l'URI est compactée ; le marqueur, les parenthèses et le
   titre restent visibles. Les en-têtes invalides ne deviennent pas interactifs.
-- Un clic simple, un déplacement du curseur à l'intérieur ou une sélection qui traverse une référence révèle la
-  source. Copier et éditer conservent les comportements natifs. La suppression contre un lien compact révèle
+- Sur un lien temporel direct compact, un clic simple sans modificateur révèle la source et sélectionne
+  **exactement le libellé**, hors crochets et URI, dans la même vue focalisée. Saisie, collage et composition
+  le remplacent par les mécanismes ordinaires de CodeMirror. L'URI n'est ni reconstruite ni normalisée ;
+  un nouveau libellé, même temporel, ne change jamais le `start_ms` canonique. Une forme vide, enrichie ou
+  invalide reste telle quelle et suit les règles existantes de reconnaissance, sans réparation.
+- Pendant un geste souris commencé sur ce widget, sa présentation reste stable jusqu'au relâchement.
+  Un glisser conserve sa sélection documentaire étendue ; les appuis successifs d'une même série de clics
+  commencée sur le widget gardent la cible du libellé, sans nouveau calcul de coordonnées après révélation.
+  Un nouveau clic dans la source place normalement le curseur ; ses doubles clics et glissers restent natifs.
+  Les headings et emphases englobants gardent leurs protections communes.
+- Un tap bref sur le widget vise le même résultat ; scroll, appui long, poignées et sélections natives ne
+  sont pas convertis en demande de remplacement. Les simulations Chromium ne valent pas recette tactile réelle.
+- Une horloge `quote:tr` n'a pas de libellé source équivalent : son clic conserve la révélation avec curseur
+  dans l'URI, sans sélection d'une portion de celle-ci. Un déplacement clavier à l'intérieur d'une référence
+  ou une sélection traversante continue de révéler la source sans sélectionner automatiquement le libellé.
+  Copier et éditer gardent leurs comportements natifs. La suppression contre un lien compact révèle
   d'abord la syntaxe sans la détruire au premier appui ; l'édition suivante est normale.
+- La révélation et cette sélection ne changent aucun caractère, aucune révision ni étape de modification
+  dans Undo/Redo et ne déclenchent pas de sauvegarde. Une modification réelle utilise l'historique et
+  l'autosauvegarde habituels. Cette sélection peut ouvrir le menu Markdown comme une sélection ordinaire ;
+  les commandes inline restent refusées sur la référence et ses composants, les commandes de bloc admissibles
+  conservent le lien. Les protections du formulaire de lien restent inchangées.
 - La composition IME suspend les transformations visuelles incompatibles. L'affichage compact n'introduit ni
   arrêt Tab, ni écriture, ni modification de l'historique Undo/Redo.
 - **Ctrl+clic** (Cmd+clic sur macOS) active une référence reconnue ; **Ctrl/Cmd+Entrée** l'active lorsqu'un
   curseur unique est strictement à l'intérieur de sa plage. Les frontières, titres et sélections multiples ne
-  déclenchent pas d'activation implicite. Shift et Alt n'ajoutent pas d'activation.
+  déclenchent pas d'activation implicite. Après sélection automatique du libellé, une flèche peut la replier
+  avant Ctrl/Cmd+Entrée ; les autres raccourcis natifs de l’éditeur restent inchangés. Shift et Alt n’ajoutent
+  pas d’activation.
 - Un curseur-main signale Ctrl/Cmd sur une référence activable ; au repos, le curseur d'édition reste natif. Le
   focus et la sélection sont préservés lors d'une navigation acceptée ; les refus s'affichent dans un état
   distinct de l'autosauvegarde.

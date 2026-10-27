@@ -63,6 +63,14 @@ for (const text of [link, callout]) {
     const { editor, compact, writes } = await open(page, text)
     await compact.click()
     await expect(compact).toHaveCount(0)
+    if (text === link) {
+      await page.keyboard.press('Control+Enter')
+      expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls.length)).toBe(0)
+      // Hors activation temporelle, CodeMirror conserve son insertion native de ligne vide.
+      await page.keyboard.press('Control+z')
+      await expect(editor).toHaveText(text)
+      await page.keyboard.press('ArrowRight')
+    }
     await page.keyboard.press('Control+Enter')
     expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls.length)).toBe(1)
     const target = text === callout ? editor.locator('.cm-callout-uri') : editor.locator('.cm-line').first()
@@ -120,6 +128,10 @@ test('Cmd sur Mac : compaction, source révélée et clavier', async ({ page }) 
   await compact.click({ modifiers: ['Meta'] })
   await expect(compact).toHaveCount(1)
   await compact.click()
+  await page.keyboard.press('Meta+Enter')
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls.length)).toBe(1)
+  await page.keyboard.press('Meta+z')
+  await page.keyboard.press('ArrowRight')
   await page.keyboard.press('Meta+Enter')
   expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls.length)).toBe(2)
   expect(writes).toEqual([])
@@ -265,4 +277,17 @@ test('curseur normal sur titre littéral, en-tête invalide et lien Web', async 
   await expect(editor.locator('.cm-line').last()).not.toHaveCSS('cursor', 'pointer')
   await page.keyboard.up('Control')
   expect(writes).toEqual([])
+})
+
+test('libellé renommé : navigation fondée sur le temps canonique inchangé', async ({ page }) => {
+  const { editor, compact, writes } = await open(page, link)
+  await compact.click()
+  await page.keyboard.insertText('0:00')
+  await expect(editor).toHaveText('[0:00](' + uri + ')')
+  await page.keyboard.press('Control+Enter')
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toEqual([
+    { command: 'seek', seconds: 40.36, allowSeekAhead: true },
+  ])
+  await page.keyboard.press('Control+s')
+  await expect.poll(() => writes.at(-1)).toBe('[0:00](' + uri + ')')
 })

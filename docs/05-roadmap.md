@@ -32,6 +32,7 @@ sans calendrier arrêté.
 | 5 — Interface Web | Bibliothèque, fiche vidéo, lecteur YouTube, éditeur Markdown et sauvegarde fiable | Réalisé |
 | 6 — Interactions temporelles | Recherche dans une transcription ouverte, citations, références Markdown et navigation | Réalisé |
 | UX 1 — Confort de rédaction | Callouts, présentation de l'éditeur et références compactes/interactives | Réalisé |
+| UX 2 — Confort de l'éditeur | Barre de sélection Markdown et création de lien ; Live Preview ciblé des titres ATX H1–H6 racine et de l’emphase, typographie partagée | Réalisé (trois tranches) |
 | 7 — Médias | Téléchargement et conservation des fichiers, captures PNG, consultation et réinsertion par vidéo | Réalisé |
 | 8 — Recherche globale | FTS5 transactionnel, notes et métadonnées, API et parcours Web paginés | Réalisé |
 | 9 — Première tranche MCP | Quatre lectures locales sur services partagés, transport HTTP stateless optionnel | Implémenté ; validation agents partielle |

@@ -61,7 +61,7 @@ test('rendu ciblé, contenu invalide inerte, images et liens ordinaires protég�
   ].join('\n\n'))
   const reading = page.getByLabel('Lecture de la note')
   await expect(reading.getByRole('button')).toHaveCount(1)
-  await expect(reading.getByRole('button')).toHaveText('Autre libellé')
+  await expect(reading.getByRole('button')).toHaveText('◷Autre libellé')
   await expect(reading.getByRole('button')).toHaveAccessibleName('Autre libellé')
   await expect(reading.getByRole('button')).toHaveAccessibleDescription('Aller à 0:12 dans le lecteur')
   await expect(reading.locator('a[href^="sillage:"], a[href^="javascript:"]')).toHaveCount(0)

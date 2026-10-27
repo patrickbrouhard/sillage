@@ -249,13 +249,13 @@ Les validations manuelles non encore réalisées sur certains environnements con
 
 ### 4.2 Éditeur Markdown et références enrichies
 
-CodeMirror intègre déjà plusieurs améliorations de présentation : callouts, références temporelles compactes, navigation en Édition, typographie commune et conservation de la session d'édition.
+CodeMirror intègre déjà plusieurs améliorations de présentation : callouts, références temporelles compactes, navigation en Édition, Live Preview des titres ATX H1–H6 racine et de l’emphase, typographie commune et conservation de la session d'édition.
 
 Questions ouvertes :
 
 - Jusqu'où aller vers une présentation de type Live Preview, inspirée notamment d'Obsidian ?
 - Quels éléments Markdown supplémentaires mériteraient une représentation visuelle enrichie ?
-- Comment révéler et modifier la syntaxe masquée sans perturber le curseur, les sélections, Undo/Redo ou l'autosauvegarde ?
+- Quelles règles de révélation conviendraient aux futurs éléments, notamment Setext et titres imbriqués, en préservant le curseur, les sélections, Undo/Redo et l'autosauvegarde ?
 - Comment présenter et éditer les futures plages temporelles ?
 - Faut-il permettre l'insertion rapide de différents objets depuis un menu commun : image, référence temporelle, citation, annotation ou clip ?
 - Faut-il enrichir les actions de copie et d'export pour produire un Markdown plus facilement exploitable hors de Sillage ?

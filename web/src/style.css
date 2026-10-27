@@ -189,6 +189,32 @@ summary { cursor: pointer; font-weight: 650; padding: 10px 0; }
   margin: 0 auto;
   min-height: 16rem; overflow-wrap: anywhere; padding: var(--note-padding);
 }
+
+/* Échelle commune aux notes, appliquée une seule fois au bloc et jamais aux fragments. */
+.markdown-editor .cm-note-h1, .markdown-reading h1 { --note-heading-size: 1.618em; --note-heading-weight: 700; --note-heading-height: 1.2; --note-heading-spacing: -.015em; }
+.markdown-editor .cm-note-h2, .markdown-reading h2 { --note-heading-size: 1.462em; --note-heading-weight: 680; --note-heading-height: 1.2; --note-heading-spacing: -.011em; }
+.markdown-editor .cm-note-h3, .markdown-reading h3 { --note-heading-size: 1.318em; --note-heading-weight: 660; --note-heading-height: 1.3; --note-heading-spacing: -.008em; }
+.markdown-editor .cm-note-h4, .markdown-reading h4 { --note-heading-size: 1.188em; --note-heading-weight: 640; --note-heading-height: 1.4; --note-heading-spacing: -.005em; }
+.markdown-editor .cm-note-h5, .markdown-reading h5 { --note-heading-size: 1.076em; --note-heading-weight: 620; --note-heading-height: 1.5; --note-heading-spacing: -.002em; }
+.markdown-editor .cm-note-h6, .markdown-reading h6 { --note-heading-size: 1em; --note-heading-weight: 600; --note-heading-height: 1.5; --note-heading-spacing: 0; }
+.markdown-editor .cm-note-heading,
+.video-note .markdown-reading :is(h1, h2, h3, h4, h5, h6) {
+  font-size: var(--note-heading-size);
+  font-weight: var(--note-heading-weight);
+  line-height: var(--note-heading-height);
+  letter-spacing: var(--note-heading-spacing);
+  font-style: normal;
+  text-decoration: none;
+}
+.markdown-editor .cm-note-heading {
+  --note-heading-syntax-weight: inherit;
+  --note-heading-syntax-decoration: none;
+  padding-block: .25rem .125rem;
+}
+.markdown-editor .cm-note-heading-marker { color: var(--muted); }
+.video-note .markdown-reading :is(h1, h2, h3, h4, h5, h6) { margin-block: 1rem .5rem; }
+.video-note .markdown-reading > :first-child { margin-top: 0; }
+
 .markdown-reading img { max-width: 100%; }
 .markdown-reading pre { overflow-x: auto; }
 .markdown-reading table { border-collapse: collapse; display: block; overflow-x: auto; }
@@ -279,8 +305,8 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .markdown-reading pre { padding: .75rem; border-radius: .4rem; }
 .note-navigation { background: var(--surface); color: var(--text); }
 
-/* Une action de lecture, sans apparence de bouton principal ni lien externe. */
-.temporal-reference { font: inherit; color: var(--label); background: transparent; border: 0; padding: .1em .2em; text-decoration: underline; cursor: pointer; }
+/* La Lecture garde son bouton natif et les mêmes pastilles que l’éditeur. */
+.temporal-reference { font: inherit; color: inherit; background: transparent; border: 0; padding: 0; text-decoration: none; cursor: pointer; text-align: inherit; max-width: 100%; }
 .temporal-reference:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .temporal-message { font-size: .9em; }
 
@@ -291,7 +317,7 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .quote-callout-title { flex: 1; }
 .quote-callout-title, .quote-callout-attribution { min-width: 0; font-weight: 600; white-space: pre-wrap; }
 .quote-callout-action { margin-left: auto; min-width: 0; flex-shrink: 0; max-width: 50%; text-align: right; }
-.quote-callout-action .temporal-reference { white-space: nowrap; }
+.quote-callout-action .temporal-reference { color: var(--text); white-space: nowrap; }
 .quote-callout-action .temporal-message { display: block; text-align: left; color: var(--text); }
 .quote-callout-body > :first-child { margin-top: .65rem; }
 .quote-callout-body > :last-child { margin-bottom: 0; }
@@ -307,18 +333,19 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .markdown-editor .cm-callout-uri, .markdown-editor .cm-callout-uri * { color: var(--muted); }
 .markdown-editor .cm-callout-label, .markdown-editor .cm-callout-label * { color: var(--label); font-weight: 600; }
 
-/* Références compactes : aucune largeur imposée aux libellés longs. */
-.cm-temporal-reference {
+/* Le fond suit les fragments de texte longs, y compris à l'intérieur du bouton
+   natif de Lecture, dont le focus et les interactions restent indépendants. */
+.cm-temporal-reference, .temporal-reference-content {
   display: inline;
   padding: .08em .25em;
   border-radius: .3em;
   background: color-mix(in srgb, currentColor 8%, transparent);
-  cursor: text;
   overflow-wrap: anywhere;
   box-decoration-break: clone;
 }
-.cm-temporal-reference > span { margin-right: .3em; }
-.cm-temporal-reference:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+.cm-temporal-reference { cursor: text; }
+.temporal-reference-icon { margin-right: .3em; }
+.cm-temporal-reference:hover, .temporal-reference:hover .temporal-reference-content { background: color-mix(in srgb, currentColor 14%, transparent); }
 
 /* La main annonce uniquement le geste de navigation, y compris sur la source révélée. */
 .cm-temporal-navigation .cm-temporal-reference,
@@ -755,3 +782,34 @@ html:has(.images-selector:modal, .image-viewer:modal) { overflow: hidden; scroll
 .images-heading h2:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
 
 .lightbox-position { font-size: .75rem; opacity: .8; white-space: nowrap; }
+
+/* Le tooltip sort du panneau défilant ; les couleurs suivent le thème sans remontage. */
+.cm-tooltip.markdown-formatting {
+  border: 1px solid var(--border); border-radius: 10px; padding: 4px;
+  background: var(--surface); color: var(--text); box-shadow: 0 4px 18px #0003;
+  font: 14px/1.4 system-ui, sans-serif; z-index: 30; overflow: auto;
+  max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px);
+}
+.markdown-formatting-row { display: flex; align-items: center; gap: 2px; }
+.markdown-formatting [hidden] { display: none; }
+.markdown-formatting button {
+  min-width: 40px; min-height: 40px; border: 0; border-radius: 6px;
+  padding: 6px 9px; background: transparent; color: inherit; cursor: pointer;
+}
+.markdown-formatting button:hover, .markdown-formatting button:focus-visible { background: var(--hover); }
+.markdown-formatting button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.markdown-formatting button[aria-disabled=true], .markdown-formatting button:disabled { color: var(--muted); cursor: default; }
+.markdown-formatting-bold { font-weight: 750; }
+.markdown-formatting-italic { font-style: italic; }
+.markdown-formatting-code { font-family: monospace; }
+.markdown-formatting [aria-label="Niveau du texte"] {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--subtle);
+}
+.markdown-formatting [aria-label="Niveau du texte"] button:first-child { grid-column: span 2; }
+.markdown-formatting form { display: flex; flex-wrap: wrap; gap: 4px; width: min(320px, calc(100vw - 26px)); }
+.markdown-formatting label { display: grid; gap: 4px; width: 100%; padding: 4px; }
+.markdown-formatting input {
+  width: 100%; min-width: 0; min-height: 40px; border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px; font: inherit; font-size: 16px;
+}
+.markdown-formatting-message { max-width: 300px; margin: 6px; font-size: 13px; overflow-wrap: anywhere; }
