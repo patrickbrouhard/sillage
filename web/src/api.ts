@@ -4,6 +4,13 @@ export interface Tag {
   name: string
 }
 
+/** Entrée du catalogue partagé avec ses trois compteurs d'associations directes. */
+export interface CatalogTag extends Tag {
+  video_count: number
+  publisher_count: number
+  person_count: number
+}
+
 /** Métadonnées d'une provenance, distinctes de l'identité de la vidéo. */
 export interface VideoSource {
   id: number
@@ -70,6 +77,8 @@ async function responseError(
   const messages: Record<string, string> = {
     bad_request: invalidInput,
     video_not_found: 'Cette vidéo n’existe pas ou n’est plus disponible dans votre bibliothèque.',
+    tag_not_found: 'Ce tag n’existe plus. Actualisez le catalogue.',
+    tag_conflict: 'Un autre tag porte déjà ce nom. Choisissez un nom différent.',
     metadata_fetch_failed: 'Les informations de cette vidéo n’ont pas pu être récupérées auprès de YouTube. Réessayez plus tard.',
     metadata_fetch_timeout: 'Le délai d’acquisition est dépassé. Vous pouvez réessayer.',
     payload_too_large: tooLarge,
@@ -158,6 +167,47 @@ export async function listTags(signal: AbortSignal): Promise<Tag[]> {
     )
   }
   return readTags(response)
+}
+
+/** Vérifie les compteurs réservés au catalogue, sans changer les tags embarqués. */
+export async function listTagCatalog(signal: AbortSignal): Promise<CatalogTag[]> {
+  const tags = await listTags(signal) as CatalogTag[]
+  if (!tags.every(tag => [tag.video_count, tag.publisher_count, tag.person_count]
+    .every(count => Number.isSafeInteger(count) && count >= 0))) {
+    throw new Error('La réponse du catalogue est invalide. Réessayez dans un instant.')
+  }
+  return tags
+}
+
+/** Renomme sans normalisation locale ; le serveur fournit la graphie enregistrée. */
+export async function renameCatalogTag(id: number, name: string, signal: AbortSignal): Promise<Tag> {
+  const response = await fetch(`/api/v1/tags/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+    signal,
+  })
+  if (!response.ok) throw await responseError(
+    response,
+    'Impossible de renommer ce tag.',
+    'Saisissez un nom non vide de 200 caractères Unicode maximum.',
+    'Le nom envoyé est trop volumineux.',
+  )
+  const tag: Tag = await response.json()
+  if (tag?.id !== id || typeof tag.name !== 'string') {
+    throw new Error('La réponse du serveur est invalide. Actualisez le catalogue.')
+  }
+  return tag
+}
+
+/** Supprime le tag et toutes ses associations courantes, même s'il est déjà absent. */
+export async function deleteCatalogTag(id: number, signal: AbortSignal): Promise<void> {
+  const response = await fetch(`/api/v1/tags/${id}`, { method: 'DELETE', signal })
+  if (!response.ok) throw await responseError(
+    response,
+    'Impossible de supprimer ce tag.',
+    'L’identifiant du tag est invalide.',
+  )
 }
 
 /** Associe un nom ; le serveur décide de son identité et retourne tous les tags. */

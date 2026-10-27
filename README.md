@@ -9,7 +9,7 @@ YouTube est actuellement la source prise en charge. La conception distingue la v
 ## Fonctionnalités disponibles
 
 - **Bibliothèque** : ajout de vidéos YouTube par URL, extraction des métadonnées avec `yt-dlp`, détection des doublons et consultation des fiches.
-- **Classement** : tags partagés entre vidéos, publishers et personnes ; filtre de bibliothèque par tag ; associations explicites des comptes de publication et personnes, accessibles par REST.
+- **Classement** : catalogue partagé sur `/tags` avec compteurs, renommage et suppression ; filtre de bibliothèque par tag ; associations explicites des comptes de publication et personnes, accessibles par REST.
 - **Espace de travail** : lecteur vidéo, note Markdown et transcription, avec mise en page adaptée aux écrans desktop et mobile. En-tête compact, navigation latérale, thèmes clair/sombre/système et panneaux Note/Informations.
 - **Notes** : éditeur CodeMirror 6, lecture Markdown/GFM, sauvegarde automatique, protection par révision contre les écrasements concurrents, historique Undo/Redo et références temporelles interactives.
 - **Transcriptions YouTube** : acquisition explicite de sous-titres automatiques sélectionnés, conservation du JSON3, lecture hors réseau depuis le snapshot, recherche textuelle locale, navigation par timestamp et citation d'extraits dans la note.
@@ -297,8 +297,14 @@ Chaque `PUT` de note exige **`content_md` et `expected_revision`**. La valeur `0
 
 La sauvegarde convertit uniquement CRLF et CR en LF. Une écriture identique sous précondition valide conserve la révision et les dates. Taille maximale du JSON de note : **1 Mio** ; ajout de tags : **64 Kio**. Les noms des tags, limités à 200 points de code après retrait des espaces aux extrémités, ont une identité Unicode NFC sans casse mais conservent leurs accents significatifs et leur nom d'affichage. Les associations n'héritent pas des autres entités.
 
-### Transcriptions
+Le catalogue retourne `{"tags":[{"id":7,"name":"Go","video_count":18,"publisher_count":2,"person_count":1}]}`.
+Ces compteurs directs sont informatifs. Un renommage (JSON limité à **16 Kio**) conserve l'ID et
+les associations ; une correction de graphie à clé identique est acceptée, une collision avec un
+autre tag est refusée sans fusion. La dernière écriture réussie prévaut ; les anciens noms libérés
+restent réutilisables. La suppression globale retire tous les liens présents dans sa transaction.
+Les tags embarqués dans les vidéos, publishers et personnes gardent leur forme `{id, name}`.
 
+### Transcriptions
 
 | Méthode | Route | Comportement |
 | --- | --- | --- |

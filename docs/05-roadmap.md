@@ -37,6 +37,7 @@ sans calendrier arrêté.
 | 8 — Recherche globale | FTS5 transactionnel, notes et métadonnées, API et parcours Web paginés | Réalisé |
 | 9 — Première tranche MCP | Quatre lectures locales sur services partagés, transport HTTP stateless optionnel | Implémenté ; validation agents partielle |
 | Consolidations postérieures | Journalisation structurée, lecture locale, ergonomie du lecteur et nouvelle disposition du workspace | Réalisé |
+| Catalogue de tags — Première tranche | Consultation et compteurs directs, renommage et suppression globale, REST et page `/tags` | Réalisé |
 
 Ce tableau résume les capacités livrées ; il ne vaut pas une validation exhaustive de chaque navigateur ou scénario réel. Les contrats actuels se trouvent dans les documents 01 à 04. Les commits, PR et anciennes versions Git conservent le détail des implémentations et de leurs validations.
 

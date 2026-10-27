@@ -31,6 +31,35 @@ a { color: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { font: inherit; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+
+/* Le catalogue garde des lignes souples et les mêmes surfaces que la bibliothèque. */
+.tag-catalog { max-width: 960px; margin-inline: auto; }
+.tag-catalog-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 20px; }
+.tag-catalog-controls label { display: grid; gap: 8px; font-size: 14px; min-width: 0; }
+.tag-catalog-controls label:first-child { flex: 1 1 260px; }
+.tag-catalog input, .tag-catalog select { min-width: 0; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--input); color: var(--text); font: inherit; }
+.tag-catalog-status { color: var(--muted); font-size: 14px; margin-block: 24px 12px; }
+.tag-catalog-list { list-style: none; padding: 0; margin: 0; }
+.tag-catalog-row { display: flex; align-items: center; gap: 16px; padding: 20px 4px; border-bottom: 1px solid var(--subtle); }
+.tag-catalog-row[hidden] { display: none; }
+.tag-catalog-content { flex: 1; min-width: 0; }
+.tag-catalog-name { font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
+.tag-catalog-associations { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+.tag-catalog-actions { display: flex; flex: none; gap: 6px; }
+.tag-rename { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tag-rename input { flex: 1 1 220px; }
+.tag-catalog-error { color: var(--error); overflow-wrap: anywhere; }
+.tag-delete-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; border: 1px solid var(--border); border-radius: 12px; padding: 24px; background: var(--surface); color: var(--text); line-height: 1.6; }
+.tag-delete-dialog::backdrop { background: #07101f99; }
+.tag-delete-dialog h2 { margin-top: 0; font-size: 21px; overflow-wrap: anywhere; }
+.tag-delete-dialog .page-actions { justify-content: flex-end; }
+.tag-delete-dialog .danger { color: var(--error); border-color: var(--error-border); }
+@media (max-width: 600px) {
+  .tag-catalog-controls label { flex: 1 1 100%; }
+  .tag-catalog-row { gap: 8px; }
+  .tag-catalog-actions { gap: 0; }
+  .tag-rename .page-actions { gap: 8px; }
+}
 .site-header {
   min-height: 88px; padding: 20px 16px;
   display: flex; align-items: center; justify-content: space-between;

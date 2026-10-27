@@ -513,6 +513,12 @@ VideoNote et survit à cette fermeture.
 
 ### 8.9 Gestion des tags et en-tête
 
+La page `Tags` charge le catalogue avec ses compteurs propres, applique recherche et tri en mémoire,
+puis répercute chaque résultat de mutation sur sa liste locale. Les lignes restent montées pendant
+les changements de filtre ou de tri pour préserver brouillons et requêtes en cours. Chaque ligne
+possède son édition et sa confirmation native ; les erreurs REST restent locales à l'opération.
+La normalisation d'identité est déléguée à `TagService`, comme dans l'autocomplétion.
+
 Les mutations de tags sont des opérations successives et persistées immédiatement ; la fermeture de la modale ne les annule pas. Le frontend fournit une autocomplétion accessible sans réimplémenter la normalisation métier Go. Les fiches affichent les tags dans leur en-tête, avec un préfixe mesuré et un compteur `+n` pour le surplus ; la liste garde l'ordre REST et n'impose pas de quota arbitraire.
 
 Les mesures d'encombrement et changements responsive n'ajoutent ni requête REST, ni association, ni sauvegarde de note. Le volet global utilise un dialogue modal et se ferme avant une navigation protégée afin de ne pas concurrencer le dialogue de sauvegarde.
