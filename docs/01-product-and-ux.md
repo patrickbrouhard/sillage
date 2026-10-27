@@ -407,8 +407,62 @@ entre modes n'est pas recherchée. Ces styles restent limités au contenu des no
 
 Le Markdown brut reste l'unique source de vérité : ces effets ne modifient ni texte, sélection,
 historique, révision ou autosauvegarde et ne rouvrent pas la barre. **Setext, titres imbriqués dans
-listes/citations/callouts, autres syntaxes et Live Preview général restent différés.** Leur édition
+listes/citations/callouts et Live Preview général restent différés.** Leur édition
 existante est conservée ; les six niveaux du rendu Lecture partagent néanmoins la même échelle.
+
+### 3.7 Live Preview du gras et de l'italique
+
+Édition compacte les paires reconnues par la grammaire Markdown CodeMirror : `**gras**`, `__gras__`,
+`*italique*` et `_italique_`, y compris les imbrications comme `***texte***`,
+`**gras et *italique***` et `**_texte_**`. Seuls leurs marqueurs syntaxiques sont remplacés, sans largeur
+réservée ; les espaces du contenu et les sauts de ligne ne sont jamais masqués. La mise en forme existante
+est conservée, en source comme en compact, y compris dans les titres sans changer leur échelle.
+
+La révélation suit **chaque expression**, indépendamment des autres expressions de sa ligne :
+
+- Un curseur révèle l'ouverture et la fermeture lorsqu'il se trouve dans le contenu, dans un marqueur,
+  ou exactement à l'une des deux frontières de l'expression. L'entrée et la suppression restent natives.
+- Une sélection non vide utilise l'intersection documentaire à borne haute exclusive ; une sélection
+  seulement adjacente ne révèle pas l'expression voisine. Les sélections inversées et chaque plage
+  supplémentaire utilisent la même règle, sans élargir le périmètre du menu.
+- Une expression imbriquée révèle ses enveloppes ancêtres concernées ; ses expressions sœurs restent
+  compactes si elles ne rencontrent aucune plage.
+- Le focus dans le menu ou son formulaire de lien conserve cette révélation. La sélection et la copie
+  restent celles du Markdown source : les marqueurs englobés sont copiés, même lors d'un glisser compact.
+
+Lors d'un double clic et de son glisser par mots, les marqueurs d'emphase effectivement masqués
+bornent les groupes sélectionnés : `__Alpha__` compact donne `Alpha`, et `**_Alpha_**` compact donne
+également `Alpha`. L'adaptation utilise les catégories de caractères et graphèmes de CodeMirror,
+sans retrancher les underscores ordinaires du contenu (`snake_case`). Elle ne change ni les clics
+simples, ni les gestes modifiés ou à plages multiples, ni les sélections clavier. Les marqueurs déjà
+révélés restent soumis aux groupes source natifs ; `__Alpha__` révélé peut donc être sélectionné
+avec ses underscores. Un glisser conserve tous les marqueurs intermédiaires dans sa plage source,
+même si les marqueurs masqués aux bornes du mot visé n'en font pas partie.
+
+Le gras et l'italique sont pris en charge dans les paragraphes, titres, listes et corps de citations ou
+callouts. Une paire peut traverser plusieurs lignes logiques ; cela n'étend pas les commandes inline du
+menu, qui restent monolignes. Les formes échappées, incomplètes ou littérales suivent l'analyse syntaxique :
+aucune recherche globale d'astérisques ou d'underscores ne décide du masquage.
+
+Les **libellés de liens et d'images** gardent leurs marqueurs source, y compris les liens temporels
+enrichis. Les destinations, titres de liens, code et HTML littéral (blocs, tags et attributs) restent aussi
+en source. Le Markdown situé entre des tags HTML inline reste analysé normalement. Une enveloppe
+d'emphase extérieure à un lien ou à une image peut être compactée : ses marqueurs restent hors de la
+plage du lien ou du widget temporel et ne changent ni sa reconnaissance ni son activation.
+Les en-têtes littéraux connus de callout restent source, même invalides ou imbriqués ; une expression
+traversant un tel en-tête reste entièrement source.
+
+Titres et emphases partagent un seul gel de présentation pendant le glisser et la composition DOM ou
+EditContext, avec mapping des décorations conservées puis reprise après les mutations natives.
+Les clics successifs utilisent un même instantané de présentation avant la sélection native, sans
+retarder le clic simple. Ces effets n'écrivent pas le document, ne déplacent pas la sélection, ne créent
+pas d'étape Undo et ne rouvrent pas le menu. Ils ne corrigent ni la navigation ni le défilement.
+La géométrie peut changer à la révélation, sans animation ; les conteneurs existants restent utilisés.
+
+Le barré, le code inline, les liens et images ne reçoivent pas de nouvelle compaction dans cette tranche.
+Le Live Preview général, Setext et la compaction des marqueurs des autres structures restent différés.
+Une simulation Chromium de composition et une émulation responsive ne remplacent pas la recette IME et
+tactile sur appareils réels.
 
 ## 4. Temps, références Markdown et citations
 

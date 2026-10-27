@@ -249,7 +249,7 @@ Les validations manuelles non encore réalisées sur certains environnements con
 
 ### 4.2 Éditeur Markdown et références enrichies
 
-CodeMirror intègre déjà plusieurs améliorations de présentation : callouts, références temporelles compactes, navigation en Édition, Live Preview des titres ATX H1–H6 racine, typographie commune et conservation de la session d'édition.
+CodeMirror intègre déjà plusieurs améliorations de présentation : callouts, références temporelles compactes, navigation en Édition, Live Preview des titres ATX H1–H6 racine et de l’emphase, typographie commune et conservation de la session d'édition.
 
 Questions ouvertes :
 

@@ -336,21 +336,41 @@ une modification l'invalide avant toute confirmation. Les réponses de sauvegard
 La destruction de la vue détruit aussi ses surfaces, timers et observateurs. Les règles de commandes et
 d'admissibilité sont détaillées dans [Product & UX](01-product-and-ux.md#35-mise-en-forme-contextuelle-du-markdown).
 
-Le Live Preview des titres est un ViewPlugin local à la même vue. Il parcourt les plages visibles
-de l'arbre syntaxique incrémental CodeMirror, reconnaît uniquement les nœuds ATX enfants de Document
-et utilise leurs HeaderMark pour borner les marqueurs. Une décoration de ligne porte la typographie ;
-des remplacements sans widget masquent préfixe et clôture, sans saut de ligne. La sélection de chaque
-plage décide de la révélation, indépendamment du focus. Les titres vides restent révélés.
+Le Live Preview des titres et de l'emphase utilise un seul ViewPlugin local à la même vue.
+Deux reconnaissances ciblées parcourent les plages visibles de l'arbre syntaxique incrémental CodeMirror :
+les ATX enfants de Document utilisent leurs HeaderMark, les Emphasis/StrongEmphasis leurs deux EmphasisMark.
+Une décoration de ligne porte la typographie des titres ; des remplacements sans widget masquent les seuls
+marqueurs admissibles. Les expressions multilignes ne produisent aucun remplacement de saut de ligne.
+Les paires d'emphase ont leur propre intersection documentaire avec chaque plage ; leurs ancêtres se
+révèlent naturellement avec elles. Le focus ne décide pas de la révélation.
 
-Pendant le glisser souris ou la composition, le plugin conserve ses décorations et les mappe à travers
-les changements documentaires. Un effet de présentation sans sélection ni texte relance le calcul
-après le geste natif ou les dernières mutations de composition. Il ne recalcule jamais un clic ni
-ne corrige la navigation ou le scroll. Les mises à jour d'arbre et de viewport relancent aussi la
-reconnaissance, sans forcer l'analyse synchrone de toute une longue note.
+Une configuration locale de `mouseSelectionStyle` borne les groupes du double clic aux marqueurs
+d'emphase réellement remplacés. Ces remplacements portent un indicateur ciblé ; les catégories de
+caractères et les limites de graphèmes restent celles de CodeMirror. Le cycle du geste, le glisser,
+l'autoscroll et l'envoi de la sélection restent gérés par CodeMirror ; aucun correctif ultérieur de
+sélection n'est envoyé. Les marqueurs révélés, underscores ordinaires, autres gestes et commandes
+clavier conservent leurs règles natives. Les bornes du geste sont mappées lors d'une modification.
+
+Les libellés de liens/images, les zones de code/HTML littéral et les en-têtes connus de callout restent
+source. Une enveloppe extérieure peut être compactée sans remplacer une partie du widget temporel.
+La reconnaissance des liens et leur activation restent dans l'extension temporelle existante.
+
+Pendant le glisser souris ou la composition, le plugin conserve ensemble ces décorations et les mappe
+à travers les changements documentaires. Les clics successifs restaurent ce même instantané avant
+la sélection native ; deux plugins ne restaurent pas séparément des géométries incompatibles.
+Les événements DOM et ceux de l'EditContext attaché à la vue déclenchent la reprise différée après
+composition ; écouteurs et timer sont nettoyés à la destruction, sans polling permanent.
+Un effet de présentation sans sélection ni texte relance le calcul après le geste natif.
+Le plugin ne recalcule jamais un clic après révélation et ne corrige ni navigation ni scroll.
+Les mises à jour d'arbre et de viewport relancent aussi la reconnaissance, sans forcer l'analyse
+synchrone de toute une longue note.
+
 Les variables CSS des niveaux sont partagées entre les lignes Édition et les blocs Lecture. Le style
 de coloration hérité des headings est neutralisé seulement sur les lignes admissibles, sans
-multiplier les tailles des fragments inline. Les restrictions et compromis géométriques figurent au
-[contrat UX](01-product-and-ux.md#36-live-preview-des-titres-atx).
+multiplier les tailles des fragments inline. Le gras et l'italique réutilisent la coloration existante.
+Les restrictions et compromis géométriques figurent aux contrats UX des
+[titres](01-product-and-ux.md#36-live-preview-des-titres-atx) et de
+[l'emphase](01-product-and-ux.md#37-live-preview-du-gras-et-de-litalique).
 
 La session travaille en LF ; le service Go normalise au moment de la sauvegarde. Une ancienne note CRLF ne doit pas être écrite simplement parce qu'on l'a ouverte. Le client peut réconcilier une réponse perdue par GET avant une nouvelle tentative ; les conflits suspendent l'autosauvegarde et demandent un choix explicite conditionnel.
 

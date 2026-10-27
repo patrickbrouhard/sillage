@@ -273,10 +273,14 @@ Les composants d'interface ne doivent pas recréer les identités métier, impl�
   dépendance. Son validateur réutilise Remark/GFM déjà présent en Lecture pour reconnaître les structures
   voisines, notamment les tableaux ; il ne sérialise pas le document. La grammaire CodeMirror reste CommonMark.
 - Les représentations visuelles enrichies reposent sur des **décorations CodeMirror**, non sur une transformation persistée du Markdown. Les callouts `quote`/`quote:tr` utilisent une reconnaissance ciblée ; pas de moteur générique extensible ou de Live Preview complet.
-- Le Live Preview livré reste limité aux titres ATX H1–H6 racine : arbre incrémental, décorations de ligne
-  et remplacements sans widget. Le glisser et la composition suspendent le recalcul ; les plages conservées
-  sont mappées lors des éditions. Aucune couche documentaire, correction de clic/navigation ou animation
-  géométrique supplémentaire. Setext, titres imbriqués et Live Preview général restent différés.
+- Le Live Preview livré couvre les titres ATX H1–H6 racine et les paires d'emphase (gras/italique),
+  via l'arbre incrémental et des remplacements sans widget. Un seul plugin porte le gel des gestes,
+  le mapping et l'instantané des clics successifs pour les deux présentations. La reprise de composition
+  écoute le DOM et EditContext, sans polling ni désactivation de cette API. Les libellés de liens/images
+  et les zones littérales restent source. Aucune couche documentaire ou animation géométrique
+  supplémentaire. Setext, marqueurs des autres structures et Live Preview général restent différés.
+  Le double clic borne ses groupes aux seuls marqueurs d’emphase masqués, via `mouseSelectionStyle` ;
+  les underscores ordinaires et les autres sélections restent natifs.
 - Les notes partagent une échelle de titres en Édition/Lecture (proportions Obsidian 1.14.5, corps 16 px),
   via CSS limité à leur contenu. Les tags de coloration de `@lezer/highlight`, déjà utilisé par CodeMirror,
   sont déclarés explicitement pour neutraliser le gras/soulignement hérité sur les seuls titres admissibles.
