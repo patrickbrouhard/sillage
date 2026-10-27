@@ -127,7 +127,7 @@ test('note absente : citation à zéro, autosauvegarde et lecteur inchangé', as
   const callout = page.locator('.quote-callout')
   await expect(callout).toHaveAccessibleName('Citation de transcription')
   await expect(callout.locator('.quote-callout-body')).toHaveText(selectedText)
-  await expect(callout.getByRole('button')).toHaveText('0:01')
+  await expect(callout.getByRole('button')).toHaveAccessibleName('0:01')
   await callout.getByRole('button').click()
   expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls.at(-1)?.seconds)).toBe(1.234)
   await page.reload()

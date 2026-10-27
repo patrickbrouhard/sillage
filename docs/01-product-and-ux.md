@@ -475,9 +475,9 @@ en **millisecondes** :
 [12:42](sillage://videos/5/sources/5?start_ms=762345)
 ```
 
-Le libellé (`m:ss` ou `h:mm:ss`) est destiné à l'affichage : **`start_ms` est seul faisant foi**. L'autorité
-logique de l'URI est `videos`. `end_ms` est réservé aux futures plages temporelles et n'est pas une fonction
-prise en charge aujourd'hui.
+Le libellé, temporel (`m:ss` ou `h:mm:ss`) ou descriptif, est destiné à l'affichage : **`start_ms` est seul
+faisant foi**. L'autorité logique de l'URI est `videos`. `end_ms` est réservé aux futures plages temporelles
+et n'est pas une fonction prise en charge aujourd'hui.
 
 ### 4.2 Insérer le temps courant
 
@@ -495,8 +495,14 @@ prise en charge aujourd'hui.
 
 ### 4.3 Navigation depuis les références
 
-- En Lecture, une référence canonique est interactive. En Édition, les références reconnues utilisent les gestes
-  spécifiques décrits plus bas ; une forme invalide reste du Markdown ordinaire.
+- En Lecture, clic simple, Entrée ou Espace sur une référence canonique activent sa navigation. En Édition,
+  les références reconnues utilisent les gestes spécifiques décrits plus bas ; une forme invalide reste du
+  Markdown ordinaire.
+- Les deux modes partagent la pastille compacte : même horloge décorative, couleurs de thème, fond et
+  espacements. Le libellé Markdown d'origine est conservé, même descriptif ; les libellés longs se replient
+  sans déborder sur mobile. Les horloges des callouts `quote:tr` reprennent cette apparence, avec leur temps
+  calculé. L'horloge n'ajoute rien au nom accessible ; le bouton de Lecture conserve son focus et ses messages
+  de navigation. Les liens ordinaires gardent leur présentation.
 - La navigation est autorisée uniquement pour **la vidéo et la source de travail courantes**. Une autre identité
   ne déclenche ni changement de fiche ni changement de lecteur : un message explique le refus.
 - Un lecteur indisponible ou en cours de masquage refuse la commande et invite à réessayer. Aucune navigation

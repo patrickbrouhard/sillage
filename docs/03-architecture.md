@@ -411,6 +411,10 @@ La citation passe de la sélection de transcription à une **transaction CodeMir
 
 Le rendu Markdown utilise un traitement Remark ciblé pour `quote` et `quote:tr` avec validation partagée des URI canoniques, sans moteur extensible de callouts. Les en-têtes inconnus ou invalides restent du Markdown ordinaire ; leur contenu n'est pas exécuté comme HTML. Le titre d'une citation de transcription reste du texte littéral.
 
+Les boutons temporels de Lecture partagent les règles CSS des pastilles CodeMirror, y compris dans les
+callouts. Leur horloge est décorative et masquée aux technologies d'assistance ; le bouton natif, sa
+description et son retour de navigation restent propres au mode Lecture.
+
 CodeMirror utilise ses propres arbres syntaxiques pour les décorations de blockquotes et la compaction
 ciblée de références temporelles, sans transformer le Markdown stocké. La reconnaissance d'un lien direct
 monoligne simple conserve les bornes documentaires de son libellé ; les URI calculées des en-têtes

@@ -57,6 +57,7 @@ class ReferenceWidget extends WidgetType {
     element.title = (this.editableLabel ? 'Cliquer pour sélectionner le libellé dans le Markdown' : 'Cliquer pour modifier le Markdown') +
       ' ; Ctrl+clic (Cmd sur Mac) ou Ctrl/Cmd+Entrée avec un curseur dans la source pour naviguer.'
     const icon = document.createElement('span')
+    icon.className = 'temporal-reference-icon'
     icon.setAttribute('aria-hidden', 'true')
     icon.textContent = '◷'
     element.append(icon, document.createTextNode(this.label))

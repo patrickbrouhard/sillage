@@ -305,8 +305,8 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .markdown-reading pre { padding: .75rem; border-radius: .4rem; }
 .note-navigation { background: var(--surface); color: var(--text); }
 
-/* Une action de lecture, sans apparence de bouton principal ni lien externe. */
-.temporal-reference { font: inherit; color: var(--label); background: transparent; border: 0; padding: .1em .2em; text-decoration: underline; cursor: pointer; }
+/* La Lecture garde son bouton natif et les mêmes pastilles que l’éditeur. */
+.temporal-reference { font: inherit; color: inherit; background: transparent; border: 0; padding: 0; text-decoration: none; cursor: pointer; text-align: inherit; max-width: 100%; }
 .temporal-reference:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .temporal-message { font-size: .9em; }
 
@@ -317,7 +317,7 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .quote-callout-title { flex: 1; }
 .quote-callout-title, .quote-callout-attribution { min-width: 0; font-weight: 600; white-space: pre-wrap; }
 .quote-callout-action { margin-left: auto; min-width: 0; flex-shrink: 0; max-width: 50%; text-align: right; }
-.quote-callout-action .temporal-reference { white-space: nowrap; }
+.quote-callout-action .temporal-reference { color: var(--text); white-space: nowrap; }
 .quote-callout-action .temporal-message { display: block; text-align: left; color: var(--text); }
 .quote-callout-body > :first-child { margin-top: .65rem; }
 .quote-callout-body > :last-child { margin-bottom: 0; }
@@ -333,18 +333,19 @@ select, input, textarea { background-color: var(--input); color: var(--text); bo
 .markdown-editor .cm-callout-uri, .markdown-editor .cm-callout-uri * { color: var(--muted); }
 .markdown-editor .cm-callout-label, .markdown-editor .cm-callout-label * { color: var(--label); font-weight: 600; }
 
-/* Références compactes : aucune largeur imposée aux libellés longs. */
-.cm-temporal-reference {
+/* Le fond suit les fragments de texte longs, y compris à l'intérieur du bouton
+   natif de Lecture, dont le focus et les interactions restent indépendants. */
+.cm-temporal-reference, .temporal-reference-content {
   display: inline;
   padding: .08em .25em;
   border-radius: .3em;
   background: color-mix(in srgb, currentColor 8%, transparent);
-  cursor: text;
   overflow-wrap: anywhere;
   box-decoration-break: clone;
 }
-.cm-temporal-reference > span { margin-right: .3em; }
-.cm-temporal-reference:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+.cm-temporal-reference { cursor: text; }
+.temporal-reference-icon { margin-right: .3em; }
+.cm-temporal-reference:hover, .temporal-reference:hover .temporal-reference-content { background: color-mix(in srgb, currentColor 14%, transparent); }
 
 /* La main annonce uniquement le geste de navigation, y compris sur la source révélée. */
 .cm-temporal-navigation .cm-temporal-reference,

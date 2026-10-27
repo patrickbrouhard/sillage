@@ -194,6 +194,24 @@ test.describe('tactile Chromium simulé', () => {
     await cdp.detach()
   })
 
+  test('double tap sur la fin du libellé compact : aucune cible dans l’URI', async ({ page }) => {
+    const label = 'Premier passage'
+    const text = '[' + label + '](' + uri + ') après'
+    const { editor, writes } = await openEditor(page, text)
+    const point = await wordPoint(editor.locator('.cm-temporal-reference'), 'passage', .99)
+    await page.touchscreen.tap(point.x, point.y)
+    expect((await selection(editor)).text).toBe(label)
+    await page.waitForTimeout(120)
+    await page.touchscreen.tap(point.x, point.y)
+    const current = await selection(editor)
+    expect(current.doc).toBe(text)
+    expect(current.anchor).toBeGreaterThanOrEqual(1)
+    expect(current.head).toBeGreaterThanOrEqual(1)
+    expect(current.anchor).toBeLessThanOrEqual(1 + label.length)
+    expect(current.head).toBeLessThanOrEqual(1 + label.length)
+    expect(writes).toEqual([])
+  })
+
   test('appui long sur le widget : conserver la sélection et le menu natifs', async ({ page, context }) => {
     const text = '[Premier passage utile](' + uri + ') après'
     const { editor, writes } = await openEditor(page, text)
@@ -257,6 +275,36 @@ test('composition DOM après sélection automatique : remplacement et reprise sa
   expect(committed.doc).toBe(text.replace('1:18', '見出し'))
   expect(writes).toEqual([])
   await expect.poll(() => writes).toEqual([text.replace('1:18', '見出し')])
+  await page.keyboard.press('Control+z')
+  expect((await selection(editor)).doc).toBe(text)
+})
+
+for (const width of [1440, 375]) {
+  test('double clic lent sur un libellé replié, largeur=' + width, async ({ page }) => {
+    await page.setViewportSize({ width, height: 850 })
+    const label = 'Ce passage important éclaire les étapes de la réflexion finale'
+    const text = 'Avant\n# **[' + label + '](' + uri + ')**\naprès'
+    const { editor, writes } = await openEditor(page, text)
+    const point = await wordPoint(editor.locator('.cm-temporal-reference'), 'finale')
+    await page.mouse.dblclick(point.x, point.y, { delay: 240 })
+    const from = text.indexOf(label)
+    expect(await selection(editor)).toMatchObject({ anchor: from, head: from + label.length, text: label, doc: text })
+    await expect(editor).toBeFocused()
+    expect(writes).toEqual([])
+  })
+}
+
+test('libellé Unicode et espaces remplacés sans reconstruction de l’URI', async ({ page }) => {
+  const label = '  Description (α) 🎬  '
+  const text = 'Avant [' + label + '](' + uri + ') après'
+  const { editor, writes } = await openEditor(page, text)
+  await editor.locator('.cm-temporal-reference').click()
+  const from = text.indexOf(label)
+  expect(await selection(editor)).toMatchObject({ anchor: from, head: from + label.length, text: label, doc: text })
+  await page.keyboard.insertText('0:00')
+  const updated = 'Avant [0:00](' + uri + ') après'
+  expect((await selection(editor)).doc).toBe(updated)
+  await expect.poll(() => writes).toEqual([updated])
   await page.keyboard.press('Control+z')
   expect((await selection(editor)).doc).toBe(text)
 })

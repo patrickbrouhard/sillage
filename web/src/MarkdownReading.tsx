@@ -23,7 +23,11 @@ function TimeButton({ reference, children, onNavigate }: {
   return <span>
     <button type="button" className="temporal-reference"
       aria-describedby={descriptionID}
-      onClick={() => setMessage(onNavigate(reference))}>{children}</button>
+      onClick={() => setMessage(onNavigate(reference))}>
+      <span className="temporal-reference-content">
+        <span className="temporal-reference-icon" aria-hidden="true">◷</span>{children}
+      </span>
+    </button>
     <span id={descriptionID} className="sr-only">Aller à {formatDuration(reference.startMs)} dans le lecteur</span>
     {message && <span role="status" className="temporal-message"> {message}</span>}
   </span>
