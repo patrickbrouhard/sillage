@@ -668,9 +668,10 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
   masquée pendant le glisser ou un contact tactile en cours. « Citer » utilise exactement la même insertion
   et les mêmes validations que le bouton d'en-tête, qui reste disponible.
 - Tab depuis la transcription donne accès à la barre ; les flèches gauche/droite parcourent ses deux boutons.
-  Échap ferme la barre et rend le focus au texte si un de ses boutons était focalisé. Un clic ou un focus
-  extérieur ferme sans action. La copie native et le sens de la sélection sont conservés pendant
-  l'interaction avec la barre.
+  Échap ferme la barre. Si sa fermeture retire un bouton focalisé, notamment lorsque le passage sort de
+  l'écran, le focus revient au texte sans déplacer le défilement. Un clic ou un focus extérieur ferme sans
+  action ; une sortie de fenêtre ou un focus extérieur n'est pas repris. La copie native et le sens de la
+  sélection sont conservés pendant l'interaction avec la barre.
 - Le menu suit le défilement et les changements de taille ; il se ferme si la sélection n'est plus visible.
   Une nouvelle sélection, une recherche modifiant le rendu ou le remplacement du contenu invalident l'ancienne
   cible. Une action vérifie encore sa plage native avant d'utiliser l'extrait.

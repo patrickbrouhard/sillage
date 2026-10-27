@@ -76,7 +76,12 @@ export function TranscriptText({ items, onNavigate, onCite, heading, acquisition
   /** Ferme la barre pour cette plage, sans effacer la sélection ni reprendre un focus extérieur. */
   function closeActions() {
     clearTimeout(showTimer.current)
-    dismissedRange.current = target.current?.range ?? null
+    dismissedRange.current = target.current?.range ?? dismissedRange.current
+    // Si la barre disparaît avec un bouton focalisé, conserver un point de reprise clavier
+    // dans le texte ; une sortie de fenêtre ou un focus extérieur ne doit pas être repris.
+    if (document.hasFocus() && toolbar.current?.contains(document.activeElement)) {
+      container.current?.focus({ preventScroll: true })
+    }
     setActions(null)
   }
 
@@ -102,6 +107,9 @@ export function TranscriptText({ items, onNavigate, onCite, heading, acquisition
       const value = panel && selectedTranscript(panel, items)
       if (value && native?.rangeCount === 1) {
         const range = native.getRangeAt(0)
+        // Une notification déjà en file ne réarme pas une plage abandonnée pour une autre surface.
+        if (sameRange(dismissedRange.current, range)) return
+        dismissedRange.current = null
         if (target.current?.parts === parts && sameRange(target.current.range, range)) return
         target.current = { parts, value, range: range.cloneRange() }
         setExcerpt(target.current)
@@ -111,7 +119,7 @@ export function TranscriptText({ items, onNavigate, onCite, heading, acquisition
         clearTimeout(showTimer.current)
         setActions(null)
         // Le bouton historique conserve son extrait pendant le seul transfert de focus autorisé.
-        if (document.activeElement !== citeButton.current) {
+        if (document.activeElement !== citeButton.current || (native && !native.isCollapsed)) {
           target.current = null
           dismissedRange.current = null
           setExcerpt(null)
@@ -138,7 +146,7 @@ export function TranscriptText({ items, onNavigate, onCite, heading, acquisition
         return
       }
       clearTimeout(showTimer.current)
-      dismissedRange.current = target.current?.range ?? null
+      dismissedRange.current = target.current?.range ?? dismissedRange.current
       target.current = null
       setExcerpt(null)
       setActions(null)
@@ -186,7 +194,6 @@ export function TranscriptText({ items, onNavigate, onCite, heading, acquisition
       if (event.key === 'Escape' && !event.isComposing) {
         event.preventDefault()
         closeActions()
-        if (inToolbar) container.current?.focus({ preventScroll: true })
       } else if (inText && /^(Arrow|Home|End|Page)/.test(event.key)) {
         // Fermer avant la mutation native évite de focaliser une barre visant encore l'ancienne plage.
         clearTimeout(showTimer.current)
@@ -246,15 +253,7 @@ export function TranscriptText({ items, onNavigate, onCite, heading, acquisition
       setExcerpt(null)
       return
     }
-    if (action === 'cite') {
-      const focused = document.activeElement
-      cite()
-      // Un refus détruit aussi la barre : rendre le focus au texte, sans choisir de position dans la note.
-      if (focused === document.activeElement && focused && toolbar.current?.contains(focused)) {
-        container.current?.focus({ preventScroll: true })
-      }
-      return
-    }
+    if (action === 'cite') { cite(); return }
     const value = actions.value.text
     closeActions()
     target.current = null
@@ -269,7 +268,17 @@ export function TranscriptText({ items, onNavigate, onCite, heading, acquisition
 
   /** Consomme une sélection une seule fois, même si l'insertion doit être refusée. */
   function cite() {
-    if (!validExcerpt) return
+    const native = window.getSelection()
+    // Le focus du bouton peut replier la plage, mais une autre sélection non vide
+    // invalide l'extrait, même avant sa notification selectionchange.
+    const changed = native && !native.isCollapsed &&
+      (native.rangeCount !== 1 || !sameRange(excerpt?.range, native.getRangeAt(0)))
+    if (!validExcerpt || changed) {
+      closeActions()
+      target.current = null
+      setExcerpt(null)
+      return
+    }
     closeActions()
     target.current = null
     setExcerpt(null)

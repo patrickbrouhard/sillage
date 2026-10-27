@@ -313,6 +313,60 @@ test('actualisation reçue pendant un geste : invalider la cible sans perdre le 
   await expect(page.getByRole('searchbox')).toHaveValue('Nouveau')
 })
 
+test('sélection extérieure non vide après focus sur la citation : ne jamais consommer l’ancien extrait', async ({ page, request }) => {
+  const { toolbar, editor } = await prepare(page, request)
+  await selectText(page)
+  await expect(toolbar).toBeVisible()
+  const cite = page.getByRole('button', { name: 'Citer dans la note', exact: true })
+  await cite.focus()
+  await cite.evaluate(button => {
+    const native = window.getSelection()!
+    native.selectAllChildren(document.querySelector('.site-header')!)
+    // L'action précède volontairement la notification native selectionchange.
+    ;(button as HTMLButtonElement).click()
+  })
+  await expect(editor).toHaveText('')
+  await expect(cite).toBeDisabled()
+  await expect(toolbar).toHaveCount(0)
+})
+
+test('notification tardive après focus extérieur : ne réarmer ni le menu ni la citation d’en-tête', async ({ page, request }) => {
+  const { toolbar } = await prepare(page, request)
+  await selectText(page)
+  await expect(toolbar).toBeVisible()
+  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).evaluate(button => {
+    const native = window.getSelection()!
+    const range = native.getRangeAt(0).cloneRange()
+    // La sélection source change de sens ; sa notification arrive après la sortie de focus.
+    native.setBaseAndExtent(range.endContainer, range.endOffset, range.startContainer, range.startOffset)
+    document.querySelector<HTMLButtonElement>('.transcript-acquisition')!.focus()
+    ;(button as HTMLButtonElement).focus()
+  })
+  await expect(page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })).toBeFocused()
+  await page.waitForTimeout(300)
+  await expect(toolbar).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Citer dans la note', exact: true })).toBeDisabled()
+})
+
+test('fermeture hors écran avec focus dans le menu : rendre le clavier à la transcription sans déplacer le scroll', async ({ page, request }) => {
+  const { panel, toolbar } = await prepare(page, request)
+  await selectText(page)
+  await expect(toolbar).toBeVisible()
+  await page.keyboard.press('Tab')
+  await expect(toolbar.getByRole('button', { name: 'Citer', exact: true })).toBeFocused()
+  const before = await panel.evaluate(element => {
+    element.style.minHeight = '0'
+    element.style.height = '20px'
+    element.style.flex = 'none'
+    element.style.overflow = 'auto'
+    element.scrollTop = element.scrollHeight
+    return { panel: element.scrollTop, page: scrollY }
+  })
+  await expect(toolbar).toHaveCount(0)
+  await expect(panel).toBeFocused()
+  expect(await panel.evaluate(element => ({ panel: element.scrollTop, page: scrollY }))).toEqual(before)
+})
+
 for (const width of [1440, 375]) {
   for (const theme of ['light', 'dark']) {
     test('position et thèmes, largeur=' + width + ', thème=' + theme, async ({ page, request }, info) => {
