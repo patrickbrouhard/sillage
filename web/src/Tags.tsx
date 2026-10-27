@@ -16,7 +16,8 @@ function associations(tag: CatalogTag): string {
 
 /** Filtre d'affichage seulement ; l'identité Unicode reste exclusivement métier. */
 function matchesName(name: string, query: string): boolean {
-  return name.toLocaleLowerCase('fr').includes(query.trim().toLocaleLowerCase('fr'))
+  return name.normalize('NFC').toLocaleLowerCase('fr')
+    .includes(query.trim().normalize('NFC').toLocaleLowerCase('fr'))
 }
 
 /** Administre le catalogue partagé par mises à jour locales après chaque écriture réussie. */

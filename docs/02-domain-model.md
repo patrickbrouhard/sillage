@@ -450,7 +450,7 @@ Le retrait supprime uniquement une association. Un tag devenu inutilisé reste d
 
 Les tags **ne sont pas hérités** : taguer une personne ou un publisher ne tague pas ses vidéos. Le filtre vidéo `tag_id` s'applique uniquement aux tags associés directement aux vidéos. Toute extension de recherche traversant ces associations devra le faire explicitement, sans modifier les liens ni hériter de leurs tags.
 
-Renommage, fusion, suppression globale, alias, hiérarchie, catégories et couleurs sont des évolutions ouvertes, pas des opérations existantes.
+Fusion, alias, hiérarchie, catégories et couleurs sont des évolutions ouvertes, pas des opérations existantes.
 
 ## 10. `AIArtifact` — concept futur, non implémenté
 

@@ -101,7 +101,8 @@ Les filtres combinés, tris personnalisés et vues enregistrées restent des ext
   sans tableau. Chaque ligne affiche le nom et les associations directes par catégorie, par exemple
   « 18 vidéos · 2 publishers · 1 personne » ; les catégories vides sont masquées, ou remplacées par
   « Inutilisé » si aucun lien n'existe.
-- La recherche par nom est locale, partielle et insensible à la casse. Le tri alphabétique français est
+- La recherche par nom est locale, partielle et insensible à la casse, avec rapprochement NFC des
+  graphies canoniquement équivalentes ; les accents restent significatifs. Le tri alphabétique français est
   le défaut ; les tris par utilisations croissantes ou décroissantes additionnent les trois compteurs,
   puis départagent par nom et ID. Recherche et tri ne modifient pas l'identité métier.
 - Le crayon ouvre un champ prérempli et sélectionné dans la ligne : Entrée ou Enregistrer valide,

@@ -79,6 +79,25 @@ test('renommage sur place, collision persistante, annulation et focus', async ({
   await expect(page.locator('.tag-catalog-row').filter({ hasText: 'École' })).toContainText('1 publisher')
 })
 
+for (const [stored, searched] of [['Cafe\u0301', 'Café'], ['Café', 'Cafe\u0301']]) {
+  test(`recherche NFC : ${JSON.stringify(stored)} depuis ${JSON.stringify(searched)}, accents conservés`, async ({ page }) => {
+    await mockCatalog(page, [
+      { ...catalog[0], name: stored },
+      { ...catalog[1], name: 'Cafe' },
+    ])
+    await page.goto('/tags')
+    const search = page.getByLabel('Rechercher un tag')
+    const names = page.locator('.tag-catalog-row:visible .tag-catalog-name')
+    await search.fill(searched)
+    await expect(names).toHaveText([stored])
+    // NFC ne retire pas les accents : une recherche complète accentuée exclut Cafe.
+    await search.fill('CAFÉ')
+    await expect(names).toHaveText([stored])
+    await search.fill('Cafe')
+    await expect(names).toHaveText(['Cafe'])
+  })
+}
+
 test('une mutation lente reste unique et aboutit après un changement de filtre', async ({ page }) => {
   await mockCatalog(page)
   let release = () => {}
