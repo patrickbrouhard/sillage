@@ -20,12 +20,35 @@ function emphasisWordRange(state: EditorState, point: Point, markers: readonly M
   const before = offset === line.length || (offset > 0 && point.assoc < 0)
   let from = before ? findClusterBreak(line.text, offset, false) : offset
   let to = before ? offset : findClusterBreak(line.text, offset)
+  const boundary = (start: number, end: number) => markers.some(marker =>
+    start + line.from < marker.to && end + line.from > marker.from)
+  if (boundary(from, to)) {
+    // Aux bords visuels, le point peut désigner une clôture invisible. Chercher
+    // d'abord dans le sens natif, à travers toutes les marques adjacentes, puis
+    // dans l'autre sens si ce côté de la ligne ne contient aucun graphème visible.
+    let found = false
+    for (const backwards of [before, !before]) {
+      let cursor = offset
+      while (backwards ? cursor > 0 : cursor < line.length) {
+        const next = findClusterBreak(line.text, cursor, !backwards)
+        const start = Math.min(cursor, next)
+        const end = Math.max(cursor, next)
+        if (!boundary(start, end)) {
+          from = start
+          to = end
+          found = true
+          break
+        }
+        cursor = next
+      }
+      if (found) break
+    }
+    if (!found) return EditorSelection.cursor(point.pos)
+  }
   const category = state.charCategorizer(point.pos)
   const selectedCategory = category(line.text.slice(from, to))
   // Une ponctuation ou un underscore ordinaire garde sa catégorie CodeMirror.
   // Seules les bornes des remplacements syntaxiques coupent le groupe de caractères.
-  const boundary = (start: number, end: number) => markers.some(marker =>
-    start + line.from < marker.to && end + line.from > marker.from)
   while (from > 0) {
     const previous = findClusterBreak(line.text, from, false)
     if (boundary(previous, from) || category(line.text.slice(previous, from)) !== selectedCategory) break
