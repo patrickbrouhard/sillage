@@ -85,6 +85,11 @@ Lors de l'import d'une vidéo, créer ou réutiliser son publisher est atomique 
 
 Le catalogue des tags est partagé entre vidéos, personnes et publishers, **sans héritage** entre ces entités. Les ajouts de noms et d'associations sont atomiques, y compris en présence de concurrents. Les retraits suppriment l'association, pas nécessairement le tag du catalogue. Le filtrage par tag conserve toutes les sources et tous les tags de chaque vidéo retenue.
 
+`TagService` porte aussi le catalogue avec compteurs, le renommage et la suppression globale.
+Le repository SQLite sérialise ces mutations dans une transaction immédiate et reconstruit la
+projection FTS de toutes les vidéos directement associées avant le commit. Pour supprimer, il
+lit leurs IDs avant de retirer les liens. Une erreur de projection annule toute la mutation.
+
 Les listes et parcours indirects chargent leurs relations en lot et dédupliquent par ID ; ils ne doivent ni multiplier inutilement les requêtes par entité, ni créer d'associations persistantes pendant une lecture.
 
 ### 2.3 Notes et concurrence
@@ -240,7 +245,9 @@ Les limites chiffrées et exemples de payloads en vigueur sont également docume
 | `POST` | `/api/v1/videos` | Ajout synchrone ; `201` + `Location` si créé, `200` si déjà présent ; aucun refresh implicite |
 | `GET` | `/api/v1/videos` | `{"videos": [...]}` ; ordre `created_at DESC, id DESC` ; `tag_id` facultatif |
 | `GET` | `/api/v1/videos/{id}` | Vidéo, sources, tags et associations directes |
-| `GET` | `/api/v1/tags` | Catalogue complet, même inutilisé ; IDs croissants |
+| `GET` | `/api/v1/tags` | Catalogue complet, même inutilisé ; IDs croissants ; compteurs directs par type |
+| `PATCH` | `/api/v1/tags/{id}` | Renommage `{name}` ; `200 {id, name}`, `404 tag_not_found`, `409 tag_conflict` |
+| `DELETE` | `/api/v1/tags/{id}` | Suppression globale atomique ; `204` idempotent, entités conservées |
 | `POST` | `/api/v1/videos/{id}/tags` | `{"names": [...]}` ; ajout additif atomique, retourne tous les tags associés |
 | `DELETE` | `/api/v1/videos/{id}/tags/{tag_id}` | `204` idempotent ; supprime l'association seulement |
 

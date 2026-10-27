@@ -117,13 +117,14 @@ Les chemins d'écriture actuellement raccordés sont :
 | Création d'une vidéo et de sa source | [video_repository.go](../internal/adapter/sqlite/video_repository.go) |
 | Sauvegarde effective de la note | [note_repository.go](../internal/adapter/sqlite/note_repository.go) |
 | Ajout ou retrait de tags directs | [tag_repository.go](../internal/adapter/sqlite/tag_repository.go) |
+| Renommage ou suppression globale d'un tag (toutes les vidéos directement associées) | [tag_repository.go](../internal/adapter/sqlite/tag_repository.go) |
 | Remplacement/retrait du publisher associé à une source | [publisher_repository.go](../internal/adapter/sqlite/publisher_repository.go) |
 
 Les transactions d'écriture prennent un verrou immédiat. Si la projection échoue, la mutation
 métier est annulée avec elle. Une sauvegarde de note en conflit ou sans changement ne publie
 pas de nouvelle projection ; la protection par révision reste celle du repository de notes.
 
-Les renommages généraux de tags/publishers et les rafraîchissements de sources ne sont pas
+Les renommages généraux de publishers et les rafraîchissements de sources ne sont pas
 implicitement fournis par ce mécanisme. Lorsqu'on ajoute un chemin d'écriture recherchable,
 il faut identifier toutes les vidéos affectées et reconstruire leurs documents dans sa transaction.
 Une écriture SQL directe contournant les adapters peut désynchroniser l'index.

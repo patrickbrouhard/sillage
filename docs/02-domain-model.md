@@ -417,7 +417,7 @@ Règles contractuelles :
 - limiter un nom à 200 points de code Unicode après trim ;
 - identifier par **NFC + repli complet de casse Unicode**, indépendant de la locale ;
 - conserver les accents et ne pas appliquer NFKC, suppression d'accents ni synonymie ;
-- réutiliser un tag équivalent sans modifier sa graphie d'affichage initiale.
+- lors d'un ajout, réutiliser un tag équivalent sans modifier sa graphie d'affichage courante.
 
 Exemples :
 
@@ -430,6 +430,17 @@ Exemples :
 | `Go` / `Golang` | Tags distincts |
 
 La clé normalisée est matérialisée en persistance et protégée par unicité SQL. Changer la stratégie d'identité exige de prévoir les collisions possibles entre tags déjà stockés.
+
+Un renommage explicite conserve l'ID et toutes les associations, actualise le nom et sa clé,
+et autorise une correction de graphie à clé identique. Une collision avec un autre ID est refusée,
+sans fusion. La dernière écriture réussie prévaut, sans précondition de révision. Un ancien nom
+libéré peut ensuite être réutilisé.
+
+La suppression globale retire atomiquement le tag et ses associations aux vidéos, publishers et
+personnes, en conservant ces entités. Elle est idempotente et porte sur tous les liens présents
+dans la transaction, indépendamment des compteurs précédemment consultés. Les tags inutilisés
+restent conservés jusqu'à une suppression explicite. Les compteurs du catalogue dénombrent
+chaque type d'association directe, sans héritage.
 
 ### 9.2 Associations et absence d'héritage
 
@@ -496,7 +507,7 @@ Ne pas introduire avant besoin concret :
 - `AIArtifact` défini, embeddings et base vectorielle ;
 - collections, playlists, taxonomie de tags complexe et rôles de personnes ;
 - permissions multi-utilisateur, organisations et relations de propriété ;
-- suppression globale et propagation automatique de tags, personnes ou publishers.
+- suppression globale de personnes ou publishers et propagation automatique de tags.
 
 Les raisons et questions encore ouvertes sont rassemblées dans [06-open-questions.md](06-open-questions.md), notamment les [clips vidéo durables](06-open-questions.md#34-clips-vidéo-durables). La planification appartient à [05-roadmap.md](05-roadmap.md). Les détails de transport des `MediaFile`, de récupération après interruption et de publication des captures restent dans [03-architecture.md](03-architecture.md).
 

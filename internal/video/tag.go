@@ -2,6 +2,7 @@ package video
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"unicode/utf8"
 
@@ -12,11 +13,25 @@ import (
 // TagID identifie un tag partagé entre vidéos.
 type TagID int64
 
-// Tag conserve le nom d'affichage initial, indépendamment de son identité Unicode.
+// Tag conserve le nom d'affichage courant, indépendamment de son identité Unicode.
 type Tag struct {
 	ID   TagID
 	Name string
 }
+
+// TagCatalogEntry compte les associations directes, sans héritage entre entités.
+type TagCatalogEntry struct {
+	Tag
+	VideoCount     int64
+	PublisherCount int64
+	PersonCount    int64
+}
+
+// ErrTagNotFound indique un tag absent lors du renommage.
+var ErrTagNotFound = errors.New("tag not found")
+
+// ErrTagConflict indique une identité déjà portée par un autre tag.
+var ErrTagConflict = errors.New("tag identity already exists")
 
 // MaxTagNameRunes borne chaque nom après suppression des espaces aux extrémités.
 const MaxTagNameRunes = 200
@@ -43,6 +58,12 @@ func NormalizeTagName(name string) (TagName, error) {
 type TagRepository interface {
 	// List retourne tous les tags, même inutilisés, par ID croissant.
 	List(context.Context) ([]Tag, error)
+	// Catalog restitue les associations directes de chaque entrée, même inutilisée.
+	Catalog(context.Context) ([]TagCatalogEntry, error)
+	// Rename conserve l'ID et refuse toute collision avec une autre entrée.
+	Rename(context.Context, TagID, TagName) (Tag, error)
+	// Delete supprime atomiquement le tag et tous ses liens, même ajoutés récemment.
+	Delete(context.Context, TagID) error
 	// Add vérifie la vidéo et crée tags et associations dans une opération atomique.
 	// Les noms sont validés ; le résultat contient tous les tags associés par ID croissant.
 	Add(context.Context, VideoID, []TagName) ([]Tag, error)
@@ -58,6 +79,31 @@ func NewTagService(repository TagRepository) *TagService { return &TagService{re
 
 // List retourne le catalogue, y compris les tags inutilisés.
 func (s *TagService) List(ctx context.Context) ([]Tag, error) { return s.repository.List(ctx) }
+
+// Catalog expose les compteurs du catalogue sans modifier les tags embarqués.
+func (s *TagService) Catalog(ctx context.Context) ([]TagCatalogEntry, error) {
+	return s.repository.Catalog(ctx)
+}
+
+// Rename partage la normalisation des ajouts ; la dernière écriture réussie prévaut.
+func (s *TagService) Rename(ctx context.Context, id TagID, name string) (Tag, error) {
+	if id <= 0 {
+		return Tag{}, ErrInvalidInput
+	}
+	value, err := NormalizeTagName(name)
+	if err != nil {
+		return Tag{}, err
+	}
+	return s.repository.Rename(ctx, id, value)
+}
+
+// Delete est idempotent et conserve les entités précédemment associées.
+func (s *TagService) Delete(ctx context.Context, id TagID) error {
+	if id <= 0 {
+		return ErrInvalidInput
+	}
+	return s.repository.Delete(ctx, id)
+}
 
 // Add valide tout le lot avant écriture ; un lot vide est refusé.
 func (s *TagService) Add(ctx context.Context, id VideoID, names []string) ([]Tag, error) {

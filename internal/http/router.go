@@ -80,6 +80,8 @@ func NewRouter(
 		r.Delete("/{id}/tags/{tag_id}", p.RemovePersonTag)
 	})
 	r.Get("/api/v1/tags", k.ListTags)
+	r.Patch("/api/v1/tags/{id}", k.RenameTag)
+	r.Delete("/api/v1/tags/{id}", k.DeleteTag)
 	r.Route("/api/v1/videos", func(r chi.Router) {
 		if downloads != nil {
 			m := handlers.NewMediaHandler(downloads)

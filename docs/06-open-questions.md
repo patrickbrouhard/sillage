@@ -102,8 +102,7 @@ Questions ouvertes :
 
 - Quelle politique de suppression adopter selon les entités : suppression physique, cascade contrôlée ou suppression logique ?
 - Comment supprimer une personne ou un publisher sans perdre ou altérer les associations utilisateur encore pertinentes ?
-- Quelle politique appliquer aux tags devenus inutilisés ?
-- Faut-il permettre le renommage, la fusion ou la suppression globale des tags ?
+- Une fusion de tags apporterait-elle un bénéfice au-delà du renommage et de la suppression explicites ?
 - Comment distinguer les données utilisateur durables des caches et représentations techniques pouvant être reconstruits ?
 
 Les règles de conservation déjà implémentées ne doivent pas être modifiées implicitement par l'introduction d'une opération de nettoyage.

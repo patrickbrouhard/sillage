@@ -28,8 +28,12 @@ type NoteService interface {
 
 // TagService expose le catalogue et les associations indépendamment de HTTP.
 type TagService interface {
-	// List restitue tous les tags par ID croissant.
-	List(context.Context) ([]video.Tag, error)
+	// Catalog restitue tous les tags et leurs compteurs directs par ID croissant.
+	Catalog(context.Context) ([]video.TagCatalogEntry, error)
+	// Rename conserve l'identité et refuse les collisions.
+	Rename(context.Context, video.TagID, string) (video.Tag, error)
+	// Delete supprime le tag et ses associations de manière idempotente.
+	Delete(context.Context, video.TagID) error
 	// Add associe les noms et retourne tous les tags de la vidéo.
 	Add(context.Context, video.VideoID, []string) ([]video.Tag, error)
 	// Remove retire une association de manière idempotente.
@@ -122,12 +126,62 @@ func (h *KnowledgeHandler) PutNote(w http.ResponseWriter, r *http.Request) {
 
 // ListTags inclut les tags qui ne sont plus associés à aucune vidéo.
 func (h *KnowledgeHandler) ListTags(w http.ResponseWriter, r *http.Request) {
-	result, err := h.tags.List(r.Context())
+	result, err := h.tags.Catalog(r.Context())
 	if err != nil {
 		respondKnowledgeError(w, r, err)
 		return
 	}
-	writeJSON(w, r, http.StatusOK, tagsResponse{Tags: toTagResponses(result)})
+	type catalogEntry struct {
+		tagResponse
+		VideoCount     int64 `json:"video_count"`
+		PublisherCount int64 `json:"publisher_count"`
+		PersonCount    int64 `json:"person_count"`
+	}
+	items := make([]catalogEntry, 0, len(result))
+	for _, item := range result {
+		items = append(items, catalogEntry{
+			tagResponse:    tagResponse{ID: item.ID, Name: item.Name},
+			VideoCount:     item.VideoCount,
+			PublisherCount: item.PublisherCount,
+			PersonCount:    item.PersonCount,
+		})
+	}
+	writeJSON(w, r, http.StatusOK, struct {
+		Tags []catalogEntry `json:"tags"`
+	}{items})
+}
+
+// RenameTag traduit un changement de graphie ou d'identité sans fusion implicite.
+func (h *KnowledgeHandler) RenameTag(w http.ResponseWriter, r *http.Request) {
+	id, ok := knowledgeID(w, r, "id")
+	if !ok {
+		return
+	}
+	var input struct {
+		Name string `json:"name"`
+	}
+	if !readKnowledgeJSON(w, r, 16<<10, &input) {
+		return
+	}
+	result, err := h.tags.Rename(r.Context(), video.TagID(id), input.Name)
+	if err != nil {
+		respondKnowledgeError(w, r, err)
+		return
+	}
+	writeJSON(w, r, http.StatusOK, tagResponse{ID: result.ID, Name: result.Name})
+}
+
+// DeleteTag supprime globalement les associations courantes et accepte un tag absent.
+func (h *KnowledgeHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
+	id, ok := knowledgeID(w, r, "id")
+	if !ok || !emptyBody(w, r) {
+		return
+	}
+	if err := h.tags.Delete(r.Context(), video.TagID(id)); err != nil {
+		respondKnowledgeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // AddTags traduit une liste de noms sans décider de leur normalisation métier.
@@ -243,6 +297,10 @@ func respondKnowledgeError(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 	switch {
+	case errors.Is(err, video.ErrTagNotFound):
+		writeError(w, r, 404, "tag_not_found", "tag not found")
+	case errors.Is(err, video.ErrTagConflict):
+		writeError(w, r, 409, "tag_conflict", "tag identity already exists")
 	case errors.Is(err, video.ErrInvalidInput):
 		writeError(w, r, 400, "bad_request", "invalid request")
 	case errors.Is(err, video.ErrVideoNotFound):

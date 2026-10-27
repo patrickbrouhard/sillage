@@ -275,7 +275,9 @@ La liste est ordonnée par `created_at DESC, id DESC`, les sources et tags suiva
 | --- | --- | --- |
 | `GET` | `/api/v1/videos/{id}/note` | Note principale ou `404 note_not_found` |
 | `PUT` | `/api/v1/videos/{id}/note` | Sauvegarde conditionnelle ; `201` à la création, `200` ensuite, `409 note_conflict` en cas de révision obsolète |
-| `GET` | `/api/v1/tags` | Catalogue de tous les tags, même inutilisés |
+| `GET` | `/api/v1/tags` | Catalogue complet par ID croissant ; compteurs directs `video_count`, `publisher_count`, `person_count` |
+| `PATCH` | `/api/v1/tags/{id}` | `{"name":"…"}` ; retourne `{id, name}`, `404 tag_not_found` si absent, `409 tag_conflict` en cas de collision |
+| `DELETE` | `/api/v1/tags/{id}` | `204` idempotent ; supprime le tag et ses trois types d'associations, conserve les entités |
 | `POST` | `/api/v1/videos/{id}/tags` | Ajout additif par noms ; retourne les tags associés |
 | `DELETE` | `/api/v1/videos/{id}/tags/{tag_id}` | Retire l'association, sans supprimer le tag du catalogue |
 
@@ -296,6 +298,7 @@ Chaque `PUT` de note exige **`content_md` et `expected_revision`**. La valeur `0
 La sauvegarde convertit uniquement CRLF et CR en LF. Une écriture identique sous précondition valide conserve la révision et les dates. Taille maximale du JSON de note : **1 Mio** ; ajout de tags : **64 Kio**. Les noms des tags, limités à 200 points de code après retrait des espaces aux extrémités, ont une identité Unicode NFC sans casse mais conservent leurs accents significatifs et leur nom d'affichage. Les associations n'héritent pas des autres entités.
 
 ### Transcriptions
+
 
 | Méthode | Route | Comportement |
 | --- | --- | --- |
