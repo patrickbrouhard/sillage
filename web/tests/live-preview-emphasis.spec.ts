@@ -181,6 +181,7 @@ test('liens, images, code, en-têtes littéraux et enveloppe autour d’un widge
   await expect(editor.locator('.cm-line').nth(3)).toHaveText('> corps')
   await compact.click()
   await expect(editor.locator('.cm-line').nth(1)).toHaveText('**' + link + '** et [__libellé__](/a) et ![*alt*](/a)')
+  await page.keyboard.press('ArrowRight')
   await page.keyboard.press('Control+Enter')
   expect((await selection(editor)).doc).toBe(text)
   await page.evaluate(pos => window.editorProbe.select(pos), text.indexOf(link))

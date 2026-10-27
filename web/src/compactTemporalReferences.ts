@@ -1,7 +1,7 @@
-import { Facet, Prec, StateEffect } from '@codemirror/state'
+import { EditorSelection, Facet, Prec, StateEffect } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
 import { Decoration, EditorView, ViewPlugin, WidgetType, keymap } from '@codemirror/view'
-import type { DecorationSet, ViewUpdate } from '@codemirror/view'
+import type { DecorationSet, MouseSelectionStyle, ViewUpdate } from '@codemirror/view'
 import { parseCalloutHeader } from './calloutHeader'
 import { formatDuration } from './videoPresentation'
 import type { TemporalReference } from './temporalReference'
@@ -11,26 +11,51 @@ interface Reference {
   from: number
   to: number
   label: string
+  labelRange?: { from: number; to: number }
   target: TemporalReference
+}
+
+interface WidgetGesture {
+  reference: Reference
+  moved: boolean
+}
+
+interface TouchActivation {
+  reference: Reference
+  doc: EditorView['state']['doc']
+  selection: EditorView['state']['selection']
+  x: number
+  y: number
+  time: number
 }
 
 const navigation = Facet.define<(reference: TemporalReference) => void>()
 
 const composition = StateEffect.define<boolean>()
 const reveal = StateEffect.define<number>()
+const refreshReferences = StateEffect.define<null>()
+
+// Une tolérance de mouvement distingue le tap du glisser ; aucun délai n'est
+// ajouté au clic. Un maintien prolongé reste réservé à l'interaction tactile native.
+const pointerSlop = 5
+const maxTapDuration = 500
 
 /** Affiche du texte seulement ; aucun lien navigateur ; les actions passent par le callback partagé. */
 class ReferenceWidget extends WidgetType {
-  constructor(readonly label: string) { super() }
+  constructor(readonly label: string, readonly editableLabel: boolean) { super() }
 
-  eq(other: ReferenceWidget) { return this.label === other.label }
+  eq(other: ReferenceWidget) { return this.label === other.label && this.editableLabel === other.editableLabel }
 
   toDOM() {
     const element = document.createElement('span')
     element.className = 'cm-temporal-reference'
     element.setAttribute('role', 'button')
-    element.setAttribute('aria-label', 'Modifier la référence temporelle : ' + this.label)
-    element.title = 'Cliquer pour modifier le Markdown ; Ctrl+clic (Cmd sur Mac) ou Ctrl/Cmd+Entrée dans la source pour naviguer.'
+    element.setAttribute(
+      'aria-label',
+      (this.editableLabel ? 'Modifier le libellé : ' : 'Modifier la référence temporelle : ') + this.label,
+    )
+    element.title = (this.editableLabel ? 'Cliquer pour sélectionner le libellé dans le Markdown' : 'Cliquer pour modifier le Markdown') +
+      ' ; Ctrl+clic (Cmd sur Mac) ou Ctrl/Cmd+Entrée avec un curseur dans la source pour naviguer.'
     const icon = document.createElement('span')
     icon.setAttribute('aria-hidden', 'true')
     icon.textContent = '◷'
@@ -90,7 +115,13 @@ function references(view: EditorView): Reference[] {
         }
         const match = /^\[([^\[\]\\\r\n]+)\]\((sillage:\/\/[^()\r\n]+)\)$/.exec(document.sliceString(node.from, node.to))
         if (match && match[1].trim() && parseTemporalReference(match[2])) {
-          result.set(node.from, { from: node.from, to: node.to, label: match[1], target: parseTemporalReference(match[2])! })
+          result.set(node.from, {
+            from: node.from,
+            to: node.to,
+            label: match[1],
+            labelRange: { from: node.from + 1, to: node.from + 1 + match[1].length },
+            target: parseTemporalReference(match[2])!,
+          })
         }
         return false
       },
@@ -115,6 +146,9 @@ const compactReferences = ViewPlugin.fromClass(class {
 
   pointerInside = false
   modified = false
+  gesture: WidgetGesture | null = null
+  activation: { doc: EditorView['state']['doc']; reference: Reference } | null = null
+  tap: TouchActivation | null = null
 
   constructor(readonly view: EditorView) {
     this.refresh(view)
@@ -122,6 +156,9 @@ const compactReferences = ViewPlugin.fromClass(class {
     window.addEventListener('keydown', this.modifierChanged)
     window.addEventListener('keyup', this.modifierChanged)
     window.addEventListener('blur', this.clearModifier)
+    window.addEventListener('mouseup', this.endGesture)
+    window.addEventListener('blur', this.endGesture)
+    window.addEventListener('pointercancel', this.endGesture)
   }
 
   /** Ne change que la classe DOM : ni transaction ni sélection CodeMirror. */
@@ -141,6 +178,52 @@ const compactReferences = ViewPlugin.fromClass(class {
     this.updateCursor()
   }
 
+  /** Rend la source une fois le geste terminé, sans écraser une sélection de glisser. */
+  endGesture = (event: Event) => {
+    if (event.type !== 'mouseup') { this.tap = null; this.activation = null }
+    const gesture = this.gesture
+    if (!gesture) return
+    this.gesture = null
+    this.view.dispatch({ effects: refreshReferences.of(null) })
+    this.activation = event.type === 'mouseup' && !gesture.moved
+      ? { doc: this.view.state.doc, reference: gesture.reference } : null
+  }
+
+  /** Confie clic et glisser à CodeMirror ; les bornes proviennent de la reconnaissance source. */
+  mouseSelection(event: MouseEvent): MouseSelectionStyle | null {
+    const view = this.view
+    if (event.button !== 0 || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey ||
+        this.composing || view.compositionStarted || view.state.selection.ranges.length !== 1) return null
+    const widget = event.target instanceof Element ? event.target.closest('.cm-temporal-reference') : null
+    const reference = event.detail > 1 && this.activation?.doc === view.state.doc ? this.activation.reference
+      : widget ? this.compact.find(candidate => candidate.from === view.posAtDOM(widget)) : null
+    if (!reference?.labelRange) { this.activation = null; return null }
+    const range = reference.labelRange
+    const gesture: WidgetGesture = { reference, moved: false }
+    this.gesture = gesture
+    return {
+      get: current => {
+        if (this.gesture !== gesture) return view.state.selection
+        if (Math.max(Math.abs(current.clientX - event.clientX), Math.abs(current.clientY - event.clientY)) < pointerSlop) {
+          return EditorSelection.single(range.from, range.to)
+        }
+        gesture.moved = true
+        if (widget && current.target instanceof Element && current.target.closest('.cm-temporal-reference') === widget) {
+          return EditorSelection.single(range.from, range.to)
+        }
+        const position = view.posAtCoords({ x: current.clientX, y: current.clientY }, false)
+        return position < range.from ? EditorSelection.single(range.to, position)
+          : position > range.to ? EditorSelection.single(range.from, position)
+          : EditorSelection.single(range.from, range.to)
+      },
+      update: update => {
+        // Une capture ou une saisie invalide ces anciennes bornes ; la sélection
+        // déjà mappée par CodeMirror reste l'autorité jusqu'à la fin du geste.
+        if (update.docChanged) { this.gesture = null; this.activation = null }
+      },
+    }
+  }
+
   refresh(view: EditorView) {
     const recognized = references(view)
     this.compact = this.composing || view.composing ? [] : recognized.filter(reference =>
@@ -148,7 +231,7 @@ const compactReferences = ViewPlugin.fromClass(class {
     const compactStarts = new Set(this.compact.map(reference => reference.from))
     this.decorations = Decoration.set([
       ...this.compact.map(reference =>
-        Decoration.replace({ widget: new ReferenceWidget(reference.label) }).range(reference.from, reference.to)),
+        Decoration.replace({ widget: new ReferenceWidget(reference.label, Boolean(reference.labelRange)) }).range(reference.from, reference.to)),
       // Les plages révélées partagent exactement la reconnaissance utilisée pour l'activation.
       ...recognized.filter(reference => !compactStarts.has(reference.from)).map(reference =>
         Decoration.mark({ class: 'cm-temporal-source' }).range(reference.from, reference.to)),
@@ -158,26 +241,45 @@ const compactReferences = ViewPlugin.fromClass(class {
 
   update(update: ViewUpdate) {
     if (update.docChanged || update.selectionSet) this.revealedFrom = null
+    const activated = this.activation?.reference.labelRange
+    if (update.docChanged || (activated && update.selectionSet && (
+      update.state.selection.ranges.length !== 1 ||
+      update.state.selection.main.anchor !== activated.from || update.state.selection.main.head !== activated.to
+    ))) this.activation = null
+    if (update.docChanged || update.transactions.some(transaction =>
+      transaction.selection && !transaction.isUserEvent('select.pointer'))) this.gesture = null
     for (const transaction of update.transactions) {
       for (const effect of transaction.effects) {
         if (effect.is(composition)) this.composing = effect.value
         if (effect.is(reveal)) this.revealedFrom = effect.value
       }
     }
+    if (this.gesture && !this.composing && !update.view.compositionStarted) {
+      this.decorations = this.decorations.map(update.changes)
+      return
+    }
     if (update.docChanged || update.selectionSet || update.viewportChanged ||
-        update.transactions.some(transaction => transaction.effects.some(effect => effect.is(composition) || effect.is(reveal))) ||
+        update.transactions.some(transaction => transaction.effects.some(effect => effect.is(composition) || effect.is(reveal) || effect.is(refreshReferences))) ||
         syntaxTree(update.startState) !== syntaxTree(update.state)) this.refresh(update.view)
   }
 
   destroy() {
     clearTimeout(this.timer)
+    this.tap = null
+    this.gesture = null
+    this.activation = null
     window.removeEventListener('keydown', this.modifierChanged)
     window.removeEventListener('keyup', this.modifierChanged)
     window.removeEventListener('blur', this.clearModifier)
+    window.removeEventListener('mouseup', this.endGesture)
+    window.removeEventListener('blur', this.endGesture)
+    window.removeEventListener('pointercancel', this.endGesture)
     this.view.dom.classList.remove('cm-temporal-navigation')
   }
 }, {
   decorations: plugin => plugin.decorations,
+  provide: plugin => Prec.highest(EditorView.mouseSelectionStyle.of((view, event) =>
+    view.plugin(plugin)?.mouseSelection(event) ?? null)),
   eventHandlers: {
     mouseenter(event) {
       this.pointerInside = true
@@ -191,9 +293,46 @@ const compactReferences = ViewPlugin.fromClass(class {
       this.pointerInside = false
       this.clearModifier()
     },
+    pointerdown(event, view) {
+      if (event.pointerType !== 'touch') return
+      this.tap = null
+      if (!event.isPrimary || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey ||
+          this.composing || view.compositionStarted || view.state.selection.ranges.length !== 1) return
+      const widget = event.target instanceof Element ? event.target.closest('.cm-temporal-reference') : null
+      const reference = widget && this.compact.find(candidate => candidate.from === view.posAtDOM(widget))
+      if (reference?.labelRange) this.tap = {
+        reference,
+        doc: view.state.doc,
+        selection: view.state.selection,
+        x: event.clientX,
+        y: event.clientY,
+        time: event.timeStamp,
+      }
+    },
+    pointermove(event) {
+      if (this.tap && Math.max(Math.abs(event.clientX - this.tap.x), Math.abs(event.clientY - this.tap.y)) >= pointerSlop) this.tap = null
+    },
+    pointercancel() { this.tap = null },
+    contextmenu() { this.tap = null },
+    click(event, view) {
+      const tap = this.tap
+      this.tap = null
+      // Les clics de compatibilité ne transforment ni un scroll, ni un appui long,
+      // ni une sélection native étendue en demande de remplacement du libellé.
+      if ((event as PointerEvent).pointerType !== 'touch' || !tap || event.timeStamp - tap.time >= maxTapDuration ||
+          event.shiftKey || event.altKey || event.ctrlKey || event.metaKey ||
+          tap.doc !== view.state.doc || view.state.selection.ranges.length !== 1 ||
+          (!view.state.selection.main.empty && !view.state.selection.eq(tap.selection)) ||
+          this.composing || view.compositionStarted) return false
+      const range = tap.reference.labelRange!
+      view.dispatch({ selection: { anchor: range.from, head: range.to }, userEvent: 'select.pointer' })
+      view.focus()
+      return true
+    },
     mousedown(event, view) {
+      if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) this.activation = null
       if (event.button !== 0 || event.shiftKey || event.altKey || !(event.target instanceof Element)) return false
-      if (view.composing || this.composing) return false
+      if (view.compositionStarted || this.composing) return false
       const widget = event.target.closest('.cm-temporal-reference')
       const position = widget ? view.posAtDOM(widget) : view.posAtCoords({ x: event.clientX, y: event.clientY })
       if (position === null) return false
@@ -202,18 +341,25 @@ const compactReferences = ViewPlugin.fromClass(class {
       const reference = (modified ? references(view) : this.compact).find(candidate =>
         widget ? candidate.from === position : position >= candidate.from && position < candidate.to)
       if (!reference || (!modified && !widget)) return false
-      event.preventDefault()
       if (modified) {
+        event.preventDefault()
         // Intercepter avant la sélection native ; aucun dispatch ni focus ne perturbe le curseur.
         view.state.facet(navigation)[0]?.(reference.target)
         return true
       }
+      // Le libellé explicite utilise le cycle souris natif ci-dessus. Une horloge
+      // de callout n'a aucun libellé source : conserver son curseur dans l'URI.
+      if (reference.labelRange && !event.ctrlKey && !event.metaKey) return false
+      event.preventDefault()
       view.dispatch({ selection: { anchor: reference.from + 1 }, userEvent: 'select.pointer' })
       view.focus()
       return true
     },
     compositionstart(_event, view) {
       clearTimeout(this.timer)
+      this.gesture = null
+      this.activation = null
+      this.tap = null
       view.dispatch({ effects: composition.of(true) })
     },
     compositionend(_event, view) {

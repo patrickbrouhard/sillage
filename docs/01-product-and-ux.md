@@ -546,14 +546,35 @@ CodeMirror enrichit la présentation **sans modifier le Markdown persisté** :
   lien, images, code, formes multilignes ou invalides — restent visibles en source.
 - Dans les en-têtes admissibles de `quote:tr`, seule l'URI est compactée ; le marqueur, les parenthèses et le
   titre restent visibles. Les en-têtes invalides ne deviennent pas interactifs.
-- Un clic simple, un déplacement du curseur à l'intérieur ou une sélection qui traverse une référence révèle la
-  source. Copier et éditer conservent les comportements natifs. La suppression contre un lien compact révèle
+- Sur un lien temporel direct compact, un clic simple sans modificateur révèle la source et sélectionne
+  **exactement le libellé**, hors crochets et URI, dans la même vue focalisée. Saisie, collage et composition
+  le remplacent par les mécanismes ordinaires de CodeMirror. L'URI n'est ni reconstruite ni normalisée ;
+  un nouveau libellé, même temporel, ne change jamais le `start_ms` canonique. Une forme vide, enrichie ou
+  invalide reste telle quelle et suit les règles existantes de reconnaissance, sans réparation.
+- Pendant un geste souris commencé sur ce widget, sa présentation reste stable jusqu'au relâchement.
+  Un glisser conserve sa sélection documentaire étendue ; les appuis successifs d'une même série de clics
+  commencée sur le widget gardent la cible du libellé, sans nouveau calcul de coordonnées après révélation.
+  Un nouveau clic dans la source place normalement le curseur ; ses doubles clics et glissers restent natifs.
+  Les headings et emphases englobants gardent leurs protections communes.
+- Un tap bref sur le widget vise le même résultat ; scroll, appui long, poignées et sélections natives ne
+  sont pas convertis en demande de remplacement. Les simulations Chromium ne valent pas recette tactile réelle.
+- Une horloge `quote:tr` n'a pas de libellé source équivalent : son clic conserve la révélation avec curseur
+  dans l'URI, sans sélection d'une portion de celle-ci. Un déplacement clavier à l'intérieur d'une référence
+  ou une sélection traversante continue de révéler la source sans sélectionner automatiquement le libellé.
+  Copier et éditer gardent leurs comportements natifs. La suppression contre un lien compact révèle
   d'abord la syntaxe sans la détruire au premier appui ; l'édition suivante est normale.
+- La révélation et cette sélection ne changent aucun caractère, aucune révision ni étape de modification
+  dans Undo/Redo et ne déclenchent pas de sauvegarde. Une modification réelle utilise l'historique et
+  l'autosauvegarde habituels. Cette sélection peut ouvrir le menu Markdown comme une sélection ordinaire ;
+  les commandes inline restent refusées sur la référence et ses composants, les commandes de bloc admissibles
+  conservent le lien. Les protections du formulaire de lien restent inchangées.
 - La composition IME suspend les transformations visuelles incompatibles. L'affichage compact n'introduit ni
   arrêt Tab, ni écriture, ni modification de l'historique Undo/Redo.
 - **Ctrl+clic** (Cmd+clic sur macOS) active une référence reconnue ; **Ctrl/Cmd+Entrée** l'active lorsqu'un
   curseur unique est strictement à l'intérieur de sa plage. Les frontières, titres et sélections multiples ne
-  déclenchent pas d'activation implicite. Shift et Alt n'ajoutent pas d'activation.
+  déclenchent pas d'activation implicite. Après sélection automatique du libellé, une flèche peut la replier
+  avant Ctrl/Cmd+Entrée ; les autres raccourcis natifs de l’éditeur restent inchangés. Shift et Alt n’ajoutent
+  pas d’activation.
 - Un curseur-main signale Ctrl/Cmd sur une référence activable ; au repos, le curseur d'édition reste natif. Le
   focus et la sélection sont préservés lors d'une navigation acceptée ; les refus s'affichent dans un état
   distinct de l'autosauvegarde.

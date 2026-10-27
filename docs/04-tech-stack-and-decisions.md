@@ -284,7 +284,10 @@ Les composants d'interface ne doivent pas recréer les identités métier, impl�
 - Les notes partagent une échelle de titres en Édition/Lecture (proportions Obsidian 1.14.5, corps 16 px),
   via CSS limité à leur contenu. Les tags de coloration de `@lezer/highlight`, déjà utilisé par CodeMirror,
   sont déclarés explicitement pour neutraliser le gras/soulignement hérité sur les seuls titres admissibles.
-- Les références temporelles canoniques peuvent être compactées ou révélées en Édition ; la copie, la sélection, la composition IME et les gestes d'édition doivent rester sûrs.
+- Les références temporelles canoniques peuvent être compactées ou révélées en Édition. Le clic sur un lien
+  direct simple sélectionne ses seules bornes de libellé reconnues, via le cycle souris CodeMirror ;
+  le tap écarte scroll et appui long. Une horloge `quote:tr` conserve son curseur source dans l'URI.
+  Le remplacement ne reconstruit ni le lien ni l'URI. Copie, sélection, composition IME et gestes restent sûrs.
 - L'activation temporelle en Édition se fait par **Ctrl/Cmd+clic** ou **Ctrl/Cmd+Entrée** pour les formes admissibles ; elle réutilise les contrôles de navigation de la transcription et du mode Lecture, sans écrire dans la note.
 - L'insertion d'une citation, d'une capture acceptée ou d'un asset connu utilise une transaction CodeMirror isolée dans Undo/Redo et laisse l'autosauvegarde habituelle gérer l'écriture.
 

@@ -411,7 +411,24 @@ La citation passe de la sélection de transcription à une **transaction CodeMir
 
 Le rendu Markdown utilise un traitement Remark ciblé pour `quote` et `quote:tr` avec validation partagée des URI canoniques, sans moteur extensible de callouts. Les en-têtes inconnus ou invalides restent du Markdown ordinaire ; leur contenu n'est pas exécuté comme HTML. Le titre d'une citation de transcription reste du texte littéral.
 
-CodeMirror utilise ses propres arbres syntaxiques pour les décorations de blockquotes et la compaction ciblée de références temporelles, sans transformer le Markdown stocké. Le clic simple révèle la source ; le clavier, les sélections et la composition IME préservent l'édition native. **Ctrl/Cmd+clic** et **Ctrl/Cmd+Entrée** activent seulement les références reconnues et admissibles en réutilisant la navigation du mode Lecture. Les décorations visuelles ne produisent pas de sauvegarde.
+CodeMirror utilise ses propres arbres syntaxiques pour les décorations de blockquotes et la compaction
+ciblée de références temporelles, sans transformer le Markdown stocké. La reconnaissance d'un lien direct
+monoligne simple conserve les bornes documentaires de son libellé ; les URI calculées des en-têtes
+`quote:tr` n'ont pas ces bornes. Le widget adapte son indication accessible à cette distinction.
+
+Sur un widget de lien direct, `mouseSelectionStyle` fournit la plage source exacte du libellé à CodeMirror,
+qui conserve le cycle natif du geste et du glisser. Les décorations temporelles sont conservées pendant ce
+geste, puis rafraîchies au relâchement sans changer la sélection. Une série de clics commencée sur le widget
+conserve cette cible ; un nouveau clic dans la source reprend les règles natives. Le traitement local du
+tap écarte les mouvements, annulations, appuis longs et nouvelles sélections tactiles étendues. Les bornes
+mémorisées sont abandonnées si le document change, notamment lors d'une capture ; la sélection mappée par
+CodeMirror reste l'autorité. Écouteurs et timer sont nettoyés à la destruction de la vue.
+
+Le clic sur l'horloge d'un callout conserve son curseur dans l'URI. Le clavier, les sélections et la
+composition DOM/EditContext préservent l'édition source ; le remplacement du libellé ne reconstruit
+jamais le lien. **Ctrl/Cmd+clic** garde sa priorité et **Ctrl/Cmd+Entrée** exige toujours un curseur
+unique strictement intérieur, sans sélection non vide, pour activer la navigation partagée avec Lecture.
+Les opérations purement visuelles ne produisent aucune sauvegarde.
 
 ### 8.7 Insertion asynchrone des captures
 
