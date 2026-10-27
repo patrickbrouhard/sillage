@@ -5,7 +5,7 @@ import type { TemporalReference } from './temporalReference'
 import type { Ref } from 'react'
 import { compactTemporalReferences } from './compactTemporalReferences'
 import { markdownDecorations } from './markdownDecorations'
-import { livePreviewHeadings } from './livePreviewHeadings'
+import { livePreviewMarkdown } from './livePreviewMarkdown'
 import { tags } from '@lezer/highlight'
 import { EditorState, StateEffect } from '@codemirror/state'
 import { Decoration, EditorView, keymap, ViewPlugin, WidgetType } from '@codemirror/view'
@@ -199,7 +199,7 @@ export function MarkdownEditor({
         extensions: [
           // Le découpage natif accepte CRLF, CR et LF ; la sérialisation produit du LF.
           history(), captureMarker, positionPlugin, markdown(), markdownToolbar(), syntaxHighlighting(highlightStyle),
-          EditorView.lineWrapping, markdownDecorations, livePreviewHeadings,
+          EditorView.lineWrapping, markdownDecorations, livePreviewMarkdown,
           compactTemporalReferences(reference => callbacks.current.onNavigate(reference)),
           EditorView.contentAttributes.of({ 'aria-label': 'Note Markdown' }),
           keymap.of([
