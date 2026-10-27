@@ -1,55 +1,5 @@
-import type { Locator, Page } from '@playwright/test'
 import { test, expect } from './fixtures'
-import { build } from 'vite'
-
-let probeScript: string
-
-test.beforeAll(async () => {
-  const result = await build({
-    configFile: false,
-    logLevel: 'silent',
-    build: {
-      write: false,
-      lib: { entry: new URL('./editorProbe.ts', import.meta.url).pathname, name: 'editorProbe', formats: ['iife'] },
-    },
-  })
-  const output = Array.isArray(result) ? result[0] : result
-  if (!('output' in output)) throw new Error('Sonde navigateur non compilée')
-  probeScript = output.output.find(file => file.type === 'chunk')!.code
-})
-
-/** Monte la vraie session de note et observe toutes les écritures. */
-async function openEditor(page: Page, initial: string) {
-  const writes: string[] = []
-  await page.route('**/api/v1/videos/42', route => route.fulfill({ json: {
-    id: 42, created_at: '2026-10-15', tags: [], person_ids: [], sources: [],
-  } }))
-  await page.route('**/note', route => {
-    if (route.request().method() === 'PUT') writes.push(route.request().postDataJSON().content_md)
-    return route.fulfill({ json: {
-      video_id: 42, content_md: writes.at(-1) ?? initial, revision: 1 + writes.length, updated_at: '2026-10-15',
-    } })
-  })
-  await page.goto('/videos/42')
-  const editor = page.getByRole('textbox', { name: 'Note Markdown' })
-  await expect(editor).toBeVisible()
-  await page.addScriptTag({ content: probeScript })
-  return { editor, writes }
-}
-
-/** Observe directement la sélection documentaire de la vue CodeMirror réelle. */
-async function selection(editor: Locator) {
-  return editor.evaluate(() => window.editorProbe.snapshot())
-}
-
-/** Copie par le gestionnaire natif CodeMirror pour vérifier le Markdown documentaire. */
-async function copy(editor: Locator) {
-  return editor.evaluate(element => {
-    const clipboardData = new DataTransfer()
-    element.dispatchEvent(new ClipboardEvent('copy', { clipboardData, bubbles: true, cancelable: true }))
-    return clipboardData.getData('text/plain')
-  })
-}
+import { openEditor, selection, copy, wordPoint } from './editorTestHelpers'
 
 test('clic natif, édition des marqueurs, niveau, suppression et Undo/Redo', async ({ page }) => {
   const text = 'avant\n## Titre utile ###\naprès'
@@ -241,23 +191,6 @@ for (const width of [1440, 320]) {
     // Seule la saisie temporaire est autorisée à déclencher une écriture.
     expect(writes.every(value => value.includes('X') || value === text)).toBe(true)
   })
-}
-
-/** Vise le mot compact par un Range DOM ; les assertions utilisent ensuite le document. */
-async function wordPoint(heading: Locator, word: string) {
-  return heading.evaluate((element, text) => {
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const start = node.textContent!.indexOf(text)
-      if (start < 0) continue
-      const range = document.createRange()
-      range.setStart(node, start)
-      range.setEnd(node, start + text.length)
-      const box = range.getBoundingClientRect()
-      return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-    }
-    throw new Error('Mot absent du titre')
-  }, word)
 }
 
 for (const level of [1, 6]) {

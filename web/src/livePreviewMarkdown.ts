@@ -1,18 +1,23 @@
 import { syntaxTree } from '@codemirror/language'
-import { StateEffect } from '@codemirror/state'
+import { RangeSet, StateEffect } from '@codemirror/state'
 import type { EditorState } from '@codemirror/state'
-import { ViewPlugin } from '@codemirror/view'
-import type { DecorationSet, EditorView, ViewUpdate } from '@codemirror/view'
+import { EditorView, ViewPlugin } from '@codemirror/view'
+import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 import { headingDecorations } from './livePreviewHeadings'
+import { emphasisDecorations } from './livePreviewEmphasis'
+import { emphasisMouseSelection } from './emphasisMouseSelection'
 
 const refreshPreview = StateEffect.define<null>()
 
 /** Calcule la présentation ciblée sans créer une seconde vue du document. */
 function previewDecorations(state: EditorState, visibleRanges: readonly { from: number; to: number }[]) {
-  return headingDecorations(state, visibleRanges)
+  return RangeSet.join([
+    headingDecorations(state, visibleRanges),
+    emphasisDecorations(state, visibleRanges),
+  ])
 }
 
-/** Suspend la géométrie des titres pendant les gestes natifs ; mappe les plages conservées. */
+/** Gèle ensemble les titres et l'emphase pendant les gestes natifs et mappe leurs plages. */
 export const livePreviewMarkdown = ViewPlugin.fromClass(class {
   decorations: DecorationSet
   dragging = false
@@ -95,6 +100,10 @@ export const livePreviewMarkdown = ViewPlugin.fromClass(class {
   }
 }, {
   decorations: plugin => plugin.decorations,
+  provide: plugin => EditorView.mouseSelectionStyle.of((view, event) => {
+    const preview = view.plugin(plugin)
+    return preview ? emphasisMouseSelection(view, event, preview.decorations) : null
+  }),
   eventHandlers: {
     mousedown(event, view) {
       if (event.button !== 0 || this.composing || view.compositionStarted) return
@@ -109,8 +118,9 @@ export const livePreviewMarkdown = ViewPlugin.fromClass(class {
         this.decorations = this.clickPresentation.decorations
         view.dispatch({ effects: refreshPreview.of(null) })
       } else {
-        const heading = event.target instanceof Element ? event.target.closest('.cm-note-heading') : null
-        this.clickPresentation = plain && event.detail === 1 && heading && !heading.querySelector('.cm-note-heading-marker')
+        // Toute ligne peut changer de géométrie quand une emphase voisine se
+        // révèle ou se compacte. Titres et emphase partagent le même instantané.
+        this.clickPresentation = plain && event.detail === 1 && this.decorations.size > 0
           ? { doc: view.state.doc, decorations: this.decorations }
           : null
       }
