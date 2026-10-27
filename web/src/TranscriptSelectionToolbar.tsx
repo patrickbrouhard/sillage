@@ -1,5 +1,6 @@
 import { useLayoutEffect } from 'react'
 import type { RefObject } from 'react'
+import { Icon } from './IconButton'
 
 /** Ancre deux actions à la plage native, sans déplacer la sélection ni sortir du panneau inert. */
 export function TranscriptSelectionToolbar({ range, container, toolbar, onClose, onCite, onSearch }: {
@@ -73,7 +74,9 @@ export function TranscriptSelectionToolbar({ range, container, toolbar, onClose,
       event.preventDefault()
       buttons[next]?.focus({ preventScroll: true })
     }}>
-    <button type="button" onClick={onCite}>Citer</button>
-    <button type="button" onClick={onSearch}>Rechercher</button>
+    <button type="button" className="icon-button" aria-label="Citer dans la note"
+      title="Citer dans la note" onClick={onCite}><Icon name="quote" /></button>
+    <button type="button" className="icon-button" aria-label="Rechercher dans la transcription"
+      title="Rechercher dans la transcription" onClick={onSearch}><Icon name="search" /></button>
   </div>
 }

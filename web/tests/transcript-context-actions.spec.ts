@@ -103,7 +103,7 @@ for (const backwards of [false, true]) {
     await page.keyboard.press('Control+c')
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Alpha Beta. Suite Alpha Beta')
     expect(await nativeSelection(page)).toEqual(before)
-    await toolbar.getByRole('button', { name: 'Rechercher', exact: true }).click()
+    await toolbar.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
     await expect(page.getByRole('searchbox')).toHaveValue('Alpha Beta. Suite Alpha Beta')
     await expect(page.getByRole('searchbox')).toBeFocused()
     await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 1')
@@ -122,10 +122,10 @@ test('clavier : accès sans focus volé, conservation de la plage, flèches et f
   expect((await nativeSelection(page)).text).toBe('Alpha Beta')
   const before = await nativeSelection(page)
   await page.keyboard.press('Tab')
-  await expect(toolbar.getByRole('button', { name: 'Citer', exact: true })).toBeFocused()
+  await expect(toolbar.getByRole('button', { name: 'Citer dans la note', exact: true })).toBeFocused()
   expect(await nativeSelection(page)).toEqual(before)
   await page.keyboard.press('ArrowRight')
-  await expect(toolbar.getByRole('button', { name: 'Rechercher', exact: true })).toBeFocused()
+  await expect(toolbar.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })).toBeFocused()
   expect(await nativeSelection(page)).toEqual(before)
   await page.keyboard.press('Escape')
   await expect(toolbar).toHaveCount(0)
@@ -134,7 +134,7 @@ test('clavier : accès sans focus volé, conservation de la plage, flèches et f
   await page.setViewportSize({ width: 1000, height: 800 })
   await page.waitForTimeout(300)
   await expect(toolbar).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeEnabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeEnabled()
 })
 
 test('Citer réutilise le timestamp, la session, la sauvegarde et Undo/Redo sur un extrait surligné', async ({ page, request }) => {
@@ -143,16 +143,16 @@ test('Citer réutilise le timestamp, la session, la sauvegarde et Undo/Redo sur 
   await editor.click()
   await page.keyboard.press('Control+End')
   await page.keyboard.type('X')
-  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await page.getByRole('searchbox').fill('Alpha')
   await selectText(page, 4, sourceText.indexOf('Fin'), true)
   await expect(toolbar).toBeVisible()
-  await toolbar.getByRole('button', { name: 'Citer', exact: true }).click()
+  await toolbar.getByRole('button', { name: 'Citer dans la note', exact: true }).click()
   const expected = 'AvantX\n\n> [!quote:tr](sillage://videos/' + video.id + '/sources/' + video.sources[0].id +
     '?start_ms=1234)\n> pha Beta. Suite Alpha Beta.\n\n'
   await expect(editor).toBeFocused()
   await expect(toolbar).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
   await expect.poll(async () => (await (await request.get(noteURL)).json()).content_md).toBe(expected)
   expect(await original!.evaluate(element => element === document.querySelector('.cm-content'))).toBe(true)
   await page.keyboard.press('Control+z')
@@ -173,17 +173,17 @@ for (const reading of [false, true]) {
     })
     await selectText(page)
     await expect(toolbar).toBeVisible()
-    if (reading) await toolbar.getByRole('button', { name: 'Citer', exact: true }).click()
+    if (reading) await toolbar.getByRole('button', { name: 'Citer dans la note', exact: true }).click()
     else {
       await page.keyboard.press('Tab')
-      await toolbar.getByRole('button', { name: 'Citer', exact: true }).press('Enter')
+      await toolbar.getByRole('button', { name: 'Citer dans la note', exact: true }).press('Enter')
       await expect(panel).toBeFocused()
     }
     await expect(page.getByRole('status').filter({ hasText: reading ? 'Passez en Édition' : 'Placez le curseur' })).toBeVisible()
     if (reading) await expect(editor).toBeHidden()
     else await expect(editor).toBeVisible()
     await expect(toolbar).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+    await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
     if (reading) await page.getByRole('button', { name: 'Édition', exact: true }).click()
     await expect(editor).toHaveText('Note existante')
     expect((await (await request.get(noteURL)).json()).content_md).toBe('Note existante')
@@ -193,7 +193,7 @@ for (const reading of [false, true]) {
 
 test('Rechercher rouvre la recherche existante à la première occurrence, même requête, sans réseau ni lecteur', async ({ page, request }) => {
   const { toolbar } = await prepare(page, request)
-  const toggle = page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })
+  const toggle = page.locator('.transcript-actions').getByRole('button', { name: 'Rechercher dans la transcription', exact: true })
   await toggle.click()
   const input = page.getByRole('searchbox')
   await input.fill('Alpha Beta')
@@ -209,13 +209,13 @@ test('Rechercher rouvre la recherche existante à la première occurrence, même
     const p = window.youtubeTest.players.at(-1)!
     return { position: p.position, state: p.state, calls: p.navigationCalls, pauses: p.pauseCalls }
   })
-  await toolbar.getByRole('button', { name: 'Rechercher', exact: true }).click()
+  await toolbar.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await expect(input).toBeFocused()
   await expect(input).toHaveValue('Alpha Beta')
   await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 3')
   await expect(page.locator('mark[aria-current=true]')).toHaveText('Alpha Beta')
   await expect(toolbar).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
   await input.press('Enter')
   await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('2 / 3')
   expect(await page.evaluate(() => {
@@ -231,14 +231,14 @@ test('cycle de vie : nouvelle plage, repli, blancs, extérieur et recherche inva
   await expect(toolbar).toBeVisible()
   await selectText(page, 8, 12)
   await expect(toolbar).toBeVisible()
-  await toolbar.getByRole('button', { name: 'Rechercher', exact: true }).click()
+  await toolbar.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await expect(page.getByRole('searchbox')).toHaveValue('Beta')
   await page.getByRole('searchbox').press('Escape')
   for (const [from, to] of [[2, 2], [0, 2]]) {
     await selectText(page, from, to)
     await page.waitForTimeout(250)
     await expect(toolbar).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+    await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
   }
   await selectText(page)
   await expect(toolbar).toBeVisible()
@@ -250,20 +250,20 @@ test('cycle de vie : nouvelle plage, repli, blancs, extérieur et recherche inva
   await expect(toolbar).toBeVisible()
   await page.locator('.site-header h1').click()
   await expect(toolbar).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
   await selectText(page)
   await expect(toolbar).toBeVisible()
-  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await page.getByRole('searchbox').fill('Suite')
   await expect(toolbar).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
 })
 
 test('plage caduque avant selectionchange et remplacement de transcription : aucune action ancienne', async ({ page, request }) => {
   const { toolbar, transcriptURL } = await prepare(page, request)
   await selectText(page)
   await expect(toolbar).toBeVisible()
-  await toolbar.getByRole('button', { name: 'Rechercher', exact: true }).evaluate(button => {
+  await toolbar.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).evaluate(button => {
     window.getSelection()!.collapseToStart()
     ;(button as HTMLButtonElement).click()
   })
@@ -278,7 +278,7 @@ test('plage caduque avant selectionchange et remplacement de transcription : auc
   await page.getByRole('button', { name: 'Actualiser la transcription', exact: true }).click()
   await expect(page.locator('[data-transcript-text]')).toHaveText(['Nouveau contenu'])
   await expect(toolbar).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note' })).toBeDisabled()
 })
 
 test('actualisation reçue pendant un geste : invalider la cible sans perdre le gel jusqu’au relâchement', async ({ page, request }) => {
@@ -309,7 +309,7 @@ test('actualisation reçue pendant un geste : invalider la cible sans perdre le 
   await expect(toolbar).toHaveCount(0)
   await page.mouse.up()
   await expect(toolbar).toBeVisible()
-  await toolbar.getByRole('button', { name: 'Rechercher', exact: true }).click()
+  await toolbar.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).click()
   await expect(page.getByRole('searchbox')).toHaveValue('Nouveau')
 })
 
@@ -317,7 +317,7 @@ test('sélection extérieure non vide après focus sur la citation : ne jamais c
   const { toolbar, editor } = await prepare(page, request)
   await selectText(page)
   await expect(toolbar).toBeVisible()
-  const cite = page.getByRole('button', { name: 'Citer dans la note', exact: true })
+  const cite = page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note', exact: true })
   await cite.focus()
   await cite.evaluate(button => {
     const native = window.getSelection()!
@@ -334,7 +334,7 @@ test('notification tardive après focus extérieur : ne réarmer ni le menu ni l
   const { toolbar } = await prepare(page, request)
   await selectText(page)
   await expect(toolbar).toBeVisible()
-  await page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).evaluate(button => {
+  await page.locator('.transcript-actions').getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).evaluate(button => {
     const native = window.getSelection()!
     const range = native.getRangeAt(0).cloneRange()
     // La sélection source change de sens ; sa notification arrive après la sortie de focus.
@@ -342,10 +342,10 @@ test('notification tardive après focus extérieur : ne réarmer ni le menu ni l
     document.querySelector<HTMLButtonElement>('.transcript-acquisition')!.focus()
     ;(button as HTMLButtonElement).focus()
   })
-  await expect(page.getByRole('button', { name: 'Rechercher dans la transcription', exact: true })).toBeFocused()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Rechercher dans la transcription', exact: true })).toBeFocused()
   await page.waitForTimeout(300)
   await expect(toolbar).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Citer dans la note', exact: true })).toBeDisabled()
+  await expect(page.locator('.transcript-actions').getByRole('button', { name: 'Citer dans la note', exact: true })).toBeDisabled()
 })
 
 test('fermeture hors écran avec focus dans le menu : rendre le clavier à la transcription sans déplacer le scroll', async ({ page, request }) => {
@@ -353,7 +353,7 @@ test('fermeture hors écran avec focus dans le menu : rendre le clavier à la tr
   await selectText(page)
   await expect(toolbar).toBeVisible()
   await page.keyboard.press('Tab')
-  await expect(toolbar.getByRole('button', { name: 'Citer', exact: true })).toBeFocused()
+  await expect(toolbar.getByRole('button', { name: 'Citer dans la note', exact: true })).toBeFocused()
   const before = await panel.evaluate(element => {
     element.style.minHeight = '0'
     element.style.height = '20px'
@@ -376,6 +376,22 @@ for (const width of [1440, 375]) {
       await selectTheme(page, theme)
       await selectText(page)
       await expect(toolbar).toBeVisible()
+      for (const label of ['Citer dans la note', 'Rechercher dans la transcription']) {
+        const action = toolbar.getByRole('button', { name: label, exact: true })
+        const permanent = page.locator('.transcript-actions').getByRole('button', { name: label, exact: true })
+        await expect(action).toHaveAccessibleName(label)
+        await expect(action).toHaveAttribute('title', label)
+        await expect(action.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+        expect(await action.textContent()).toBe('')
+        expect(await action.locator('svg').innerHTML()).toBe(await permanent.locator('svg').innerHTML())
+        const target = (await action.boundingBox())!
+        expect(target.width).toBeGreaterThanOrEqual(40)
+        expect(target.height).toBeGreaterThanOrEqual(40)
+      }
+      const quote = toolbar.getByRole('button', { name: 'Citer dans la note', exact: true }).locator('svg path')
+      await expect(quote).toHaveCount(2)
+      await expect(quote.nth(0)).toHaveAttribute('d', /^M16 3a2 2/)
+      await expect(quote.nth(1)).toHaveAttribute('d', /^M5 3a2 2/)
       const box = (await toolbar.boundingBox())!
       const anchor = await page.evaluate(() => {
         const box = window.getSelection()!.getRangeAt(0).getBoundingClientRect()
@@ -427,7 +443,7 @@ test.describe('tactile Chromium Android simulé', () => {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
     await expect(toolbar).toBeVisible()
     expect((await nativeSelection(page)).text).toBe('Alpha')
-    await toolbar.getByRole('button', { name: 'Rechercher', exact: true }).tap()
+    await toolbar.getByRole('button', { name: 'Rechercher dans la transcription', exact: true }).tap()
     await expect(page.getByRole('searchbox')).toHaveValue('Alpha')
     await expect(page.getByRole('searchbox')).toBeFocused()
     await expect(page.getByLabel('Occurrences', { exact: true })).toHaveText('1 / 3')

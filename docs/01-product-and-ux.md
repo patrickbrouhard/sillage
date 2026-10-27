@@ -663,9 +663,11 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
   navigateur.
 - Le bouton **« Citer dans la note »** est disponible pour un passage valide, non vide et contenu dans la
   transcription. Une sélection multiple ou débordante est refusée.
-- Après stabilisation d'une sélection valide, une petite barre flottante propose **« Citer »** et
-  **« Rechercher »** près du texte encore visible. Elle ne prend pas le focus à son apparition et reste
-  masquée pendant le glisser ou un contact tactile en cours. « Citer » utilise exactement la même insertion
+- Après stabilisation d'une sélection valide, une petite barre flottante propose les icônes
+  **« Citer dans la note »** (Lucide Quote, identique à la commande permanente) et
+  **« Rechercher dans la transcription »** (loupe), avec noms accessibles et infobulles explicites, près du
+  texte encore visible. Elle ne prend pas le focus à son apparition et reste masquée pendant le glisser ou
+  un contact tactile en cours. « Citer » utilise exactement la même insertion
   et les mêmes validations que le bouton d'en-tête, qui reste disponible.
 - Tab depuis la transcription donne accès à la barre ; les flèches gauche/droite parcourent ses deux boutons.
   Échap ferme la barre. Si sa fermeture retire un bouton focalisé, notamment lorsque le passage sort de

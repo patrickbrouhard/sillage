@@ -324,7 +324,7 @@ export function TranscriptText({ items, onNavigate, onCite, heading, acquisition
           onClick={() => searchOpen ? closeSearch() : setSearchOpen(true)} />
         {acquisition}
         <IconButton icon="quote" label="Citer dans la note" ref={citeButton} disabled={!validExcerpt}
-          tooltip={validExcerpt ? 'Citer la sélection dans la note' : 'Sélectionnez un extrait de la transcription pour le citer'}
+          tooltip={validExcerpt ? 'Citer dans la note' : 'Citer dans la note — Sélectionnez un extrait de la transcription pour le citer'}
           onClick={cite} />
       </div>
     </div>
