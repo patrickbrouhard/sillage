@@ -640,6 +640,10 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
   blancs ou un saut de ligne.
 - Le champ est replié au départ. Son ouverture le focalise ; Échap ou un second clic sur la loupe le replie sans
   effacer la requête, les surlignages et le résultat actif. Changer de vidéo/source réinitialise la recherche.
+- « Rechercher » dans la barre contextuelle ouvre ce même champ avec le texte de la sélection, tel que copié
+  (blancs de bord retirés, suites de blancs ramenées à une espace), puis le focalise. La recherche repart de
+  la première occurrence, même pour une requête identique ; moteur, surlignages, compteur et navigation restent
+  ceux de la recherche locale, sans réseau ni commande au lecteur.
 - Toutes les correspondances non chevauchantes sont surlignées, avec un résultat actif, un compteur et des
   actions précédent/suivant circulaires. Entrée dans le champ avance sans commander le lecteur et sans valider
   une composition IME.
@@ -659,6 +663,17 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
   navigateur.
 - Le bouton **« Citer dans la note »** est disponible pour un passage valide, non vide et contenu dans la
   transcription. Une sélection multiple ou débordante est refusée.
+- Après stabilisation d'une sélection valide, une petite barre flottante propose **« Citer »** et
+  **« Rechercher »** près du texte encore visible. Elle ne prend pas le focus à son apparition et reste
+  masquée pendant le glisser ou un contact tactile en cours. « Citer » utilise exactement la même insertion
+  et les mêmes validations que le bouton d'en-tête, qui reste disponible.
+- Tab depuis la transcription donne accès à la barre ; les flèches gauche/droite parcourent ses deux boutons.
+  Échap ferme la barre et rend le focus au texte si un de ses boutons était focalisé. Un clic ou un focus
+  extérieur ferme sans action. La copie native et le sens de la sélection sont conservés pendant
+  l'interaction avec la barre.
+- Le menu suit le défilement et les changements de taille ; il se ferme si la sélection n'est plus visible.
+  Une nouvelle sélection, une recherche modifiant le rendu ou le remplacement du contenu invalident l'ancienne
+  cible. Une action vérifie encore sa plage native avant d'utiliser l'extrait.
 - Le début de la citation vient du **premier fragment contenant du texte effectivement retenu**, même si les
   timestamps ne sont pas monotones : pas d'interpolation ni d'utilisation systématique de la borne du bloc
   visuel.
@@ -669,7 +684,8 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
   sélectionné dans la note n'est pas remplacé : l'insertion suit la borne supérieure de la sélection.
 - En Lecture ou sans emplacement explicitement choisi, afficher un refus ; ne pas changer d'onglet, deviner une
   position, modifier le lecteur ou programmer une insertion différée. La sélection de transcription consommée
-  doit être refaite pour réessayer.
+  doit être refaite pour réessayer. Un refus depuis la barre contextuelle rend le focus à la transcription
+  si l'action avait été activée au clavier.
 - Une citation acceptée utilise la session CodeMirror existante, les séparateurs LF nécessaires et **une seule
   étape Undo/Redo**. Le curseur est replacé après le bloc et sa ligne vide, l'autosauvegarde suit son cycle
   normal.

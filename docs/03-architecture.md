@@ -405,6 +405,15 @@ La présentation regroupe les fragments source dans des intervalles **fixes de 1
 
 Une occurrence de recherche ne commande pas le lecteur ; seul le timestamp activé le fait. La sélection d'un passage pour citation est une sélection native DOM : l'extraction de texte continu ignore les boutons de temps, tient compte des marques de recherche et rattache la position au premier fragment réellement retenu.
 
+Dans `TranscriptText`, la barre contextuelle React partage l'extrait existant et sa plage DOM avec le
+bouton de citation. Le rendu courant de la transcription identifie la validité de cette cible ; l'action
+vérifie aussi les bornes natives avant consommation. Les gestes pointeur/tactiles retardent l'affichage
+jusqu'à stabilisation, sans réécrire la sélection. `TranscriptSelectionToolbar` positionne seulement les
+deux boutons dans le viewport et nettoie ses écouteurs/observateur au démontage. La barre reste dans la
+section Transcription, y compris pour son état `inert`, tout en étant hors du flux du panneau défilant.
+« Citer » appelle le chemin de citation existant ; « Rechercher » renseigne l'état de la recherche locale et
+réinitialise son occurrence active. Aucune route, commande lecteur ou persistance n'est ajoutée.
+
 ### 8.6 Citations, callouts et décorations
 
 La citation passe de la sélection de transcription à une **transaction CodeMirror** dans la note. Une note non vide exige un emplacement choisi explicitement par l'utilisateur ; un focus automatique ne suffit pas. Une citation inadmissible ne change pas l'onglet ni la note. La transaction est isolée dans Undo/Redo et respecte LF, la révision et l'autosauvegarde.
