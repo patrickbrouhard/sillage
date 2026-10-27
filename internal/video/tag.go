@@ -10,7 +10,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// TagID identifie un tag partagé entre vidéos.
+// TagID identifie une entrée du catalogue partagé.
 type TagID int64
 
 // Tag conserve le nom d'affichage courant, indépendamment de son identité Unicode.

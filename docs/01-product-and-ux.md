@@ -107,7 +107,8 @@ Les filtres combinés, tris personnalisés et vues enregistrées restent des ext
 - Le crayon ouvre un champ prérempli et sélectionné dans la ligne : Entrée ou Enregistrer valide,
   Échap ou Annuler abandonne le brouillon. Une collision laisse l'édition ouverte avec une erreur.
   Le succès actualise la ligne et son classement, sans confirmation supplémentaire. Le focus revient au
-  crayon, ou à la recherche si le nouveau nom sort du filtre. Les brouillons survivent aux tris et filtres.
+  crayon, ou à la recherche si le nouveau nom sort du filtre, sauf si l'utilisateur l'a déjà déplacé
+  pendant la requête. Les brouillons survivent aux tris et filtres.
 - La corbeille ouvre une confirmation avec le nom et les associations concernées. Annuler reçoit le
   focus initial ; Échap annule avant soumission. La suppression est possible même pour un tag utilisé,
   conserve les entités associées et retire la ligne sans recharger la page. Le focus revient à la

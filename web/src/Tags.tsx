@@ -84,11 +84,11 @@ export function Tags() {
     <ul className="tag-catalog-list" aria-label="Catalogue des tags" aria-busy={loading}>
       {/* Garder les lignes filtrées montées préserve les brouillons et les écritures en cours. */}
       {ordered.map(tag => <TagRow key={tag.id} tag={tag} hidden={!matchesName(tag.name, query)}
-        onRenamed={result => {
+        onRenamed={(result, restoreFocus) => {
           setTags(current => current.map(item => item.id === result.id ? { ...item, name: result.name } : item))
           setNotice(`Tag renommé : ${result.name}.`)
           // Un renommage peut sortir du filtre courant : restaurer alors un focus utile.
-          if (!matchesName(result.name, query)) search.current?.focus()
+          if (restoreFocus && !matchesName(result.name, search.current?.value ?? '')) search.current?.focus()
         }}
         onDeleted={() => {
           setTags(current => current.filter(item => item.id !== tag.id))
@@ -103,7 +103,7 @@ export function Tags() {
 function TagRow({ tag, hidden, onRenamed, onDeleted }: {
   tag: CatalogTag
   hidden: boolean
-  onRenamed: (tag: Tag) => void
+  onRenamed: (tag: Tag, restoreFocus: boolean) => void
   onDeleted: () => void
 }) {
   const id = useId()
@@ -117,16 +117,24 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
   const dialog = useRef<HTMLDialogElement>(null)
   const controller = useRef<AbortController | null>(null)
   const wasEditing = useRef(false)
+  const row = useRef<HTMLLIElement>(null)
+  const restoreRenameFocus = useRef(false)
 
   useEffect(() => () => controller.current?.abort(), [])
   useLayoutEffect(() => {
-    if (editing) { input.current?.focus(); input.current?.select() }
-    else if (wasEditing.current) rename.current?.focus()
+    if (editing && !wasEditing.current) { input.current?.focus(); input.current?.select() }
+    else if (!editing && wasEditing.current && restoreRenameFocus.current && !hidden) rename.current?.focus()
     wasEditing.current = editing
-  }, [editing])
+  }, [editing, hidden])
   useLayoutEffect(() => {
     if (deleting) dialog.current?.showModal()
   }, [deleting])
+
+  /** Le bouton désactivé peut rendre le focus au body, sans choix d'un autre contrôle. */
+  function ownsFocus(): boolean {
+    return Boolean(row.current && (row.current.contains(document.activeElement)
+      || (document.activeElement === document.body && !row.current.hidden)))
+  }
 
   /** Verrouille immédiatement les doubles soumissions ; une erreur conserve le brouillon. */
   async function mutate(action: 'rename' | 'delete') {
@@ -139,8 +147,10 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
       if (action === 'rename') {
         const result = await renameCatalogTag(tag.id, name, request.signal)
         if (request.signal.aborted) return
+        // Une réponse tardive ne doit pas reprendre le focus quitté pendant l'attente.
+        restoreRenameFocus.current = ownsFocus()
         setEditing(false)
-        onRenamed(result)
+        onRenamed(result, restoreRenameFocus.current)
       } else {
         await deleteCatalogTag(tag.id, request.signal)
         if (request.signal.aborted) return
@@ -151,7 +161,7 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
       if (!request.signal.aborted) {
         setError(errorMessage(reason))
         // Revenir au champ pour corriger une collision sans fermer l'édition.
-        if (action === 'rename') input.current?.focus()
+        if (action === 'rename' && ownsFocus()) input.current?.focus()
       }
     } finally {
       if (!request.signal.aborted) setPending(false)
@@ -161,11 +171,12 @@ function TagRow({ tag, hidden, onRenamed, onDeleted }: {
 
   function cancelEdit() {
     if (controller.current) return
+    restoreRenameFocus.current = true
     setEditing(false)
     setError('')
   }
 
-  return <li className="tag-catalog-row" hidden={hidden}>
+  return <li ref={row} className="tag-catalog-row" hidden={hidden}>
     <div className="tag-catalog-content">
       {editing ? <form className="tag-rename" aria-label={`Renommer ${tag.name}`}
         onSubmit={event => { event.preventDefault(); void mutate('rename') }}

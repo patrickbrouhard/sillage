@@ -176,6 +176,14 @@ func TestTagCatalogRollback(t *testing.T) {
 	if _, err := NewPersonRepository(db).AddTags(ctx, person.ID, []video.TagName{name}); err != nil {
 		t.Fatal(err)
 	}
+	publishers := NewPublisherRepository(db)
+	publisher, err := publishers.CreateOrFind(ctx, video.Publisher{Provider: "local", ExternalID: "rollback"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := publishers.AddTags(ctx, publisher.Publisher.ID, []video.TagName{name}); err != nil {
+		t.Fatal(err)
+	}
 	before, _ := s.Catalog(ctx)
 	// L'échec tardif de projection doit restaurer le nom, la clé et tous les liens.
 	if _, err := db.Exec("ALTER TABLE video_search RENAME TO broken_search"); err != nil {
@@ -265,5 +273,66 @@ func TestTagConcurrentRenames(t *testing.T) {
 		if got := searchIDs(t, db, q); len(got) != 0 {
 			t.Fatal(q, got)
 		}
+	}
+}
+
+func TestTagCatalogRollbackAfterFirstVideoProjection(t *testing.T) {
+	ctx := context.Background()
+	for _, action := range []string{"rename", "delete"} {
+		t.Run(action, func(t *testing.T) {
+			db := openTestDB(t, filepath.Join(t.TempDir(), "partial.db"))
+			s := video.NewTagService(NewTagRepository(db))
+			first := searchFixture(t, db, "first")
+			second := searchFixture(t, db, "second")
+			tags, err := s.Add(ctx, first.ID, []string{"retainedtag"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.Add(ctx, second.ID, []string{"retainedtag"}); err != nil {
+				t.Fatal(err)
+			}
+			before, err := s.Catalog(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Une note illisible pour la deuxième vidéo fait échouer la projection après
+			// celle de la première. La vue ne modifie pas les données originales du test.
+			if _, err := db.Exec("ALTER TABLE notes RENAME TO original_notes"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec(`
+				CREATE VIEW notes AS
+				SELECT
+					id AS video_id,
+					NULL AS content_md
+				FROM videos
+				WHERE id = 2
+			`); err != nil {
+				t.Fatal(err)
+			}
+			if action == "rename" {
+				_, err = s.Rename(ctx, tags[0].ID, "losttag")
+			} else {
+				err = s.Delete(ctx, tags[0].ID)
+			}
+			if err == nil {
+				t.Fatal("mutation committed with a partial projection")
+			}
+			if _, err := db.Exec("DROP VIEW notes"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec("ALTER TABLE original_notes RENAME TO notes"); err != nil {
+				t.Fatal(err)
+			}
+			if got, err := s.Catalog(ctx); err != nil || !reflect.DeepEqual(got, before) {
+				t.Fatal(got, err)
+			}
+			if got := searchIDs(t, db, "retainedtag"); len(got) != 2 {
+				t.Fatal(got)
+			}
+			if got := searchIDs(t, db, "losttag"); len(got) != 0 {
+				t.Fatal(got)
+			}
+		})
 	}
 }
