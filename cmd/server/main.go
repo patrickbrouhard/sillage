@@ -11,15 +11,15 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
-	mcpadapter "github.com/patrickbrouhard/sillage/internal/adapter/mcp"
+
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
 	"github.com/patrickbrouhard/sillage/internal/asset"
+	"github.com/patrickbrouhard/sillage/internal/auth"
 	api "github.com/patrickbrouhard/sillage/internal/http"
 	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
@@ -33,8 +33,10 @@ import (
 const databasePath = "data/sillage.db"
 
 type config struct {
+	publicURL       string
+	sessionLifetime time.Duration
+	sessionIdle     time.Duration
 	mcpEnabled      bool
-	mcpAuthorities  []string
 	addr            string
 	postTimeout     time.Duration
 	downloadTimeout time.Duration
@@ -83,20 +85,31 @@ func loadConfig() (config, error) {
 		}
 		cfg.mcpEnabled = enabled
 	}
-	_, port, _ := net.SplitHostPort(cfg.addr)
-	cfg.mcpAuthorities = []string{
-		net.JoinHostPort("127.0.0.1", port),
-		net.JoinHostPort("localhost", port),
-		net.JoinHostPort("::1", port),
-	}
-	if value, ok := os.LookupEnv("SILLAGE_MCP_ALLOWED_AUTHORITIES"); ok {
-		cfg.mcpAuthorities = strings.Split(value, ",")
-	}
 	if cfg.mcpEnabled {
-		if err := mcpadapter.ValidateAuthorities(cfg.mcpAuthorities); err != nil {
-			return config{}, err
+		return config{}, fmt.Errorf("MCP is temporarily disabled until integration authentication is available")
+	}
+	cfg.publicURL = os.Getenv("SILLAGE_PUBLIC_URL")
+	if cfg.publicURL == "" {
+		_, port, _ := net.SplitHostPort(cfg.addr)
+		cfg.publicURL = "http://127.0.0.1:" + port
+	}
+	cfg.sessionLifetime, cfg.sessionIdle = 12*time.Hour, time.Hour
+	for name, target := range map[string]*time.Duration{
+		"SILLAGE_SESSION_LIFETIME":     &cfg.sessionLifetime,
+		"SILLAGE_SESSION_IDLE_TIMEOUT": &cfg.sessionIdle,
+	} {
+		if value, ok := os.LookupEnv(name); ok {
+			duration, err := time.ParseDuration(value)
+			if err != nil || duration < time.Minute || duration > 30*24*time.Hour {
+				return config{}, fmt.Errorf("%s must be between 1m and 720h", name)
+			}
+			*target = duration
 		}
 	}
+	if cfg.sessionIdle > cfg.sessionLifetime {
+		return config{}, fmt.Errorf("session idle timeout must not exceed absolute lifetime")
+	}
+
 	return cfg, nil
 }
 
@@ -107,6 +120,18 @@ func main() {
 }
 
 func runMain() error {
+	if len(os.Args) > 1 {
+		if os.Args[1] == "owner" {
+			err := runOwner(os.Args[2:])
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			return err
+		}
+		fmt.Fprintln(os.Stderr, "usage: sillage [owner init|recover]")
+		return fmt.Errorf("unknown command")
+	}
+
 	cfg, err := loadConfig()
 	if err != nil {
 		// Le format de secours est déterministe si la configuration est invalide.
@@ -123,7 +148,6 @@ func runMain() error {
 // newHTTPServer borne les lectures sans couper la réponse du timeout applicatif.
 // WriteTimeout reste désactivé : le contexte du POST borne le traitement,
 // y compris lorsque son délai configurable dépasse une minute.
-// MCP fixe ses propres délais de lecture et d’envoi dans son adapter.
 func newHTTPServer(addr string, handler http.Handler) *http.Server {
 	return &http.Server{
 		Addr: addr, Handler: handler,
@@ -155,6 +179,18 @@ func run(ctx context.Context, cfg config) (result error) {
 		return err
 	}
 	defer db.Close()
+	if cfg.mcpEnabled {
+		return fmt.Errorf("MCP is temporarily disabled")
+	}
+	phase = "authentication"
+	identity := auth.NewService(sqlite.NewAuthRepository(db), cfg.sessionLifetime, cfg.sessionIdle)
+	if err := identity.Ready(ctx); err != nil {
+		if errors.Is(err, auth.ErrUninitialized) {
+			logger.ErrorContext(ctx, "Initialize the owner with sillage owner init", "event", "owner.uninitialized")
+		}
+		return err
+	}
+
 	videos := sqlite.NewVideoRepository(db)
 	provider := ytdlp.Client{}
 	service := video.NewService(videos, provider)
@@ -193,22 +229,7 @@ func run(ctx context.Context, cfg config) (result error) {
 		captures,
 	)
 	handler = api.WithSearch(handler, searches)
-	var mcpTransport http.Handler
-	if cfg.mcpEnabled {
-		phase = "mcp"
-		endpoint, err := mcpadapter.New(ctx, mcpadapter.Readers{
-			Search:      searches,
-			Videos:      service,
-			Transcripts: transcripts,
-			Notes:       notes,
-		}, cfg.mcpAuthorities)
-		if err != nil {
-			return err
-		}
-		defer endpoint.Close()
-		mcpTransport = endpoint
-	}
-	handler = api.WithMCP(handler, mcpTransport)
+	handler = api.WithMCP(handler, nil)
 	// Le build est facultatif pour garder le lancement API seul indépendant de Node.
 	phase = "frontend"
 	if cfg.webDir != "" {
@@ -221,6 +242,14 @@ func run(ctx context.Context, cfg config) (result error) {
 		if err != nil {
 			return err
 		}
+	}
+	publicURL := cfg.publicURL
+	if publicURL == "" {
+		publicURL = "http://" + cfg.addr
+	}
+	handler, err = api.WithAuthentication(handler, identity, publicURL)
+	if err != nil {
+		return err
 	}
 	server := newHTTPServer(cfg.addr, api.WithLogging(logging.From(ctx), handler))
 	server.ErrorLog = api.ServerErrorLog(logger)

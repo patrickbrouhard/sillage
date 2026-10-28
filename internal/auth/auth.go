@@ -108,7 +108,13 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 func (s *Service) issue(ctx context.Context, version int64) (string, error) {
 	token := rand.Text()
 	now := s.now().UTC()
-	err := s.repository.CreateSession(ctx, Session{Hash: Digest(token), Version: version, CreatedAt: now, ExpiresAt: now.Add(s.lifetime), LastSeenAt: now})
+	err := s.repository.CreateSession(ctx, Session{
+		Hash:       Digest(token),
+		Version:    version,
+		CreatedAt:  now,
+		ExpiresAt:  now.Add(s.lifetime),
+		LastSeenAt: now,
+	})
 	if err != nil {
 		return "", err
 	}
