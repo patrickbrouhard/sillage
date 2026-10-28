@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Vérifie l'image et Compose avec un bind mount temporaire, sans YouTube réel."""
 
+import sys
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,10 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
-OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+sys.path.insert(0, str(ROOT / "tests"))
+from auth_support import AuthClient, initialize
+OPENER = AuthClient()
+IMAGE = os.environ.get("SILLAGE_TEST_IMAGE", "sillage:local")
 
 
 def command(*args, env=None):
@@ -72,7 +76,7 @@ def main():
         diagnostics = command(
             "docker", "run", "--rm", "--network", "none",
             "--mount", f"type=bind,src={fixture},dst=/fixture,readonly",
-            "--entrypoint", "/bin/sh", "sillage:local", "-ec",
+            "--entrypoint", "/bin/sh", IMAGE, "-ec",
             'test "$(id -u)" != 0; '
             'test ! -w /usr/local/bin/yt-dlp; test ! -w /usr/local/bin; '
             'test -s /etc/ssl/certs/ca-certificates.crt; '
@@ -100,6 +104,7 @@ def main():
         # Ce double n'existe que dans le conteneur du test ; l'image reste intacte.
         overlay = root / "test.json"
         overlay.write_text(json.dumps({"services": {"sillage": {
+            "image": IMAGE,
             "environment": {"PATH": "/fixture:/usr/local/bin:/usr/bin:/bin"},
             "volumes": [{
                 "type": "bind", "source": str(fixture), "target": "/fixture",
@@ -120,7 +125,7 @@ def main():
             deadline = time.monotonic() + 20
             while time.monotonic() < deadline:
                 try:
-                    request(port, "/api/v1/videos")
+                    OPENER.opener.open(f"http://127.0.0.1:{port}/api/v1/auth/session", timeout=5).close()
                     return
                 except (urllib.error.URLError, TimeoutError, ConnectionError):
                     time.sleep(0.1)
@@ -141,8 +146,11 @@ def main():
             assert all("time" in row and "level" in row for row in records)
 
         try:
+            initialize([*base, "run", "--rm", "sillage", "owner", "init"], ROOT, env)
             compose("up", "-d", "--no-build")
             ready()
+            request(port, "/api/v1/videos", expected=401)
+            OPENER.login(f"http://127.0.0.1:{port}")
             cid = compose("ps", "-q", "sillage").strip()
             inspection = json.loads(command("docker", "inspect", cid))[0]
             assert inspection["Name"] == "/" + env["SILLAGE_CONTAINER_NAME"]
@@ -228,7 +236,7 @@ def check_rotation():
             "docker", "run", "--name", name, "--network", "none",
             "--log-driver", "local", "--log-opt", "max-size=1k",
             "--log-opt", "max-file=2", "--log-opt", "compress=false",
-            "--entrypoint", "/bin/sh", "sillage:local", "-ec",
+            "--entrypoint", "/bin/sh", IMAGE, "-ec",
             'echo rotation_start; i=0; while [ "$i" -lt 2000 ]; do '
             'echo "rotation_payload_abcdefghijklmnopqrstuvwxyz_0123456789_$i"; '
             'i=$((i+1)); done; echo rotation_end',

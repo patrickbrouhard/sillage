@@ -1,3 +1,4 @@
+import { apiFetch } from './auth'
 /** Note persistée ; la révision 0 est réservée à l'absence attendue. */
 export interface Note {
   video_id: number
@@ -38,7 +39,7 @@ async function failure(response: Response): Promise<NoteError> {
 
 /** Une seule absence métier est convertie en null ; toute autre erreur reste visible. */
 export async function getNote(id: number, signal: AbortSignal): Promise<Note | null> {
-  const response = await fetch(`/api/v1/videos/${id}/note`, { signal, cache: 'no-store' })
+  const response = await apiFetch(`/api/v1/videos/${id}/note`, { signal, cache: 'no-store' })
   if (!response.ok) {
     const error = await failure(response)
     if (error.status === 404 && error.code === 'note_not_found') return null
@@ -49,7 +50,7 @@ export async function getNote(id: number, signal: AbortSignal): Promise<Note | n
 
 /** Sauvegarde conditionnelle, sans normalisation ni relance implicite. */
 export async function putNote(id: number, content: string, revision: number, signal: AbortSignal): Promise<Note> {
-  const response = await fetch(`/api/v1/videos/${id}/note`, {
+  const response = await apiFetch(`/api/v1/videos/${id}/note`, {
     method: 'PUT', signal, headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content_md: content, expected_revision: revision }),
   })

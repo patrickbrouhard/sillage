@@ -1,3 +1,4 @@
+import { apiFetch } from './auth'
 /** Métadonnées publiques du fichier ; son chemin reste exclusivement côté serveur. */
 export interface MediaFile {
   id: number
@@ -63,7 +64,7 @@ function validMedia(value: unknown): value is MediaFile {
 }
 
 async function request(url: string, method: string, signal: AbortSignal): Promise<DownloadState | null> {
-  const response = await fetch(url, {
+  const response = await apiFetch(url, {
     method,
     signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]),
     cache: 'no-store',

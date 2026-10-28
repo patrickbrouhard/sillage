@@ -846,3 +846,23 @@ html:has(.images-selector:modal, .image-viewer:modal) { overflow: hidden; scroll
 
 /* Hors du flux et du défilement interne, sans remonter la transcription. */
 .transcript-selection-actions { position: fixed; display: flex; align-items: center; gap: 2px; }
+
+/* La modale conserve la géométrie et l'instance de l'éditeur sous le verrou d'accès. */
+.auth-dialog {
+  width: min(28rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto;
+  padding: 1.5rem; border: 1px solid var(--border); border-radius: .75rem;
+  background: var(--surface); color: var(--text); line-height: 1.5;
+}
+.auth-dialog h1 { margin-top: 0; font-size: 1.5rem; }
+.auth-dialog::backdrop { background: rgb(0 0 0 / .55); }
+.auth-dialog form { display: grid; gap: .75rem; }
+.auth-dialog input {
+  min-width: 0; min-height: 44px; padding: .6rem; font: inherit;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--input); color: inherit;
+}
+.session-menu { position: relative; font-size: .875rem; }
+.session-menu summary { cursor: pointer; }
+.session-menu[open] { background: var(--surface, Canvas); z-index: 20; }
+.session-menu button { display: block; margin-block: .4rem; }
+
+.auth-shell { display: contents; }

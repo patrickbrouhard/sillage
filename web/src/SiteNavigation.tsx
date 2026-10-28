@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { IconButton } from './IconButton'
 import { ThemeSelector } from './ThemeSelector'
+import { SessionMenu } from './AuthGate'
 
 /** Navigation globale superposée ; aucune session métier ne dépend de son ouverture. */
 export function SiteNavigation() {
@@ -40,7 +41,7 @@ export function SiteNavigation() {
       }}
       onKeyDown={event => {
         if (event.key !== 'Tab') return
-        const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button, a[href], select')]
+        const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button, a[href], select, summary')].filter(element => element.getClientRects().length > 0)
         const first = controls[0]
         const last = controls.at(-1)
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
@@ -57,6 +58,7 @@ export function SiteNavigation() {
         <Link to="/tags" aria-current={location.pathname === '/tags' ? 'page' : undefined} onClick={close}>Tags</Link>
         <Link to="/videos/new" aria-current={location.pathname === '/videos/new' ? 'page' : undefined} onClick={close}>Ajouter une vidéo</Link>
       </nav>
+      <SessionMenu />
       <ThemeSelector />
     </dialog>
   </>

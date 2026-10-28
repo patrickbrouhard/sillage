@@ -16,6 +16,10 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests"))
+from auth_support import AuthClient, initialize
+AUTH = AuthClient()
+
 COLLECTIONS = Path(__file__).resolve().parent / "sillage-api"
 
 
@@ -44,7 +48,9 @@ def wait_for_server(server, base_url):
         if server.poll() is not None:
             raise RuntimeError("Sillage s'est arrêté avant d'être prêt.")
         try:
-            with opener.open(base_url + "/api/v1/videos", timeout=1) as response:
+            opener.open(base_url + "/api/v1/auth/session", timeout=1).close()
+            AUTH.login(base_url)
+            with AUTH.open(base_url + "/api/v1/videos", timeout=1) as response:
                 body = json.load(response)
             if body != {"videos": []}:
                 raise RuntimeError("La bibliothèque de test n'est pas vide.")
@@ -96,6 +102,8 @@ def main():
         binary = workspace / "sillage"
         subprocess.run([go, "build", "-o", str(binary), "./cmd/server"], cwd=ROOT, check=True)
 
+        initialize([str(binary), "owner", "init"], workspace)
+
         # Refuser un port occupé évite d'exécuter la collection contre une autre instance.
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -124,6 +132,8 @@ def main():
                 command = [
                     postman, "collection", "run", str(COLLECTIONS / args.collection),
                     "--env-var", f"baseUrl={base_url}",
+                    "--env-var", f"csrfToken={AUTH.csrf}",
+                    "--env-var", "sessionToken=" + next(c.value for c in AUTH.jar if c.name == "sillage_session"),
                     "--timeout-request", "75000",
                     "--timeout", "240000",
                     "--bail",

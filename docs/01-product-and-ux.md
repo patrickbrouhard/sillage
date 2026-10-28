@@ -148,6 +148,19 @@ L’extrait sert à comprendre le contexte de la correspondance pour décider d�
 
 La page affiche le nombre total exact de vidéos correspondantes, indépendamment du tri et du nombre de résultats sur la page courante. Une page vide avec un total positif annonce « Aucun résultat sur cette page », distinct d'une recherche sans correspondance. La pagination propose 20 résultats par page et un lien suivant lorsque d'autres résultats existent, sans garantie d'instantané entre requêtes. La page reste compacte : aucun bandeau visible « Recherche », sous-titre de requête ou séparateur au-dessus du compteur. Un titre principal masqué visuellement conserve le contexte pour les lecteurs d'écran. Invitation, chargement, résultats et erreur avec nouvelle tentative restent annoncés. Les longues chaînes se replient sur petit écran sans débordement.
 
+## Authentification et continuité
+
+La connexion locale donne accès à la bibliothèque unique du propriétaire. L'initialisation
+et la récupération sont des commandes administratives interactives, sans inscription publique.
+Le [contrat de sécurité](security.md) détaille les cookies, sessions et points d'entrée.
+
+Une expiration ou révocation masque l'application et ouvre une modale de reconnexion,
+sans démonter la fiche, CodeMirror ni la session de note. Les temporisations sont suspendues ;
+la reconnexion reprend la réconciliation existante sans remplacer le brouillon ni effacer
+un conflit. Une déconnexion volontaire demande une confirmation avant d'abandonner un
+brouillon non confirmé ; les autres onglets se verrouillent sans perdre leur texte.
+Les brouillons restent en mémoire seulement, sans garantie après fermeture ou crash.
+
 ## 2. Navigation générale et fiche vidéo
 
 ### 2.1 En-tête et volet de navigation
@@ -155,7 +168,7 @@ La page affiche le nombre total exact de vidéos correspondantes, indépendammen
 - Le bouton hamburger précède la signature Sillage sur toutes les pages. Il ouvre un **volet gauche superposé**,
   fermé par défaut, sans redimensionner le workspace et sans agir sur les lecteurs.
 - Le volet contient Bibliothèque, Rechercher, Tags, Ajouter une vidéo et le choix de thème **Clair / Sombre /
-  Système**. Ne pas afficher de faux contrôles Paramètres ou Compte avant leur implémentation.
+  Système**. La section Session permet de déconnecter ce navigateur ou toutes les sessions. Aucun faux contrôle Paramètres ou Compte.
 - L'arrière-plan est rendu inerte pendant l'ouverture ; le focus reste dans le volet. Échap, le bouton Fermer et
   le clic extérieur ferment le volet. Lors d'une navigation, le volet se ferme d'abord pour laisser apparaître
   les éventuelles protections de départ de la note.

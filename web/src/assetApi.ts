@@ -1,3 +1,4 @@
+import { apiFetch } from './auth'
 /** Identité publique de capture ; aucun chemin physique n'est transmis. */
 export interface Asset {
   id: number
@@ -32,7 +33,7 @@ function validAsset(value: unknown): value is Asset {
 }
 
 async function request(url: string, signal: AbortSignal, body?: object): Promise<Asset> {
-  const response = await fetch(url, {
+  const response = await apiFetch(url, {
     method: body ? 'POST' : 'GET', cache: 'no-store',
     signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]),
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
@@ -89,7 +90,7 @@ export interface AssetPage { assets: Asset[]; page: number; has_more: boolean }
 
 /** Consulte toutes les sources et tous les états, sans acquisition implicite. */
 export async function listAssets(videoID: number, page: number, signal: AbortSignal): Promise<AssetPage> {
-  const response = await fetch(`/api/v1/videos/${videoID}/assets?page=${page}`, {
+  const response = await apiFetch(`/api/v1/videos/${videoID}/assets?page=${page}`, {
     cache: 'no-store', signal: AbortSignal.any([signal, AbortSignal.timeout(12_000)]),
   })
   if (!response.ok) throw new Error(response.status === 404

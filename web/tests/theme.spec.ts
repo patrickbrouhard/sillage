@@ -2,13 +2,15 @@ import { selectTheme } from './navigationHelpers'
 import { expect, test } from './fixtures'
 
 test('le caret natif suit les thèmes sans remonter l’éditeur ni perdre son historique', async ({ page, request }, info) => {
-  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trcaret0001' } })).json()
+  const video = await (await request.post('/api/v1/videos', { data: { url: `https://youtu.be/trcaret0001-${info.repeatEachIndex}` } })).json()
   await page.goto(`/videos/${video.id}`)
   const editor = page.getByRole('textbox', { name: 'Note Markdown' })
   await expect(editor).toBeVisible()
   const node = await editor.elementHandle()
   await editor.click()
-  await page.keyboard.type('Texte')
+  // Un seul événement d'entrée constitue une unité Undo déterministe. La frappe
+  // caractère par caractère peut dépasser les 500 ms de regroupement sous charge.
+  await page.keyboard.insertText('Texte')
   for (const [theme, color, background] of [
     ['light', 'rgb(36, 52, 77)', 'rgb(255, 255, 255)'],
     ['dark', 'rgb(224, 232, 245)', 'rgb(16, 28, 48)'],

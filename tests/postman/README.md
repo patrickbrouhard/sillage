@@ -4,6 +4,14 @@ Les deux collections utilisent le format Postman **v3**, composé de fichiers
 `*.request.yaml` et de métadonnées `.resources/definition.yaml`.
 Elles s'utilisent avec Postman v12 (Native Git) et Postman CLI, pas Newman.
 
+## Authentification de la fixture
+
+Le lanceur initialise un propriétaire synthétique par la commande interactive, ouvre
+une session puis fournit `sessionToken` et `csrfToken` aux collections. Les requêtes
+portent explicitement Cookie et X-CSRF-Token. Aucun mode anonyme du serveur n'est utilisé.
+Pour une exécution manuelle avec `--serve`, se connecter avec l'identité synthétique
+définie dans `tests/auth_support.py`, puis renseigner ces deux variables de session.
+
 ## Collections
 
 - **deterministic/** : scénarios ne nécessitant ni exécution réelle de `yt-dlp`

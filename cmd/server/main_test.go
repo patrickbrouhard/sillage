@@ -22,6 +22,9 @@ import (
 func clearConfig(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
+		"SILLAGE_PUBLIC_URL",
+		"SILLAGE_SESSION_LIFETIME",
+		"SILLAGE_SESSION_IDLE_TIMEOUT",
 		"SILLAGE_HTTP_ADDR",
 		"SILLAGE_POST_TIMEOUT",
 		"SILLAGE_WEB_DIR",
@@ -156,6 +159,7 @@ func TestDownloadConfig(t *testing.T) {
 func TestServerStopsActiveMediaBeforeClosingDatabase(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
+	initializeTestOwner(t)
 	t.Setenv("PATH", dir+":/usr/bin:/bin")
 	discovery := `{"id":"abcdefghijk","extractor_key":"Youtube","title":"Test","duration":10,"live_status":"not_live","formats":[{"format_id":"18","ext":"mp4","vcodec":"avc1","acodec":"mp4a","width":640,"height":360,"url":"https://example.test/media"}]}`
 	script := fmt.Sprintf("#!/bin/sh\ncase \"$*\" in *--dump-single-json*) printf '%%s' '%s'; exit 0;; esac\ntrap '' TERM\nsleep 60 &\necho $! > '%s/child.pid'\nwait\n", discovery, dir)
@@ -188,6 +192,7 @@ func TestServerStopsActiveMediaBeforeClosingDatabase(t *testing.T) {
 	if !ready {
 		t.Fatal("server unavailable")
 	}
+	loginTestClient(t, client, base)
 	resp, err := client.Post(base+"/videos", "application/json", strings.NewReader(`{"url":"https://youtu.be/abcdefghijk"}`))
 	if err != nil {
 		t.Fatal(err)
@@ -259,7 +264,8 @@ func TestServerStopsActiveMediaBeforeClosingDatabase(t *testing.T) {
 
 func TestMediaStorageFaultDoesNotStopHTTPInitialization(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := os.Mkdir("data", 0700); err != nil {
+	initializeTestOwner(t)
+	if err := os.MkdirAll("data", 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile("data/media", []byte("inaccessible media root"), 0600); err != nil {

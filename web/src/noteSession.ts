@@ -1,3 +1,4 @@
+import { AuthenticationError, isAuthenticated, protectDraft, subscribeAuth } from './auth'
 import { getNote, NoteError, putNote } from './noteApi'
 import type { Note } from './noteApi'
 
@@ -37,6 +38,9 @@ export class NoteSession {
   private maxTimer: number | undefined
   private firstPending: number | null = null
   private conflictRead = 0
+  private unsubscribeAuth: (() => void) | undefined
+  private releaseDraft: (() => void) | undefined
+  private authBlocked = false
 
   /** Associe définitivement la session à une vidéo. */
   constructor(private readonly videoID: number) {}
@@ -63,6 +67,28 @@ export class NoteSession {
 
   /** Charge la note ; un échec ne crée jamais de document éditable. */
   async start() {
+    this.unsubscribeAuth?.()
+    this.releaseDraft?.()
+    this.releaseDraft = protectDraft(() => this.unconfirmed)
+    this.unsubscribeAuth = subscribeAuth(() => {
+      if (!isAuthenticated()) {
+        this.authBlocked = true
+        this.clearTimers()
+        return
+      }
+      if (!this.authBlocked) return
+      this.authBlocked = false
+      // Reprendre l'état existant : start() remplacerait le brouillon par la réponse serveur.
+      if (!this.state.loaded) void this.load()
+      else if (this.state.phase === 'conflict') void this.readConflict()
+      else void this.save()
+    })
+    await this.load()
+  }
+
+  private async load() {
+    // Une lecture commencée avant le verrouillage ne doit pas remplacer le brouillon après reconnexion.
+    this.lifetime.abort()
     this.lifetime = new AbortController()
     const lifetime = this.lifetime
     this.publish({ phase: 'loading', message: '' })
@@ -76,7 +102,7 @@ export class NoteSession {
   }
 
   /** Annule les temporisations et ignore les réponses d'une fiche quittée. */
-  stop() { this.lifetime.abort(); this.clearTimers() }
+  stop() { this.lifetime.abort(); this.clearTimers(); this.unsubscribeAuth?.(); this.releaseDraft?.() }
 
   private signal() {
     return AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(12_000)])
@@ -97,7 +123,7 @@ export class NoteSession {
   private schedule() {
     this.clearTimers()
     if (!this.dirty) { this.firstPending = null; return }
-    if (this.lifetime.signal.aborted || ['error', 'conflict'].includes(this.state.phase)) return
+    if (!isAuthenticated() || this.lifetime.signal.aborted || ['error', 'conflict'].includes(this.state.phase)) return
     this.firstPending ??= Date.now()
     this.idleTimer = window.setTimeout(() => { void this.save() }, 2_000)
     this.maxTimer = window.setTimeout(() => { void this.save() }, Math.max(0, 20_000 - (Date.now() - this.firstPending)))
@@ -105,10 +131,10 @@ export class NoteSession {
 
   /** Sérialise les demandes ; un Ctrl+S pendant une écriture prend ensuite le texte le plus récent. */
   save = async (explicit = false): Promise<void> => {
-    if (!this.state.loaded || this.lifetime.signal.aborted || this.state.phase === 'conflict') return
+    if (!isAuthenticated() || !this.state.loaded || this.lifetime.signal.aborted || this.state.phase === 'conflict') return
     if (this.running) {
       await this.running
-      if (this.state.phase === 'ready' && this.dirty) return this.save()
+      if (this.state.phase === 'ready' && (this.dirty || this.uncertain)) return this.save()
       return
     }
     // Un enregistrement explicite peut normaliser une ancienne note sans modification visible.
@@ -171,6 +197,12 @@ export class NoteSession {
         return
       } catch (error) {
         if (lifetime.signal.aborted) return
+        if (error instanceof AuthenticationError) {
+          // Une réponse 401 est antérieure au handler ; une incertitude antérieure reste cependant conservée.
+          this.authBlocked = true
+          this.publish({ phase: 'ready', message: error.message })
+          return
+        }
         if (error instanceof NoteError && error.status === 409) {
           this.uncertain = null
           this.publish({ phase: 'conflict', message: error.message, remote: undefined })
@@ -227,7 +259,7 @@ export class NoteSession {
   async flush(): Promise<boolean> {
     do {
       await this.save()
-      if (this.lifetime.signal.aborted || ['error', 'conflict'].includes(this.state.phase)) return false
+      if (!isAuthenticated() || this.lifetime.signal.aborted || ['error', 'conflict'].includes(this.state.phase)) return false
     } while (this.dirty || this.running)
     return !this.unconfirmed
   }

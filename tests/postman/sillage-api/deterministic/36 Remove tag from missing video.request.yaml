@@ -1,6 +1,9 @@
 $kind: http-request
 url: "{{baseUrl}}/api/v1/videos/42/tags/1"
 method: DELETE
+headers:
+  Cookie: "sillage_session={{sessionToken}}"
+  X-CSRF-Token: "{{csrfToken}}"
 scripts:
   - type: afterResponse
     code: |-

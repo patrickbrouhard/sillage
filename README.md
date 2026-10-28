@@ -4,7 +4,7 @@
 
 YouTube est actuellement la source prise en charge. La conception distingue la vidéo comme objet de connaissance (`Video`), sa provenance (`VideoSource`) et son éventuel fichier local (`MediaFile`). Le projet est **self-hosted**, utilisable sans intelligence artificielle et toujours en développement.
 
-> **État du projet :** le socle de travail vidéo est fonctionnel. Les premières lectures MCP locales sont disponibles ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
+> **État du projet :** le socle de travail vidéo est fonctionnel. L’authentification Web locale est disponible ; MCP est temporairement désactivé jusqu’à la tranche des clés API ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
 
 ## Fonctionnalités disponibles
 
@@ -16,7 +16,7 @@ YouTube est actuellement la source prise en charge. La conception distingue la v
 - **Lecture distante et locale** : lecteur YouTube ou HTML5 natif, conservation volontaire d'une vidéo avec `yt-dlp`, suivi du téléchargement, consultation des propriétés techniques, suppression explicite du fichier et bascule entre lecteurs. Si le fichier est disponible à l'ouverture, **Local** est sélectionné en premier ; aucune lecture ne démarre automatiquement.
 - **Captures PNG** : extraction d'une image au temps courant avec `ffmpeg`, insertion dans la note et conservation indépendante du fichier vidéo et du Markdown qui la référence.
 - **Recherche globale** : titres et descriptions des sources, publishers, tags directs et notes ; résultats paginés, extraits et explications.
-- **MCP local optionnel** : recherche et consultation en lecture seule par un agent, sans acquisition implicite ni résumé serveur.
+- **MCP temporairement désactivé** : adapter de lecture conservé, en attente de l’authentification des intégrations.
 - **API REST** : accès aux vidéos, notes, tags, transcriptions, publishers, personnes, fichiers locaux et captures.
 
 La recherche **dans une transcription ouverte** reste distincte de la recherche globale, qui n’indexe pas les transcriptions. L’IA intégrée, l’import de vidéos locales et les annotations structurées constituent des travaux futurs.
@@ -36,10 +36,12 @@ mkdir -p "$SILLAGE_DATA_DIR"
 chmod 700 "$SILLAGE_DATA_DIR"
 
 docker compose -f deployments/docker/compose.yaml config
-docker compose -f deployments/docker/compose.yaml up -d --build
+docker compose -f deployments/docker/compose.yaml build
+docker compose -f deployments/docker/compose.yaml run --rm sillage owner init
+docker compose -f deployments/docker/compose.yaml up -d
 ```
 
-Ouvrir **<http://127.0.0.1:8080>**. Le port hôte est publié sur `127.0.0.1` par défaut, car **Sillage ne propose pas encore d'authentification**. Ne pas exposer directement cette instance sur Internet.
+Ouvrir **<http://127.0.0.1:8080>**. Se connecter avec le propriétaire créé dans le terminal. Aucun identifiant par défaut n'existe. Le port reste publié sur `127.0.0.1` ; l'exposition HTTPS/homelab relève d'une tranche distincte. Voir [Sécurité](docs/security.md).
 
 Pour consulter les logs et arrêter l'application :
 
@@ -82,6 +84,7 @@ Prérequis : **Go 1.27.1**, **Node.js 24**, npm, Make et, pour les acquisitions 
 ```bash
 make web-install  # npm ci dans web/
 make build        # TypeScript + Vite, puis compilation Go
+./bin/sillage owner init  # une fois, serveur arrêté ; saisie interactive masquée
 make run          # serveur Go et interface compilée
 ```
 
@@ -93,7 +96,7 @@ Démarrer deux terminaux depuis la racine :
 
 ```bash
 # Terminal 1 : API Go
-make dev-api
+SILLAGE_PUBLIC_URL=http://127.0.0.1:5173 make dev-api
 ```
 
 ```bash
@@ -109,8 +112,10 @@ Ouvrir <http://127.0.0.1:5173>. Vite relaie les requêtes `/api` vers le serveur
 | --- | --- | --- |
 | `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` | Adresse d'écoute HTTP |
 | `SILLAGE_WEB_DIR` | Non défini | Répertoire du build Web à servir ; sinon API seule |
-| `SILLAGE_MCP_ENABLED` | `false` | Active les quatre lectures MCP locales |
-| `SILLAGE_MCP_ALLOWED_AUTHORITIES` | Loopback/localhost avec port d’écoute | Autorités Host/Origin explicitement autorisées ; voir [MCP](docs/mcp.md) |
+| `SILLAGE_MCP_ENABLED` | `false` | `true` est temporairement refusé |
+| `SILLAGE_PUBLIC_URL` | `http://127.0.0.1:PORT` | Origine canonique du navigateur et politique de cookies |
+| `SILLAGE_SESSION_LIFETIME` | `12h` | Durée absolue des nouvelles sessions |
+| `SILLAGE_SESSION_IDLE_TIMEOUT` | `1h` | Délai sans requête authentifiée |
 | `SILLAGE_POST_TIMEOUT` | `60s` | Délai des acquisitions synchrones de métadonnées et transcriptions |
 | `SILLAGE_DOWNLOAD_TIMEOUT` | `6h` | Délai des téléchargements médias |
 | `SILLAGE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` ou `ERROR` |
@@ -118,23 +123,17 @@ Ouvrir <http://127.0.0.1:5173>. Vite relaie les requêtes `/api` vers le serveur
 
 Les délais sont des durées Go strictement positives, par exemple `90s` ou `2h`. La base utilisée par le serveur reste `data/sillage.db`, chemin relatif au répertoire de travail : il n'existe pas de variable de configuration pour la déplacer indépendamment de `data/`.
 
-## Connexion MCP locale
+## Authentification et MCP
 
-```bash
-make build
-SILLAGE_MCP_ENABLED=true SILLAGE_WEB_DIR=web/dist ./bin/sillage
-```
+Le propriétaire et les sessions sont conservés dans SQLite. La commande interactive
+`owner recover`, exécutée serveur arrêté, remplace le mot de passe et révoque toutes les
+sessions. Le menu Navigation > Session permet la déconnexion du navigateur ou de toutes
+les sessions. Une reconnexion conserve la note en cours dans l'onglet.
 
-Configurer le client MCP en **Streamable HTTP** avec l’URL
-`http://127.0.0.1:8080/mcp`. Il expose `search_videos`, `get_video`,
-`get_transcript` et `get_note`. Le résumé est produit par l’agent.
-MCP est désactivé par défaut et `/mcp` ne retourne jamais la SPA.
-
-Cette V1 sans authentification suppose un accès effectivement limité au développement local.
-Host/Origin ne sont pas une authentification ; REST conserve ses écritures et un client peut
-envoyer les données à un modèle distant. Garder l’écoute et la publication Docker sur loopback.
-La configuration Docker avec port personnalisé, les limites, contrats, compatibilités vérifiées
-et essais agents sont dans [docs/mcp.md](docs/mcp.md).
+MCP est temporairement indisponible jusqu'à la tranche des clés API :
+`SILLAGE_MCP_ENABLED=true` refuse le démarrage et `/mcp` renvoie 404.
+Les contrats de l'adapter sont conservés dans [MCP](docs/mcp.md).
+Les commandes, cookies, CSRF, durées et limites sont détaillés dans [Sécurité](docs/security.md).
 
 ## Données, sauvegarde et mises à jour
 
@@ -222,7 +221,7 @@ Cette opération réextrait les notes sans modifier leur Markdown, dates ou rév
 
 ## API REST
 
-Le serveur expose l'API sous **`/api/v1`**. Les exemples suivants utilisent `http://127.0.0.1:8080`. L'API est actuellement **sans authentification** ; elle n'est pas destinée à une exposition publique directe.
+Le serveur expose l'API sous **`/api/v1`**. Les exemples suivants utilisent `http://127.0.0.1:8080`. L'API exige un cookie de session Web ; ses mutations exigent aussi `X-CSRF-Token`. Les exemples métier ci-dessous supposent ces en-têtes. Voir le [protocole de connexion](docs/security.md#routes-csrf-et-diagnostics). Aucune clé API n'est encore disponible.
 
 Les corps JSON sont validés strictement : types de données, champs inconnus, UTF-8 et limites de taille. Les handlers renvoient des statuts HTTP et des codes d'erreur publics, sans chemins de fichiers internes ni sortie brute des outils.
 
@@ -481,7 +480,7 @@ Serveur Go (net/http + Chi)
      ├── yt-dlp
      └── ffmpeg / ffprobe
 
-Agents MCP / HTTP stateless → mêmes instances de services métier
+Adapter MCP conservé, transport suspendu → mêmes services métier
 Futur : IA intégrée et autres sources → mêmes services métier
 ```
 
@@ -495,7 +494,8 @@ La documentation de référence est organisée ainsi :
 | [01-product-and-ux.md](docs/01-product-and-ux.md) | Parcours et règles UX actuelles |
 | [02-domain-model.md](docs/02-domain-model.md) | Entités métier, identités et invariants |
 | [03-architecture.md](docs/03-architecture.md) | Services, adapters, API et garanties techniques |
-| [mcp.md](docs/mcp.md) | Lectures MCP, activation, sécurité locale, limites et recette agents |
+| [security.md](docs/security.md) | Propriétaire, sessions Web, administration et continuité des notes |
+| [mcp.md](docs/mcp.md) | Contrats de l’adapter MCP temporairement suspendu |
 | [04-tech-stack-and-decisions.md](docs/04-tech-stack-and-decisions.md) | Stack et choix techniques en vigueur |
 | [05-roadmap.md](docs/05-roadmap.md) | État d'avancement et jalons futurs |
 | [06-open-questions.md](docs/06-open-questions.md) | Questions et décisions non résolues |
@@ -506,6 +506,6 @@ Les instructions de travail propres au dépôt sont dans [AGENTS.md](AGENTS.md).
 
 ## Prochaines étapes
 
-La recherche globale SQLite FTS5 et les premières lectures MCP sont disponibles. Les essais agents représentatifs et locaux restent à compléter ; la sécurité homelab, les éventuelles écritures MCP et l’IA intégrée sont des suites distinctes. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
+La recherche globale SQLite FTS5 et l’authentification Web locale sont disponibles. OIDC (A3), les clés API/MCP et le déploiement homelab sont des tranches distinctes ; MCP reste suspendu dans le serveur distribué. L’IA intégrée et les éventuelles écritures MCP restent à cadrer. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
 
 La [roadmap](docs/05-roadmap.md) donne l'état des jalons et leurs objectifs ; [les questions ouvertes](docs/06-open-questions.md) recensent les choix qui ne sont pas encore tranchés. Leur présence dans ces fichiers ne signifie pas qu'ils sont implémentés ou approuvés.

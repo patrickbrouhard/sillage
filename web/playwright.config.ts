@@ -8,6 +8,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:18381',
     browserName: 'chromium',
+    storageState: 'tests/.auth/state.json',
     trace: 'retain-on-failure',
     screenshot: 'on',
   },

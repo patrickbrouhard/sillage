@@ -313,7 +313,7 @@ Les contrats REST existants sont implémentés et décrits dans la documentation
 - Filtres supplémentaires et combinaisons de filtres.
 - Tri configurable.
 - Extension de la recherche textuelle et filtres avancés.
-- Authentification et autorisations, si l'application évolue au-delà de son usage local actuel.
+- Permissions des futures intégrations ; l’authentification Web locale et la protection REST sont définies dans [Sécurité](security.md).
 - Contrats supplémentaires pour les futures annotations, clips, imports et fonctions de gestion.
 
 Éviter d'introduire une infrastructure générique avant qu'un cas d'usage concret ne la nécessite.
@@ -336,8 +336,8 @@ Restent à étudier :
 La première tranche de quatre lectures locales et son transport sont définis dans
 [MCP](mcp.md). Les futurs arbitrages concernent :
 
-- Quel modèle d’authentification, de permissions et d’exposition homelab retenir pour
-  l’ensemble du serveur, y compris les écritures REST ?
+- Quels scopes et parcours de gestion des clés retenir pour les intégrations externes ?
+- Quelle configuration HTTPS et reverse proxy documenter pour le déploiement homelab ?
 - Quelles écritures MCP apportent une valeur suffisante, avec quelles confirmations,
   préconditions de révision et garanties de conservation ?
 - Si des clients tronquent les transcriptions représentatives, faut-il agir sur leur
@@ -423,9 +423,15 @@ Questions ouvertes :
 
 ### 8.4 Identité du produit et utilisateurs
 
-- Quels éléments de l'identité visuelle restent à définir ou à stabiliser ?
-- Faut-il envisager plusieurs utilisateurs, comptes ou espaces de travail ?
-- Quelles exigences d'authentification, d'isolation des données et de permissions en découleraient ?
-- Comment préserver la simplicité d'une installation personnelle si ces fonctions apparaissent plus tard ?
+Le propriétaire unique et la bibliothèque unique, la connexion locale autonome et
+la future connexion OIDC conduisant à cette même identité sont décidés.
+A1 + A2 sont définis dans [Sécurité](security.md). A3 ajoutera OIDC, avec possibilité
+de désactiver le login Web local tout en conservant une récupération administrative.
 
-Aucune architecture multi-utilisateur n'est actuellement décidée.
+Restent ouverts :
+
+- Quels détails du parcours d'association OIDC et de sa politique de réauthentification retenir dans A3 ?
+- Quels éléments de l'identité visuelle restent à stabiliser ?
+- Un besoin réel justifiera-t-il un jour plusieurs utilisateurs ou bibliothèques ?
+
+Aucune architecture multi-utilisateur n'est anticipée.
