@@ -15,11 +15,11 @@ func TestOpenMigratesAndConfiguresEveryConnection(t *testing.T) {
 	db := openTestDB(t, filepath.Join(t.TempDir(), "sillage ?# test.db"))
 	ctx := context.Background()
 	var version int
-	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 11 {
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 12 {
 		t.Fatalf("version = %d, error = %v", version, err)
 	}
 	var tables int
-	if err := db.QueryRow("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").Scan(&tables); err != nil || tables != 20 {
+	if err := db.QueryRow("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").Scan(&tables); err != nil || tables != 22 {
 		t.Fatalf("table count = %d, error = %v", tables, err)
 	}
 	// Garder les connexions occupées oblige database/sql à en ouvrir plusieurs.
@@ -67,6 +67,7 @@ func TestOpenRejectsFutureVersion(t *testing.T) {
 func TestMigrationsAreOrderedAndTransactional(t *testing.T) {
 	db := openTestDB(t, filepath.Join(t.TempDir(), "migrations.db"))
 	files := fstest.MapFS{
+		"migrations/0012_auth.sql":               {Data: []byte("THIS MUST NOT RUN AGAIN")},
 		"migrations/0011_asset_catalogue.sql":    {Data: []byte("THIS MUST NOT RUN AGAIN")},
 		"migrations/0010_search.sql":             {Data: []byte("THIS MUST NOT RUN AGAIN")},
 		"migrations/0001_initial.sql":            {Data: []byte("THIS MUST NOT RUN AGAIN")},
@@ -78,23 +79,23 @@ func TestMigrationsAreOrderedAndTransactional(t *testing.T) {
 		"migrations/0005_second.sql":             {Data: []byte("CREATE TABLE second (id INTEGER)")},
 		"migrations/0009_assets.sql":             {Data: []byte("THIS MUST NOT RUN AGAIN")},
 		"migrations/0008_media_metadata.sql":     {Data: []byte("THIS MUST NOT RUN AGAIN")},
-		"migrations/0012_third.sql":              {Data: []byte("CREATE TABLE third (id INTEGER); INVALID SQL")},
+		"migrations/0013_third.sql":              {Data: []byte("CREATE TABLE third (id INTEGER); INVALID SQL")},
 	}
 	if err := migrate(context.Background(), db, files); err == nil {
 		t.Fatal("expected failed migration")
 	}
 	var version, count int
-	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 11 {
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 12 {
 		t.Fatalf("version = %d, error = %v", version, err)
 	}
 	if err := db.QueryRow("SELECT count(*) FROM sqlite_master WHERE name = 'third'").Scan(&count); err != nil || count != 0 {
 		t.Fatalf("failed migration left a table: count=%d error=%v", count, err)
 	}
-	files["migrations/0012_third.sql"] = &fstest.MapFile{Data: []byte("CREATE TABLE third (id INTEGER)")}
+	files["migrations/0013_third.sql"] = &fstest.MapFile{Data: []byte("CREATE TABLE third (id INTEGER)")}
 	if err := migrate(context.Background(), db, files); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 12 {
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 13 {
 		t.Fatalf("version = %d, error = %v", version, err)
 	}
 }
@@ -134,7 +135,7 @@ func TestConcurrentOpenMigratesOnce(t *testing.T) {
 	}
 	db := openTestDB(t, path)
 	var version int
-	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 11 {
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 12 {
 		t.Fatalf("version = %d, error = %v", version, err)
 	}
 }
