@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
@@ -28,6 +29,150 @@ func (r *TagRepository) List(ctx context.Context) ([]video.Tag, error) {
 		return nil, err
 	}
 	return readTags(rows)
+}
+
+// Catalog lit les trois compteurs dans un même instantané, sans produit de jointures.
+func (r *TagRepository) Catalog(ctx context.Context) ([]video.TagCatalogEntry, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT
+			t.id,
+			t.name,
+			(SELECT COUNT(*) FROM video_tags WHERE tag_id = t.id),
+			(SELECT COUNT(*) FROM publisher_tags WHERE tag_id = t.id),
+			(SELECT COUNT(*) FROM person_tags WHERE tag_id = t.id)
+		FROM tags t
+		ORDER BY t.id ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]video.TagCatalogEntry, 0)
+	for rows.Next() {
+		var item video.TagCatalogEntry
+		if err := rows.Scan(
+			&item.ID,
+			&item.Name,
+			&item.VideoCount,
+			&item.PublisherCount,
+			&item.PersonCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// Rename conserve tous les liens et publie le nouveau texte FTS dans la transaction.
+func (r *TagRepository) Rename(ctx context.Context, id video.TagID, name video.TagName) (video.Tag, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return video.Tag{}, err
+	}
+	defer tx.Rollback()
+	var currentID video.TagID
+	if err := tx.QueryRowContext(ctx, `
+		SELECT id
+		FROM tags
+		WHERE id = ?
+	`, id).Scan(&currentID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return video.Tag{}, video.ErrTagNotFound
+		}
+		return video.Tag{}, err
+	}
+	// Le verrou immédiat sérialise cette vérification avec les autres écritures.
+	var collision bool
+	if err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM tags
+			WHERE identity_key = ? AND id <> ?
+		)
+	`, name.Key, id).Scan(&collision); err != nil {
+		return video.Tag{}, err
+	}
+	if collision {
+		return video.Tag{}, video.ErrTagConflict
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE tags
+		SET name = ?, identity_key = ?
+		WHERE id = ?
+	`, name.Name, name.Key, id); err != nil {
+		return video.Tag{}, err
+	}
+	ids, err := tagVideoIDs(ctx, tx, id)
+	if err != nil {
+		return video.Tag{}, err
+	}
+	for _, videoID := range ids {
+		if err := rebuildSearchVideo(ctx, tx, videoID); err != nil {
+			return video.Tag{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return video.Tag{}, err
+	}
+	return video.Tag{ID: id, Name: name.Name}, nil
+}
+
+// Delete retire les associations présentes au verrouillage, jamais les entités liées.
+func (r *TagRepository) Delete(ctx context.Context, id video.TagID) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	// Mémoriser les vidéos avant de retirer leurs liens ; aucun héritage n'est indexé.
+	ids, err := tagVideoIDs(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	for _, table := range []string{"video_tags", "publisher_tags", "person_tags"} {
+		if _, err := tx.ExecContext(ctx, `
+			DELETE FROM `+table+`
+			WHERE tag_id = ?
+		`, id); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM tags
+		WHERE id = ?
+	`, id); err != nil {
+		return err
+	}
+	for _, videoID := range ids {
+		if err := rebuildSearchVideo(ctx, tx, videoID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// tagVideoIDs ferme la lecture avant toute reconstruction ou suppression de liens.
+func tagVideoIDs(ctx context.Context, tx *sql.Tx, id video.TagID) ([]video.VideoID, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT video_id
+		FROM video_tags
+		WHERE tag_id = ?
+		ORDER BY video_id ASC
+	`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []video.VideoID
+	for rows.Next() {
+		var videoID video.VideoID
+		if err := rows.Scan(&videoID); err != nil {
+			return nil, err
+		}
+		ids = append(ids, videoID)
+	}
+	return ids, rows.Err()
 }
 
 // Add conserve l'affichage existant et annule aussi les créations en cas d'échec.

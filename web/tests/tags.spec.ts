@@ -103,7 +103,7 @@ test('classe deux vidéos via Go/SQLite et conserve les associations partagées'
   await page.getByRole('button', { name: /^Filtres/ }).click()
   await expect(page.getByRole('option', { name, exact: true })).toBeVisible()
   const catalog: { tags: Tag[] } = await (await request.get('/api/v1/tags')).json()
-  expect(catalog.tags).toContainEqual(second.tags[0])
+  expect(catalog.tags).toContainEqual(expect.objectContaining({ ...second.tags[0] }))
 })
 
 test('autocomplétion clavier, Échap et fermeture native préservent le focus', async ({ page }) => {

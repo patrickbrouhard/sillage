@@ -9,7 +9,7 @@ YouTube est actuellement la source prise en charge. La conception distingue la v
 ## Fonctionnalités disponibles
 
 - **Bibliothèque** : ajout de vidéos YouTube par URL, extraction des métadonnées avec `yt-dlp`, détection des doublons et consultation des fiches.
-- **Classement** : tags partagés entre vidéos, publishers et personnes ; filtre de bibliothèque par tag ; associations explicites des comptes de publication et personnes, accessibles par REST.
+- **Classement** : catalogue partagé sur `/tags` avec compteurs, renommage et suppression ; filtre de bibliothèque par tag ; associations explicites des comptes de publication et personnes, accessibles par REST.
 - **Espace de travail** : lecteur vidéo, note Markdown et transcription, avec mise en page adaptée aux écrans desktop et mobile. En-tête compact, navigation latérale, thèmes clair/sombre/système et panneaux Note/Informations.
 - **Notes** : éditeur CodeMirror 6, lecture Markdown/GFM, sauvegarde automatique, protection par révision contre les écrasements concurrents, historique Undo/Redo et références temporelles interactives.
 - **Transcriptions YouTube** : acquisition explicite de sous-titres automatiques sélectionnés, conservation du JSON3, lecture hors réseau depuis le snapshot, recherche textuelle locale, navigation par timestamp et citation d'extraits dans la note.
@@ -275,7 +275,9 @@ La liste est ordonnée par `created_at DESC, id DESC`, les sources et tags suiva
 | --- | --- | --- |
 | `GET` | `/api/v1/videos/{id}/note` | Note principale ou `404 note_not_found` |
 | `PUT` | `/api/v1/videos/{id}/note` | Sauvegarde conditionnelle ; `201` à la création, `200` ensuite, `409 note_conflict` en cas de révision obsolète |
-| `GET` | `/api/v1/tags` | Catalogue de tous les tags, même inutilisés |
+| `GET` | `/api/v1/tags` | Catalogue complet par ID croissant ; compteurs directs `video_count`, `publisher_count`, `person_count` |
+| `PATCH` | `/api/v1/tags/{id}` | `{"name":"…"}` ; retourne `{id, name}`, `404 tag_not_found` si absent, `409 tag_conflict` en cas de collision |
+| `DELETE` | `/api/v1/tags/{id}` | `204` idempotent ; supprime le tag et ses trois types d'associations, conserve les entités |
 | `POST` | `/api/v1/videos/{id}/tags` | Ajout additif par noms ; retourne les tags associés |
 | `DELETE` | `/api/v1/videos/{id}/tags/{tag_id}` | Retire l'association, sans supprimer le tag du catalogue |
 
@@ -294,6 +296,13 @@ curl 'http://127.0.0.1:8080/api/v1/videos?tag_id=7'
 Chaque `PUT` de note exige **`content_md` et `expected_revision`**. La valeur `0` attend une note absente ; pour les écritures suivantes, reprendre la révision renvoyée par le précédent GET/PUT. Les réponses contiennent `video_id`, `content_md`, `revision`, `created_at` et `updated_at`. Une note absente n'est pas une note vide ; la chaîne vide peut être enregistrée explicitement.
 
 La sauvegarde convertit uniquement CRLF et CR en LF. Une écriture identique sous précondition valide conserve la révision et les dates. Taille maximale du JSON de note : **1 Mio** ; ajout de tags : **64 Kio**. Les noms des tags, limités à 200 points de code après retrait des espaces aux extrémités, ont une identité Unicode NFC sans casse mais conservent leurs accents significatifs et leur nom d'affichage. Les associations n'héritent pas des autres entités.
+
+Le catalogue retourne `{"tags":[{"id":7,"name":"Go","video_count":18,"publisher_count":2,"person_count":1}]}`.
+Ces compteurs directs sont informatifs. Un renommage (JSON limité à **16 Kio**) conserve l'ID et
+les associations ; une correction de graphie à clé identique est acceptée, une collision avec un
+autre tag est refusée sans fusion. La dernière écriture réussie prévaut ; les anciens noms libérés
+restent réutilisables. La suppression globale retire tous les liens présents dans sa transaction.
+Les tags embarqués dans les vidéos, publishers et personnes gardent leur forme `{id, name}`.
 
 ### Transcriptions
 

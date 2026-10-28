@@ -50,4 +50,15 @@ func TestTagValidationBeforePersistence(t *testing.T) {
 	if _, err := NormalizeTagName(strings.Repeat("é", 200)); err != nil {
 		t.Fatal(err)
 	}
+	for _, name := range []string{"", " ", "\xff", strings.Repeat("é", 201)} {
+		if _, err := s.Rename(context.Background(), 1, name); !errors.Is(err, ErrInvalidInput) {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.Rename(context.Background(), 0, "valid"); !errors.Is(err, ErrInvalidInput) {
+		t.Fatal(err)
+	}
+	if err := s.Delete(context.Background(), 0); !errors.Is(err, ErrInvalidInput) {
+		t.Fatal(err)
+	}
 }

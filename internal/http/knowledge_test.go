@@ -165,7 +165,7 @@ func TestNotesAndTagsREST(t *testing.T) {
 	}
 	// Une erreur de validation en fin de lot ne doit pas créer le premier tag.
 	assertError(t, request(h, "POST", "/api/v1/videos/1/tags", `{"names":["Transient"," "]}`, "application/json"), 400, "bad_request")
-	if got := request(h, "GET", "/api/v1/tags", "", ""); got.Body.String() != additive.Body.String() {
+	if got := request(h, "GET", "/api/v1/tags", "", ""); got.Code != 200 || !strings.Contains(got.Body.String(), `"name":"Golang"`) || strings.Contains(got.Body.String(), "Transient") {
 		t.Fatal(got.Body.String())
 	}
 	for range 2 {
@@ -174,7 +174,7 @@ func TestNotesAndTagsREST(t *testing.T) {
 			t.Fatal(removed.Code, removed.Body.String())
 		}
 	}
-	if got := request(h, "GET", "/api/v1/tags", "", ""); got.Body.String() != additive.Body.String() {
+	if got := request(h, "GET", "/api/v1/tags", "", ""); got.Code != 200 || !strings.Contains(got.Body.String(), `"name":"DevOps","video_count":0`) {
 		t.Fatal("unused tag disappeared")
 	}
 	for _, id := range []int64{tags.Tags[1].ID, 999} {

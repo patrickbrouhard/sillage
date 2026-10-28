@@ -97,6 +97,35 @@ Les filtres combinés, tris personnalisés et vues enregistrées restent des ext
   sont indépendantes, sans propagation automatique.
 - L'identité des tags est gérée par le backend (NFC, comparaison insensible à la casse, accents significatifs),
   et non par l'autocomplétion UI.
+- La page `/tags`, accessible dans la navigation générale, administre le catalogue en lignes responsive,
+  sans tableau. Chaque ligne affiche le nom et les associations directes par catégorie, par exemple
+  « 18 vidéos · 2 publishers · 1 personne » ; les catégories vides sont masquées, ou remplacées par
+  « Inutilisé » si aucun lien n'existe.
+- La recherche par nom est locale, partielle et insensible à la casse, avec rapprochement NFC des
+  graphies canoniquement équivalentes ; les accents restent significatifs. Le tri alphabétique français est
+  le défaut ; les tris par utilisations croissantes ou décroissantes additionnent les trois compteurs,
+  puis départagent par nom et ID. Recherche et tri ne modifient pas l'identité métier.
+- Le crayon ouvre un champ prérempli et sélectionné dans la ligne : Entrée ou Enregistrer valide,
+  Échap ou Annuler abandonne le brouillon. Une collision laisse l'édition ouverte avec une erreur.
+  Le succès actualise la ligne et son classement, sans confirmation supplémentaire. Le focus revient au
+  crayon, ou à la recherche si le nouveau nom sort du filtre, sauf si l'utilisateur l'a déjà déplacé
+  pendant la requête. Les brouillons survivent aux tris et filtres.
+- La corbeille ouvre une confirmation avec le nom et les associations concernées. Annuler reçoit le
+  focus initial ; Échap annule avant soumission. La suppression est possible même pour un tag utilisé,
+  conserve les entités associées et retire la ligne sans recharger la page. Le focus revient à la
+  recherche après succès, au déclencheur après annulation. Les compteurs ne bloquent pas une suppression
+  si d'autres associations sont ajoutées entre-temps. Un échec permet de réessayer dans le dialogue.
+- Après une erreur de mutation, « Actualiser le catalogue » relit explicitement le serveur sans rejouer
+  l'écriture, y compris depuis la confirmation de suppression. Une erreur réseau ou une réponse invalide
+  ne prouve pas l'échec : l'interface signale que la modification a peut-être été enregistrée.
+  Une relecture réussie remplace le brouillon de la seule ligne concernée par l'état enregistré, ferme
+  son édition ou dialogue et rend le focus à la recherche, sauf si l'utilisateur l'a déplacé pendant
+  la lecture. Les autres brouillons sont conservés ;
+  une relecture en échec les conserve tous et reste réessayable. La récupération attend la fin des
+  mutations en cours ; une nouvelle mutation invalide toute lecture déjà en vol.
+- Le catalogue présente ses états de chargement, d'erreur réessayable, de liste vide et de recherche sans
+  résultat. Les mutations évitent les doubles soumissions. Cette page ne crée pas de tags et ne propose
+  ni fusion, ni opérations en masse, ni filtre dédié aux tags inutilisés.
 - La gestion Web complète des publishers et personnes reste future, bien que les capacités métier/REST existent
   déjà. Les homonymes de personnes ne sont pas fusionnés, et une personne associée à un publisher n'est pas
   automatiquement associée à toutes ses vidéos.
@@ -125,7 +154,7 @@ La page affiche le nombre total exact de vidéos correspondantes, indépendammen
 
 - Le bouton hamburger précède la signature Sillage sur toutes les pages. Il ouvre un **volet gauche superposé**,
   fermé par défaut, sans redimensionner le workspace et sans agir sur les lecteurs.
-- Le volet contient Bibliothèque, Rechercher, Ajouter une vidéo et le choix de thème **Clair / Sombre /
+- Le volet contient Bibliothèque, Rechercher, Tags, Ajouter une vidéo et le choix de thème **Clair / Sombre /
   Système**. Ne pas afficher de faux contrôles Paramètres ou Compte avant leur implémentation.
 - L'arrière-plan est rendu inerte pendant l'ouverture ; le focus reste dans le volet. Échap, le bouton Fermer et
   le clic extérieur ferment le volet. Lors d'une navigation, le volet se ferme d'abord pour laisser apparaître

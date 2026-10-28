@@ -85,6 +85,11 @@ Lors de l'import d'une vidéo, créer ou réutiliser son publisher est atomique 
 
 Le catalogue des tags est partagé entre vidéos, personnes et publishers, **sans héritage** entre ces entités. Les ajouts de noms et d'associations sont atomiques, y compris en présence de concurrents. Les retraits suppriment l'association, pas nécessairement le tag du catalogue. Le filtrage par tag conserve toutes les sources et tous les tags de chaque vidéo retenue.
 
+`TagService` porte aussi le catalogue avec compteurs, le renommage et la suppression globale.
+Le repository SQLite sérialise ces mutations dans une transaction immédiate et reconstruit la
+projection FTS de toutes les vidéos directement associées avant le commit. Pour supprimer, il
+lit leurs IDs avant de retirer les liens. Une erreur de projection annule toute la mutation.
+
 Les listes et parcours indirects chargent leurs relations en lot et dédupliquent par ID ; ils ne doivent ni multiplier inutilement les requêtes par entité, ni créer d'associations persistantes pendant une lecture.
 
 ### 2.3 Notes et concurrence
@@ -240,7 +245,9 @@ Les limites chiffrées et exemples de payloads en vigueur sont également docume
 | `POST` | `/api/v1/videos` | Ajout synchrone ; `201` + `Location` si créé, `200` si déjà présent ; aucun refresh implicite |
 | `GET` | `/api/v1/videos` | `{"videos": [...]}` ; ordre `created_at DESC, id DESC` ; `tag_id` facultatif |
 | `GET` | `/api/v1/videos/{id}` | Vidéo, sources, tags et associations directes |
-| `GET` | `/api/v1/tags` | Catalogue complet, même inutilisé ; IDs croissants |
+| `GET` | `/api/v1/tags` | Catalogue complet, même inutilisé ; IDs croissants ; compteurs directs par type |
+| `PATCH` | `/api/v1/tags/{id}` | Renommage `{name}` ; `200 {id, name}`, `404 tag_not_found`, `409 tag_conflict` |
+| `DELETE` | `/api/v1/tags/{id}` | Suppression globale atomique ; `204` idempotent, entités conservées |
 | `POST` | `/api/v1/videos/{id}/tags` | `{"names": [...]}` ; ajout additif atomique, retourne tous les tags associés |
 | `DELETE` | `/api/v1/videos/{id}/tags/{tag_id}` | `204` idempotent ; supprime l'association seulement |
 
@@ -505,6 +512,17 @@ Sur mobile, le sélecteur est fermé avant de rendre le focus à la note. L'anno
 VideoNote et survit à cette fermeture.
 
 ### 8.9 Gestion des tags et en-tête
+
+La page `Tags` charge le catalogue avec ses compteurs propres, applique recherche et tri en mémoire,
+puis répercute chaque résultat de mutation sur sa liste locale. Les lignes restent montées pendant
+les changements de filtre ou de tri pour préserver brouillons et requêtes en cours. Chaque ligne
+possède son édition et sa confirmation native ; les erreurs REST restent locales à l'opération.
+La normalisation d'identité est déléguée à `TagService`, comme dans l'autocomplétion.
+
+Chaque erreur de mutation propose une relecture explicite, sans nouvelle écriture. La page bloque
+son démarrage pendant une mutation et invalide la lecture en vol dès qu'une nouvelle mutation
+commence ; une réponse invalidée ne remplace jamais la liste. Les IDs maintiennent les autres
+éditeurs montés ; seule la ligne à l'origine d'une récupération réussie quitte son édition.
 
 Les mutations de tags sont des opérations successives et persistées immédiatement ; la fermeture de la modale ne les annule pas. Le frontend fournit une autocomplétion accessible sans réimplémenter la normalisation métier Go. Les fiches affichent les tags dans leur en-tête, avec un préfixe mesuré et un compteur `+n` pour le surplus ; la liste garde l'ordre REST et n'impose pas de quota arbitraire.
 

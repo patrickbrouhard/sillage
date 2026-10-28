@@ -6,6 +6,7 @@ import { VideoPage } from './VideoPage'
 import { SiteNavigation } from './SiteNavigation'
 import { Search } from './Search'
 import { SearchForm } from './SearchForm'
+import { Tags } from './Tags'
 
 /** Assemble les pages sans déplacer l'état des acquisitions dans un store global. */
 export function App() {
@@ -45,6 +46,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Library actionsHost={actionsHost} />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/tags" element={<Tags />} />
           <Route path="/videos/new" element={<AddVideo />} />
           <Route path="/videos/:videoId" element={<VideoPage titleHost={titleHost} />} />
           <Route path="*" element={
