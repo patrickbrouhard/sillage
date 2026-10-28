@@ -1,6 +1,9 @@
 $kind: http-request
 url: "{{baseUrl}}/api/v1/videos?tag_id=1&tag_id=2"
 method: GET
+headers:
+  Cookie: "sillage_session={{sessionToken}}"
+  X-CSRF-Token: "{{csrfToken}}"
 scripts:
   - type: afterResponse
     code: |-

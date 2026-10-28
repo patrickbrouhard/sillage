@@ -2,6 +2,8 @@ $kind: http-request
 url: "{{baseUrl}}/api/v1/videos/42/note"
 method: PUT
 headers:
+  Cookie: "sillage_session={{sessionToken}}"
+  X-CSRF-Token: "{{csrfToken}}"
   Content-Type: application/json
 body:
   type: text

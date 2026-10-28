@@ -2,6 +2,7 @@
 """Essai YouTube explicite du cycle média dans l'image réelle, avec données isolées."""
 
 import argparse
+import sys
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,10 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from auth_support import AuthClient, initialize
 
 
 def command(*args):
@@ -28,7 +33,7 @@ def main():
     args = parser.parse_args()
     with socket.socket() as check:
         check.bind(("127.0.0.1", args.port))
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    opener = AuthClient()
     name = "sillage-media-test-" + uuid.uuid4().hex[:10]
     with tempfile.TemporaryDirectory(prefix="sillage-media-docker-") as directory:
         root = Path(directory)
@@ -57,21 +62,27 @@ def main():
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline:
                 try:
-                    request("videos")
+                    opener.opener.open(f"http://127.0.0.1:{args.port}/api/v1/auth/session", timeout=5).close()
                     return
                 except (urllib.error.URLError, OSError):
                     time.sleep(0.1)
             raise RuntimeError("Server did not start")
 
         try:
+            initialize([
+                "docker", "run", "--rm", "-it", "--user", f"{os.getuid()}:{os.getgid()}",
+                "--mount", f"type=bind,src={data},dst=/app/data", "sillage:local", "owner", "init",
+            ], root)
             command(
                 "docker", "run", "-d", "--name", name,
                 "--user", f"{os.getuid()}:{os.getgid()}",
                 "--publish", f"127.0.0.1:{args.port}:8080",
                 "--mount", f"type=bind,src={data},dst=/app/data",
+                "--env", f"SILLAGE_PUBLIC_URL=http://127.0.0.1:{args.port}",
                 "--env", "SILLAGE_DOWNLOAD_TIMEOUT=3m", "sillage:local",
             )
             ready()
+            opener.login(f"http://127.0.0.1:{args.port}")
             video = request("videos", "POST", {"url": f"https://youtu.be/{args.youtube_id}"}, 201)
             source = video["sources"][0]
             path = f"videos/{video['id']}/sources/{source['id']}/download"
