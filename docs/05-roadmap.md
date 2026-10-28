@@ -35,7 +35,8 @@ sans calendrier arrêté.
 | UX 2 — Confort de l'éditeur | Barre de sélection Markdown et création de lien ; Live Preview ciblé des titres ATX H1–H6 racine et de l’emphase, typographie partagée | Réalisé (trois tranches) |
 | 7 — Médias | Téléchargement et conservation des fichiers, captures PNG, consultation et réinsertion par vidéo | Réalisé |
 | 8 — Recherche globale | FTS5 transactionnel, notes et métadonnées, API et parcours Web paginés | Réalisé |
-| 9 — Première tranche MCP | Quatre lectures locales sur services partagés, transport HTTP stateless optionnel | Implémenté ; validation agents partielle |
+| 9 — Première tranche MCP | Quatre lectures sur services partagés | Adapter implémenté ; transport suspendu jusqu’aux clés API |
+| A1 + A2 — Authentification Web | Propriétaire local, sessions persistantes, protection REST et continuité de l’éditeur | Réalisé |
 | Consolidations postérieures | Journalisation structurée, lecture locale, ergonomie du lecteur et nouvelle disposition du workspace | Réalisé |
 | Catalogue de tags — Première tranche | Consultation et compteurs directs, renommage et suppression globale, REST et page `/tags` | Réalisé |
 
@@ -50,8 +51,8 @@ Les contrats actuels figurent dans [Product & UX](01-product-and-ux.md), [Archit
 ## 3. Étape 9 — MCP
 
 La première tranche expose `search_videos`, `get_video`, `get_transcript` et `get_note`
-sur le serveur Go existant, en lecture locale stricte, sans accès direct des agents à SQLite
-ou aux outils externes. Les contrats et la recette reproductible vivent dans [MCP](mcp.md).
+dans l’adapter conservé, sans accès direct des agents à SQLite ou aux outils externes.
+Son activation dans le serveur distribué est suspendue jusqu’à l’authentification des intégrations. Les contrats et la recette reproductible vivent dans [MCP](mcp.md).
 
 Des parcours réels Codex sur corpus synthétiques et captions publiques préparées, ainsi
 qu’un déploiement Docker isolé, ont été vérifiés. Restent les essais
@@ -61,7 +62,9 @@ client/contexte. Une troncature client
 
 Suites distinctes, non incluses dans cette livraison :
 
-- sécurité homelab couvrant l’ensemble du serveur et les écritures REST ;
+- A3 : connexion OIDC associée au propriétaire, réutilisant les sessions Web ;
+- clés API et permissions des intégrations MCP ;
+- déploiement homelab : HTTPS, reverse proxy et exposition réseau ;
 - éventuelles écritures MCP, permissions, confirmations et protection des données utilisateur.
 
 ## 4. Étape 10 — IA intégrée

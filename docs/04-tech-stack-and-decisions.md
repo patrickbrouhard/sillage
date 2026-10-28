@@ -18,11 +18,12 @@ Documents complémentaires :
 | Domaine | Choix actuel | État |
 | --- | --- | --- |
 | Backend | Go ; bibliothèque standard et packages ciblés | Acté et implémenté |
+| Authentification Web | Argon2id, sessions opaques SQLite, CSRF, propriétaire unique | Implémenté ; OIDC dans A3 |
 | HTTP | `net/http` + Chi ; API REST | Acté et implémenté |
 | Persistance | SQLite via `database/sql` et `modernc.org/sqlite`, sans ORM | Acté et implémenté |
 | Identifiants | Entiers SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` lorsque l'entité possède un ID propre | Acté et implémenté |
 | Migrations | SQL embarqué (`embed.FS`), `PRAGMA user_version`, évolutions forward-only | Acté et implémenté |
-| Dates | `TEXT` en UTC, RFC 3339 avec millisecondes fixes | Acté et implémenté |
+| Dates | Métier : `TEXT` UTC RFC 3339 ; échéances techniques des sessions : epoch UTC en millisecondes | Acté et implémenté |
 | Positions média | Entiers en millisecondes | Acté et implémenté |
 | Métadonnées YouTube | `yt-dlp` exécuté comme outil externe via adapter | Acté et implémenté |
 | Transcriptions | Captions automatiques originales admissibles, JSON3 conservé en snapshot ; pas de fragments en SQLite | Acté et implémenté |
@@ -33,7 +34,7 @@ Documents complémentaires :
 | Distribution | Docker multi-stage, frontend statique servi par Go, dépendances externes épinglées | Acté et implémenté |
 | Journalisation | `log/slog`, sortie standard, texte local ou JSON en Docker, rotation Docker | Acté et implémenté |
 | Recherche globale | SQLite FTS5, projection transactionnelle par vidéo | Acté et implémenté |
-| MCP | SDK Go officiel v1.8.0, Streamable HTTP stateless, quatre lectures locales sur services partagés | Acté et implémenté ; validation agents à compléter |
+| MCP | SDK Go officiel v1.8.0, Streamable HTTP stateless, quatre lectures locales sur services partagés | Adapter conservé ; activation suspendue jusqu’aux clés API |
 | IA / STT | Fournisseurs et moteurs à choisir ; pas de dépendance du domaine à un fournisseur | Ouvert |
 | Desktop | Éventuelle application Wails, sans engagement | Ouvert |
 | WAL, sauvegarde avancée, framework de migrations | À évaluer selon les besoins réels | Ouvert |
@@ -63,7 +64,7 @@ Principes en vigueur :
 - Depuis les publishers/personnes, `creator` n'est plus un champ REST : les sources exposent un `publisher` nullable et les vidéos leurs `person_ids` directs. Ne pas rétablir un alias historique par accident.
 - Les API de récupération de transcription ne contactent pas YouTube lors d'un GET : toute acquisition est déclenchée explicitement.
 
-L'application vise actuellement un usage local : ne pas déduire de l'absence d'authentification actuelle que l'API serait prête à être exposée publiquement. Pagination, permissions et authentification restent à cadrer.
+L’authentification locale protège les données REST par session et CSRF. OIDC, clés API/MCP et exposition homelab sont séparés ; l’authentification seule ne protège pas un transport réseau en clair. Voir [Sécurité](security.md).
 
 ### 2.3 MCP local et futures fonctions IA
 
@@ -79,8 +80,8 @@ Le SDK officiel `github.com/modelcontextprotocol/go-sdk` v1.8.0 est épinglé :
 il gère la révision récente du protocole et l’initialisation historique sans implémentation
 protocolaire propre à Sillage. Streamable HTTP stateless et JSON conviennent aux quatre
 lectures bornées, sans session applicative ni reprise. Les versions annoncées sont
-restreintes aux trois révisions vérifiées et les lots sont refusés avant les lectures. La V1 reste optionnelle, désactivée
-par défaut et limitée au développement local, sans authentification. Les interfaces étroites
+restreintes aux trois révisions vérifiées et les lots sont refusés avant les lectures. L’adapter reste conservé, mais son activation est suspendue
+dans le serveur distribué pendant la tranche d’authentification Web. Les interfaces étroites
 excluent acquisitions et écritures. Contrats, sécurité et compatibilité vérifiée :
 [MCP](mcp.md).
 
@@ -374,7 +375,7 @@ Les sauvegardes, restaurations et changements de chemins doivent préserver **si
 
 La recherche globale FTS5 est décrite en section 3.7. Transcriptions avec passages/timestamps et futurs artefacts IA restent hors de son périmètre actuel. Une éventuelle recherche sémantique nécessite une décision distincte ; aucune base vectorielle n'est introduite.
 
-À reconsidérer uniquement lorsque le besoin est établi : WAL ; Goose ; import de `VideoSource` locale ; format et rétention des snapshots ; plusieurs qualités et audio seul ; règles de suppression/soft delete ; sauvegarde et restauration avancées ; jobs persistants ; recherche hybride ; auth/multi-utilisateur ; desktop ; providers IA/STT ; éventuelles écritures MCP et sécurité homelab de l’ensemble du serveur. La liste et les questions détaillées vivent dans [Open questions](06-open-questions.md), pas dans un journal ajouté ici.
+À reconsidérer uniquement lorsque le besoin est établi : WAL ; Goose ; import de `VideoSource` locale ; format et rétention des snapshots ; plusieurs qualités et audio seul ; règles de suppression/soft delete ; sauvegarde et restauration avancées ; jobs persistants ; recherche hybride ; multi-utilisateur ; desktop ; providers IA/STT ; éventuelles écritures MCP et sécurité homelab de l’ensemble du serveur. La liste et les questions détaillées vivent dans [Open questions](06-open-questions.md), pas dans un journal ajouté ici.
 
 Ne pas ajouter sans justification : ORM lourd, microservices, queue distribuée, Redis, PostgreSQL/MySQL, hiérarchie générique des sources, moteur de plugins, dump permanent des métadonnées brutes ni modèle SQL mot-à-mot des transcriptions.
 

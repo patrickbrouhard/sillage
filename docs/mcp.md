@@ -1,6 +1,7 @@
 # MCP — lectures locales de Sillage
 
-Cette référence définit la première tranche MCP. Le serveur fournit les données ;
+Cette référence conserve les contrats de l’adapter MCP. Son activation dans le serveur
+est suspendue pendant A1 + A2, jusqu’à la tranche des clés API. Le serveur fournit les données ;
 le client choisit les appels et le modèle produit son résumé. Aucune IA ne tourne dans Sillage.
 
 ## Périmètre et assemblage
@@ -12,8 +13,8 @@ Le [guide du SDK](https://github.com/modelcontextprotocol/go-sdk/blob/v1.8.0/doc
 et son [transport](https://github.com/modelcontextprotocol/go-sdk/blob/v1.8.0/mcp/streamable.go)
 définissent les comportements protocolaires utilisés.
 
-Le point de composition `cmd/server` partage les instances de `search.Service`,
-`video.Service`, `transcript.Service` et `note.Service` avec REST.
+L’adapter est conçu pour partager `search.Service`, `video.Service`,
+`transcript.Service` et `note.Service` avec REST ; il n’est actuellement pas assemblé par `cmd/server`.
 Les interfaces de l’adapter ne donnent accès qu’à `Search`, `GetVideo` et aux deux
 lectures `Get`. Il n’appelle jamais REST, `Fetch`, un provider distant ou une écriture.
 Le SDK et les DTO MCP restent hors du cœur applicatif.
@@ -272,67 +273,15 @@ il n’autorise pas l’ajout implicite d’une pagination.
 
 ## Activation et sécurité locale
 
-MCP est **désactivé par défaut**. Dans un environnement Linux/WSL local :
+Le transport distribué est temporairement désactivé sans possibilité de l'activer.
+`SILLAGE_MCP_ENABLED=true` refuse le démarrage et `/mcp` ainsi que ses sous-chemins
+renvoient 404. Il n'existe aucun accès anonyme alternatif à la bibliothèque.
+La [référence de sécurité](security.md) définit la protection Web actuelle.
 
-```bash
-make build
-SILLAGE_MCP_ENABLED=true SILLAGE_WEB_DIR=web/dist ./bin/sillage
-```
-
-Le client utilise l’URL **`http://127.0.0.1:8080/mcp`**, en transport Streamable HTTP.
-Le serveur reste à l’écoute sur `127.0.0.1:8080` par défaut.
-
-| Variable | Sens |
-| --- | --- |
-| `SILLAGE_MCP_ENABLED` | Activation explicite ; défaut `false` |
-| `SILLAGE_MCP_ALLOWED_AUTHORITIES` | Liste séparée par virgules de `hôte:port`, sans espaces, URL ni wildcard |
-
-Hors Docker, la liste par défaut est `127.0.0.1:PORT,localhost:PORT,[::1]:PORT`,
-avec le port de `SILLAGE_HTTP_ADDR`.
-Seuls `localhost` et les IP loopback avec port numérique explicite sont admissibles.
-Une configuration activée invalide empêche le démarrage.
-
-Chaque Host doit appartenir à cette liste. Un Origin absent est accepté pour les
-clients natifs ; un Origin présent doit être **exactement** `http://AUTORITÉ` pour
-une autorité configurée, sans slash final, identifiants, query ou fragment.
-Origin vide, `null`, multiple, HTTPS ou non autorisé est refusé.
-Le contrôle explicite précède `http.CrossOriginProtection` ; les signaux
-`Sec-Fetch-Site` ne permettent pas de contourner l’allowlist.
-Aucun en-tête `Forwarded` ou `X-Forwarded-*` ne fait autorité.
-La protection SDK contre le DNS rebinding loopback reste activée.
-
-En Docker, garder la publication `127.0.0.1:PORT:8080` du Compose fourni.
-Son écoute interne `0.0.0.0` ne change pas les autorités HTTP autorisées.
-Par exemple pour publier sur le port hôte 8081 :
-
-```bash
-SILLAGE_PORT=8081 SILLAGE_MCP_ENABLED=true \
-SILLAGE_MCP_ALLOWED_AUTHORITIES='127.0.0.1:8081,localhost:8081,[::1]:8081' \
-docker compose -f deployments/docker/compose.yaml up -d --build
-```
-
-Le contrôle est dans l’adapter et fonctionne aussi lorsque l’adresse locale observée
-dans le conteneur n’est pas loopback. Il ne dépend donc pas uniquement de la protection
-automatique du SDK. Ne pas désactiver globalement les protections pour Docker.
-La recette Docker isolée a vérifié une image construite depuis le code corrigé,
-la publication loopback sur un port hôte personnalisé, les trois protocoles avec
-le client SDK depuis WSL, la découverte depuis Windows, une lecture locale, REST,
-SPA, asset distribué, les refus Host/Origin et l’arrêt SIGTERM propre.
-Elle utilise uniquement une bibliothèque temporaire ; détails et reproduction dans
-la [recette de déploiement](../tests/mcp/README.md#déploiement-docker-isolé).
-
-**Host et Origin ne sont pas une authentification.** Un programme pouvant joindre
-le serveur peut forger ces en-têtes. Cette V1 sans authentification suppose un accès
-effectivement restreint au développement local. MCP est en lecture seule, mais
-**REST sur le même serveur possède des écritures**. Un client local peut transmettre
-notes, métadonnées et transcriptions à un modèle distant.
-Toutes les réponses MCP imposent `Cache-Control: no-store, private` ;
-les résultats de découverte/listes ont aussi un scope privé et TTL nul dans le SDK.
-
-Cette V1 n’est pas destinée à une exposition LAN générale ou publique.
-Un déploiement homelab exige un cadrage séparé de la sécurité de **tout le serveur,
-REST compris**. OAuth, Authelia, clés API, reverse proxy de confiance et HTTPS
-ne sont pas introduits dans cette tranche.
+Les contrôles Host/Origin et limites de l'adapter restent testés isolément. Ils ne
+constituent pas une authentification et ne suffiront pas à réactiver l'intégration.
+Les clés API et permissions feront l'objet d'une tranche dédiée ; les recettes
+agents antérieures ci-dessous décrivent le transport avant cette suspension.
 
 ## Compatibilité et validation reproductible
 
@@ -350,14 +299,13 @@ Cela ferme le chemin des lots sans en-tête ; ni gestion de lots ni reconstructi
 JSON-RPC ne sont ajoutées.
 Les schémas annoncés, les formats, les erreurs, les seuils HTTP/résultats,
 la concurrence, les annulations et l’arrêt sont vérifiés sur ce transport.
-Les tests de routage couvrent activation/désactivation, API seule et SPA ;
-l’assemblage peut aussi être vérifié avec le frontend réellement compilé :
+Les tests du serveur vérifient le refus d’activation et l’absence de propriétaire ;
+les tests HTTP couvrent la fermeture de la route MCP. Les recettes de l’adapter restent isolées :
 
 ```bash
 make test
 go test -race ./internal/adapter/mcp ./internal/http ./internal/transcript ./cmd/server ./internal/adapter/sqlite
 make build
-SILLAGE_TEST_DISTRIBUTED_WEB="$PWD/web/dist" go test ./cmd/server -run TestRunMCP -count=1
 git diff --check
 ```
 

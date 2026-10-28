@@ -1,5 +1,11 @@
 # Validation avec agents MCP
 
+> L'activation MCP du serveur distribué est suspendue depuis l'authentification Web.
+> Les recettes agents et de déploiement ci-dessous décrivent le transport antérieur ;
+> elles ne sont pas exécutables avec `SILLAGE_MCP_ENABLED=true` dans cette tranche.
+> Les tests isolés de l'adapter restent disponibles. Voir [Sécurité](../../docs/security.md).
+
+
 Référence des contrats et procédure : [docs/mcp.md](../../docs/mcp.md#compatibilité-et-validation-reproductible).
 Ce fichier décrit les essais agents, le déploiement isolé et les mesures réellement observés.
 Les tests automatisés constituent une validation séparée.

@@ -9,7 +9,7 @@ Documents complémentaires :
 - [Roadmap](05-roadmap.md), [questions ouvertes](06-open-questions.md) et [recette manuelle des lecteurs](07-local-playback-validation.md).
 - [Historique des arbitrages significatifs](history/sillage-decisions-octobre-2026.md).
 
-**Périmètre :** REST, services applicatifs, SQLite, `yt-dlp`, `ffmpeg`/`ffprobe`, stockage local, React, Docker et un adapter MCP local en lecture seule sont implémentés. L'IA intégrée, le STT et une application desktop restent des perspectives, pas des composants existants.
+**Périmètre :** REST, services applicatifs, SQLite, `yt-dlp`, `ffmpeg`/`ffprobe`, stockage local, React, Docker et l’authentification Web locale sont implémentés. L’adapter MCP en lecture seule est conservé mais son activation est suspendue. L'IA intégrée, le STT et une application desktop restent des perspectives, pas des composants existants.
 
 **Maintenance :** modifier les sections concernées lorsqu'un contrat évolue, sans ajouter de journal de développement. Les migrations SQL, les types et les routes du code font foi pour les détails d'implémentation ; corriger une divergence documentaire après vérification.
 
@@ -31,8 +31,8 @@ Documents complémentaires :
        SQLite / fichiers   Adapters externes
                            yt-dlp · ffmpeg · ffprobe
 
-   Agents MCP / Streamable HTTP ──► adapter MCP ──► mêmes services applicatifs
-   Futur : CLI / desktop ──► mêmes services applicatifs
+   Adapter MCP conservé (transport suspendu) ──► mêmes services applicatifs
+   Futur : CLI métier / desktop ──► mêmes services applicatifs
 ```
 
 Le **cœur applicatif n'est pas l'API HTTP**. Les handlers convertissent et valident les requêtes, appellent les services puis construisent les réponses. Ils ne portent ni SQL métier, ni invocation directe de `yt-dlp`, ni gestion autonome des fichiers métier. Les objets métier ne dépendent ni de Chi, ni de React, ni de SQLite, ni d'un provider IA.
@@ -228,13 +228,19 @@ pas un instantané entre requêtes concurrentes. Le transport distingue vidéo a
 
 ### 6.1 Conventions
 
+`internal/auth` possède l'identité unique et le cycle des sessions, indépendants du moyen
+de connexion. SQLite garantit les générations et révocations atomiques. Les cookies,
+CSRF et routes publiques appartiennent au middleware HTTP global ; le serveur refuse
+de démarrer sans propriétaire. OIDC réutilisera ce cycle dans A3. Le contrat complet
+et les commandes vivent dans [security.md](security.md).
+
 L'API `/api/v1` est construite avec `net/http` et Chi. Les handlers sont minces, les DTO restent distincts du domaine et les données techniques internes ne sont pas retournées au client.
 
 - JSON strict : type MIME approprié lorsque requis, corps bornés, objet unique, champs inconnus refusés, UTF-8 valide et identifiants contrôlés.
 - Erreurs métier transformées en **statuts et codes publics stables**. Un `stderr`, un chemin hôte ou une exception technique ne fait jamais partie du corps public.
 - Les listes renvoient leurs enveloppes (`{"videos": [...]}`, `{"tags": [...]}`, etc.), les éléments et associations leur ordre déterministe ; les champs facultatifs sont représentés selon le contrat REST existant.
 - Les acquisitions synchrones sont bornées par `SILLAGE_POST_TIMEOUT` et annulées avec le contexte HTTP ; les travaux asynchrones ont leur propre contexte serveur.
-- Une API non authentifiée, accessible localement par défaut, ne doit pas être considérée comme prête pour une exposition publique.
+- La frontière HTTP exige une session Web pour toutes les données privées et un jeton CSRF pour les mutations. Le shell statique et les points d’entrée de connexion sont publics. Voir [Sécurité](security.md).
 
 Les limites chiffrées et exemples de payloads en vigueur sont également documentés dans le [README](../README.md). Ne pas changer un code REST pour simplifier la documentation.
 
@@ -544,18 +550,17 @@ Les niveaux, formats et la rotation sont définis dans [Tech stack & decisions](
 
 ### 10.1 Serveur et Docker
 
-Le serveur assemble les adapters MCP, SQLite, filesystem, `yt-dlp`, `ffmpeg`/`ffprobe`, services Go, handlers HTTP et fichiers frontend. Le build de production sert une SPA statique ; le mode API seul reste possible sans frontend. Le Dockerfile multi-stage fournit l'environnement Go/Web et les outils nécessaires dans une image finale non-root.
+Le serveur assemble l’authentification et les adapters SQLite, filesystem, `yt-dlp`, `ffmpeg`/`ffprobe`, services Go, handlers HTTP et fichiers frontend. Le build de production sert une SPA statique ; le mode API seul reste possible sans frontend. Le Dockerfile multi-stage fournit l'environnement Go/Web et les outils nécessaires dans une image finale non-root.
 
-Par défaut, Docker publie le port hôte sur `127.0.0.1`, malgré l'écoute interne `0.0.0.0`. Les données du bind mount restent indépendantes de l'image ; les sauvegardes/restaurations à froid doivent être cohérentes. Aucune authentification ne protège actuellement une publication réseau générale.
+Par défaut, Docker publie le port hôte sur `127.0.0.1`, malgré l'écoute interne `0.0.0.0`. Les données du bind mount restent indépendantes de l'image ; les sauvegardes/restaurations à froid doivent être cohérentes. Les sessions protègent les accès applicatifs ; HTTPS et la configuration de l’exposition réseau restent une tranche séparée.
 
 ### 10.2 Arrêt et opérations longues
 
 Les téléchargements et captures vivent au niveau du serveur ; une déconnexion du navigateur ne les annule pas. L'arrêt doit stopper les descendants des outils externes et attendre la finalisation des opérations avant la fermeture de SQLite. Les acquisitions synchrones de métadonnées ou de transcriptions restent au contraire bornées par la requête et son contexte.
 
-Les lectures MCP ont leur propre délai et suivent la déconnexion HTTP, y compris avec
-le protocole historique. L’arrêt annule les lectures et attend les handlers SDK avant
-fermeture de SQLite. La route reste réservée quand MCP est désactivé ; elle ne passe jamais
-par le repli SPA. Voir [cycle de vie et limites MCP](mcp.md#limites-expérimentales).
+L’adapter MCP conserve ses contrôles de cycle de vie dans ses tests isolés. Il n’est
+plus assemblé par le serveur ; la route réservée renvoie 404, sans repli SPA.
+Voir [cycle de vie et limites MCP](mcp.md#limites-expérimentales).
 
 Une seule instance doit posséder le répertoire de données. Aucun `Job` générique persistant ni file distribuée n'est requis par l'architecture actuelle ; leur éventuelle introduction est une décision future.
 
