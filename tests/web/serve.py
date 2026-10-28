@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Sert le build réel avec SQLite isolé et des métadonnées déterministes."""
 
+import sys
 import json
 import os
 from pathlib import Path
@@ -14,7 +15,10 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 PORT = 18381
-OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+sys.path.insert(0, str(ROOT / "tests"))
+from auth_support import AuthClient, initialize
+OPENER = AuthClient()
+
 
 
 def request(port, path, data=None):
@@ -36,7 +40,7 @@ def wait_ready(server, port):
         if server.poll() is not None:
             raise RuntimeError("Le serveur de test s'est arrêté.")
         try:
-            request(port, "videos")
+            OPENER.opener.open(f"http://127.0.0.1:{port}/api/v1/auth/session", timeout=5).close()
             return
         except (urllib.error.URLError, TimeoutError):
             time.sleep(0.05)
@@ -91,11 +95,17 @@ def main():
             probe.bind(("127.0.0.1", 0))
             seed_port = probe.getsockname()[1]
         env["SILLAGE_HTTP_ADDR"] = f"127.0.0.1:{seed_port}"
+        initialize([str(ROOT / "bin" / "sillage"), "owner", "init"], workspace)
         try:
             server = subprocess.Popen([str(ROOT / "bin" / "sillage")], cwd=workspace, env=env)
             wait_ready(server, seed_port)
+            OPENER.login(f"http://127.0.0.1:{seed_port}")
             video = request(seed_port, "videos", {"url": "https://youtu.be/sillage-test"})
             request(seed_port, f"videos/{video['id']}/tags", {"names": ["SQLite", "À approfondir"]})
+            state_dir = ROOT / "web" / "tests" / ".auth"
+            state_dir.mkdir(exist_ok=True)
+            (state_dir / "state.json").write_text(json.dumps(OPENER.playwright_state()), encoding="utf-8")
+            (state_dir / "csrf.txt").write_text(OPENER.csrf, encoding="utf-8")
             stop(server)
 
             # Le port final n'est ouvert qu'après persistance et redémarrage.

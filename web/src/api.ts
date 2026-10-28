@@ -1,3 +1,4 @@
+import { apiFetch } from './auth'
 /** Tag directement associé à une vidéo, sans héritage depuis ses relations. */
 export interface Tag {
   id: number
@@ -36,7 +37,7 @@ export interface Video {
 /** Lit la bibliothèque locale ; l'annulation empêche les réponses devenues inutiles. */
 export async function listVideos(signal: AbortSignal, tagID?: string): Promise<Video[]> {
   const query = tagID === undefined ? '' : '?' + new URLSearchParams({ tag_id: tagID })
-  const response = await fetch('/api/v1/videos' + query, { signal })
+  const response = await apiFetch('/api/v1/videos' + query, { signal })
   if (!response.ok) {
     if (response.status === 400) {
       throw await responseError(
@@ -104,7 +105,7 @@ async function readVideo(response: Response): Promise<Video> {
 
 /** Charge une vidéo par son ID interne, conservé sous forme textuelle dans l'URL. */
 export async function getVideo(id: string, signal: AbortSignal): Promise<Video> {
-  const response = await fetch(`/api/v1/videos/${encodeURIComponent(id)}`, { signal })
+  const response = await apiFetch(`/api/v1/videos/${encodeURIComponent(id)}`, { signal })
   if (!response.ok) {
     throw await responseError(
       response,
@@ -120,7 +121,7 @@ export async function addVideo(
   url: string,
   signal: AbortSignal,
 ): Promise<{ video: Video; created: boolean }> {
-  const response = await fetch('/api/v1/videos', {
+  const response = await apiFetch('/api/v1/videos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
@@ -158,7 +159,7 @@ async function readTags(response: Response): Promise<Tag[]> {
 
 /** Charge le catalogue global, y compris les tags sans association vidéo. */
 export async function listTags(signal: AbortSignal): Promise<Tag[]> {
-  const response = await fetch('/api/v1/tags', { signal })
+  const response = await apiFetch('/api/v1/tags', { signal })
   if (!response.ok) {
     throw await responseError(
       response,
@@ -181,7 +182,7 @@ export async function listTagCatalog(signal: AbortSignal): Promise<CatalogTag[]>
 
 /** Renomme sans normalisation locale ; le serveur fournit la graphie enregistrée. */
 export async function renameCatalogTag(id: number, name: string, signal: AbortSignal): Promise<Tag> {
-  const response = await fetch(`/api/v1/tags/${id}`, {
+  const response = await apiFetch(`/api/v1/tags/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
@@ -202,7 +203,7 @@ export async function renameCatalogTag(id: number, name: string, signal: AbortSi
 
 /** Supprime le tag et toutes ses associations courantes, même s'il est déjà absent. */
 export async function deleteCatalogTag(id: number, signal: AbortSignal): Promise<void> {
-  const response = await fetch(`/api/v1/tags/${id}`, { method: 'DELETE', signal })
+  const response = await apiFetch(`/api/v1/tags/${id}`, { method: 'DELETE', signal })
   if (!response.ok) throw await responseError(
     response,
     'Impossible de supprimer ce tag.',
@@ -212,7 +213,7 @@ export async function deleteCatalogTag(id: number, signal: AbortSignal): Promise
 
 /** Associe un nom ; le serveur décide de son identité et retourne tous les tags. */
 export async function addTag(id: number, name: string, signal: AbortSignal): Promise<Tag[]> {
-  const response = await fetch(`/api/v1/videos/${id}/tags`, {
+  const response = await apiFetch(`/api/v1/videos/${id}/tags`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ names: [name] }),
@@ -229,7 +230,7 @@ export async function addTag(id: number, name: string, signal: AbortSignal): Pro
 
 /** Retire uniquement l'association, même si elle a déjà disparu. */
 export async function removeTag(id: number, tagID: number, signal: AbortSignal): Promise<void> {
-  const response = await fetch(`/api/v1/videos/${id}/tags/${tagID}`, { method: 'DELETE', signal })
+  const response = await apiFetch(`/api/v1/videos/${id}/tags/${tagID}`, { method: 'DELETE', signal })
   if (!response.ok) {
     throw await responseError(
       response,

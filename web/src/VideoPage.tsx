@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { authSnapshot, subscribeAuth } from './auth'
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import { useParams } from 'react-router'
 import { APIError, errorMessage, getVideo } from './api'
@@ -62,6 +63,7 @@ function SourceDetails({ source, index, working }: { source: VideoSource; index:
 
 /** Relit une fiche par son identité Sillage, sans dépendre de la navigation précédente. */
 function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | null }) {
+  const authentication = useSyncExternalStore(subscribeAuth, authSnapshot)
   const [noteSession] = useState(() => new NoteSession(Number(id)))
   const narrow = useNarrowWorkspace()
   const [readingNote, setReadingNote] = useState(false)
@@ -189,7 +191,7 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
       {state.status === 'ready' && (
         <>
           <div className={`video-workspace${source ? '' : ' without-source'}${imagesOpen ? ' images-covered' : ''}`}>
-            {source ? <VideoPlayer key={`player-${source.id}`} videoID={state.video.id} source={source} download={download} ref={player} covered={imagesOpen}
+            {source ? <VideoPlayer key={`player-${source.id}`} videoID={state.video.id} source={source} download={download} ref={player} covered={imagesOpen || authentication.status !== 'authenticated'}
               onImagesFailure={message => {
                 closeImages(); setImagesError(message)
                 imagesReturn.current?.focus({ preventScroll: true })

@@ -1,3 +1,4 @@
+import { apiFetch } from './auth'
 /** Fragment normalisé par le serveur ; ses espaces et son ordre sont significatifs. */
 export interface TranscriptItem {
   start_ms: number
@@ -41,7 +42,7 @@ async function requestTranscript(
 ): Promise<Transcript | null> {
   const acquiring = method === 'POST'
   try {
-    const response = await fetch(`/api/v1/videos/${videoID}/sources/${sourceID}/transcript`, {
+    const response = await apiFetch(`/api/v1/videos/${videoID}/sources/${sourceID}/transcript`, {
       method,
       signal: AbortSignal.any([signal, AbortSignal.timeout(acquiring ? 90_000 : 12_000)]),
       cache: 'no-store',

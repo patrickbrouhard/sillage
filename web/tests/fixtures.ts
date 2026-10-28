@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { test as base, expect } from '@playwright/test'
 import type { YouTubeOptions } from '../src/youtubeApi'
 
@@ -69,6 +70,14 @@ function installYouTubeMock() {
 
 /** Interdit tout accès YouTube réel dans les scénarios navigateur, anciens compris. */
 export const test = base.extend({
+  request: async ({ playwright, baseURL }, use) => {
+    const request = await playwright.request.newContext({
+      baseURL, storageState: 'tests/.auth/state.json',
+      extraHTTPHeaders: { 'X-CSRF-Token': (await readFile('tests/.auth/csrf.txt', 'utf8')).trim() },
+    })
+    await use(request)
+    await request.dispose()
+  },
   page: async ({ page }, use) => {
     await page.route('https://www.youtube.com/**', route => route.request().url() === 'https://www.youtube.com/iframe_api'
       ? route.fulfill({ contentType: 'application/javascript', body: `(${installYouTubeMock.toString()})()` })

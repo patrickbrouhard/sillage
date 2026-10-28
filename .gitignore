@@ -28,3 +28,7 @@ Thumbs.db
 /web/dist/
 /web/test-results/
 /web/playwright-report/
+
+# Sessions synthétiques des tests navigateur
+/web/tests/.auth/
+__pycache__/

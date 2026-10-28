@@ -1,3 +1,4 @@
+import { apiFetch } from './auth'
 import type { Video } from './api'
 
 /** Un segment est du texte littéral avec une indication de surlignage. */
@@ -11,7 +12,7 @@ export interface SearchPage { results: SearchResult[]; page: number; has_more: b
 
 /** Charge uniquement une requête soumise ; le serveur valide aussi les paramètres répétés. */
 export async function searchVideos(params: string, signal: AbortSignal): Promise<SearchPage> {
-  const response = await fetch('/api/v1/search?' + params, { signal })
+  const response = await apiFetch('/api/v1/search?' + params, { signal })
   if (!response.ok) throw new Error(response.status === 400
     ? 'Recherche invalide : vérifiez les paramètres, le tri (relevance ou newest) et les limites de 1 024 octets, 32 termes et pages de 1 à 1 000.'
     : 'La recherche n’a pas pu aboutir. Réessayez.')
