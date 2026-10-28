@@ -4,7 +4,7 @@
 
 YouTube est actuellement la source prise en charge. La conception distingue la vidéo comme objet de connaissance (`Video`), sa provenance (`VideoSource`) et son éventuel fichier local (`MediaFile`). Le projet est **self-hosted**, utilisable sans intelligence artificielle et toujours en développement.
 
-> **État du projet :** le socle de travail vidéo est fonctionnel. Les premières lectures MCP locales sont disponibles ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
+> **État du projet :** le socle de travail vidéo est fonctionnel. L’authentification Web locale est disponible ; MCP est temporairement désactivé jusqu’à la tranche des clés API ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
 
 ## Fonctionnalités disponibles
 
@@ -16,7 +16,7 @@ YouTube est actuellement la source prise en charge. La conception distingue la v
 - **Lecture distante et locale** : lecteur YouTube ou HTML5 natif, conservation volontaire d'une vidéo avec `yt-dlp`, suivi du téléchargement, consultation des propriétés techniques, suppression explicite du fichier et bascule entre lecteurs. Si le fichier est disponible à l'ouverture, **Local** est sélectionné en premier ; aucune lecture ne démarre automatiquement.
 - **Captures PNG** : extraction d'une image au temps courant avec `ffmpeg`, insertion dans la note et conservation indépendante du fichier vidéo et du Markdown qui la référence.
 - **Recherche globale** : titres et descriptions des sources, publishers, tags directs et notes ; résultats paginés, extraits et explications.
-- **MCP local optionnel** : recherche et consultation en lecture seule par un agent, sans acquisition implicite ni résumé serveur.
+- **MCP temporairement désactivé** : adapter de lecture conservé, en attente de l’authentification des intégrations.
 - **API REST** : accès aux vidéos, notes, tags, transcriptions, publishers, personnes, fichiers locaux et captures.
 
 La recherche **dans une transcription ouverte** reste distincte de la recherche globale, qui n’indexe pas les transcriptions. L’IA intégrée, l’import de vidéos locales et les annotations structurées constituent des travaux futurs.
@@ -480,7 +480,7 @@ Serveur Go (net/http + Chi)
      ├── yt-dlp
      └── ffmpeg / ffprobe
 
-Agents MCP / HTTP stateless → mêmes instances de services métier
+Adapter MCP conservé, transport suspendu → mêmes services métier
 Futur : IA intégrée et autres sources → mêmes services métier
 ```
 

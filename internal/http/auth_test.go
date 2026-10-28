@@ -233,3 +233,87 @@ func TestAuthenticationInputAndExpiry(t *testing.T) {
 		t.Fatal("login rate limit missing")
 	}
 }
+
+func TestSessionProbeDoesNotRenewActivity(t *testing.T) {
+	ctx := context.Background()
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "probe.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	service := auth.NewService(sqlite.NewAuthRepository(db), 12*time.Hour, time.Hour)
+	if err := service.Initialize(ctx, "owner", "a sufficiently long password"); err != nil {
+		t.Fatal(err)
+	}
+	token, err := service.Login(ctx, "owner", "a sufficiently long password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := api.WithAuthentication(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(204)
+	}), service, "http://sillage.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := func(path string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", "http://sillage.test"+path, nil)
+		r.AddCookie(&http.Cookie{Name: "sillage_session", Value: token})
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	setSeen := func(stamp int64) {
+		t.Helper()
+		if _, err := db.Exec("UPDATE web_sessions SET last_seen_at = ?", stamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+	readSeen := func() int64 {
+		t.Helper()
+		var stamp int64
+		if err := db.QueryRow("SELECT last_seen_at FROM web_sessions").Scan(&stamp); err != nil {
+			t.Fatal(err)
+		}
+		return stamp
+	}
+	probe := func(want bool) {
+		t.Helper()
+		w := request("/api/v1/auth/session")
+		var state struct{ Authenticated bool }
+		if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil {
+			t.Fatal(err)
+		}
+		if w.Code != 200 || state.Authenticated != want {
+			t.Fatalf("probe: %d %s", w.Code, w.Body.String())
+		}
+	}
+	// Le temps persisté rend la frontière reproductible sans attendre le délai réel.
+	before := time.Now().Add(-2 * time.Minute).UnixMilli()
+	setSeen(before)
+	for range 3 {
+		probe(true)
+	}
+	if readSeen() != before {
+		t.Fatal("probe renewed activity")
+	}
+	if w := request("/api/v1/videos"); w.Code != 204 {
+		t.Fatal(w.Code)
+	}
+	if readSeen() <= before {
+		t.Fatal("private access did not renew activity")
+	}
+	setSeen(time.Now().Add(-2 * time.Hour).UnixMilli())
+	probe(false)
+	if w := request("/api/v1/videos"); w.Code != 401 {
+		t.Fatal("idle expiry bypassed")
+	}
+	setSeen(time.Now().UnixMilli())
+	if _, err := db.Exec("UPDATE web_sessions SET expires_at = 0"); err != nil {
+		t.Fatal(err)
+	}
+	probe(false)
+	if err := service.Logout(ctx, token); err != nil {
+		t.Fatal(err)
+	}
+	probe(false)
+}

@@ -43,7 +43,7 @@ type Repository interface {
 	CreateOwner(context.Context, Owner) error
 	RecoverOwner(context.Context, string) error
 	CreateSession(context.Context, Session) error
-	Session(context.Context, string, time.Time, time.Duration) (Session, error)
+	Session(context.Context, string, time.Time, time.Duration, bool) (Session, error)
 	Revoke(context.Context, string) error
 	RevokeAll(context.Context) error
 }
@@ -129,10 +129,19 @@ func Digest(token string) string {
 
 // Check vérifie la révocation et les expirations avant chaque nouvelle requête.
 func (s *Service) Check(ctx context.Context, token string) (Session, error) {
+	return s.check(ctx, token, true)
+}
+
+// Inspect vérifie la session sans prolonger son activité, notamment pour les sondes du navigateur.
+func (s *Service) Inspect(ctx context.Context, token string) (Session, error) {
+	return s.check(ctx, token, false)
+}
+
+func (s *Service) check(ctx context.Context, token string, touch bool) (Session, error) {
 	if token == "" || len(token) > 128 {
 		return Session{}, ErrSession
 	}
-	return s.repository.Session(ctx, Digest(token), s.now().UTC(), s.idle)
+	return s.repository.Session(ctx, Digest(token), s.now().UTC(), s.idle, touch)
 }
 
 // Logout révoque seulement la session demandée.

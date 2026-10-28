@@ -79,8 +79,9 @@ une sauvegarde contient aussi les anciennes sessions.
 Les durées acceptent la notation Go, entre `1m` et `720h`. Le délai d'inactivité
 ne peut pas dépasser la durée absolue. Douze heures couvrent une journée d'utilisation
 sans rendre la session indéfinie ; une heure d'inactivité ferme les sessions abandonnées.
-Les pollings et lectures authentifiées comptent comme activité HTTP, pas comme preuve
-de présence humaine. Modifier la durée absolue concerne les nouvelles sessions ;
+La sonde `GET /api/v1/auth/session` ne renouvelle jamais l’activité : un onglet
+visible sans autre requête peut donc expirer. Les autres lectures et pollings privés
+comptent comme activité HTTP, pas comme preuve de présence humaine. Modifier la durée absolue concerne les nouvelles sessions ;
 modifier le délai d'inactivité s'applique aux vérifications suivantes.
 
 Compose calcule l'origine locale à partir de `SILLAGE_PORT`. Avec Vite :

@@ -119,8 +119,8 @@ func (r *AuthRepository) CreateSession(ctx context.Context, session auth.Session
 	return tx.Commit()
 }
 
-// Session espace les écritures d'activité et ne ressuscite jamais une session révoquée.
-func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time, idle time.Duration) (auth.Session, error) {
+// Session peut vérifier sans renouveler ; elle espace les écritures d'activité et ne ressuscite jamais une session révoquée.
+func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time, idle time.Duration, touch bool) (auth.Session, error) {
 	var session auth.Session
 	var created, expires, seen int64
 	err := r.db.QueryRowContext(ctx, `
@@ -143,7 +143,7 @@ func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time
 	}
 	session.CreatedAt, session.ExpiresAt, session.LastSeenAt = time.UnixMilli(created), time.UnixMilli(expires), time.UnixMilli(seen)
 	// Le renouvellement conditionnel préserve la révocation concurrente et les délais courts.
-	if now.Sub(session.LastSeenAt) >= min(time.Minute, idle/4) {
+	if touch && now.Sub(session.LastSeenAt) >= min(time.Minute, idle/4) {
 		result, err := r.db.ExecContext(ctx, `
    UPDATE web_sessions
    SET last_seen_at = MAX(last_seen_at, ?)

@@ -106,7 +106,7 @@ func TestSessionDeadlinesAndRevocation(t *testing.T) {
 			if err := repo.CreateSession(ctx, s); err != nil {
 				t.Fatal(err)
 			}
-			_, err := repo.Session(ctx, s.Hash, now, time.Hour)
+			_, err := repo.Session(ctx, s.Hash, now, time.Hour, true)
 			if (err == nil) != test.valid {
 				t.Fatal(err)
 			}
@@ -115,7 +115,7 @@ func TestSessionDeadlinesAndRevocation(t *testing.T) {
 	if err := repo.RevokeAll(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.Session(ctx, "valid", now, time.Hour); !errors.Is(err, auth.ErrSession) {
+	if _, err := repo.Session(ctx, "valid", now, time.Hour, true); !errors.Is(err, auth.ErrSession) {
 		t.Fatal(err)
 	}
 }

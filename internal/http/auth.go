@@ -85,7 +85,12 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token := cookieValue(r, h.cookieName)
-	session, err := h.service.Check(r.Context(), token)
+	// La sonde périodique vérifie les échéances sans constituer une activité privée.
+	check := h.service.Check
+	if r.URL.Path == "/api/v1/auth/session" {
+		check = h.service.Inspect
+	}
+	session, err := check(r.Context(), token)
 	authenticated := err == nil
 	if err != nil && !errors.Is(err, auth.ErrSession) {
 		authError(w, r, 503, "authentication_unavailable")
