@@ -2,8 +2,15 @@ name: Docker distribution
 
 on:
   push:
+    branches: [master]
   pull_request:
+    branches: [master]
   workflow_dispatch:
+
+# Annule les anciennes exécutions d'une même PR lors d'un nouveau commit. Les exécutions sur master ne sont jamais annulées.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
