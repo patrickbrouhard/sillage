@@ -1,7 +1,7 @@
 # MCP — lectures locales de Sillage
 
-Cette référence conserve les contrats de l’adapter MCP. Son activation dans le serveur
-est suspendue pendant A1 + A2, jusqu’à la tranche des clés API. Le serveur fournit les données ;
+Cette référence conserve les contrats de l’adapter MCP. Son activation exige une clé Bearer
+gérée depuis le Web ; voir [Clés API](api-keys.md). Le serveur fournit les données ;
 le client choisit les appels et le modèle produit son résumé. Aucune IA ne tourne dans Sillage.
 
 ## Périmètre et assemblage
@@ -14,7 +14,7 @@ et son [transport](https://github.com/modelcontextprotocol/go-sdk/blob/v1.8.0/mc
 définissent les comportements protocolaires utilisés.
 
 L’adapter est conçu pour partager `search.Service`, `video.Service`,
-`transcript.Service` et `note.Service` avec REST ; il n’est actuellement pas assemblé par `cmd/server`.
+`transcript.Service` et `note.Service` avec REST ; il est assemblé par `cmd/server` lorsque MCP est activé.
 Les interfaces de l’adapter ne donnent accès qu’à `Search`, `GetVideo` et aux deux
 lectures `Get`. Il n’appelle jamais REST, `Fetch`, un provider distant ou une écriture.
 Le SDK et les DTO MCP restent hors du cœur applicatif.
@@ -273,15 +273,11 @@ il n’autorise pas l’ajout implicite d’une pagination.
 
 ## Activation et sécurité locale
 
-Le transport distribué est temporairement désactivé sans possibilité de l'activer.
-`SILLAGE_MCP_ENABLED=true` refuse le démarrage et `/mcp` ainsi que ses sous-chemins
-renvoient 404. Il n'existe aucun accès anonyme alternatif à la bibliothèque.
-La [référence de sécurité](security.md) définit la protection Web actuelle.
-
-Les contrôles Host/Origin et limites de l'adapter restent testés isolément. Ils ne
-constituent pas une authentification et ne suffiront pas à réactiver l'intégration.
-Les clés API et permissions feront l'objet d'une tranche dédiée ; les recettes
-agents antérieures ci-dessous décrivent le transport avant cette suspension.
+Le transport est désactivé par défaut. `SILLAGE_MCP_ENABLED=true` active le seul
+endpoint `/mcp` avec authentification Bearer obligatoire. Les sous-chemins restent 404.
+Host/Origin, sessions Web, clés et procédures de révocation sont définis dans
+[Clés API](api-keys.md) et [Sécurité](security.md). Les recettes isolées ci-dessous
+restent des fixtures de protocole ; elles ne prouvent pas l'authentification produit.
 
 ## Compatibilité et validation reproductible
 
@@ -299,8 +295,8 @@ Cela ferme le chemin des lots sans en-tête ; ni gestion de lots ni reconstructi
 JSON-RPC ne sont ajoutées.
 Les schémas annoncés, les formats, les erreurs, les seuils HTTP/résultats,
 la concurrence, les annulations et l’arrêt sont vérifiés sur ce transport.
-Les tests du serveur vérifient le refus d’activation et l’absence de propriétaire ;
-les tests HTTP couvrent la fermeture de la route MCP. Les recettes de l’adapter restent isolées :
+Les tests du serveur vérifient la configuration et l’absence de propriétaire ;
+les tests HTTP couvrent la séparation session/Bearer et la révocation. Les recettes de l’adapter restent isolées :
 
 ```bash
 make test

@@ -35,7 +35,7 @@ sans calendrier arrêté.
 | UX 2 — Confort de l'éditeur | Barre de sélection Markdown et création de lien ; Live Preview ciblé des titres ATX H1–H6 racine et de l’emphase, typographie partagée | Réalisé (trois tranches) |
 | 7 — Médias | Téléchargement et conservation des fichiers, captures PNG, consultation et réinsertion par vidéo | Réalisé |
 | 8 — Recherche globale | FTS5 transactionnel, notes et métadonnées, API et parcours Web paginés | Réalisé |
-| 9 — Première tranche MCP | Quatre lectures sur services partagés | Adapter implémenté ; transport suspendu jusqu’aux clés API |
+| 9 — Première tranche MCP | Quatre lectures sur services partagés | Implémenté ; activation avec clé API de lecture |
 | A3.1 — Provisionnement déclaratif local | JSON, bootstrap et gestion permanente, adoption explicite, rotation et récupération | Réalisé |
 | A3.2 — Authentification OIDC | Politiques déclaratives, identité externe exacte, sessions communes et réauthentification secondaire | Réalisé |
 | A1 + A2 — Authentification Web | Propriétaire local, sessions persistantes, protection REST et continuité de l’éditeur | Réalisé |
@@ -54,7 +54,7 @@ Les contrats actuels figurent dans [Product & UX](01-product-and-ux.md), [Archit
 
 La première tranche expose `search_videos`, `get_video`, `get_transcript` et `get_note`
 dans l’adapter conservé, sans accès direct des agents à SQLite ou aux outils externes.
-Son activation dans le serveur distribué est suspendue jusqu’à l’authentification des intégrations. Les contrats et la recette reproductible vivent dans [MCP](mcp.md).
+Son activation dans le serveur distribué exige une clé API administrée depuis le Web. Les contrats et la recette reproductible vivent dans [MCP](mcp.md).
 
 Des parcours réels Codex sur corpus synthétiques et captions publiques préparées, ainsi
 qu’un déploiement Docker isolé, ont été vérifiés. Restent les essais
@@ -64,7 +64,7 @@ client/contexte. Une troncature client
 
 Suites distinctes, non incluses dans cette livraison :
 
-- clés API et permissions des intégrations MCP ;
+- extensions des permissions au-delà de la lecture MCP ;
 - déploiement homelab : HTTPS, reverse proxy et exposition réseau ;
 - éventuelles écritures MCP, permissions, confirmations et protection des données utilisateur.
 

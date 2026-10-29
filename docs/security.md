@@ -9,11 +9,11 @@ de propriété n'est ajouté aux vidéos et notes existantes.
 A3.2 fournit les politiques explicites `local`, `both` et `oidc`, avec une association
 externe déclarative. Les autorités et procédures de récupération sont décrites dans
 [Configuration](configuration.md). L'administration Web et l'association interactive
-restent réservées à A3.3 ; aucune clé API ni confiance dans un proxy n'est ajoutée.
+restent réservées à A3.3 ; aucune confiance dans un proxy n’est ajoutée.
 
-MCP est temporairement indisponible : `/mcp` et ses sous-chemins renvoient 404.
-`SILLAGE_MCP_ENABLED=true` fait échouer le démarrage. Les adapters et leurs tests
-protocolaires sont conservés pour la tranche des intégrations.
+MCP peut être activé avec une clé Bearer obligatoire. L'administration Web des clés,
+leur indépendance vis-à-vis d'OIDC et la récupération de sécurité sont décrites dans
+[Clés API](api-keys.md). REST conserve exclusivement les sessions et le CSRF.
 
 ## Provisionnement et autorité
 
