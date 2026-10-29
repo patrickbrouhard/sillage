@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { authSnapshot, hasPendingDraft, login, logout, refreshSession, subscribeAuth } from './auth'
+import { authSnapshot, hasPendingDraft, login, logout, refreshSession, subscribeAuth, startOIDC, completeOIDC } from './auth'
 
 /** Conserve le même arbre applicatif pendant les interruptions d'authentification. */
 export function AuthGate({ children }: { children: ReactNode }) {
@@ -23,6 +23,18 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (open && !dialog.current?.open) dialog.current?.showModal()
     else if (!open) dialog.current?.close()
   }, [open])
+  const [callbackMessage, setCallbackMessage] = useState('Vérification de la connexion…')
+  const [secondaryCallback] = useState(() => new URLSearchParams(window.location.search).get('oidc') === 'complete' && sessionStorage.getItem('sillage-oidc-secondary') === 'true')
+  useEffect(() => {
+    if (!secondaryCallback) return
+    void completeOIDC().then(ok => {
+      if (!ok) { setCallbackMessage('Connexion non confirmée. Revenez à votre onglet Sillage pour réessayer.'); return }
+      sessionStorage.removeItem('sillage-oidc-secondary')
+      setCallbackMessage('Connexion confirmée. Vous pouvez fermer cet onglet et revenir à Sillage.')
+      window.close()
+    })
+  }, [secondaryCallback])
+  if (secondaryCallback) return <main><p>{callbackMessage}</p></main>
   return <>
     <div className="auth-shell" inert={open} style={open ? { visibility: 'hidden' } : undefined}>
       {state.mounted && children}
@@ -32,7 +44,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       {state.mounted && <p>Votre brouillon et votre historique sont conservés dans cet onglet. Les accès au serveur sont suspendus.</p>}
       {state.status === 'loading' ? <p>Vérification de la session…</p>
         : state.status === 'unavailable' ? <><p role="alert">{state.message}</p><button className="button" onClick={() => void refreshSession()}>Réessayer</button></>
-        : open ? <LoginForm /> : null}
+        : open ? <>{state.methods !== 'local' && <OIDCLogin secondary={state.mounted} />}{state.methods !== 'oidc' && <LoginForm />}</> : null}
     </dialog>
   </>
 }
@@ -79,4 +91,35 @@ export function SessionMenu() {
     <button className="button" disabled={busy} onClick={() => void leave(true)}>Déconnecter toutes les sessions</button>
     {error && <p role="alert">{error}</p>}
   </details>
+}
+
+/** Ouvre la fenêtre sur le geste utilisateur pour préserver l'éditeur et limiter les blocages du navigateur. */
+function OIDCLogin({ secondary }: { secondary: boolean }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [fallback, setFallback] = useState('')
+  async function connect() {
+    if (busy) return
+    const popup = secondary ? window.open('about:blank', '_blank') : null
+    if (popup) {
+      popup.sessionStorage.setItem('sillage-oidc-secondary', 'true')
+      popup.opener = null
+      popup.document.body.textContent = 'Préparation de la connexion SSO…'
+    }
+    setBusy(true); setError(''); setFallback('')
+    try {
+      const url = await startOIDC()
+      if (!secondary) window.location.assign(url)
+      else if (popup) popup.location.replace(url)
+      else setFallback(url)
+    } catch (cause) {
+      popup?.close()
+      setError(cause instanceof Error ? cause.message : 'Connexion SSO impossible.')
+    } finally { setBusy(false) }
+  }
+  return <div>
+    <button className="button" disabled={busy} onClick={() => void connect()}>{busy ? 'Connexion…' : 'Se connecter avec le SSO'}</button>
+    {error && <p role="alert">{error}</p>}
+    {fallback && <p>La fenêtre a été bloquée. <a href={fallback} target="_blank" rel="noopener noreferrer">Ouvrir la connexion dans un autre onglet</a>, puis revenez ici sans fermer cet onglet.</p>}
+  </div>
 }

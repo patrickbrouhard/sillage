@@ -210,3 +210,88 @@ test('une lecture initiale suspendue ne remplace pas le brouillon après reconne
     await expect(editor).toContainText('Brouillon après reconnexion')
   } finally { release() }
 })
+
+// Le fournisseur est simulé ici ; les signatures et le protocole sont exercés dans les tests Go.
+test('la reconnexion SSO secondaire conserve CodeMirror, la sélection, Undo et Redo', async ({ page }) => {
+  await connect(page)
+  const { editor, writes } = await openEditor(page, 'Texte initial')
+  await editor.press('ControlOrMeta+End')
+  await page.keyboard.insertText(' ajouté')
+  await page.evaluate(() => window.editorProbe.select(2, 7))
+  const before = await selection(editor)
+  const element = await page.locator('.cm-editor').elementHandle()
+  await page.route('**/api/v1/auth/session', async route => {
+    const response = await route.fetch()
+    await route.fulfill({ response, json: { ...await response.json(), methods: 'oidc' } })
+  })
+  await page.route('**/api/v1/auth/oidc/start', route => route.fulfill({ json: { url: 'https://provider.test/authorize' } }))
+  const origin = new URL(page.url()).origin
+  await page.context().route('https://provider.test/authorize', async route => {
+    const state = await (await page.request.get('/api/v1/auth/session')).json()
+    const login = await page.request.post('/api/v1/auth/login', {
+      headers: { 'X-CSRF-Token': state.csrf_token },
+      data: { username: 'test-owner', password: 'sillage test password phrase' },
+    })
+    expect(login.status()).toBe(200)
+    await route.fulfill({ status: 302, headers: { Location: origin + '/?oidc=complete' } })
+  })
+  await revoke(page)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByLabel('Mot de passe', { exact: true })).toHaveCount(0)
+  const popupPromise = page.waitForEvent('popup')
+  await page.getByRole('button', { name: 'Se connecter avec le SSO' }).click()
+  const popup = await popupPromise
+  await expect.poll(() => popup.isClosed()).toBe(true)
+  await expect(page.getByRole('dialog')).not.toBeVisible()
+  expect(await element!.evaluate(node => node.isConnected)).toBe(true)
+  expect(await selection(editor)).toMatchObject(before)
+  await expect.poll(() => writes.at(-1)).toBe('Texte initial ajouté')
+  await editor.focus()
+  await editor.press('ControlOrMeta+z')
+  await expect.poll(() => page.evaluate(() => window.editorProbe.snapshot().doc)).toBe('Texte initial')
+  await editor.press('ControlOrMeta+Shift+z')
+  await expect.poll(() => page.evaluate(() => window.editorProbe.snapshot().doc)).toBe('Texte initial ajouté')
+})
+
+test('une fenêtre SSO bloquée propose un autre onglet sans naviguer dans le brouillon', async ({ page }) => {
+  await connect(page)
+  const { editor } = await openEditor(page, 'Brouillon conservé')
+  await editor.press('ControlOrMeta+End')
+  await page.keyboard.insertText(' ici')
+  const element = await page.locator('.cm-editor').elementHandle()
+  const originalURL = page.url()
+  await page.route('**/api/v1/auth/session', async route => {
+    const response = await route.fetch()
+    await route.fulfill({ response, json: { ...await response.json(), methods: 'oidc' } })
+  })
+  await page.route('**/api/v1/auth/oidc/start', route => route.fulfill({ json: { url: 'https://provider.test/authorize' } }))
+  await page.evaluate(() => { window.open = () => null })
+  await revoke(page)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await page.getByRole('button', { name: 'Se connecter avec le SSO' }).click()
+  const fallback = page.getByRole('link', { name: 'Ouvrir la connexion dans un autre onglet' })
+  await expect(fallback).toHaveAttribute('target', '_blank')
+  expect(page.url()).toBe(originalURL)
+  expect(await element!.evaluate(node => node.isConnected)).toBe(true)
+  expect(await page.evaluate(() => window.editorProbe.snapshot().doc)).toBe('Brouillon conservé ici')
+})
+
+test('une déconnexion volontaire ne relance pas le SSO', async ({ page }) => {
+  await connect(page)
+  let starts = 0
+  await page.route('**/api/v1/auth/session', async route => {
+    const response = await route.fetch()
+    await route.fulfill({ response, json: { ...await response.json(), methods: 'both' } })
+  })
+  await page.route('**/api/v1/auth/oidc/start', route => {
+    starts++
+    return route.fulfill({ status: 503 })
+  })
+  await page.getByRole('button', { name: 'Ouvrir la navigation' }).click()
+  await page.getByText('Session', { exact: true }).click()
+  await page.getByRole('button', { name: 'Se déconnecter', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Connexion à Sillage' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Se connecter avec le SSO' })).toBeVisible()
+  expect(starts).toBe(0)
+})
