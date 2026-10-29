@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -35,10 +36,13 @@ type AuthHandler struct {
 	limiter     *rate.Limiter
 	hashing     chan struct{}
 	next        http.Handler
+	oidc        ExternalIdentity
+	flows       map[string]*oidcFlow
+	flowMu      sync.Mutex
 }
 
 // WithAuthentication protège les données ; seuls le shell statique et les routes de connexion sont publics.
-func WithAuthentication(next http.Handler, service *auth.Service, publicURL string) (http.Handler, error) {
+func WithAuthentication(next http.Handler, service *auth.Service, publicURL string, external ...ExternalIdentity) (http.Handler, error) {
 	u, err := authenticationOrigin(publicURL)
 	if err != nil {
 		return nil, err
@@ -54,6 +58,10 @@ func WithAuthentication(next http.Handler, service *auth.Service, publicURL stri
 		limiter:     rate.NewLimiter(2, 10),
 		hashing:     make(chan struct{}, 2),
 		next:        next,
+		flows:       make(map[string]*oidcFlow),
+	}
+	if len(external) > 0 {
+		h.oidc = external[0]
 	}
 	if h.secure {
 		h.cookieName = "__Host-sillage_session"
@@ -84,6 +92,10 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if r.URL.Path == "/api/v1/auth/oidc/callback" && r.Method == http.MethodGet {
+		h.oidcCallback(w, r)
+		return
+	}
 	token := cookieValue(r, h.cookieName)
 	// La sonde périodique vérifie les échéances sans constituer une activité privée.
 	check := h.service.Check
@@ -105,11 +117,17 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				h.setCookie(w, h.preauthName, token, time.Now().Add(10*time.Minute), 600)
 			}
 		}
-		authJSON(w, map[string]any{"authenticated": authenticated, "csrf_token": csrfToken(token), "expires_at": session.ExpiresAt})
+		policy, err := h.service.Methods(r.Context())
+		if err != nil {
+			authError(w, r, 503, "authentication_unavailable")
+			return
+		}
+		authJSON(w, map[string]any{"methods": policy, "authenticated": authenticated, "csrf_token": csrfToken(token), "expires_at": session.ExpiresAt})
 		return
 	}
+	startOIDC := r.URL.Path == "/api/v1/auth/oidc/start" && r.Method == http.MethodPost
 	login := r.URL.Path == "/api/v1/auth/login" && r.Method == http.MethodPost
-	if !authenticated && !login {
+	if !authenticated && !login && !startOIDC {
 		authError(w, r, 401, "authentication_required")
 		return
 	}
@@ -131,9 +149,17 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	switch {
+	case startOIDC:
+		h.oidcStart(w, r)
 	case login:
 		h.login(w, r, token)
 	case r.URL.Path == "/api/v1/auth/logout" && r.Method == http.MethodPost:
+		h.flowMu.Lock()
+		defer h.flowMu.Unlock()
+		if err := h.cancelFlows(r); err != nil {
+			authError(w, r, 503, "authentication_unavailable")
+			return
+		}
 		if err := h.service.Logout(r.Context(), token); err != nil {
 			authError(w, r, 503, "authentication_unavailable")
 			return
@@ -141,6 +167,12 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.setCookie(w, h.cookieName, "", time.Unix(1, 0), -1)
 		w.WriteHeader(http.StatusNoContent)
 	case r.URL.Path == "/api/v1/auth/logout-all" && r.Method == http.MethodPost:
+		h.flowMu.Lock()
+		defer h.flowMu.Unlock()
+		if err := h.cancelFlows(r); err != nil {
+			authError(w, r, 503, "authentication_unavailable")
+			return
+		}
 		if err := h.service.LogoutAll(r.Context()); err != nil {
 			authError(w, r, 503, "authentication_unavailable")
 			return

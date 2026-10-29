@@ -60,3 +60,45 @@ func TestProvisionConfiguration(t *testing.T) {
 		t.Fatal("explicit empty path accepted")
 	}
 }
+
+func TestOIDCDeclarationOfflineAndPolicies(t *testing.T) {
+	clearConfig(t)
+	root := t.TempDir()
+	path := filepath.Join(root, "sillage.json")
+	if err := os.WriteFile(filepath.Join(root, "client-secret"), []byte("technical-secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SILLAGE_CONFIG_FILE", path)
+	valid := `{"version":1,"owner":{"mode":"bootstrap","username":"owner"},"authentication":{"policy":"oidc","oidc":{"issuer":"https://unreachable.invalid","subject":"exact-subject","client_id":"sillage","client_secret_file":"client-secret"}}}`
+	if err := os.WriteFile(path, []byte(valid), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatal("configuration contacted provider or required local password", err)
+	}
+	if cfg.oidcProvider == nil || cfg.provisioning.Authentication.Policy != "oidc" || cfg.provisioning.Password != "" {
+		t.Fatal("invalid policy")
+	}
+	for _, input := range []string{
+		strings.Replace(valid, `"policy":"oidc"`, `"policy":"both"`, 1),
+		strings.Replace(valid, `"policy":"oidc"`, `"policy":"local"`, 1),
+		strings.Replace(valid, `"policy":"oidc"`, `"policy":"automatic"`, 1),
+		strings.Replace(valid, `"policy":"oidc",`, "", 1),
+		strings.Replace(valid, `https://unreachable.invalid`, `http://unreachable.invalid`, 1),
+		strings.Replace(valid, `"subject":"exact-subject"`, `"subject":""`, 1),
+		strings.Replace(valid, `"client_secret_file":"client-secret"`, `"client_secret_file":"missing-private-file"`, 1),
+		strings.Replace(valid, `"client_id":"sillage"`, `"client_id":"sillage","client_id":"other"`, 1),
+	} {
+		if err := os.WriteFile(path, []byte(input), 0600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := loadConfig()
+		if err == nil {
+			t.Fatal("invalid declaration accepted")
+		}
+		if strings.Contains(err.Error(), "private-file") || strings.Contains(err.Error(), "technical-secret") {
+			t.Fatal("sensitive diagnostic")
+		}
+	}
+}

@@ -19,10 +19,30 @@ func (r *AuthRepository) ConfigureOwner(ctx context.Context, owner auth.Owner, e
 	defer tx.Rollback()
 	if expectedVersion == 0 {
 		result, err := tx.ExecContext(ctx, `
-   INSERT INTO owner (id, username, password_hash, version, managed, auth_policy, auth_managed, oidc_issuer, oidc_subject, oidc_client_id)
+   INSERT INTO owner (
+       id,
+       username,
+       password_hash,
+       version,
+       managed,
+       auth_policy,
+       auth_managed,
+       oidc_issuer,
+       oidc_subject,
+       oidc_client_id
+   )
    VALUES (1, ?, ?, 1, ?, ?, ?, ?, ?, ?)
    ON CONFLICT(id) DO NOTHING
-  `, owner.Username, owner.PasswordHash, owner.Managed, owner.Authentication.Policy, owner.Authentication.Managed, owner.Authentication.Issuer, owner.Authentication.Subject, owner.Authentication.ClientID)
+  `,
+			owner.Username,
+			owner.PasswordHash,
+			owner.Managed,
+			owner.Authentication.Policy,
+			owner.Authentication.Managed,
+			owner.Authentication.Issuer,
+			owner.Authentication.Subject,
+			owner.Authentication.ClientID,
+		)
 		if err != nil {
 			return err
 		}
@@ -42,10 +62,24 @@ func (r *AuthRepository) ConfigureOwner(ctx context.Context, owner auth.Owner, e
        password_hash,
        version,
        managed,
-       auth_policy, auth_managed, oidc_issuer, oidc_subject, oidc_client_id
+       auth_policy,
+       auth_managed,
+       oidc_issuer,
+       oidc_subject,
+       oidc_client_id
    FROM owner
    WHERE id = 1
-  `).Scan(&current.Username, &current.PasswordHash, &current.Version, &current.Managed, &current.Authentication.Policy, &current.Authentication.Managed, &current.Authentication.Issuer, &current.Authentication.Subject, &current.Authentication.ClientID)
+  `).Scan(
+			&current.Username,
+			&current.PasswordHash,
+			&current.Version,
+			&current.Managed,
+			&current.Authentication.Policy,
+			&current.Authentication.Managed,
+			&current.Authentication.Issuer,
+			&current.Authentication.Subject,
+			&current.Authentication.ClientID,
+		)
 		if err != nil {
 			return err
 		}
@@ -60,10 +94,24 @@ func (r *AuthRepository) ConfigureOwner(ctx context.Context, owner auth.Owner, e
    SET username = ?,
        password_hash = ?,
        managed = ?,
-       auth_policy = ?, auth_managed = ?, oidc_issuer = ?, oidc_subject = ?, oidc_client_id = ?,
+       auth_policy = ?,
+       auth_managed = ?,
+       oidc_issuer = ?,
+       oidc_subject = ?,
+       oidc_client_id = ?,
        version = version + 1
    WHERE id = 1 AND version = ?
-  `, owner.Username, owner.PasswordHash, owner.Managed, owner.Authentication.Policy, owner.Authentication.Managed, owner.Authentication.Issuer, owner.Authentication.Subject, owner.Authentication.ClientID, expectedVersion)
+  `,
+			owner.Username,
+			owner.PasswordHash,
+			owner.Managed,
+			owner.Authentication.Policy,
+			owner.Authentication.Managed,
+			owner.Authentication.Issuer,
+			owner.Authentication.Subject,
+			owner.Authentication.ClientID,
+			expectedVersion,
+		)
 		if err != nil {
 			return err
 		}
