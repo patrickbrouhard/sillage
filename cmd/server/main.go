@@ -18,6 +18,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 
 	"encoding/json"
+	mcpa "github.com/patrickbrouhard/sillage/internal/adapter/mcp"
 	externaloidc "github.com/patrickbrouhard/sillage/internal/adapter/oidc"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
@@ -90,9 +91,7 @@ func loadConfig() (config, error) {
 		}
 		cfg.mcpEnabled = enabled
 	}
-	if cfg.mcpEnabled {
-		return config{}, fmt.Errorf("MCP is temporarily disabled until integration authentication is available")
-	}
+
 	cfg.publicURL = os.Getenv("SILLAGE_PUBLIC_URL")
 	if cfg.publicURL == "" {
 		_, port, _ := net.SplitHostPort(cfg.addr)
@@ -144,6 +143,13 @@ func main() {
 
 func runMain() error {
 	if len(os.Args) > 1 {
+		if os.Args[1] == "security-reset" {
+			err := runSecurityReset()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			return err
+		}
 		if os.Args[1] == "owner" {
 			err := runOwner(os.Args[2:])
 			if err != nil {
@@ -218,9 +224,7 @@ func run(ctx context.Context, cfg config) (result error) {
 		return err
 	}
 	defer db.Close()
-	if cfg.mcpEnabled {
-		return fmt.Errorf("MCP is temporarily disabled")
-	}
+
 	phase = "authentication"
 	identity := auth.NewService(sqlite.NewAuthRepository(db), cfg.sessionLifetime, cfg.sessionIdle)
 	provisionErr := identity.Provision(ctx, cfg.provisioning)
@@ -275,7 +279,16 @@ func run(ctx context.Context, cfg config) (result error) {
 		captures,
 	)
 	handler = api.WithSearch(handler, searches)
-	handler = api.WithMCP(handler, nil)
+	var transport http.Handler
+	if cfg.mcpEnabled {
+		mcp, err := mcpa.New(ctx, mcpa.Readers{Search: searches, Videos: service, Transcripts: transcripts, Notes: notes}, []string{publicURL})
+		if err != nil {
+			return err
+		}
+		defer mcp.Close()
+		transport = mcp
+	}
+	handler = api.WithMCP(handler, transport)
 	// Le build est facultatif pour garder le lancement API seul indépendant de Node.
 	phase = "frontend"
 	if cfg.webDir != "" {
@@ -297,6 +310,7 @@ func run(ctx context.Context, cfg config) (result error) {
 	if err != nil {
 		return err
 	}
+	handler = api.WithAPIKeys(handler, auth.NewAPIKeys(sqlite.NewAuthRepository(db), cfg.sessionIdle), cfg.mcpEnabled)
 	server := newHTTPServer(cfg.addr, api.WithLogging(logging.From(ctx), handler))
 	server.ErrorLog = api.ServerErrorLog(logger)
 	server.BaseContext = func(net.Listener) context.Context { return ctx }

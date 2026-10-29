@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -26,6 +27,8 @@ import (
 
 // AuthHandler applique les sessions et le CSRF à toutes les routes privées.
 type AuthHandler struct {
+	mcpEnabled  bool
+	keyRequests chan struct{}
 	service     *auth.Service
 	origin      string
 	host        string
@@ -36,6 +39,7 @@ type AuthHandler struct {
 	limiter     *rate.Limiter
 	hashing     chan struct{}
 	next        http.Handler
+	keys        *auth.APIKeys
 	oidc        ExternalIdentity
 	flows       map[string]*oidcFlow
 	flowMu      sync.Mutex
@@ -89,7 +93,40 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store, private")
 	if r.URL.Path == "/mcp" || strings.HasPrefix(r.URL.Path, "/mcp/") {
-		http.NotFound(w, r)
+		if h.keys == nil || !h.mcpEnabled || r.URL.Path != "/mcp" {
+			http.NotFound(w, r)
+			return
+		}
+		select {
+		case h.keyRequests <- struct{}{}:
+			defer func() { <-h.keyRequests }()
+		default:
+			authError(w, r, 503, "authentication_unavailable")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		values := r.Header.Values("Authorization")
+		if len(values) != 1 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			authError(w, r, 401, "authentication_required")
+			return
+		}
+		parts := strings.Fields(values[0])
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			authError(w, r, 401, "authentication_required")
+			return
+		}
+		if err := h.keys.Check(ctx, parts[1]); err != nil {
+			if errors.Is(err, auth.ErrAPIKey) {
+				w.Header().Set("WWW-Authenticate", "Bearer")
+				authError(w, r, 401, "authentication_required")
+			} else {
+				authError(w, r, 503, "authentication_unavailable")
+			}
+			return
+		}
+		h.next.ServeHTTP(w, r)
 		return
 	}
 	if r.URL.Path == "/api/v1/auth/oidc/callback" && r.Method == http.MethodGet {
@@ -147,6 +184,10 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			authError(w, r, 403, "csrf_invalid")
 			return
 		}
+	}
+	if h.keys != nil && (r.URL.Path == "/api/v1/api-keys" || strings.HasPrefix(r.URL.Path, "/api/v1/api-keys/")) {
+		h.serveKeys(w, r, session.Hash)
+		return
 	}
 	switch {
 	case startOIDC:
@@ -306,4 +347,83 @@ func authenticationOrigin(publicURL string) (*url.URL, error) {
 		return nil, errors.New("invalid SILLAGE_PUBLIC_URL: expected an HTTP(S) origin")
 	}
 	return u, nil
+}
+
+// WithAPIKeys active l'administration par session et l'accès MCP par Bearer.
+func WithAPIKeys(handler http.Handler, keys *auth.APIKeys, mcpEnabled bool) http.Handler {
+	handler.(*AuthHandler).mcpEnabled = mcpEnabled
+	handler.(*AuthHandler).keyRequests = make(chan struct{}, 4)
+	handler.(*AuthHandler).keys = keys
+	return handler
+}
+
+// serveKeys reste derrière les contrôles communs de session, origine et CSRF.
+func (h *AuthHandler) serveKeys(w http.ResponseWriter, r *http.Request, sessionHash string) {
+	requestlog.Route(r, "/api/v1/api-keys")
+	path := r.URL.Path
+	var err error
+	switch {
+	case path == "/api/v1/api-keys" && r.Method == http.MethodGet:
+		var keys []auth.APIKey
+		keys, err = h.keys.List(r.Context())
+		if err == nil {
+			authJSON(w, keys)
+			return
+		}
+	case path == "/api/v1/api-keys" && r.Method == http.MethodPost:
+		var input struct {
+			Name      string     `json:"name"`
+			ExpiresAt *time.Time `json:"expires_at"`
+		}
+		kind, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if kind != "application/json" {
+			authError(w, r, 415, "invalid_content_type")
+			return
+		}
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&input) != nil || decoder.Decode(new(any)) != io.EOF {
+			authError(w, r, 400, "invalid_key")
+			return
+		}
+		var key auth.APIKey
+		var secret string
+		key, secret, err = h.keys.Create(r.Context(), sessionHash, input.Name, input.ExpiresAt)
+		if err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(201)
+			authJSON(w, struct {
+				Key    auth.APIKey `json:"key"`
+				Secret string      `json:"secret"`
+			}{key, secret})
+			return
+		}
+	case path == "/api/v1/api-keys/revoke-all" && r.Method == http.MethodPost:
+		err = h.keys.RevokeAll(r.Context())
+		if err == nil {
+			w.WriteHeader(204)
+			return
+		}
+	case strings.HasPrefix(path, "/api/v1/api-keys/") && r.Method == http.MethodDelete:
+		id := strings.TrimPrefix(path, "/api/v1/api-keys/")
+		if id == "" || strings.Contains(id, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		err = h.keys.Revoke(r.Context(), id)
+		if err == nil {
+			w.WriteHeader(204)
+			return
+		}
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	if errors.Is(err, auth.ErrSession) {
+		authError(w, r, 401, "authentication_required")
+	} else if errors.Is(err, auth.ErrKeyInput) {
+		authError(w, r, 400, "invalid_key")
+	} else {
+		authError(w, r, 503, "authentication_unavailable")
+	}
 }

@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-func TestMCPTemporarilyUnavailable(t *testing.T) {
+func TestMCPActivationConfiguration(t *testing.T) {
 	clearConfig(t)
 	t.Setenv("SILLAGE_MCP_ENABLED", "true")
-	if _, err := loadConfig(); err == nil || !strings.Contains(err.Error(), "temporarily disabled") {
+	if _, err := loadConfig(); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("SILLAGE_MCP_ENABLED", "invalid")
