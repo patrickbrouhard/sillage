@@ -96,7 +96,7 @@ modifier le délai d'inactivité s'applique aux vérifications suivantes.
 Compose calcule l'origine locale à partir de `SILLAGE_PORT`. Avec Vite :
 
 ```bash
-SILLAGE_PUBLIC_URL=http://127.0.0.1:5173 make dev-api
+make dev-api
 # Autre terminal :
 make web-dev
 ```

@@ -273,8 +273,8 @@ il n’autorise pas l’ajout implicite d’une pagination.
 
 ## Activation et sécurité locale
 
-Le transport est désactivé par défaut. `SILLAGE_MCP_ENABLED=true` active le seul
-endpoint `/mcp` avec authentification Bearer obligatoire. Les sous-chemins restent 404.
+Le transport est actif par défaut sur le seul endpoint `/mcp`, avec authentification
+Bearer obligatoire. `SILLAGE_MCP_ENABLED=false` le désactive (404). Les sous-chemins restent 404.
 Host/Origin, sessions Web, clés et procédures de révocation sont définis dans
 [Clés API](api-keys.md) et [Sécurité](security.md). Les recettes isolées ci-dessous
 restent des fixtures de protocole ; elles ne prouvent pas l'authentification produit.

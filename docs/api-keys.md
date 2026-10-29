@@ -44,8 +44,8 @@ sans reprendre les données déjà envoyées ni annuler une lecture déjà autor
 
 ## Activation MCP
 
-`SILLAGE_MCP_ENABLED=true` active `/mcp` avec Bearer obligatoire. Le défaut reste false
-et renvoie 404. Les sous-chemins restent inexistants. Un cookie Web seul est refusé.
+MCP est actif par défaut sur `/mcp`, avec Bearer obligatoire.
+`SILLAGE_MCP_ENABLED=false` désactive le transport et renvoie 404. Les sous-chemins restent inexistants. Un cookie Web seul est refusé.
 Les contrôles Host/Origin utilisent l'origine canonique `SILLAGE_PUBLIC_URL` : HTTP
 loopback ou HTTPS explicitement configuré. Aucun en-tête de proxy ne fait autorité.
 La terminaison TLS et l'exposition homelab ne sont pas fournies par cette tranche.
@@ -61,10 +61,14 @@ bearer_token_env_var = "SILLAGE_MCP_TOKEN"
 En développement avec Vite :
 
 ```bash
-SILLAGE_PUBLIC_URL=http://127.0.0.1:5173 SILLAGE_MCP_ENABLED=true make dev-api
+make dev-api
 # Dans un autre terminal :
 make web-dev
 ```
+
+`make dev-api` utilise par défaut `SILLAGE_PUBLIC_URL=http://127.0.0.1:5173`.
+Une variable d’environnement explicitement définie conserve sa valeur. Le binaire
+lancé directement conserve son défaut propre ; le Makefile ne charge pas `.env`.
 
 Configurer le client MCP sur `http://127.0.0.1:5173/mcp`. Vite relaie `/mcp` et
 ses sous-chemins vers Go en conservant Host et Origin, comme pour REST. L'accès direct

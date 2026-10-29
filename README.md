@@ -104,7 +104,7 @@ Démarrer deux terminaux depuis la racine :
 
 ```bash
 # Terminal 1 : API Go
-SILLAGE_PUBLIC_URL=http://127.0.0.1:5173 make dev-api
+make dev-api
 ```
 
 ```bash
@@ -121,7 +121,7 @@ Ouvrir <http://127.0.0.1:5173>. Vite relaie les requêtes `/api` vers le serveur
 | `SILLAGE_CONFIG_FILE` | Non défini | Fichier JSON de provisionnement local ; voir [Configuration](docs/configuration.md) |
 | `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` | Adresse d'écoute HTTP |
 | `SILLAGE_WEB_DIR` | Non défini | Répertoire du build Web à servir ; sinon API seule |
-| `SILLAGE_MCP_ENABLED` | `false` | Active MCP avec Bearer obligatoire |
+| `SILLAGE_MCP_ENABLED` | `true` | MCP avec Bearer obligatoire ; `false` désactive le transport |
 | `SILLAGE_PUBLIC_URL` | `http://127.0.0.1:PORT` | Origine canonique du navigateur et politique de cookies |
 | `SILLAGE_SESSION_LIFETIME` | `12h` | Durée absolue des nouvelles sessions |
 | `SILLAGE_SESSION_IDLE_TIMEOUT` | `1h` | Délai sans requête authentifiée |
@@ -139,7 +139,8 @@ Le propriétaire et les sessions sont conservés dans SQLite. En administration 
 sessions. Le menu Navigation > Session permet la déconnexion du navigateur ou de toutes
 les sessions. Une reconnexion conserve la note en cours dans l'onglet.
 
-`SILLAGE_MCP_ENABLED=true` active `/mcp` avec Bearer obligatoire.
+MCP est actif par défaut sur `/mcp` avec Bearer obligatoire ;
+`SILLAGE_MCP_ENABLED=false` le désactive.
 Voir [Clés API](docs/api-keys.md) pour l’administration Web et la récupération.
 Les contrats de l'adapter sont conservés dans [MCP](docs/mcp.md).
 Les commandes, cookies, CSRF, durées et limites sont détaillés dans [Sécurité](docs/security.md).

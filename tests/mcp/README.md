@@ -1,9 +1,10 @@
 # Validation avec agents MCP
 
-> L'activation MCP du serveur distribué est suspendue depuis l'authentification Web.
-> Les recettes agents et de déploiement ci-dessous décrivent le transport antérieur ;
-> elles ne sont pas exécutables avec `SILLAGE_MCP_ENABLED=true` dans cette tranche.
-> Les tests isolés de l'adapter restent disponibles. Voir [Sécurité](../../docs/security.md).
+> MCP est actif par défaut dans le serveur distribué et exige une clé Bearer.
+> Les essais agents historiques ci-dessous portent sur des fixtures isolées sans
+> authentification. Ils ne prouvent pas une connexion Codex CLI authentifiée.
+> Voir la section de validation de l'authentification en fin de document et
+> [Clés API](../../docs/api-keys.md) pour le parcours actuel.
 
 
 Référence des contrats et procédure : [docs/mcp.md](../../docs/mcp.md#compatibilité-et-validation-reproductible).

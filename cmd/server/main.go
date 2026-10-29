@@ -52,7 +52,7 @@ type config struct {
 }
 
 func loadConfig() (config, error) {
-	cfg := config{addr: "127.0.0.1:8080", postTimeout: 60 * time.Second, downloadTimeout: 6 * time.Hour}
+	cfg := config{mcpEnabled: true, addr: "127.0.0.1:8080", postTimeout: 60 * time.Second, downloadTimeout: 6 * time.Hour}
 	cfg.logLevel, cfg.logFormat = "INFO", "text"
 	if value, ok := os.LookupEnv("SILLAGE_LOG_LEVEL"); ok {
 		cfg.logLevel = value
