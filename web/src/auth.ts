@@ -11,6 +11,8 @@ let state: AuthState = { status: 'loading', methods: 'local', mounted: false, cs
 const listeners = new Set<() => void>()
 const pendingNotes = new Set<() => boolean>()
 let epoch = 0
+/** Identifie les changements de connexion pour écarter les secrets tardifs. */
+export const authEpoch = () => epoch
 let refreshing: Promise<void> | null = null
 const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('sillage-auth')
 

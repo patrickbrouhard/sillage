@@ -58,6 +58,7 @@ export function SiteNavigation() {
         <Link to="/tags" aria-current={location.pathname === '/tags' ? 'page' : undefined} onClick={close}>Tags</Link>
         <Link to="/videos/new" aria-current={location.pathname === '/videos/new' ? 'page' : undefined} onClick={close}>Ajouter une vidéo</Link>
       </nav>
+      <Link to="/settings/api-keys" onClick={close}>Paramètres · Clés API</Link>
       <SessionMenu />
       <ThemeSelector />
     </dialog>
