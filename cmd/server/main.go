@@ -11,11 +11,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 
+	"encoding/json"
+	externaloidc "github.com/patrickbrouhard/sillage/internal/adapter/oidc"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
 	"github.com/patrickbrouhard/sillage/internal/asset"
@@ -34,6 +37,7 @@ const databasePath = "data/sillage.db"
 
 type config struct {
 	provisioning    *auth.Provisioning
+	oidcProvider    *externaloidc.Provider
 	publicURL       string
 	sessionLifetime time.Duration
 	sessionIdle     time.Duration
@@ -114,11 +118,21 @@ func loadConfig() (config, error) {
 	if err := api.ValidatePublicURL(cfg.publicURL); err != nil {
 		return config{}, err
 	}
-	desired, err := loadProvisioningEnv()
-	cfg.provisioning = desired
-	if err != nil {
-		return config{}, err
+	if path, present := os.LookupEnv("SILLAGE_CONFIG_FILE"); present {
+		if path == "" {
+			return config{}, errProvisionConfig
+		}
+		desired, err := readProvisioning(path, func(p *auth.Provisioning, root map[string]json.RawMessage) error {
+			var err error
+			cfg.oidcProvider, err = loadOIDCConfig(p, strings.TrimSuffix(cfg.publicURL, "/"), path, root)
+			return err
+		})
+		if err != nil {
+			return config{}, err
+		}
+		cfg.provisioning = desired
 	}
+
 	return cfg, nil
 }
 
@@ -182,6 +196,9 @@ func run(ctx context.Context, cfg config) (result error) {
 		if err := cfg.provisioning.Validate(); err != nil {
 			return err
 		}
+	}
+	if cfg.provisioning != nil && cfg.provisioning.Authentication != nil && cfg.provisioning.Authentication.Policy != "local" && cfg.oidcProvider == nil {
+		return errProvisionConfig
 	}
 	phase = "database"
 	logger.InfoContext(ctx, "Server starting", "event", "server.starting")
@@ -272,7 +289,11 @@ func run(ctx context.Context, cfg config) (result error) {
 			return err
 		}
 	}
-	handler, err = api.WithAuthentication(handler, identity, publicURL)
+	var external []api.ExternalIdentity
+	if cfg.oidcProvider != nil {
+		external = append(external, cfg.oidcProvider)
+	}
+	handler, err = api.WithAuthentication(handler, identity, publicURL, external...)
 	if err != nil {
 		return err
 	}

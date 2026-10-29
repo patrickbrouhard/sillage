@@ -12,7 +12,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/auth"
 )
 
-var errProvisionConfig = errors.New("invalid declarative configuration: expected version 1 and owner {mode, username, password_file, adopt_existing?}")
+var errProvisionConfig = errors.New("invalid declarative configuration: expected version 1, owner and optional authentication policy")
 
 // loadProvisioningEnv distingue l'absence volontaire d'un chemin déclaré mais inutilisable.
 func loadProvisioningEnv() (*auth.Provisioning, error) {
@@ -28,6 +28,11 @@ func loadProvisioningEnv() (*auth.Provisioning, error) {
 
 // loadProvisioning borne le document ; les diagnostics n'incluent ni chemin ni valeur fournie.
 func loadProvisioning(path string) (*auth.Provisioning, error) {
+	return readProvisioning(path, nil)
+}
+
+// readProvisioning partage une seule lecture validée avec le chargement du fournisseur.
+func readProvisioning(path string, inspect func(*auth.Provisioning, map[string]json.RawMessage) error) (*auth.Provisioning, error) {
 	info, err := os.Stat(path)
 	if err != nil || !info.Mode().IsRegular() {
 		return nil, errProvisionConfig
@@ -41,7 +46,7 @@ func loadProvisioning(path string) (*auth.Provisioning, error) {
 	if err != nil || len(data) > 16384 || !utf8.Valid(data) {
 		return nil, errProvisionConfig
 	}
-	root, err := configObject(data, "version", "owner")
+	root, err := configObject(data, "version", "owner", "authentication")
 	if err != nil {
 		return nil, err
 	}
@@ -56,27 +61,57 @@ func loadProvisioning(path string) (*auth.Provisioning, error) {
 	var mode, username, secretPath string
 	var adopt bool
 	if json.Unmarshal(fields["mode"], &mode) != nil ||
-		json.Unmarshal(fields["username"], &username) != nil ||
-		json.Unmarshal(fields["password_file"], &secretPath) != nil ||
-		secretPath == "" {
+		json.Unmarshal(fields["username"], &username) != nil {
 		return nil, errProvisionConfig
 	}
 	if value, ok := fields["adopt_existing"]; ok && json.Unmarshal(value, &adopt) != nil {
 		return nil, errProvisionConfig
 	}
-	if mode != "managed" && mode != "bootstrap" || (adopt && mode != "managed") {
+	if mode != "managed" && mode != "bootstrap" {
 		return nil, errProvisionConfig
 	}
-	if !filepath.IsAbs(secretPath) {
-		secretPath = filepath.Join(filepath.Dir(path), secretPath)
-	}
-	password, err := readPasswordFile(secretPath)
-	if err != nil {
-		return nil, err
+	var password string
+	if value, ok := fields["password_file"]; ok {
+		if json.Unmarshal(value, &secretPath) != nil || secretPath == "" {
+			return nil, errProvisionConfig
+		}
+		if !filepath.IsAbs(secretPath) {
+			secretPath = filepath.Join(filepath.Dir(path), secretPath)
+		}
+		password, err = readPasswordFile(secretPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 	desired := &auth.Provisioning{Mode: mode, Username: username, Password: password, AdoptExisting: adopt}
+	if value, ok := root["authentication"]; ok {
+		fields, err := configObject(value, "policy", "oidc")
+		if err != nil {
+			return nil, err
+		}
+		a := &auth.Authentication{Managed: true}
+		if json.Unmarshal(fields["policy"], &a.Policy) != nil {
+			return nil, errProvisionConfig
+		}
+		if value, ok := fields["oidc"]; ok {
+			oidc, err := configObject(value, "issuer", "subject", "client_id", "client_secret_file")
+			if err != nil {
+				return nil, err
+			}
+			if json.Unmarshal(oidc["issuer"], &a.Issuer) != nil || json.Unmarshal(oidc["subject"], &a.Subject) != nil || json.Unmarshal(oidc["client_id"], &a.ClientID) != nil {
+				return nil, errProvisionConfig
+			}
+		}
+		desired.Authentication = a
+	}
+
 	if err := desired.Validate(); err != nil {
 		return nil, err
+	}
+	if inspect != nil {
+		if err := inspect(desired, root); err != nil {
+			return nil, err
+		}
 	}
 	return desired, nil
 }

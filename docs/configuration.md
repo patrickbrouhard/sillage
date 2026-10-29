@@ -1,4 +1,4 @@
-# Configuration et provisionnement déclaratifs locaux — A3.1
+# Configuration déclarative et authentification
 
 Sillage peut démarrer une bibliothèque neuve sans commande interactive. Le propriétaire
 reste unique ; un changement d'identifiant ne crée ni bibliothèque ni nouvel utilisateur.
@@ -8,7 +8,7 @@ La [sécurité Web](security.md) conserve les contrats de session, CSRF et prote
 
 - Les variables opérationnelles existantes règlent l'écoute, l'origine publique, les logs
   et les délais. Elles ne contiennent pas le mot de passe.
-- `SILLAGE_CONFIG_FILE` désigne un fichier JSON de provisionnement local. Absente, cette
+- `SILLAGE_CONFIG_FILE` désigne un fichier JSON de provisionnement et d’authentification. Absente, cette
   variable conserve le parcours local historique. Présente mais vide, elle est invalide.
 - SQLite conserve le propriétaire, son vérificateur Argon2id, son statut d'administration,
   sa génération, les sessions et la bibliothèque. Le mot de passe clair n'y est pas stocké.
@@ -31,13 +31,15 @@ ensemble sur l'identifiant et le secret local.
 }
 ```
 
-`version`, `owner` et ses trois champs ci-dessus sont obligatoires.
-Le seul champ facultatif est `owner.adopt_existing`, booléen. Sa valeur `true` est
-réservée au mode `managed`. Aucun mot de passe littéral n'est admis dans le document.
+`version`, `owner`, `owner.mode` et `owner.username` sont obligatoires.
+`owner.password_file` est obligatoire pour `local` et `both`, facultatif pour `oidc`.
+`owner.adopt_existing` autorise explicitement l'adoption d'une installation existante :
+identifiants locaux en `managed`, ou première autorité d'authentification déclarée.
+Aucun secret littéral n'est admis dans le document.
 
 Le fichier JSON doit être régulier, en UTF-8, et ne pas dépasser 16 Kio. Champs inconnus,
 doublons, variantes de casse, valeurs nulles, documents concaténés et versions inconnues
-sont refusés. Les sections OIDC, clés API et administration Web ne sont pas disponibles.
+sont refusés. Les clés API et l’administration Web ne sont pas disponibles.
 
 Le chemin du secret est absolu ou relatif au répertoire du JSON, jamais au répertoire
 de données. Sa cible doit être un fichier régulier lisible par l'utilisateur du serveur ;
@@ -64,10 +66,14 @@ Le serveur conserve uniquement le vérificateur salé dans SQLite.
 | Configuration retirée | Administration locale conservée | Démarrage refusé |
 | Récupération locale | `owner recover` reste disponible | Réparer la déclaration ou libérer explicitement l'autorité |
 
+Ce tableau concerne l’autorité des identifiants locaux. Un bloc `authentication` adopté
+reste administré indépendamment, y compris avec un bootstrap ; son retrait exige une
+récupération explicite.
+
 `managed` est recommandé pour les déploiements reproductibles. Une déclaration inchangée
 ne réécrit pas le vérificateur et ne révoque pas les sessions, même après redémarrage.
 
-En `bootstrap`, le fichier reste validé et le secret reste requis tant que la déclaration
+En `bootstrap`, le fichier reste validé et tout secret déclaré reste requis tant que la déclaration
 est présente. Une fois le propriétaire créé, on peut retirer `SILLAGE_CONFIG_FILE` et
 le fichier de bootstrap. Un identifiant différent de celui déjà installé est refusé ;
 le bootstrap n'est pas une commande de renommage ou de récupération.
@@ -181,3 +187,85 @@ vérification de la configuration.
 Aucune administration Web, politique OIDC, association SSO, clé API ou permission MCP
 n'est ajoutée. Le statut d'administration ne modifie pas l'identité interne unique ;
 les futures méthodes de connexion pourront réutiliser les mêmes sessions.
+
+## Authentification OIDC — A3.2
+
+Deux autorités restent indépendantes : `owner.mode` gouverne les identifiants locaux ;
+le bloc `authentication` gouverne durablement la politique et l'identité OIDC autorisée.
+La présence de ce bloc fait autorité, même avec `owner.mode: bootstrap`. Le retirer après
+adoption fait échouer le démarrage : le défaut historique `local` ne réactive jamais
+une méthode précédemment désactivée. Son contenu sensible est conservé dans SQLite,
+sans le secret client. L'identité applicative et la bibliothèque restent inchangées.
+
+Exemple OIDC seul, sans mot de passe local :
+
+```json
+{
+  "version": 1,
+  "owner": { "mode": "managed", "username": "proprietaire" },
+  "authentication": {
+    "policy": "oidc",
+    "oidc": {
+      "issuer": "https://auth.example.net",
+      "subject": "sujet-exact-fourni-par-le-fournisseur",
+      "client_id": "sillage",
+      "client_secret_file": "oidc-client-secret"
+    }
+  }
+}
+```
+
+| Politique | Connexion locale | OIDC | Paramètres requis |
+| --- | --- | --- | --- |
+| `local` | Oui | Non | Mot de passe ; aucun fournisseur |
+| `both` | Oui | Oui | Mot de passe et bloc `oidc` complet |
+| `oidc` | Non, même si un ancien hash subsiste | Oui | Bloc `oidc` complet ; mot de passe facultatif |
+
+Sans bloc `authentication`, une installation historique reste locale. Une première adoption
+sur une base existante exige `owner.adopt_existing: true`. Un bootstrap conserve le secret
+local existant ; `managed` applique sa suppression si `password_file` est omis en mode `oidc`.
+La politique est contrôlée côté serveur, indépendamment des boutons affichés.
+
+Préparer auprès du fournisseur un client confidentiel utilisant Authorization Code,
+PKCE S256 et le scope `openid`. Enregistrer exactement la callback
+`SILLAGE_PUBLIC_URL/api/v1/auth/oidc/callback` (sans doubler le slash).
+Pour Authelia, déclarer ce client et cette URI, puis fournir le **subject réellement émis
+pour ce client** : ni l'adresse e-mail ni le nom de connexion ne sont des substituts.
+Un sujet pairwise peut changer avec le client. Aucun compte externe n'est adopté
+sur la seule base d'un premier login. L'association interactive relève d'A3.3.
+
+L'issuer et les endpoints de découverte, de jetons et de clés doivent utiliser HTTPS
+avec des certificats reconnus par le serveur. L'URL publique de Sillage suit les règles
+existantes ; HTTP est réservé au développement local. Le déploiement du reverse proxy
+et de TLS reste hors de cette tranche.
+
+Le secret client est un fichier de 1 à 1024 octets, lu exactement, sans suppression du
+saut de ligne final. Il n'est pas soumis à la longueur minimale du mot de passe humain.
+Monter JSON et secrets en lecture seule avec le même overlay Compose que pour A3.1.
+`docker compose up -d` suffit une fois le fournisseur, le client, le sujet et les secrets
+préparés. Aucun appel réseau au fournisseur n'est nécessaire au démarrage du serveur.
+
+Une rotation du secret client ne révoque pas les sessions Sillage. Un changement de
+politique, d'issuer, de subject ou de client ID révoque toutes les sessions et invalide
+les authentifications commencées avant ce changement. Les parcours OIDC en cours sont
+également abandonnés à chaque redémarrage ; les sessions établies persistent.
+Une panne du fournisseur bloque uniquement les nouvelles connexions OIDC, jamais une
+session Sillage encore valide ni la connexion locale explicitement autorisée par `both`.
+
+## Récupérer une politique d'authentification administrée
+
+La voie normale consiste à corriger la déclaration puis redémarrer. Pour revenir
+explicitement à l'administration locale, serveur arrêté :
+
+1. Retirer les déclarations concernées de la configuration utilisée par les commandes.
+2. Si les identifiants locaux sont `managed`, exécuter `sillage owner release`.
+3. Exécuter `sillage owner recover-auth` et saisir un nouveau mot de passe local.
+4. Redémarrer sans le bloc `authentication` retiré, ou préparer une nouvelle adoption explicite.
+
+`recover-auth` fixe le mot de passe, libère l'autorité d'authentification, revient à
+`local` et révoque toutes les sessions dans une transaction. Il refuse de contourner
+une autorité de secret local encore `managed` ou un bloc d'authentification encore
+présent dans sa configuration. `owner recover` ne change jamais la politique OIDC ;
+`owner release` libère uniquement les identifiants locaux. Aucun compte de secours
+ni mot de passe par défaut n'est créé. Les commandes utilisent le même volume SQLite
+et les mêmes droits que le serveur ; sous Docker, utiliser `compose run --rm` après arrêt.

@@ -424,13 +424,13 @@ Questions ouvertes :
 ### 8.4 Identité du produit et utilisateurs
 
 Le propriétaire unique et la bibliothèque unique, la connexion locale autonome et
-la future connexion OIDC conduisant à cette même identité sont décidés.
-A1 + A2 sont définis dans [Sécurité](security.md), A3.1 dans [Configuration](configuration.md). A3.2 ajoutera OIDC, avec possibilité
+la connexion OIDC conduisant à cette même identité sont implémentés.
+A1 + A2 sont définis dans [Sécurité](security.md), A3.1 dans [Configuration](configuration.md). A3.2 fournit OIDC, avec possibilité
 de désactiver le login Web local tout en conservant une récupération administrative.
 
 Restent ouverts :
 
-- Quels détails du parcours d'association OIDC et de sa politique de réauthentification retenir dans A3 ?
+- Quel parcours d’association interactive proposer dans A3.3, lorsque l’autorité déclarative ne l’administre pas ?
 - Quels éléments de l'identité visuelle restent à stabiliser ?
 - Un besoin réel justifiera-t-il un jour plusieurs utilisateurs ou bibliothèques ?
 

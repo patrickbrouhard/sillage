@@ -19,7 +19,7 @@ Documents complémentaires :
 | --- | --- | --- |
 | Backend | Go ; bibliothèque standard et packages ciblés | Acté et implémenté |
 | Configuration déclarative | JSON strict, secrets par fichiers, autorité du propriétaire persistée, application au démarrage | A3.1 implémenté ; voir [Configuration](configuration.md) |
-| Authentification Web | Argon2id, sessions opaques SQLite, CSRF, propriétaire unique | Implémenté ; OIDC dans A3 |
+| Authentification Web | Argon2id, sessions opaques SQLite, CSRF, propriétaire unique | Implémenté ; OIDC Code + PKCE avec go-oidc et oauth2 |
 | HTTP | `net/http` + Chi ; API REST | Acté et implémenté |
 | Persistance | SQLite via `database/sql` et `modernc.org/sqlite`, sans ORM | Acté et implémenté |
 | Identifiants | Entiers SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` lorsque l'entité possède un ID propre | Acté et implémenté |
@@ -65,7 +65,7 @@ Principes en vigueur :
 - Depuis les publishers/personnes, `creator` n'est plus un champ REST : les sources exposent un `publisher` nullable et les vidéos leurs `person_ids` directs. Ne pas rétablir un alias historique par accident.
 - Les API de récupération de transcription ne contactent pas YouTube lors d'un GET : toute acquisition est déclenchée explicitement.
 
-L’authentification locale protège les données REST par session et CSRF. OIDC, clés API/MCP et exposition homelab sont séparés ; l’authentification seule ne protège pas un transport réseau en clair. Voir [Sécurité](security.md).
+L’authentification locale et OIDC protège les données REST par session et CSRF. Les clés API/MCP et l’exposition homelab restent des tranches séparées ; l’authentification seule ne protège pas un transport réseau en clair. Voir [Sécurité](security.md).
 
 ### 2.3 MCP local et futures fonctions IA
 

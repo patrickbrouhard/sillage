@@ -23,10 +23,46 @@ var (
 
 // Owner représente l'identité ; Version invalide les connexions concurrentes à une récupération.
 type Owner struct {
-	Username     string
-	PasswordHash string
-	Version      int64
-	Managed      bool
+	Username       string
+	PasswordHash   string
+	Version        int64
+	Managed        bool
+	Authentication Authentication
+}
+
+// Authentication représente l'autorité déclarative de connexion, distincte du secret local.
+type Authentication struct {
+	Policy   string
+	Issuer   string
+	Subject  string
+	ClientID string
+	Managed  bool
+}
+
+// Methods expose la politique persistée sans divulguer les paramètres du fournisseur.
+func (s *Service) Methods(ctx context.Context) (string, error) {
+	owner, err := s.repository.Owner(ctx)
+	if err != nil {
+		return "", err
+	}
+	return owner.Authentication.Policy, nil
+}
+
+// BeginExternal fige la génération avant un échange réseau avec le fournisseur.
+func (s *Service) BeginExternal(ctx context.Context) (int64, error) {
+	owner, err := s.repository.Owner(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if owner.Authentication.Policy != "oidc" && owner.Authentication.Policy != "both" {
+		return 0, ErrCredentials
+	}
+	return owner.Version, nil
+}
+
+// CompleteExternal émet la session après vérification externe ; SQLite refuse une génération périmée.
+func (s *Service) CompleteExternal(ctx context.Context, generation int64) (string, error) {
+	return s.issue(ctx, generation)
 }
 
 // Session conserve uniquement l'empreinte du cookie.
@@ -99,6 +135,9 @@ func (s *Service) Login(ctx context.Context, username, password string) (string,
 	owner, err := s.repository.Owner(ctx)
 	if err != nil {
 		return "", err
+	}
+	if owner.Authentication.Policy != "local" && owner.Authentication.Policy != "both" {
+		return "", ErrCredentials
 	}
 	// Le calcul reste identique lorsque seul l'identifiant est erroné.
 	valid := VerifyPassword(owner.PasswordHash, password)

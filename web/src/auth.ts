@@ -1,12 +1,13 @@
 /** État partagé sans secret persistant côté navigateur. */
 export interface AuthState {
   status: 'loading' | 'authenticated' | 'locked' | 'anonymous' | 'unavailable'
+  methods: 'local' | 'both' | 'oidc'
   mounted: boolean
   csrf: string
   message: string
 }
 
-let state: AuthState = { status: 'loading', mounted: false, csrf: '', message: '' }
+let state: AuthState = { status: 'loading', methods: 'local', mounted: false, csrf: '', message: '' }
 const listeners = new Set<() => void>()
 const pendingNotes = new Set<() => boolean>()
 let epoch = 0
@@ -55,7 +56,7 @@ export function refreshSession(): Promise<void> {
       const body = await response.json()
       if (typeof body.authenticated !== 'boolean' || typeof body.csrf_token !== 'string') throw new Error()
       if (generation !== epoch) return
-      publish({ csrf: body.csrf_token, message: '', mounted: state.mounted || body.authenticated,
+      publish({ methods: body.methods === 'oidc' || body.methods === 'both' ? body.methods : 'local', csrf: body.csrf_token, message: '', mounted: state.mounted || body.authenticated,
         status: body.authenticated ? 'authenticated' : state.mounted ? 'locked' : 'anonymous' })
     } catch {
       if (generation === epoch) publish({ status: 'unavailable', message: 'Connexion au serveur impossible. Votre travail reste dans cet onglet.' })
@@ -115,4 +116,24 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
     throw new AuthenticationError()
   }
   return response
+}
+
+/** Prépare une connexion explicite ; aucune redirection automatique ne suit une déconnexion. */
+export async function startOIDC(): Promise<string> {
+  await refreshSession()
+  const response = await fetch('/api/v1/auth/oidc/start', {
+    method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': state.csrf },
+  })
+  if (!response.ok) throw new Error('Connexion SSO indisponible. Réessayez sans fermer cet onglet.')
+  const body = await response.json()
+  if (typeof body.url !== 'string' || !body.url.startsWith('https://')) throw new Error('Réponse SSO invalide.')
+  return body.url
+}
+
+/** Une notification invite à relire le serveur ; elle ne constitue jamais une preuve de connexion. */
+export async function completeOIDC(): Promise<boolean> {
+  await refreshSession()
+  if (!isAuthenticated()) return false
+  channel?.postMessage('refresh')
+  return true
 }

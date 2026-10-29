@@ -146,14 +146,64 @@ def main():
             with replacement.open(base_url + "/api/v1/videos"):
                 pass
             assert owner() == persisted
+            # Un fournisseur hors ligne ne bloque ni le démarrage, ni la session locale autorisée.
+            client_secret = config / "client-secret"
+            client_secret.write_text("PRIVATE_OIDC_CLIENT_SECRET")
+            declaration["owner"]["adopt_existing"] = True
+            declaration["authentication"] = {"policy": "both", "oidc": {
+                "issuer": "https://unreachable.invalid", "subject": "declared-subject",
+                "client_id": "sillage", "client_secret_file": "client-secret",
+            }}
+            config_file.write_text(json.dumps(declaration))
+            compose("restart")
+            ready()
+            replacement.login(base_url, password=rotated)
+            with replacement.open(base_url + "/api/v1/auth/session") as response:
+                assert json.load(response)["methods"] == "both"
+            before_rotation = owner()
+            client_secret.write_text("PRIVATE_ROTATED_OIDC_SECRET")
+            compose("restart")
+            ready()
+            assert owner() == before_rotation, "La rotation technique a modifié la génération."
+            with replacement.open(base_url + "/api/v1/videos"):
+                pass
+            declaration["authentication"]["policy"] = "oidc"
+            del declaration["owner"]["password_file"]
+            config_file.write_text(json.dumps(declaration))
+            compose("restart")
+            ready()
+            assert owner()[1] == "", "Le propriétaire OIDC conserve un secret local omis."
+            try:
+                replacement.open(base_url + "/api/v1/videos")
+                raise AssertionError("La transition OIDC n'a pas révoqué la session.")
+            except urllib.error.HTTPError as error:
+                assert error.code == 401
+            try:
+                AuthClient().login(base_url, password=rotated)
+                raise AssertionError("Le login local est disponible en mode OIDC seul.")
+            except urllib.error.HTTPError as error:
+                assert error.code == 401
+            persisted_oidc = owner()
+            authentication = declaration.pop("authentication")
+            declaration["owner"]["password_file"] = "owner-password"
+            config_file.write_text(json.dumps(declaration))
+            compose("restart")
+            rejected()
+            assert owner() == persisted_oidc
+            declaration["authentication"] = authentication
+            del declaration["owner"]["password_file"]
+            config_file.write_text(json.dumps(declaration))
+            compose("restart")
+            ready()
+            assert owner() == persisted_oidc
             logs = compose("logs", "--no-color").stdout
-            for forbidden in (PASSWORD, rotated, "PRIVATE_CONFIGURATION_VALUE", str(config)):
+            for forbidden in (PASSWORD, rotated, "PRIVATE_CONFIGURATION_VALUE", "PRIVATE_OIDC_CLIENT_SECRET", "PRIVATE_ROTATED_OIDC_SECRET", str(config)):
                 assert forbidden not in logs, "Un diagnostic expose une donnée privée."
             inspection = json.loads(subprocess.check_output(
                 ["docker", "inspect", env["SILLAGE_CONTAINER_NAME"]], text=True))[0]
             mount = next(m for m in inspection["Mounts"] if m["Destination"] == "/run/sillage-config")
             assert mount["RW"] is False
-            print("Compose sans interaction, redémarrage, rotation, récupération refusée et configuration invalide : OK")
+            print("Compose déclaratif, rotations, politiques OIDC hors ligne et refus des replis implicites : OK")
         finally:
             compose("down", "--remove-orphans", check=False)
 
