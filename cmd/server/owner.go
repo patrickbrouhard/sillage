@@ -17,14 +17,14 @@ import (
 
 // runOwner réserve l'administration à un terminal local ; aucun secret n'est accepté en argument.
 func runOwner(args []string) error {
-	if len(args) != 1 || (args[0] != "init" && args[0] != "recover" && args[0] != "release") {
-		return errors.New("usage: sillage owner init|recover|release (server must be stopped)")
+	if len(args) != 1 || (args[0] != "init" && args[0] != "recover" && args[0] != "release" && args[0] != "recover-auth") {
+		return errors.New("usage: sillage owner init|recover|release|recover-auth (server must be stopped)")
 	}
 	desired, err := loadProvisioningEnv()
 	if err != nil {
 		return err
 	}
-	if desired != nil && desired.Mode == "managed" {
+	if desired != nil && (desired.Mode == "managed" || (args[0] == "recover-auth" && desired.Authentication != nil)) {
 		return auth.ErrManaged
 	}
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
@@ -61,7 +61,7 @@ func administerOwner(ctx context.Context, service *auth.Service, action string, 
 	if action == "init" && !errors.Is(ready, auth.ErrUninitialized) {
 		return ready
 	}
-	if (action == "recover" || action == "release") && ready != nil {
+	if (action == "recover" || action == "release" || action == "recover-auth") && ready != nil {
 		return ready
 	}
 	if action == "release" {
@@ -75,7 +75,7 @@ func administerOwner(ctx context.Context, service *auth.Service, action string, 
 		fmt.Fprintln(output, "Administration locale disponible ; un changement d'autorité révoque les sessions. Utilisez owner recover si nécessaire.")
 		return nil
 	}
-	if action == "recover" {
+	if action == "recover" || action == "recover-auth" {
 		if err := service.LocalAdministration(ctx); err != nil {
 			return err
 		}
@@ -99,7 +99,9 @@ func administerOwner(ctx context.Context, service *auth.Service, action string, 
 	if password != confirmation {
 		return errors.New("passwords do not match")
 	}
-	if action == "init" {
+	if action == "recover-auth" {
+		err = service.RecoverAuthentication(ctx, password)
+	} else if action == "init" {
 		err = service.Initialize(ctx, username, password)
 	} else {
 		err = service.Recover(ctx, password)

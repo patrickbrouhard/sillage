@@ -15,10 +15,11 @@ var (
 
 // Provisioning décrit uniquement le provisionnement local ; Password n'est jamais persisté tel quel.
 type Provisioning struct {
-	Mode          string
-	Username      string
-	Password      string
-	AdoptExisting bool
+	Mode           string
+	Username       string
+	Password       string
+	AdoptExisting  bool
+	Authentication *Authentication
 }
 
 // Provision applique l'autorité locale avant l'ouverture du serveur, sans renouveler les sessions inchangées.
@@ -29,7 +30,7 @@ func (s *Service) Provision(ctx context.Context, desired *Provisioning) error {
 	}
 	exists := err == nil
 	if desired == nil {
-		if exists && current.Managed {
+		if exists && (current.Managed || current.Authentication.Managed) {
 			return ErrManaged
 		}
 		if exists {
@@ -41,38 +42,45 @@ func (s *Service) Provision(ctx context.Context, desired *Provisioning) error {
 		return err
 	}
 
-	if exists {
-		if current.Managed && desired.Mode != "managed" {
+	target := current
+	if !exists {
+		target.Authentication.Policy = "local"
+	}
+	if desired.Authentication == nil {
+		if current.Authentication.Managed {
 			return ErrManaged
 		}
-		if desired.Mode == "bootstrap" {
-			// Le bootstrap ne modifie jamais un compte existant, même après récupération locale.
-			if current.Username != desired.Username {
-				return ErrProvision
+	} else {
+		target.Authentication = *desired.Authentication
+		target.Authentication.Managed = true
+	}
+	if exists && current.Managed && desired.Mode != "managed" {
+		return ErrManaged
+	}
+	if exists && !current.Managed && desired.Mode == "managed" && !desired.AdoptExisting {
+		return ErrAdoption
+	}
+	if exists && desired.Authentication != nil && !current.Authentication.Managed && !desired.AdoptExisting {
+		return ErrAdoption
+	}
+	if !exists || desired.Mode == "managed" {
+		target.Username = desired.Username
+		target.Managed = desired.Mode == "managed"
+		if desired.Password == "" {
+			target.PasswordHash = ""
+		} else if !VerifyPassword(current.PasswordHash, desired.Password) {
+			target.PasswordHash, err = HashPassword(desired.Password)
+			if err != nil {
+				return err
 			}
-			return s.repository.ConfigureOwner(ctx, current, current.Version)
 		}
-		if !current.Managed && !desired.AdoptExisting {
-			return ErrAdoption
-		}
+	} else if current.Username != desired.Username {
+		return ErrProvision
 	}
-	managed := desired.Mode == "managed"
-	samePassword := exists && VerifyPassword(current.PasswordHash, desired.Password)
-	if exists && current.Managed == managed && current.Username == desired.Username && samePassword {
-		return s.repository.ConfigureOwner(ctx, current, current.Version)
+	if target.Authentication.Policy != "oidc" && target.PasswordHash == "" {
+		return ErrPassword
 	}
-	hash := current.PasswordHash
-	if !samePassword {
-		hash, err = HashPassword(desired.Password)
-		if err != nil {
-			return err
-		}
-	}
-	return s.repository.ConfigureOwner(ctx, Owner{
-		Username:     desired.Username,
-		PasswordHash: hash,
-		Managed:      managed,
-	}, current.Version)
+	return s.repository.ConfigureOwner(ctx, target, current.Version)
 }
 
 // Validate vérifie l'ensemble déclaratif avant toute modification durable.
@@ -80,11 +88,27 @@ func (p *Provisioning) Validate() error {
 	if p.Mode != "bootstrap" && p.Mode != "managed" {
 		return ErrProvision
 	}
-	if p.AdoptExisting && p.Mode != "managed" {
+	if p.AdoptExisting && p.Mode != "managed" && p.Authentication == nil {
 		return ErrProvision
 	}
 	if err := validateUsername(p.Username); err != nil {
 		return err
+	}
+	if p.Authentication != nil {
+		a := p.Authentication
+		if a.Policy != "local" && a.Policy != "both" && a.Policy != "oidc" {
+			return ErrProvision
+		}
+		if a.Policy == "local" {
+			if a.Issuer != "" || a.Subject != "" || a.ClientID != "" {
+				return ErrProvision
+			}
+		} else if a.Issuer == "" || a.Subject == "" || a.ClientID == "" {
+			return ErrProvision
+		}
+	}
+	if p.Password == "" && p.Authentication != nil && p.Authentication.Policy == "oidc" {
+		return nil
 	}
 	return ValidatePassword(p.Password)
 }
@@ -112,5 +136,24 @@ func (s *Service) Release(ctx context.Context) error {
 		return nil
 	}
 	owner.Managed = false
+	return s.repository.ConfigureOwner(ctx, owner, owner.Version)
+}
+
+// RecoverAuthentication rétablit explicitement la politique locale, serveur arrêté, après retrait des déclarations.
+// Le secret local doit avoir été libéré séparément s'il était administré durablement.
+func (s *Service) RecoverAuthentication(ctx context.Context, password string) error {
+	owner, err := s.repository.Owner(ctx)
+	if err != nil {
+		return err
+	}
+	if owner.Managed {
+		return ErrManaged
+	}
+	hash, err := HashPassword(password)
+	if err != nil {
+		return err
+	}
+	owner.PasswordHash = hash
+	owner.Authentication = Authentication{Policy: "local"}
 	return s.repository.ConfigureOwner(ctx, owner, owner.Version)
 }

@@ -23,10 +23,11 @@ func (r *AuthRepository) Owner(ctx context.Context) (auth.Owner, error) {
       username,
       password_hash,
       version,
-      managed
+      managed,
+      auth_policy, auth_managed, oidc_issuer, oidc_subject, oidc_client_id
   FROM owner
   WHERE id = 1
- `).Scan(&owner.Username, &owner.PasswordHash, &owner.Version, &owner.Managed)
+ `).Scan(&owner.Username, &owner.PasswordHash, &owner.Version, &owner.Managed, &owner.Authentication.Policy, &owner.Authentication.Managed, &owner.Authentication.Issuer, &owner.Authentication.Subject, &owner.Authentication.ClientID)
 	if errors.Is(err, sql.ErrNoRows) {
 		err = auth.ErrUninitialized
 	}
