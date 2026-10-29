@@ -32,3 +32,6 @@ Thumbs.db
 # Sessions synthétiques des tests navigateur
 /web/tests/.auth/
 __pycache__/
+
+# Recette OIDC locale : secrets, données et navigateur
+/tests/manual/oidc/.runtime/
