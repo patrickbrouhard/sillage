@@ -22,10 +22,11 @@ func (r *AuthRepository) Owner(ctx context.Context) (auth.Owner, error) {
   SELECT
       username,
       password_hash,
-      version
+      version,
+      managed
   FROM owner
   WHERE id = 1
- `).Scan(&owner.Username, &owner.PasswordHash, &owner.Version)
+ `).Scan(&owner.Username, &owner.PasswordHash, &owner.Version, &owner.Managed)
 	if errors.Is(err, sql.ErrNoRows) {
 		err = auth.ErrUninitialized
 	}
@@ -63,6 +64,19 @@ func (r *AuthRepository) invalidate(ctx context.Context, hash *string) error {
 		return err
 	}
 	defer tx.Rollback()
+	if hash != nil {
+		var managed bool
+		err := tx.QueryRowContext(ctx, "SELECT managed FROM owner WHERE id = 1").Scan(&managed)
+		if errors.Is(err, sql.ErrNoRows) {
+			return auth.ErrUninitialized
+		}
+		if err != nil {
+			return err
+		}
+		if managed {
+			return auth.ErrManaged
+		}
+	}
 	result, err := tx.ExecContext(ctx, `
   UPDATE owner
   SET version = version + 1,

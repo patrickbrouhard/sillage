@@ -13,9 +13,10 @@ import (
 
 // HashPassword conserve les phrases de passe intactes et produit un vérificateur Argon2id salé.
 func HashPassword(password string) (string, error) {
-	if !utf8.ValidString(password) || utf8.RuneCountInString(password) < 15 || len(password) > 1024 {
-		return "", ErrPassword
+	if err := ValidatePassword(password); err != nil {
+		return "", err
 	}
+
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
@@ -40,4 +41,12 @@ func VerifyPassword(encoded, password string) bool {
 	}
 	got := argon2.IDKey([]byte(password), salt, 2, 19*1024, 1, 32)
 	return subtle.ConstantTimeCompare(got, want) == 1
+}
+
+// ValidatePassword contrôle le secret sans hachage ni normalisation.
+func ValidatePassword(password string) error {
+	if !utf8.ValidString(password) || utf8.RuneCountInString(password) < 15 || len(password) > 1024 {
+		return ErrPassword
+	}
+	return nil
 }
