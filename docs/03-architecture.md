@@ -50,7 +50,7 @@ Une source de travail unique, actuellement la première source YouTube exploitab
 
 ### 1.2 Composition et séparation des interfaces
 
-Le serveur Go assemble services et adapters au point de composition (`cmd/server`). En développement, Vite sert le frontend et relaie `/api` vers Go. En production, le serveur Go sert le frontend compilé et l'API ; le navigateur ne lit directement ni SQLite ni `data/`.
+Le serveur Go assemble services et adapters au point de composition (`cmd/server`). En développement, Vite sert le frontend et relaie `/api` et `/mcp` vers Go en conservant Host et Origin. En production, le serveur Go sert le frontend compilé et l'API ; le navigateur ne lit directement ni SQLite ni `data/`.
 
 L’adapter `internal/adapter/mcp` expose quatre lectures avec une clé Bearer obligatoire.
 Il partage les services applicatifs REST, via des interfaces restreintes

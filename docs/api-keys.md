@@ -12,7 +12,9 @@ révoquer les clés individuellement ou globalement, sans arrêter le serveur.
 Le nom est obligatoire (128 octets maximum). L'expiration est absolue et facultative ;
 l'absence d'expiration doit être choisie explicitement dans l'interface.
 Le secret est affiché une seule fois après création et disparaît à la fermeture de
-l'encart, au départ de la page ou lors d'un changement d'état d'authentification.
+l'encart, au départ de la page, au verrouillage ou lors d'un remplacement de session.
+Une sonde périodique ou un retour de focus confirmant la même session conserve le secret
+et n'invalide pas une création en attente.
 Il n'est pas conservé dans le stockage du navigateur. La copie exige un contexte
 accepté par le navigateur ; une sélection manuelle reste possible.
 
@@ -55,6 +57,21 @@ Exemple de configuration Codex (secret dans l'environnement du processus client)
 url = "http://127.0.0.1:8080/mcp"
 bearer_token_env_var = "SILLAGE_MCP_TOKEN"
 ```
+
+En développement avec Vite :
+
+```bash
+SILLAGE_PUBLIC_URL=http://127.0.0.1:5173 SILLAGE_MCP_ENABLED=true make dev-api
+# Dans un autre terminal :
+make web-dev
+```
+
+Configurer le client MCP sur `http://127.0.0.1:5173/mcp`. Vite relaie `/mcp` et
+ses sous-chemins vers Go en conservant Host et Origin, comme pour REST. L'accès direct
+au port 8080 avec son Host habituel reste refusé lorsque l'origine canonique est 5173.
+Il ne faut pas ajouter d'autorité alternative ni activer `changeOrigin`.
+La recette `python3 tests/mcp/vite.py` vérifie ce parcours sur une base jetable,
+après `make build`, sur des ports isolés sans arrêter un développement en cours.
 
 La clé voyage uniquement dans `Authorization: Bearer …`, jamais dans une URL.
 Aucun parcours OAuth MCP n'est annoncé. Les [contrats MCP](mcp.md) restent inchangés.
