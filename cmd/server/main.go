@@ -157,7 +157,7 @@ func runMain() error {
 			}
 			return err
 		}
-		fmt.Fprintln(os.Stderr, "usage: sillage [owner init|recover|release]")
+		fmt.Fprintln(os.Stderr, "usage: sillage [owner init|recover|recover-auth|release | security-reset]")
 		return fmt.Errorf("unknown command")
 	}
 
