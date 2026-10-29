@@ -22,3 +22,6 @@ jobs:
 
       - name: Verify tools, Compose and persistence without YouTube
         run: python3 tests/docker/smoke.py
+
+      - name: Verify declarative provisioning and secret rotation
+        run: python3 tests/docker/declarative.py
