@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { apiFetch, authEpoch, isAuthenticated, subscribeAuth } from './auth'
+import { apiFetch, authSnapshot, authEpoch, isAuthenticated, subscribeAuth } from './auth'
 
 interface Key { id: string; name: string; permission: string; created_at: string; expires_at: string | null; revoked_at: string | null }
 
@@ -24,7 +24,20 @@ export function APIKeys() {
  useEffect(() => {
   alive.current = true
   void refresh().catch(() => setError('Impossible de charger les clés.'))
-  const unsubscribe = subscribeAuth(() => { generation.current++; setSecret('') })
+  let previous = authSnapshot()
+  let previousEpoch = authEpoch()
+  const unsubscribe = subscribeAuth(() => {
+   const next = authSnapshot()
+   const nextEpoch = authEpoch()
+   // Le CSRF est stable pour un cookie donné : il détecte aussi un remplacement
+   // de session depuis un autre onglet, sans exposer le cookie HttpOnly.
+   if (next.status !== 'authenticated' || next.csrf !== previous.csrf || nextEpoch !== previousEpoch) {
+    generation.current++
+    setSecret('')
+   }
+   previous = next
+   previousEpoch = nextEpoch
+  })
   return () => { alive.current = false; generation.current++; unsubscribe() }
  }, [])
  async function mutate(action: 'create' | 'revoke' | 'all', id?: string) {
