@@ -18,6 +18,7 @@ Documents complémentaires :
 | Domaine | Choix actuel | État |
 | --- | --- | --- |
 | Backend | Go ; bibliothèque standard et packages ciblés | Acté et implémenté |
+| Configuration déclarative | JSON strict, secrets par fichiers, autorité du propriétaire persistée, application au démarrage | A3.1 implémenté ; voir [Configuration](configuration.md) |
 | Authentification Web | Argon2id, sessions opaques SQLite, CSRF, propriétaire unique | Implémenté ; OIDC dans A3 |
 | HTTP | `net/http` + Chi ; API REST | Acté et implémenté |
 | Persistance | SQLite via `database/sql` et `modernc.org/sqlite`, sans ORM | Acté et implémenté |

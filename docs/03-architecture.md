@@ -6,6 +6,7 @@ Documents complémentaires :
 
 - [Vision et principes du produit](00-project-brief.md) ; [parcours et règles UX](01-product-and-ux.md).
 - [Modèle de domaine et invariants](02-domain-model.md) ; [choix techniques](04-tech-stack-and-decisions.md).
+- [Configuration déclarative](configuration.md) et [sécurité Web](security.md).
 - [Roadmap](05-roadmap.md), [questions ouvertes](06-open-questions.md) et [recette manuelle des lecteurs](07-local-playback-validation.md).
 - [Historique des arbitrages significatifs](history/sillage-decisions-octobre-2026.md).
 
@@ -51,9 +52,9 @@ Une source de travail unique, actuellement la première source YouTube exploitab
 
 Le serveur Go assemble services et adapters au point de composition (`cmd/server`). En développement, Vite sert le frontend et relaie `/api` vers Go. En production, le serveur Go sert le frontend compilé et l'API ; le navigateur ne lit directement ni SQLite ni `data/`.
 
-L’adapter `internal/adapter/mcp` expose quatre lectures sur `/mcp`, activées explicitement.
-Il appelle directement les **mêmes instances de services applicatifs** que REST, assemblées
-dans `cmd/server`, via des interfaces restreintes à la recherche et aux lectures locales.
+L’adapter `internal/adapter/mcp` conserve quatre lectures mais son transport est suspendu.
+Il est conçu pour partager les services applicatifs REST, via des interfaces restreintes
+aux lectures locales ; `cmd/server` ne l’assemble pas actuellement.
 SDK officiel, DTO, validation des sorties et protections HTTP restent dans l’adapter
 et la composition. Les lots sont refusés avant tout service applicatif.
 Le transport Streamable HTTP stateless, ses limites et ses contrats sont définis dans
@@ -231,7 +232,10 @@ pas un instantané entre requêtes concurrentes. Le transport distingue vidéo a
 `internal/auth` possède l'identité unique et le cycle des sessions, indépendants du moyen
 de connexion. SQLite garantit les générations et révocations atomiques. Les cookies,
 CSRF et routes publiques appartiennent au middleware HTTP global ; le serveur refuse
-de démarrer sans propriétaire. OIDC réutilisera ce cycle dans A3. Le contrat complet
+de démarrer sans propriétaire ou provisionnement valide. Le JSON est chargé au démarrage ;
+le service applique bootstrap, adoption et rotations par transactions SQLite. L’autorité
+déclarative du propriétaire est persistée et interdit une récupération locale implicite.
+OIDC réutilisera ce cycle dans A3.2. Le contrat complet
 et les commandes vivent dans [security.md](security.md).
 
 L'API `/api/v1` est construite avec `net/http` et Chi. Les handlers sont minces, les DTO restent distincts du domaine et les données techniques internes ne sont pas retournées au client.

@@ -425,7 +425,7 @@ Questions ouvertes :
 
 Le propriétaire unique et la bibliothèque unique, la connexion locale autonome et
 la future connexion OIDC conduisant à cette même identité sont décidés.
-A1 + A2 sont définis dans [Sécurité](security.md). A3 ajoutera OIDC, avec possibilité
+A1 + A2 sont définis dans [Sécurité](security.md), A3.1 dans [Configuration](configuration.md). A3.2 ajoutera OIDC, avec possibilité
 de désactiver le login Web local tout en conservant une récupération administrative.
 
 Restent ouverts :

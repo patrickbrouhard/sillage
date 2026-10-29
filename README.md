@@ -6,6 +6,14 @@ YouTube est actuellement la source prise en charge. La conception distingue la v
 
 > **État du projet :** le socle de travail vidéo est fonctionnel. L’authentification Web locale est disponible ; MCP est temporairement désactivé jusqu’à la tranche des clés API ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
 
+## Déploiement déclaratif sans interaction
+
+A3.1 permet de préparer un fichier JSON et un fichier de mot de passe, puis de démarrer
+avec `docker compose up -d`, sans `owner init`. La [référence de configuration](docs/configuration.md)
+décrit le complément Compose, le fichier `.env`, l'adoption explicite d'une bibliothèque
+existante, la rotation et le retour à l'administration locale.
+Le [démarrage Docker interactif](#démarrage-rapide-avec-docker) reste également disponible.
+
 ## Fonctionnalités disponibles
 
 - **Bibliothèque** : ajout de vidéos YouTube par URL, extraction des métadonnées avec `yt-dlp`, détection des doublons et consultation des fiches.
@@ -50,7 +58,7 @@ docker compose -f deployments/docker/compose.yaml logs -f
 docker compose -f deployments/docker/compose.yaml down
 ```
 
-`down` ne supprime pas le répertoire de données monté depuis l'hôte. `make up`, `make logs` et `make down` appellent ces mêmes commandes Compose, sous réserve que `SILLAGE_DATA_DIR` soit configurée.
+`down` ne supprime pas le répertoire de données monté depuis l'hôte. `make up`, `make logs` et `make down` imposent ce fichier Compose de base. Pour le parcours déclaratif avec `COMPOSE_FILE`, utiliser directement `docker compose`, afin de conserver le complément de configuration.
 
 ### Configuration Docker
 
@@ -110,6 +118,7 @@ Ouvrir <http://127.0.0.1:5173>. Vite relaie les requêtes `/api` vers le serveur
 
 | Variable | Défaut hors Docker | Effet |
 | --- | --- | --- |
+| `SILLAGE_CONFIG_FILE` | Non défini | Fichier JSON de provisionnement local ; voir [Configuration](docs/configuration.md) |
 | `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` | Adresse d'écoute HTTP |
 | `SILLAGE_WEB_DIR` | Non défini | Répertoire du build Web à servir ; sinon API seule |
 | `SILLAGE_MCP_ENABLED` | `false` | `true` est temporairement refusé |
@@ -125,7 +134,7 @@ Les délais sont des durées Go strictement positives, par exemple `90s` ou `2h`
 
 ## Authentification et MCP
 
-Le propriétaire et les sessions sont conservés dans SQLite. La commande interactive
+Le propriétaire et les sessions sont conservés dans SQLite. En administration locale, la commande interactive
 `owner recover`, exécutée serveur arrêté, remplace le mot de passe et révoque toutes les
 sessions. Le menu Navigation > Session permet la déconnexion du navigateur ou de toutes
 les sessions. Une reconnexion conserve la note en cours dans l'onglet.
@@ -494,6 +503,7 @@ La documentation de référence est organisée ainsi :
 | [01-product-and-ux.md](docs/01-product-and-ux.md) | Parcours et règles UX actuelles |
 | [02-domain-model.md](docs/02-domain-model.md) | Entités métier, identités et invariants |
 | [03-architecture.md](docs/03-architecture.md) | Services, adapters, API et garanties techniques |
+| [configuration.md](docs/configuration.md) | Provisionnement déclaratif, secrets, adoption et récupération |
 | [security.md](docs/security.md) | Propriétaire, sessions Web, administration et continuité des notes |
 | [mcp.md](docs/mcp.md) | Contrats de l’adapter MCP temporairement suspendu |
 | [04-tech-stack-and-decisions.md](docs/04-tech-stack-and-decisions.md) | Stack et choix techniques en vigueur |
