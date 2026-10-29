@@ -39,9 +39,9 @@ type AuthHandler struct {
 
 // WithAuthentication protège les données ; seuls le shell statique et les routes de connexion sont publics.
 func WithAuthentication(next http.Handler, service *auth.Service, publicURL string) (http.Handler, error) {
-	u, err := url.Parse(publicURL)
-	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
-		return nil, errors.New("invalid SILLAGE_PUBLIC_URL: expected an HTTP(S) origin")
+	u, err := authenticationOrigin(publicURL)
+	if err != nil {
+		return nil, err
 	}
 	h := &AuthHandler{
 		service:     service,
@@ -260,4 +260,18 @@ func authError(w http.ResponseWriter, r *http.Request, status int, code string) 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": code, "message": code}})
+}
+
+// ValidatePublicURL contrôle l'origine avant le provisionnement et l'ouverture des routes.
+func ValidatePublicURL(publicURL string) error {
+	_, err := authenticationOrigin(publicURL)
+	return err
+}
+
+func authenticationOrigin(publicURL string) (*url.URL, error) {
+	u, err := url.Parse(publicURL)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+		return nil, errors.New("invalid SILLAGE_PUBLIC_URL: expected an HTTP(S) origin")
+	}
+	return u, nil
 }

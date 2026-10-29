@@ -17,8 +17,15 @@ import (
 
 // runOwner réserve l'administration à un terminal local ; aucun secret n'est accepté en argument.
 func runOwner(args []string) error {
-	if len(args) != 1 || (args[0] != "init" && args[0] != "recover") {
-		return errors.New("usage: sillage owner init|recover (server must be stopped)")
+	if len(args) != 1 || (args[0] != "init" && args[0] != "recover" && args[0] != "release") {
+		return errors.New("usage: sillage owner init|recover|release (server must be stopped)")
+	}
+	desired, err := loadProvisioningEnv()
+	if err != nil {
+		return err
+	}
+	if desired != nil && desired.Mode == "managed" {
+		return auth.ErrManaged
 	}
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return errors.New("owner administration requires an interactive terminal")
@@ -54,8 +61,24 @@ func administerOwner(ctx context.Context, service *auth.Service, action string, 
 	if action == "init" && !errors.Is(ready, auth.ErrUninitialized) {
 		return ready
 	}
-	if action == "recover" && ready != nil {
+	if (action == "recover" || action == "release") && ready != nil {
 		return ready
+	}
+	if action == "release" {
+		confirmation, err := read("Retirez la déclaration managed, serveur arrêté. Tapez RELEASE pour rendre l'administration locale : ", false)
+		if err != nil || confirmation != "RELEASE" {
+			return errors.New("authority release canceled")
+		}
+		if err := service.Release(ctx); err != nil {
+			return err
+		}
+		fmt.Fprintln(output, "Administration locale disponible ; un changement d'autorité révoque les sessions. Utilisez owner recover si nécessaire.")
+		return nil
+	}
+	if action == "recover" {
+		if err := service.LocalAdministration(ctx); err != nil {
+			return err
+		}
 	}
 	username := ""
 	var err error
