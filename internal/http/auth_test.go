@@ -199,7 +199,7 @@ func TestAuthenticationInputAndExpiry(t *testing.T) {
 	if w := request(h, "GET", "/api/v1/videos", "", []*http.Cookie{cookie}, ""); w.Code != 204 {
 		t.Fatal(w.Code)
 	}
-	for _, column := range []string{"expires_at", "last_seen_at"} {
+	for _, column := range []string{"expires_at"} {
 		t.Run(column, func(t *testing.T) {
 			token, err := service.Login(ctx, "owner", password)
 			if err != nil {
@@ -241,7 +241,7 @@ func TestSessionProbeDoesNotRenewActivity(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	service := auth.NewService(sqlite.NewAuthRepository(db), 12*time.Hour, time.Hour)
+	service := auth.NewService(sqlite.NewAuthRepository(db), 0, 0)
 	if err := service.Initialize(ctx, "owner", "a sufficiently long password"); err != nil {
 		t.Fatal(err)
 	}
@@ -283,29 +283,52 @@ func TestSessionProbeDoesNotRenewActivity(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil {
 			t.Fatal(err)
 		}
+		if want && len(w.Result().Cookies()) != 0 {
+			t.Fatal("probe reset cookie")
+		}
 		if w.Code != 200 || state.Authenticated != want {
 			t.Fatalf("probe: %d %s", w.Code, w.Body.String())
 		}
 	}
 	// Le temps persisté rend la frontière reproductible sans attendre le délai réel.
-	before := time.Now().Add(-2 * time.Minute).UnixMilli()
+	before := time.Now().Add(-48 * time.Hour).UnixMilli()
 	setSeen(before)
+	// Un POST dépourvu de CSRF ne doit pas prolonger une session valide.
+	invalid := httptest.NewRequest("POST", "http://sillage.test/api/v1/videos", nil)
+	invalid.AddCookie(&http.Cookie{Name: "sillage_session", Value: token})
+	rejected := httptest.NewRecorder()
+	h.ServeHTTP(rejected, invalid)
+	if rejected.Code != 403 || readSeen() != before || len(rejected.Result().Cookies()) != 0 {
+		t.Fatal("CSRF rejection renewed session")
+	}
 	for range 3 {
 		probe(true)
 	}
 	if readSeen() != before {
 		t.Fatal("probe renewed activity")
 	}
-	if w := request("/api/v1/videos"); w.Code != 204 {
+	w := request("/api/v1/videos")
+	if w.Code != 204 {
 		t.Fatal(w.Code)
+	}
+	cookies := w.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Value != token || !cookies[0].HttpOnly || cookies[0].MaxAge < 30*24*3600-5 {
+		t.Fatal("sliding cookie", cookies)
+	}
+	var expiry int64
+	if err := db.QueryRow("SELECT expires_at FROM web_sessions").Scan(&expiry); err != nil {
+		t.Fatal(err)
+	}
+	if cookies[0].Expires.Unix() != time.UnixMilli(expiry).Unix() {
+		t.Fatal("cookie and database differ")
+	}
+	// Une réponse perdue est réparée par la requête suivante, avec le même CSRF.
+	w = request("/api/v1/videos")
+	if len(w.Result().Cookies()) != 1 || !w.Result().Cookies()[0].Expires.Equal(cookies[0].Expires) {
+		t.Fatal("cookie not recovered")
 	}
 	if readSeen() <= before {
 		t.Fatal("private access did not renew activity")
-	}
-	setSeen(time.Now().Add(-2 * time.Hour).UnixMilli())
-	probe(false)
-	if w := request("/api/v1/videos"); w.Code != 401 {
-		t.Fatal("idle expiry bypassed")
 	}
 	setSeen(time.Now().UnixMilli())
 	if _, err := db.Exec("UPDATE web_sessions SET expires_at = 0"); err != nil {

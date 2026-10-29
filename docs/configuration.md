@@ -39,7 +39,7 @@ Aucun secret littéral n'est admis dans le document.
 
 Le fichier JSON doit être régulier, en UTF-8, et ne pas dépasser 16 Kio. Champs inconnus,
 doublons, variantes de casse, valeurs nulles, documents concaténés et versions inconnues
-sont refusés. Les clés API et l’administration Web ne sont pas disponibles.
+sont refusés. Les clés API sont administrées séparément depuis le Web ; voir [Clés API](api-keys.md).
 
 Le chemin du secret est absolu ou relatif au répertoire du JSON, jamais au répertoire
 de données. Sa cible doit être un fichier régulier lisible par l'utilisateur du serveur ;
@@ -184,9 +184,10 @@ refusent une modification concurrente du propriétaire ; ils ne constituent pas 
 multi-instance. Une collision de provisionnement demande un nouveau démarrage après
 vérification de la configuration.
 
-Aucune administration Web, politique OIDC, association SSO, clé API ou permission MCP
-n'est ajoutée. Le statut d'administration ne modifie pas l'identité interne unique ;
-les futures méthodes de connexion pourront réutiliser les mêmes sessions.
+Le document déclaratif ne gère pas les clés API : leur autorité reste en base et leur
+administration Web est décrite dans [Clés API](api-keys.md). Les changements
+administratifs d'identité préservent les clés ; la réinitialisation de sécurité
+explicite révoque sessions et clés sans modifier la déclaration.
 
 ## Authentification OIDC — A3.2
 

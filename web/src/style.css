@@ -866,3 +866,27 @@ html:has(.images-selector:modal, .image-viewer:modal) { overflow: hidden; scroll
 .session-menu button { display: block; margin-block: .4rem; }
 
 .auth-shell { display: contents; }
+
+/* Les secrets longs et les formulaires restent lisibles sur petit écran. */
+.api-keys-page form {
+  display: grid;
+  gap: 1rem;
+  max-width: 40rem;
+  margin-block: 1.5rem;
+}
+.api-keys-page form > .button { justify-self: start; }
+.api-keys-page .api-key-no-expiration {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+}
+.api-keys-page input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  min-height: 0;
+  margin: 0;
+}
+.api-keys-page code,
+.api-keys-page .tag-catalog-row p { overflow-wrap: anywhere; }
+.api-keys-page .notice { margin-block: 1rem; }
+.api-keys-page .notice .button { margin: .75rem .5rem 0 0; }

@@ -6,6 +6,7 @@ import { VideoPage } from './VideoPage'
 import { SiteNavigation } from './SiteNavigation'
 import { Search } from './Search'
 import { SearchForm } from './SearchForm'
+import { APIKeys } from './APIKeys'
 import { Tags } from './Tags'
 
 /** Assemble les pages sans déplacer l'état des acquisitions dans un store global. */
@@ -46,6 +47,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Library actionsHost={actionsHost} />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/settings/api-keys" element={<APIKeys />} />
           <Route path="/tags" element={<Tags />} />
           <Route path="/videos/new" element={<AddVideo />} />
           <Route path="/videos/:videoId" element={<VideoPage titleHost={titleHost} />} />

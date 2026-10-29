@@ -71,7 +71,7 @@ type Session struct {
 	Version    int64
 	CreatedAt  time.Time
 	ExpiresAt  time.Time
-	LastSeenAt time.Time
+	LastSeenAt time.Time // Date du dernier renouvellement, sans mise à jour par les sondes.
 }
 
 // Repository garantit l'unicité et la révocation atomique.
@@ -81,28 +81,28 @@ type Repository interface {
 	ConfigureOwner(context.Context, Owner, int64) error
 	RecoverOwner(context.Context, string) error
 	CreateSession(context.Context, Session) error
-	Session(context.Context, string, time.Time, time.Duration, bool) (Session, error)
+	Session(context.Context, string, time.Time, time.Duration, time.Duration, bool) (Session, error)
 	Revoke(context.Context, string) error
 	RevokeAll(context.Context) error
 }
 
 // Service partage le cycle des sessions entre méthodes d'authentification.
 type Service struct {
-	repository Repository
-	lifetime   time.Duration
-	idle       time.Duration
-	now        func() time.Time
+	repository    Repository
+	lifetime      time.Duration
+	renewInterval time.Duration
+	now           func() time.Time
 }
 
-// NewService fixe douze heures de durée absolue et une heure d'inactivité par défaut.
-func NewService(repository Repository, lifetime, idle time.Duration) *Service {
+// NewService fixe trente jours glissants avec renouvellement après vingt-quatre heures par défaut.
+func NewService(repository Repository, lifetime, renewInterval time.Duration) *Service {
 	if lifetime <= 0 {
-		lifetime = 12 * time.Hour
+		lifetime = 30 * 24 * time.Hour
 	}
-	if idle <= 0 {
-		idle = time.Hour
+	if renewInterval <= 0 {
+		renewInterval = 24 * time.Hour
 	}
-	return &Service{repository: repository, lifetime: lifetime, idle: idle, now: time.Now}
+	return &Service{repository: repository, lifetime: lifetime, renewInterval: renewInterval, now: time.Now}
 }
 
 // Initialize crée le propriétaire sans remplacer un compte existant.
@@ -183,7 +183,7 @@ func (s *Service) check(ctx context.Context, token string, touch bool) (Session,
 	if token == "" || len(token) > 128 {
 		return Session{}, ErrSession
 	}
-	return s.repository.Session(ctx, Digest(token), s.now().UTC(), s.idle, touch)
+	return s.repository.Session(ctx, Digest(token), s.now().UTC(), s.lifetime, s.renewInterval, touch)
 }
 
 // Logout révoque seulement la session demandée.

@@ -18,6 +18,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/filesystem"
 
 	"encoding/json"
+	mcpa "github.com/patrickbrouhard/sillage/internal/adapter/mcp"
 	externaloidc "github.com/patrickbrouhard/sillage/internal/adapter/oidc"
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
@@ -36,22 +37,22 @@ import (
 const databasePath = "data/sillage.db"
 
 type config struct {
-	provisioning    *auth.Provisioning
-	oidcProvider    *externaloidc.Provider
-	publicURL       string
-	sessionLifetime time.Duration
-	sessionIdle     time.Duration
-	mcpEnabled      bool
-	addr            string
-	postTimeout     time.Duration
-	downloadTimeout time.Duration
-	webDir          string
-	logLevel        string
-	logFormat       string
+	provisioning         *auth.Provisioning
+	oidcProvider         *externaloidc.Provider
+	publicURL            string
+	sessionLifetime      time.Duration
+	sessionRenewInterval time.Duration
+	mcpEnabled           bool
+	addr                 string
+	postTimeout          time.Duration
+	downloadTimeout      time.Duration
+	webDir               string
+	logLevel             string
+	logFormat            string
 }
 
 func loadConfig() (config, error) {
-	cfg := config{addr: "127.0.0.1:8080", postTimeout: 60 * time.Second, downloadTimeout: 6 * time.Hour}
+	cfg := config{mcpEnabled: true, addr: "127.0.0.1:8080", postTimeout: 60 * time.Second, downloadTimeout: 6 * time.Hour}
 	cfg.logLevel, cfg.logFormat = "INFO", "text"
 	if value, ok := os.LookupEnv("SILLAGE_LOG_LEVEL"); ok {
 		cfg.logLevel = value
@@ -90,18 +91,19 @@ func loadConfig() (config, error) {
 		}
 		cfg.mcpEnabled = enabled
 	}
-	if cfg.mcpEnabled {
-		return config{}, fmt.Errorf("MCP is temporarily disabled until integration authentication is available")
-	}
+
 	cfg.publicURL = os.Getenv("SILLAGE_PUBLIC_URL")
 	if cfg.publicURL == "" {
 		_, port, _ := net.SplitHostPort(cfg.addr)
 		cfg.publicURL = "http://127.0.0.1:" + port
 	}
-	cfg.sessionLifetime, cfg.sessionIdle = 12*time.Hour, time.Hour
+	if _, present := os.LookupEnv("SILLAGE_SESSION_IDLE_TIMEOUT"); present {
+		return config{}, fmt.Errorf("SILLAGE_SESSION_IDLE_TIMEOUT is no longer supported; remove it and configure SILLAGE_SESSION_LIFETIME and SILLAGE_SESSION_RENEW_INTERVAL for sliding sessions")
+	}
+	cfg.sessionLifetime, cfg.sessionRenewInterval = 30*24*time.Hour, 24*time.Hour
 	for name, target := range map[string]*time.Duration{
-		"SILLAGE_SESSION_LIFETIME":     &cfg.sessionLifetime,
-		"SILLAGE_SESSION_IDLE_TIMEOUT": &cfg.sessionIdle,
+		"SILLAGE_SESSION_LIFETIME":       &cfg.sessionLifetime,
+		"SILLAGE_SESSION_RENEW_INTERVAL": &cfg.sessionRenewInterval,
 	} {
 		if value, ok := os.LookupEnv(name); ok {
 			duration, err := time.ParseDuration(value)
@@ -111,8 +113,8 @@ func loadConfig() (config, error) {
 			*target = duration
 		}
 	}
-	if cfg.sessionIdle > cfg.sessionLifetime {
-		return config{}, fmt.Errorf("session idle timeout must not exceed absolute lifetime")
+	if cfg.sessionRenewInterval >= cfg.sessionLifetime {
+		return config{}, fmt.Errorf("session renewal interval must be shorter than session lifetime")
 	}
 
 	if err := api.ValidatePublicURL(cfg.publicURL); err != nil {
@@ -144,6 +146,13 @@ func main() {
 
 func runMain() error {
 	if len(os.Args) > 1 {
+		if os.Args[1] == "security-reset" {
+			err := runSecurityReset()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			return err
+		}
 		if os.Args[1] == "owner" {
 			err := runOwner(os.Args[2:])
 			if err != nil {
@@ -151,7 +160,7 @@ func runMain() error {
 			}
 			return err
 		}
-		fmt.Fprintln(os.Stderr, "usage: sillage [owner init|recover|release]")
+		fmt.Fprintln(os.Stderr, "usage: sillage [owner init|recover|recover-auth|release | security-reset]")
 		return fmt.Errorf("unknown command")
 	}
 
@@ -218,11 +227,9 @@ func run(ctx context.Context, cfg config) (result error) {
 		return err
 	}
 	defer db.Close()
-	if cfg.mcpEnabled {
-		return fmt.Errorf("MCP is temporarily disabled")
-	}
+
 	phase = "authentication"
-	identity := auth.NewService(sqlite.NewAuthRepository(db), cfg.sessionLifetime, cfg.sessionIdle)
+	identity := auth.NewService(sqlite.NewAuthRepository(db), cfg.sessionLifetime, cfg.sessionRenewInterval)
 	provisionErr := identity.Provision(ctx, cfg.provisioning)
 	if cfg.provisioning != nil {
 		cfg.provisioning.Password = ""
@@ -275,7 +282,16 @@ func run(ctx context.Context, cfg config) (result error) {
 		captures,
 	)
 	handler = api.WithSearch(handler, searches)
-	handler = api.WithMCP(handler, nil)
+	var transport http.Handler
+	if cfg.mcpEnabled {
+		mcp, err := mcpa.New(ctx, mcpa.Readers{Search: searches, Videos: service, Transcripts: transcripts, Notes: notes}, []string{publicURL})
+		if err != nil {
+			return err
+		}
+		defer mcp.Close()
+		transport = mcp
+	}
+	handler = api.WithMCP(handler, transport)
 	// Le build est facultatif pour garder le lancement API seul indépendant de Node.
 	phase = "frontend"
 	if cfg.webDir != "" {
@@ -297,6 +313,7 @@ func run(ctx context.Context, cfg config) (result error) {
 	if err != nil {
 		return err
 	}
+	handler = api.WithAPIKeys(handler, auth.NewAPIKeys(sqlite.NewAuthRepository(db)), cfg.mcpEnabled)
 	server := newHTTPServer(cfg.addr, api.WithLogging(logging.From(ctx), handler))
 	server.ErrorLog = api.ServerErrorLog(logger)
 	server.BaseContext = func(net.Listener) context.Context { return ctx }

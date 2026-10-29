@@ -1,9 +1,10 @@
 # Validation avec agents MCP
 
-> L'activation MCP du serveur distribué est suspendue depuis l'authentification Web.
-> Les recettes agents et de déploiement ci-dessous décrivent le transport antérieur ;
-> elles ne sont pas exécutables avec `SILLAGE_MCP_ENABLED=true` dans cette tranche.
-> Les tests isolés de l'adapter restent disponibles. Voir [Sécurité](../../docs/security.md).
+> MCP est actif par défaut dans le serveur distribué et exige une clé Bearer.
+> Les essais agents historiques ci-dessous portent sur des fixtures isolées sans
+> authentification. Ils ne prouvent pas une connexion Codex CLI authentifiée.
+> Voir la section de validation de l'authentification en fin de document et
+> [Clés API](../../docs/api-keys.md) pour le parcours actuel.
 
 
 Référence des contrats et procédure : [docs/mcp.md](../../docs/mcp.md#compatibilité-et-validation-reproductible).
@@ -309,3 +310,19 @@ Rejouer la procédure et les variantes opt-in décrites dans [MCP](../../docs/mc
 Consigner explicitement les réglages qui n’étaient pas observables dans ces essais.
 Si une transcription représentative est tronquée côté client, documenter le seuil et
 soumettre l’arbitrage ; ne pas ajouter de pagination ni réduire silencieusement le contenu.
+
+
+## Validation de l'authentification et du développement Vite
+
+Le test `TestAuthenticatedSDKClientAndRevocation` utilise un vrai client SDK Go
+sur HTTP, avec Bearer, découverte des outils, lecture et refus après révocation.
+La recette `python3 tests/mcp/vite.py`, après `make build`, vérifie le vrai proxy
+Vite sur 5173 vers Go sur 8080 avec des données jetables et les contrôles Host/Origin.
+La recette utilise des ports isolés avec la même configuration de proxy ; aucune configuration personnelle n’est modifiée.
+
+Les essais Codex CLI historiques ci-dessus précèdent l'authentification par clés.
+Aucun essai Codex CLI authentifié n'est consigné : il reste à vérifier manuellement
+la connexion avec `bearer_token_env_var`, la découverte des quatre outils, une lecture,
+puis le refus après révocation et la reconnexion avec une nouvelle clé. En développement,
+utiliser l'URL `http://127.0.0.1:5173/mcp`, conformément à [Clés API](../../docs/api-keys.md).
+Un test SDK Go ou la recette HTTP Vite ne remplace pas cet essai du client Codex.

@@ -32,7 +32,7 @@ async function reconnect(page: Page) {
 test('refuse les données anonymes, connecte et révoque la session réelle', async ({ page }) => {
   await page.context().clearCookies()
   expect((await page.request.get('/api/v1/videos')).status()).toBe(401)
-  expect((await page.request.get('/mcp')).status()).toBe(404)
+  expect((await page.request.get('/mcp')).status()).toBe(401)
   await page.goto('/videos/1')
   await expect(page.getByRole('heading', { name: 'Connexion à Sillage' })).toBeVisible()
   await page.getByLabel('Identifiant', { exact: true }).fill('test-owner')

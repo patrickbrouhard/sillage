@@ -52,8 +52,8 @@ local ; la politique est `oidc`. Son subject est précréé avec la commande off
    de Sillage puis d'Authelia (ouvrir son portail), refaire le parcours avec `other` :
    Sillage doit refuser l'accès. Revenir avec `owner`. Il n'y a pas de formulaire local.
 2. **Réauthentification en édition.** Créer une vidéo de test et ouvrir sa note. Saisir
-   du texte, sélectionner un passage et attendre le verrouillage (inactivité Sillage :
-   une minute ; éviter lectures ou opérations média qui entretiennent l'activité).
+   du texte, sélectionner un passage et attendre le verrouillage (échéance Sillage sans requête privée :
+   deux minutes ; éviter lectures ou opérations média qui entretiennent l'activité).
    Le SSO doit s'ouvrir dans une fenêtre secondaire. Revenir au même éditeur, vérifier
    texte, sélection, Undo, Redo et sauvegarde. Répéter après déconnexion du portail
    Authelia pour imposer la saisie des identifiants. En cas de fenêtre bloquée, utiliser
@@ -78,7 +78,7 @@ docker --host unix:///var/run/docker.sock compose -p sillage-oidc-recipe -f test
 ```
 
 Pour ne pas confondre panne et expiration pendant ce scénario, régler au préalable
-`SILLAGE_SESSION_IDLE_TIMEOUT` à `10m` dans `.runtime/compose.json`, puis exécuter `up`.
+`SILLAGE_SESSION_LIFETIME` à `10m` dans `.runtime/compose.json`, puis exécuter `up`.
 La récupération administrative et les transitions de politique restent documentées dans
 [la référence configuration](../../../docs/configuration.md) et couvertes par les tests automatisés.
 

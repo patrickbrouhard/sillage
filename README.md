@@ -4,7 +4,7 @@
 
 YouTube est actuellement la source prise en charge. La conception distingue la vidéo comme objet de connaissance (`Video`), sa provenance (`VideoSource`) et son éventuel fichier local (`MediaFile`). Le projet est **self-hosted**, utilisable sans intelligence artificielle et toujours en développement.
 
-> **État du projet :** le socle de travail vidéo est fonctionnel. L’authentification Web locale et OIDC est disponible ; MCP est temporairement désactivé jusqu’à la tranche des clés API ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
+> **État du projet :** le socle de travail vidéo est fonctionnel. L’authentification Web locale et OIDC est disponible ; MCP est disponible avec des clés API de lecture ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
 
 ## Déploiement déclaratif sans interaction
 
@@ -24,7 +24,7 @@ Le [démarrage Docker interactif](#démarrage-rapide-avec-docker) reste égaleme
 - **Lecture distante et locale** : lecteur YouTube ou HTML5 natif, conservation volontaire d'une vidéo avec `yt-dlp`, suivi du téléchargement, consultation des propriétés techniques, suppression explicite du fichier et bascule entre lecteurs. Si le fichier est disponible à l'ouverture, **Local** est sélectionné en premier ; aucune lecture ne démarre automatiquement.
 - **Captures PNG** : extraction d'une image au temps courant avec `ffmpeg`, insertion dans la note et conservation indépendante du fichier vidéo et du Markdown qui la référence.
 - **Recherche globale** : titres et descriptions des sources, publishers, tags directs et notes ; résultats paginés, extraits et explications.
-- **MCP temporairement désactivé** : adapter de lecture conservé, en attente de l’authentification des intégrations.
+- **MCP en lecture seule** : quatre outils protégés par des clés API administrées depuis le Web.
 - **API REST** : accès aux vidéos, notes, tags, transcriptions, publishers, personnes, fichiers locaux et captures.
 
 La recherche **dans une transcription ouverte** reste distincte de la recherche globale, qui n’indexe pas les transcriptions. L’IA intégrée, l’import de vidéos locales et les annotations structurées constituent des travaux futurs.
@@ -104,7 +104,7 @@ Démarrer deux terminaux depuis la racine :
 
 ```bash
 # Terminal 1 : API Go
-SILLAGE_PUBLIC_URL=http://127.0.0.1:5173 make dev-api
+make dev-api
 ```
 
 ```bash
@@ -121,14 +121,17 @@ Ouvrir <http://127.0.0.1:5173>. Vite relaie les requêtes `/api` vers le serveur
 | `SILLAGE_CONFIG_FILE` | Non défini | Fichier JSON de provisionnement local ; voir [Configuration](docs/configuration.md) |
 | `SILLAGE_HTTP_ADDR` | `127.0.0.1:8080` | Adresse d'écoute HTTP |
 | `SILLAGE_WEB_DIR` | Non défini | Répertoire du build Web à servir ; sinon API seule |
-| `SILLAGE_MCP_ENABLED` | `false` | `true` est temporairement refusé |
+| `SILLAGE_MCP_ENABLED` | `true` | MCP avec Bearer obligatoire ; `false` désactive le transport |
 | `SILLAGE_PUBLIC_URL` | `http://127.0.0.1:PORT` | Origine canonique du navigateur et politique de cookies |
-| `SILLAGE_SESSION_LIFETIME` | `12h` | Durée absolue des nouvelles sessions |
-| `SILLAGE_SESSION_IDLE_TIMEOUT` | `1h` | Délai sans requête authentifiée |
+| `SILLAGE_SESSION_LIFETIME` | `720h` | Durée glissante des sessions (30 jours) |
+| `SILLAGE_SESSION_RENEW_INTERVAL` | `24h` | Intervalle minimal entre renouvellements |
 | `SILLAGE_POST_TIMEOUT` | `60s` | Délai des acquisitions synchrones de métadonnées et transcriptions |
 | `SILLAGE_DOWNLOAD_TIMEOUT` | `6h` | Délai des téléchargements médias |
 | `SILLAGE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` ou `ERROR` |
 | `SILLAGE_LOG_FORMAT` | `text` | `text` ou `json` ; Docker définit `json` par défaut |
+
+Les sessions glissent sans limite absolue ; les sondes de session ne les renouvellent pas.
+L’ancienne variable `SILLAGE_SESSION_IDLE_TIMEOUT` doit être supprimée (voir [la politique de session](docs/security.md#configuration-et-frontière-réseau)).
 
 Les délais sont des durées Go strictement positives, par exemple `90s` ou `2h`. La base utilisée par le serveur reste `data/sillage.db`, chemin relatif au répertoire de travail : il n'existe pas de variable de configuration pour la déplacer indépendamment de `data/`.
 
@@ -139,8 +142,9 @@ Le propriétaire et les sessions sont conservés dans SQLite. En administration 
 sessions. Le menu Navigation > Session permet la déconnexion du navigateur ou de toutes
 les sessions. Une reconnexion conserve la note en cours dans l'onglet.
 
-MCP est temporairement indisponible jusqu'à la tranche des clés API :
-`SILLAGE_MCP_ENABLED=true` refuse le démarrage et `/mcp` renvoie 404.
+MCP est actif par défaut sur `/mcp` avec Bearer obligatoire ;
+`SILLAGE_MCP_ENABLED=false` le désactive.
+Voir [Clés API](docs/api-keys.md) pour l’administration Web et la récupération.
 Les contrats de l'adapter sont conservés dans [MCP](docs/mcp.md).
 Les commandes, cookies, CSRF, durées et limites sont détaillés dans [Sécurité](docs/security.md).
 
@@ -230,7 +234,7 @@ Cette opération réextrait les notes sans modifier leur Markdown, dates ou rév
 
 ## API REST
 
-Le serveur expose l'API sous **`/api/v1`**. Les exemples suivants utilisent `http://127.0.0.1:8080`. L'API exige un cookie de session Web ; ses mutations exigent aussi `X-CSRF-Token`. Les exemples métier ci-dessous supposent ces en-têtes. Voir le [protocole de connexion](docs/security.md#routes-csrf-et-diagnostics). Aucune clé API n'est encore disponible.
+Le serveur expose l'API sous **`/api/v1`**. Les exemples suivants utilisent `http://127.0.0.1:8080`. L'API exige un cookie de session Web ; ses mutations exigent aussi `X-CSRF-Token`. Les exemples métier ci-dessous supposent ces en-têtes. Voir le [protocole de connexion](docs/security.md#routes-csrf-et-diagnostics). Les clés API sont réservées à MCP.
 
 Les corps JSON sont validés strictement : types de données, champs inconnus, UTF-8 et limites de taille. Les handlers renvoient des statuts HTTP et des codes d'erreur publics, sans chemins de fichiers internes ni sortie brute des outils.
 
@@ -489,7 +493,7 @@ Serveur Go (net/http + Chi)
      ├── yt-dlp
      └── ffmpeg / ffprobe
 
-Adapter MCP conservé, transport suspendu → mêmes services métier
+Adapter MCP authentifié en lecture seule → mêmes services métier
 Futur : IA intégrée et autres sources → mêmes services métier
 ```
 
@@ -505,7 +509,7 @@ La documentation de référence est organisée ainsi :
 | [03-architecture.md](docs/03-architecture.md) | Services, adapters, API et garanties techniques |
 | [configuration.md](docs/configuration.md) | Provisionnement déclaratif, secrets, adoption et récupération |
 | [security.md](docs/security.md) | Propriétaire, sessions Web, administration et continuité des notes |
-| [mcp.md](docs/mcp.md) | Contrats de l’adapter MCP temporairement suspendu |
+| [mcp.md](docs/mcp.md) | Contrats de l’adapter MCP authentifié |
 | [04-tech-stack-and-decisions.md](docs/04-tech-stack-and-decisions.md) | Stack et choix techniques en vigueur |
 | [05-roadmap.md](docs/05-roadmap.md) | État d'avancement et jalons futurs |
 | [06-open-questions.md](docs/06-open-questions.md) | Questions et décisions non résolues |
@@ -516,6 +520,6 @@ Les instructions de travail propres au dépôt sont dans [AGENTS.md](AGENTS.md).
 
 ## Prochaines étapes
 
-La recherche globale SQLite FTS5 et l’authentification Web locale/OIDC sont disponibles. L’administration Web (A3.3), les clés API/MCP et le déploiement homelab restent des tranches distinctes ; MCP reste suspendu dans le serveur distribué. L’IA intégrée et les éventuelles écritures MCP restent à cadrer. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
+La recherche globale SQLite FTS5 et l’authentification Web locale/OIDC sont disponibles. L’administration Web (A3.3), le déploiement homelab restent des tranches distinctes ; les clés API/MCP sont administrées depuis le Web. L’IA intégrée et les éventuelles écritures MCP restent à cadrer. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
 
 La [roadmap](docs/05-roadmap.md) donne l'état des jalons et leurs objectifs ; [les questions ouvertes](docs/06-open-questions.md) recensent les choix qui ne sont pas encore tranchés. Leur présence dans ces fichiers ne signifie pas qu'ils sont implémentés ou approuvés.

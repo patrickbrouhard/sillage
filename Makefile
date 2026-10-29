@@ -14,7 +14,7 @@ web-dev: ## Démarre le serveur de développement Vite
 	npm --prefix web run dev
 
 dev-api: ## Démarre le backend Go en mode API seule
-	go run ./cmd/server
+	SILLAGE_PUBLIC_URL="$${SILLAGE_PUBLIC_URL-http://127.0.0.1:5173}" go run ./cmd/server
 
 build: ## Compile le frontend et le backend
 	npm --prefix web run build

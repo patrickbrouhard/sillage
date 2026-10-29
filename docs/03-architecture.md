@@ -10,7 +10,7 @@ Documents complémentaires :
 - [Roadmap](05-roadmap.md), [questions ouvertes](06-open-questions.md) et [recette manuelle des lecteurs](07-local-playback-validation.md).
 - [Historique des arbitrages significatifs](history/sillage-decisions-octobre-2026.md).
 
-**Périmètre :** REST, services applicatifs, SQLite, `yt-dlp`, `ffmpeg`/`ffprobe`, stockage local, React, Docker et l’authentification Web locale et OIDC sont implémentés. L’adapter MCP en lecture seule est conservé mais son activation est suspendue. L'IA intégrée, le STT et une application desktop restent des perspectives, pas des composants existants.
+**Périmètre :** REST, services applicatifs, SQLite, `yt-dlp`, `ffmpeg`/`ffprobe`, stockage local, React, Docker et l’authentification Web locale et OIDC sont implémentés. MCP en lecture seule est activable avec une clé API. L'IA intégrée, le STT et une application desktop restent des perspectives, pas des composants existants.
 
 **Maintenance :** modifier les sections concernées lorsqu'un contrat évolue, sans ajouter de journal de développement. Les migrations SQL, les types et les routes du code font foi pour les détails d'implémentation ; corriger une divergence documentaire après vérification.
 
@@ -32,7 +32,7 @@ Documents complémentaires :
        SQLite / fichiers   Adapters externes
                            yt-dlp · ffmpeg · ffprobe
 
-   Adapter MCP conservé (transport suspendu) ──► mêmes services applicatifs
+   Adapter MCP authentifié (lecture seule) ──► mêmes services applicatifs
    Futur : CLI métier / desktop ──► mêmes services applicatifs
 ```
 
@@ -50,11 +50,11 @@ Une source de travail unique, actuellement la première source YouTube exploitab
 
 ### 1.2 Composition et séparation des interfaces
 
-Le serveur Go assemble services et adapters au point de composition (`cmd/server`). En développement, Vite sert le frontend et relaie `/api` vers Go. En production, le serveur Go sert le frontend compilé et l'API ; le navigateur ne lit directement ni SQLite ni `data/`.
+Le serveur Go assemble services et adapters au point de composition (`cmd/server`). En développement, Vite sert le frontend et relaie `/api` et `/mcp` vers Go en conservant Host et Origin. En production, le serveur Go sert le frontend compilé et l'API ; le navigateur ne lit directement ni SQLite ni `data/`.
 
-L’adapter `internal/adapter/mcp` conserve quatre lectures mais son transport est suspendu.
-Il est conçu pour partager les services applicatifs REST, via des interfaces restreintes
-aux lectures locales ; `cmd/server` ne l’assemble pas actuellement.
+L’adapter `internal/adapter/mcp` expose quatre lectures avec une clé Bearer obligatoire.
+Il partage les services applicatifs REST, via des interfaces restreintes
+aux lectures locales ; `cmd/server` l’assemble lorsque MCP est activé.
 SDK officiel, DTO, validation des sorties et protections HTTP restent dans l’adapter
 et la composition. Les lots sont refusés avant tout service applicatif.
 Le transport Streamable HTTP stateless, ses limites et ses contrats sont définis dans
@@ -226,6 +226,10 @@ sert cet ordre. Une page contient au plus 12 éléments ; un treizième détecte
 pas un instantané entre requêtes concurrentes. Le transport distingue vidéo absente, page vide et erreur.
 
 ## 6. API HTTP / Chi
+
+Les [clés API](api-keys.md) possèdent un service indépendant des sessions, une
+persistance SQLite et une administration Web protégée par session/CSRF. Seul MCP
+accepte leur permission `mcp:read`.
 
 ### 6.1 Conventions
 
@@ -567,8 +571,8 @@ Par défaut, Docker publie le port hôte sur `127.0.0.1`, malgré l'écoute inte
 
 Les téléchargements et captures vivent au niveau du serveur ; une déconnexion du navigateur ne les annule pas. L'arrêt doit stopper les descendants des outils externes et attendre la finalisation des opérations avant la fermeture de SQLite. Les acquisitions synchrones de métadonnées ou de transcriptions restent au contraire bornées par la requête et son contexte.
 
-L’adapter MCP conserve ses contrôles de cycle de vie dans ses tests isolés. Il n’est
-plus assemblé par le serveur ; la route réservée renvoie 404, sans repli SPA.
+L’adapter MCP interdit les nouveaux appels et attend ses handlers avant fermeture
+des services et de SQLite. Désactivée, sa route renvoie 404, sans repli SPA.
 Voir [cycle de vie et limites MCP](mcp.md#limites-expérimentales).
 
 Une seule instance doit posséder le répertoire de données. Aucun `Job` générique persistant ni file distribuée n'est requis par l'architecture actuelle ; leur éventuelle introduction est une décision future.

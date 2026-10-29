@@ -64,7 +64,7 @@ func ValidateAuthorities(authorities []string) error {
 		return fmt.Errorf("MCP requires explicit local authorities")
 	}
 	for _, authority := range authorities {
-		if _, err := localAuthority(authority); err != nil {
+		if _, _, err := configuredOrigin(authority); err != nil {
 			return err
 		}
 	}
@@ -104,9 +104,8 @@ func New(ctx context.Context, readers Readers, authorities []string) (*Handler, 
 		responseBytes: MaxResultBytes,
 	}
 	for _, authority := range authorities {
-		normalized, _ := localAuthority(authority)
+		normalized, origin, _ := configuredOrigin(authority)
 		h.authorities[normalized] = true
-		origin := "http://" + normalized
 		h.origins[origin] = true
 		if err := h.protection.AddTrustedOrigin(origin); err != nil {
 			cancel()
@@ -139,8 +138,7 @@ func New(ctx context.Context, readers Readers, authorities []string) (*Handler, 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestlog.Route(r, "/mcp")
 	w.Header().Set("Cache-Control", "no-store, private")
-	authority, err := localAuthority(r.Host)
-	if err != nil || !h.authorities[authority] {
+	if !h.authorities[strings.ToLower(r.Host)] {
 		http.Error(w, "forbidden host", http.StatusForbidden)
 		return
 	}
@@ -151,7 +149,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		origin := origins[0]
 		parsed, err := url.Parse(origin)
-		if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.Path != "" ||
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.Path != "" ||
 			parsed.RawQuery != "" || parsed.Fragment != "" || !h.origins[origin] {
 			http.Error(w, "forbidden origin", http.StatusForbidden)
 			return
@@ -302,4 +300,17 @@ func (w *boundedResponse) Flush() {}
 type bufferedBody struct {
 	io.Reader
 	io.Closer
+}
+
+// configuredOrigin accepte l'origine HTTPS explicite ou les autorités loopback historiques.
+func configuredOrigin(value string) (string, string, error) {
+	if strings.HasPrefix(value, "https://") {
+		u, err := url.Parse(value)
+		if err != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+			return "", "", fmt.Errorf("invalid MCP origin")
+		}
+		return strings.ToLower(u.Host), value, nil
+	}
+	host, err := localAuthority(strings.TrimPrefix(value, "http://"))
+	return host, "http://" + host, err
 }

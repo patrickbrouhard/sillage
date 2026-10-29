@@ -115,7 +115,7 @@ func TestHTTPHostOriginAndCache(t *testing.T) {
 
 // TestAuthorityConfiguration impose des autorités locales explicites, sans joker ni port ambigu.
 func TestAuthorityConfiguration(t *testing.T) {
-	for _, values := range [][]string{nil, {}, {"*"}, {"http://localhost:8080"}, {"localhost"}, {"localhost:0"}, {"localhost:08080"},
+	for _, values := range [][]string{nil, {}, {"*"}, {"localhost"}, {"localhost:0"}, {"localhost:08080"},
 		{"0.0.0.0:8080"}, {"192.168.1.2:8080"}, {"evil.test:8080"}, {"localhost.:8080"}, {"localhost:65536"}} {
 		if ValidateAuthorities(values) == nil {
 			t.Fatalf("accepted %v", values)

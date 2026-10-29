@@ -336,7 +336,7 @@ Restent à étudier :
 La première tranche de quatre lectures locales et son transport sont définis dans
 [MCP](mcp.md). Les futurs arbitrages concernent :
 
-- Quels scopes et parcours de gestion des clés retenir pour les intégrations externes ?
+- Quels besoins justifieront des permissions supplémentaires aux [clés MCP de lecture](api-keys.md) ?
 - Quelle configuration HTTPS et reverse proxy documenter pour le déploiement homelab ?
 - Quelles écritures MCP apportent une valeur suffisante, avec quelles confirmations,
   préconditions de révision et garanties de conservation ?

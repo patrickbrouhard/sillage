@@ -173,6 +173,11 @@ func register[In, Out any](
 	refine func(*jsonschema.Schema),
 	read func(context.Context, In) (Out, error),
 ) {
+	// La permission mcp:read est limitée au catalogue explicite des quatre lectures.
+	// Ajouter un outil impose une décision d'autorisation, jamais une extension implicite.
+	if !knownTool(name) {
+		panic("tool has no approved MCP permission")
+	}
 	input, err := jsonschema.For[In](nil)
 	if err != nil {
 		panic(err)
