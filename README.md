@@ -4,7 +4,7 @@
 
 YouTube est actuellement la source prise en charge. La conception distingue la vidéo comme objet de connaissance (`Video`), sa provenance (`VideoSource`) et son éventuel fichier local (`MediaFile`). Le projet est **self-hosted**, utilisable sans intelligence artificielle et toujours en développement.
 
-> **État du projet :** le socle de travail vidéo est fonctionnel. L’authentification Web locale est disponible ; MCP est temporairement désactivé jusqu’à la tranche des clés API ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
+> **État du projet :** le socle de travail vidéo est fonctionnel. L’authentification Web locale et OIDC est disponible ; MCP est temporairement désactivé jusqu’à la tranche des clés API ; l’IA intégrée reste à développer. Voir la [roadmap](docs/05-roadmap.md) pour les prochains jalons.
 
 ## Déploiement déclaratif sans interaction
 
@@ -516,6 +516,6 @@ Les instructions de travail propres au dépôt sont dans [AGENTS.md](AGENTS.md).
 
 ## Prochaines étapes
 
-La recherche globale SQLite FTS5 et l’authentification Web locale sont disponibles. OIDC (A3), les clés API/MCP et le déploiement homelab sont des tranches distinctes ; MCP reste suspendu dans le serveur distribué. L’IA intégrée et les éventuelles écritures MCP restent à cadrer. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
+La recherche globale SQLite FTS5 et l’authentification Web locale/OIDC sont disponibles. L’administration Web (A3.3), les clés API/MCP et le déploiement homelab restent des tranches distinctes ; MCP reste suspendu dans le serveur distribué. L’IA intégrée et les éventuelles écritures MCP restent à cadrer. La recherche de passages de transcription et la navigation temporelle depuis les résultats restent des extensions distinctes.
 
 La [roadmap](docs/05-roadmap.md) donne l'état des jalons et leurs objectifs ; [les questions ouvertes](docs/06-open-questions.md) recensent les choix qui ne sont pas encore tranchés. Leur présence dans ces fichiers ne signifie pas qu'ils sont implémentés ou approuvés.

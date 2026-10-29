@@ -10,7 +10,7 @@ Documents complémentaires :
 - [Roadmap](05-roadmap.md), [questions ouvertes](06-open-questions.md) et [recette manuelle des lecteurs](07-local-playback-validation.md).
 - [Historique des arbitrages significatifs](history/sillage-decisions-octobre-2026.md).
 
-**Périmètre :** REST, services applicatifs, SQLite, `yt-dlp`, `ffmpeg`/`ffprobe`, stockage local, React, Docker et l’authentification Web locale sont implémentés. L’adapter MCP en lecture seule est conservé mais son activation est suspendue. L'IA intégrée, le STT et une application desktop restent des perspectives, pas des composants existants.
+**Périmètre :** REST, services applicatifs, SQLite, `yt-dlp`, `ffmpeg`/`ffprobe`, stockage local, React, Docker et l’authentification Web locale et OIDC sont implémentés. L’adapter MCP en lecture seule est conservé mais son activation est suspendue. L'IA intégrée, le STT et une application desktop restent des perspectives, pas des composants existants.
 
 **Maintenance :** modifier les sections concernées lorsqu'un contrat évolue, sans ajouter de journal de développement. Les migrations SQL, les types et les routes du code font foi pour les détails d'implémentation ; corriger une divergence documentaire après vérification.
 
@@ -235,7 +235,12 @@ CSRF et routes publiques appartiennent au middleware HTTP global ; le serveur re
 de démarrer sans propriétaire ou provisionnement valide. Le JSON est chargé au démarrage ;
 le service applique bootstrap, adoption et rotations par transactions SQLite. L’autorité
 déclarative du propriétaire est persistée et interdit une récupération locale implicite.
-OIDC réutilisera ce cycle dans A3.2. Le contrat complet
+OIDC réutilise ce cycle depuis A3.2. L'adapter `internal/adapter/oidc` vérifie le protocole ;
+le cœur conserve la politique et la génération, indépendamment du fournisseur. Les transactions
+OIDC sont brèves, bornées et en mémoire, liées au navigateur par le transport HTTP ; les
+sessions établies restent persistantes. La découverte s'effectue à la connexion, sans
+conditionner le démarrage ni les sessions existantes. L'autorité des identifiants locaux
+et celle de l'authentification déclarative sont distinctes. Le contrat complet
 et les commandes vivent dans [security.md](security.md).
 
 L'API `/api/v1` est construite avec `net/http` et Chi. Les handlers sont minces, les DTO restent distincts du domaine et les données techniques internes ne sont pas retournées au client.

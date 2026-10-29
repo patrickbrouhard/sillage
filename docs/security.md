@@ -1,16 +1,15 @@
-# Sécurité — authentification Web locale
+# Sécurité — authentification Web
 
 ## Périmètre
 
 Sillage possède un propriétaire unique et une bibliothèque unique. L'identité applicative
-est distincte de son moyen de connexion. La tranche actuelle fournit uniquement
-le mot de passe local et les sessions Web. Aucun compte public, rôle, tenant ou lien
+est distincte de son moyen de connexion. Les connexions locales et OIDC utilisent les mêmes sessions Web. Aucun compte public, rôle, tenant ou lien
 de propriété n'est ajouté aux vidéos et notes existantes.
 
-La tranche A3 ajoutera OIDC avec les mêmes sessions. Un mode OIDC seul avec récupération
-administrative locale devra être possible ; la disponibilité du login local sera alors
-une politique explicite. Aucun fournisseur, association OIDC, jeton d'intégration,
-clé API ou mécanisme de confiance dans un proxy n'est implémenté ici.
+A3.2 fournit les politiques explicites `local`, `both` et `oidc`, avec une association
+externe déclarative. Les autorités et procédures de récupération sont décrites dans
+[Configuration](configuration.md). L'administration Web et l'association interactive
+restent réservées à A3.3 ; aucune clé API ni confiance dans un proxy n'est ajoutée.
 
 MCP est temporairement indisponible : `/mcp` et ses sous-chemins renvoient 404.
 `SILLAGE_MCP_ENABLED=true` fait échouer le démarrage. Les adapters et leurs tests
@@ -117,7 +116,7 @@ hachage, pour borner le coût en cas de vérificateur corrompu.
 
 Chaque connexion produit un jeton opaque aléatoire avec `crypto/rand`. Seule son empreinte
 SHA-256 est persistée. La session inclut sa génération de propriétaire et ses échéances ;
-l'ID token d'un futur fournisseur ne sera pas une session Web.
+l'ID token du fournisseur ne sera pas une session Web.
 
 La connexion remplace la session précédente de ce navigateur. Les sessions survivent au
 redémarrage, tant que leurs échéances restent valides. Chaque nouvelle requête privée
@@ -180,7 +179,7 @@ La modale masque et rend inerte le contenu existant ; l'instance CodeMirror, sa 
 Undo/Redo, le brouillon, la révision et le conflit restent en mémoire.
 
 Le contrôle partagé fournit le CSRF et reconnaît les refus d'accès. Il ne rejoue aucune
-mutation. L'autosauvegarde suspend ses temporisations et reprend après reconnexion locale,
+mutation. L'autosauvegarde suspend ses temporisations et reprend après confirmation de la nouvelle session,
 sans redirection ni rechargement. Une écriture précédemment incertaine doit être relue
 et réconciliée ; une connexion réussie n'efface pas un conflit et n'autorise pas une
 nouvelle révision. Les autres commandes restent des gestes explicites.
@@ -209,3 +208,28 @@ stockage. Playwright exerce connexion réelle, sauvegarde réelle après révoca
 CodeMirror, conflits, réponses perdues et plusieurs onglets. Les recettes Docker et
 Postman initialisent une identité synthétique par la vraie commande interactive.
 Elles n'ajoutent aucun mode sans authentification au binaire.
+
+## Parcours OIDC
+
+L'adapter OIDC utilise `go-oidc` et `oauth2` : Code + PKCE S256, validation des signatures,
+issuer, audience, azp, échéance, date d'émission et nonce. L'autorisation compare ensuite
+le couple exact `(issuer, subject)` déclaré. Aucun rapprochement par e-mail n'est permis.
+Les ID/access tokens sont utilisés uniquement pendant l'échange, sans stockage durable
+ni demande de refresh token. Les diagnostics externes sont remplacés par des catégories sûres.
+
+`POST /api/v1/auth/oidc/start` exige le CSRF de Sillage ; il retourne l'URL du fournisseur.
+`GET /api/v1/auth/oidc/callback` est une exception publique étroite au filtrage REST et
+à la vérification d'origine : une transaction liée au navigateur remplace le CSRF habituel.
+State, nonce et vérificateur PKCE sont aléatoires ; la transaction expire après dix minutes,
+est consommée une seule fois et sa génération est contrôlée lors de l'émission de session.
+Le nombre de transactions est borné. Aucun paramètre de destination arbitraire n'est accepté.
+Une déconnexion annule les transactions du navigateur, y compris pendant un échange réseau ;
+la révocation globale invalide également les générations antérieures.
+
+La première connexion commence sur un bouton explicite. Pendant une édition, une fenêtre
+secondaire protège l'onglet courant ; si elle est bloquée, un lien ouvre un autre onglet.
+Le retour notifie les autres onglets, qui relisent la session sur le serveur ; le focus
+et la sonde périodique constituent aussi un repli. Une notification seule ne déverrouille
+jamais l'application. La réconciliation des écritures incertaines reste obligatoire.
+La déconnexion est locale à Sillage : aucune déconnexion fournisseur, aucune reconnexion
+SSO automatique. Fermer ou recharger l'onglet éditeur reste susceptible de perdre son état.

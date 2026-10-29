@@ -37,6 +37,7 @@ sans calendrier arrêté.
 | 8 — Recherche globale | FTS5 transactionnel, notes et métadonnées, API et parcours Web paginés | Réalisé |
 | 9 — Première tranche MCP | Quatre lectures sur services partagés | Adapter implémenté ; transport suspendu jusqu’aux clés API |
 | A3.1 — Provisionnement déclaratif local | JSON, bootstrap et gestion permanente, adoption explicite, rotation et récupération | Réalisé |
+| A3.2 — Authentification OIDC | Politiques déclaratives, identité externe exacte, sessions communes et réauthentification secondaire | Réalisé |
 | A1 + A2 — Authentification Web | Propriétaire local, sessions persistantes, protection REST et continuité de l’éditeur | Réalisé |
 | Consolidations postérieures | Journalisation structurée, lecture locale, ergonomie du lecteur et nouvelle disposition du workspace | Réalisé |
 | Catalogue de tags — Première tranche | Consultation et compteurs directs, renommage et suppression globale, REST et page `/tags` | Réalisé |
@@ -63,7 +64,6 @@ client/contexte. Une troncature client
 
 Suites distinctes, non incluses dans cette livraison :
 
-- A3.2 : connexion OIDC associée au propriétaire, réutilisant les sessions Web ;
 - clés API et permissions des intégrations MCP ;
 - déploiement homelab : HTTPS, reverse proxy et exposition réseau ;
 - éventuelles écritures MCP, permissions, confirmations et protection des données utilisateur.
