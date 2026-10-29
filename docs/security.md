@@ -1,4 +1,4 @@
-# Sécurité — authentification Web locale (A1 + A2)
+# Sécurité — authentification Web locale
 
 ## Périmètre
 
@@ -16,12 +16,20 @@ MCP est temporairement indisponible : `/mcp` et ses sous-chemins renvoient 404.
 `SILLAGE_MCP_ENABLED=true` fait échouer le démarrage. Les adapters et leurs tests
 protocolaires sont conservés pour la tranche des intégrations.
 
-## Première installation et récupération
+## Provisionnement et autorité
+
+A3.1 ajoute une [configuration déclarative locale](configuration.md) : première
+installation automatique, bootstrap ou gestion permanente du secret, adoption explicite
+des installations existantes et rotations transactionnelles. La déclaration ne modifie
+pas la bibliothèque unique ni les contrats de session ci-dessous.
+
+## Première installation et récupération locales
 
 Toutes les commandes utilisent `data/sillage.db` relativement au répertoire courant.
 Lancer les commandes d'administration **serveur arrêté**, avec le même répertoire de
-travail et les mêmes droits d'accès que le serveur. Aucun secret n'est accepté dans les
-arguments, les variables d'environnement ou un fichier de provisionnement.
+travail et les mêmes droits d'accès que le serveur. Les commandes interactives restent
+disponibles pour l'administration locale ; le démarrage déclaratif lit le secret depuis
+un fichier. Aucun secret n'est accepté dans les arguments ou les variables d'environnement.
 
 Installation native, après `make build` :
 
@@ -60,13 +68,15 @@ La récupération conserve l'identifiant et la bibliothèque, remplace le mot de
 révoque toutes les sessions dans une seule transaction. Elle invalide également une
 connexion qui aurait vérifié l'ancien mot de passe avant cette transaction.
 Il n'existe pas de récupération par courriel ni de modification du mot de passe dans
-le Web dans cette tranche. Un administrateur disposant de la base peut récupérer l'accès.
+le Web dans cette tranche. Un administrateur de l'hôte peut récupérer l'accès. En mode déclaratif, modifier la source
+de configuration et redémarrer ; `owner recover` ne contourne pas cette autorité. La commande
+`owner release` permet un retour explicite au mode local, serveur arrêté.
 
-Un serveur sans propriétaire refuse de démarrer. Sur une installation existante,
+Un serveur sans propriétaire ni provisionnement valide refuse de démarrer. Sur une installation existante,
 initialiser le propriétaire rattache l'accès à la bibliothèque conservée, sans réécriture
 des connaissances. Sauvegarder avant de migrer, comme pour toute évolution du schéma.
-Après restauration d'une sauvegarde, exécuter `owner recover` avant de redémarrer :
-une sauvegarde contient aussi les anciennes sessions.
+Une sauvegarde contient aussi les anciennes sessions. Après restauration, les invalider
+par `owner recover` en mode local ou par une rotation déclarative avant ouverture.
 
 ## Configuration et frontière réseau
 

@@ -116,3 +116,52 @@ func TestSessionConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestManagedAdministrativeRecoveryAndRelease(t *testing.T) {
+	t.Chdir(t.TempDir())
+	initializeTestOwner(t)
+	db, err := sqlite.Open(context.Background(), databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	repo := sqlite.NewAuthRepository(db)
+	service := auth.NewService(repo, 0, 0)
+	ctx := context.Background()
+	if err := service.Provision(ctx, &auth.Provisioning{
+		Mode: "managed", Username: "owner", Password: "a sufficiently long password", AdoptExisting: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := repo.Owner(ctx)
+	called := false
+	err = administerOwner(ctx, service, "recover", func(string, bool) (string, error) {
+		called = true
+		return "replacement password phrase", nil
+	}, io.Discard)
+	if err != auth.ErrManaged || called {
+		t.Fatal("managed recovery prompted for a secret")
+	}
+	err = administerOwner(ctx, service, "release", func(string, bool) (string, error) {
+		return "cancel", nil
+	}, io.Discard)
+	if err == nil {
+		t.Fatal("release did not require confirmation")
+	}
+	after, _ := repo.Owner(ctx)
+	if before != after {
+		t.Fatal("canceled release changed authority")
+	}
+	err = administerOwner(ctx, service, "release", func(_ string, secret bool) (string, error) {
+		if secret {
+			t.Fatal("release requested a password")
+		}
+		return "RELEASE", nil
+	}, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.LocalAdministration(ctx); err != nil {
+		t.Fatal(err)
+	}
+}

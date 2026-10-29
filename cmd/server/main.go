@@ -33,6 +33,7 @@ import (
 const databasePath = "data/sillage.db"
 
 type config struct {
+	provisioning    *auth.Provisioning
 	publicURL       string
 	sessionLifetime time.Duration
 	sessionIdle     time.Duration
@@ -110,6 +111,14 @@ func loadConfig() (config, error) {
 		return config{}, fmt.Errorf("session idle timeout must not exceed absolute lifetime")
 	}
 
+	if err := api.ValidatePublicURL(cfg.publicURL); err != nil {
+		return config{}, err
+	}
+	desired, err := loadProvisioningEnv()
+	cfg.provisioning = desired
+	if err != nil {
+		return config{}, err
+	}
 	return cfg, nil
 }
 
@@ -128,7 +137,7 @@ func runMain() error {
 			}
 			return err
 		}
-		fmt.Fprintln(os.Stderr, "usage: sillage [owner init|recover]")
+		fmt.Fprintln(os.Stderr, "usage: sillage [owner init|recover|release]")
 		return fmt.Errorf("unknown command")
 	}
 
@@ -161,7 +170,20 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 // run crée le dossier de données fixe ; aucune ancienne base n'est déplacée.
 func run(ctx context.Context, cfg config) (result error) {
 	logger := logging.From(ctx).With("component", "server")
-	phase := "database"
+	phase := "configuration"
+	publicURL := cfg.publicURL
+	if publicURL == "" {
+		publicURL = "http://" + cfg.addr
+	}
+	if err := api.ValidatePublicURL(publicURL); err != nil {
+		return err
+	}
+	if cfg.provisioning != nil {
+		if err := cfg.provisioning.Validate(); err != nil {
+			return err
+		}
+	}
+	phase = "database"
 	logger.InfoContext(ctx, "Server starting", "event", "server.starting")
 	defer func() {
 		if result != nil {
@@ -184,9 +206,16 @@ func run(ctx context.Context, cfg config) (result error) {
 	}
 	phase = "authentication"
 	identity := auth.NewService(sqlite.NewAuthRepository(db), cfg.sessionLifetime, cfg.sessionIdle)
-	if err := identity.Ready(ctx); err != nil {
+	provisionErr := identity.Provision(ctx, cfg.provisioning)
+	if cfg.provisioning != nil {
+		cfg.provisioning.Password = ""
+	}
+	if err := provisionErr; err != nil {
 		if errors.Is(err, auth.ErrUninitialized) {
-			logger.ErrorContext(ctx, "Initialize the owner with sillage owner init", "event", "owner.uninitialized")
+			logger.ErrorContext(ctx, "Configure declarative provisioning or initialize with sillage owner init", "event", "owner.uninitialized")
+		}
+		if errors.Is(err, auth.ErrManaged) || errors.Is(err, auth.ErrAdoption) || errors.Is(err, auth.ErrProvision) {
+			logger.ErrorContext(ctx, err.Error(), "event", "owner.configuration_refused")
 		}
 		return err
 	}
@@ -242,10 +271,6 @@ func run(ctx context.Context, cfg config) (result error) {
 		if err != nil {
 			return err
 		}
-	}
-	publicURL := cfg.publicURL
-	if publicURL == "" {
-		publicURL = "http://" + cfg.addr
 	}
 	handler, err = api.WithAuthentication(handler, identity, publicURL)
 	if err != nil {

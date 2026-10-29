@@ -1,0 +1,12 @@
+# Complément facultatif : COMPOSE_FILE ou -f compose.yaml -f compose.declarative.yaml.
+services:
+  sillage:
+    environment:
+      SILLAGE_CONFIG_FILE: /run/sillage-config/sillage.json
+    volumes:
+      - type: bind
+        source: "${SILLAGE_CONFIG_DIR:?Définir le répertoire absolu de configuration et secrets}"
+        target: /run/sillage-config
+        read_only: true
+        bind:
+          create_host_path: false

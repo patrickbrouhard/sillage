@@ -59,13 +59,13 @@ class AuthClient:
         )
         self.csrf = ""
 
-    def login(self, base):
+    def login(self, base, username=USERNAME, password=PASSWORD):
         """Établit une session et garde les secrets uniquement dans le client de test."""
         with self.opener.open(base + "/api/v1/auth/session", timeout=5) as response:
             self.csrf = json.load(response)["csrf_token"]
         request = urllib.request.Request(
             base + "/api/v1/auth/login",
-            data=json.dumps({"username": USERNAME, "password": PASSWORD}).encode(),
+            data=json.dumps({"username": username, "password": password}).encode(),
             headers={"Content-Type": "application/json", "X-CSRF-Token": self.csrf},
         )
         with self.opener.open(request, timeout=5) as response:

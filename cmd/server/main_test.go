@@ -22,6 +22,7 @@ import (
 func clearConfig(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
+		"SILLAGE_CONFIG_FILE",
 		"SILLAGE_PUBLIC_URL",
 		"SILLAGE_SESSION_LIFETIME",
 		"SILLAGE_SESSION_IDLE_TIMEOUT",

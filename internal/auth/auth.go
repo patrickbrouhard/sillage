@@ -26,6 +26,7 @@ type Owner struct {
 	Username     string
 	PasswordHash string
 	Version      int64
+	Managed      bool
 }
 
 // Session conserve uniquement l'empreinte du cookie.
@@ -41,6 +42,7 @@ type Session struct {
 type Repository interface {
 	Owner(context.Context) (Owner, error)
 	CreateOwner(context.Context, Owner) error
+	ConfigureOwner(context.Context, Owner, int64) error
 	RecoverOwner(context.Context, string) error
 	CreateSession(context.Context, Session) error
 	Session(context.Context, string, time.Time, time.Duration, bool) (Session, error)
@@ -69,9 +71,10 @@ func NewService(repository Repository, lifetime, idle time.Duration) *Service {
 
 // Initialize crée le propriétaire sans remplacer un compte existant.
 func (s *Service) Initialize(ctx context.Context, username, password string) error {
-	if username == "" || len(username) > 128 || username != strings.TrimSpace(username) || strings.ContainsAny(username, "\r\n\x00") {
-		return ErrUsername
+	if err := validateUsername(username); err != nil {
+		return err
 	}
+
 	hash, err := HashPassword(password)
 	if err != nil {
 		return err
@@ -151,3 +154,11 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 
 // LogoutAll invalide aussi les connexions commencées avant la révocation.
 func (s *Service) LogoutAll(ctx context.Context) error { return s.repository.RevokeAll(ctx) }
+
+// validateUsername partage les contraintes entre terminal et déclaration.
+func validateUsername(username string) error {
+	if username == "" || len(username) > 128 || username != strings.TrimSpace(username) || strings.ContainsAny(username, "\r\n\x00") {
+		return ErrUsername
+	}
+	return nil
+}

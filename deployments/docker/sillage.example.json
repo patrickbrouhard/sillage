@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "owner": {
+    "mode": "managed",
+    "username": "owner",
+    "password_file": "owner-password"
+  }
+}
