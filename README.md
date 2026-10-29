@@ -123,12 +123,15 @@ Ouvrir <http://127.0.0.1:5173>. Vite relaie les requêtes `/api` vers le serveur
 | `SILLAGE_WEB_DIR` | Non défini | Répertoire du build Web à servir ; sinon API seule |
 | `SILLAGE_MCP_ENABLED` | `true` | MCP avec Bearer obligatoire ; `false` désactive le transport |
 | `SILLAGE_PUBLIC_URL` | `http://127.0.0.1:PORT` | Origine canonique du navigateur et politique de cookies |
-| `SILLAGE_SESSION_LIFETIME` | `12h` | Durée absolue des nouvelles sessions |
-| `SILLAGE_SESSION_IDLE_TIMEOUT` | `1h` | Délai sans requête authentifiée |
+| `SILLAGE_SESSION_LIFETIME` | `720h` | Durée glissante des sessions (30 jours) |
+| `SILLAGE_SESSION_RENEW_INTERVAL` | `24h` | Intervalle minimal entre renouvellements |
 | `SILLAGE_POST_TIMEOUT` | `60s` | Délai des acquisitions synchrones de métadonnées et transcriptions |
 | `SILLAGE_DOWNLOAD_TIMEOUT` | `6h` | Délai des téléchargements médias |
 | `SILLAGE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` ou `ERROR` |
 | `SILLAGE_LOG_FORMAT` | `text` | `text` ou `json` ; Docker définit `json` par défaut |
+
+Les sessions glissent sans limite absolue ; les sondes de session ne les renouvellent pas.
+L’ancienne variable `SILLAGE_SESSION_IDLE_TIMEOUT` doit être supprimée (voir [la politique de session](docs/security.md#configuration-et-frontière-réseau)).
 
 Les délais sont des durées Go strictement positives, par exemple `90s` ou `2h`. La base utilisée par le serveur reste `data/sillage.db`, chemin relatif au répertoire de travail : il n'existe pas de variable de configuration pour la déplacer indépendamment de `data/`.
 

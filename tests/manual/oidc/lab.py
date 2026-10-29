@@ -85,7 +85,7 @@ def prepare():
         "authelia": {"image": IMAGE, "user": identity, "command": ["authelia", "--config", "/config/authelia.json"], "ports": ["127.0.0.1:9091:9091"], "volumes": [f"{cfg}:/config:ro", f"{STATE / 'authelia'}:/state"], "networks": {"default": {"aliases": ["auth.sillage.test"]}}},
         "sillage": {"image": "sillage:oidc-recipe", "build": {"context": str(ROOT), "dockerfile": "deployments/docker/Dockerfile"}, "user": identity,
             "ports": ["127.0.0.1:18082:8080"], "volumes": [f"{cfg}:/config:ro", f"{STATE / 'data'}:/app/data"],
-            "environment": {"SILLAGE_CONFIG_FILE": "/config/sillage.json", "SILLAGE_PUBLIC_URL": "http://localhost:18082", "SSL_CERT_FILE": "/config/ca.crt", "SILLAGE_SESSION_IDLE_TIMEOUT": "1m"}}
+            "environment": {"SILLAGE_CONFIG_FILE": "/config/sillage.json", "SILLAGE_PUBLIC_URL": "http://localhost:18082", "SSL_CERT_FILE": "/config/ca.crt", "SILLAGE_SESSION_LIFETIME": "2m", "SILLAGE_SESSION_RENEW_INTERVAL": "1m"}}
     }}
     (STATE / "compose.json").write_text(json.dumps(configuration, indent=2))
     compose("run", "--rm", "authelia", "authelia", "validate-config", "--config", "/config/authelia.json")

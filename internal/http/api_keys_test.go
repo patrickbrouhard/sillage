@@ -34,7 +34,7 @@ func TestAPIKeysHTTPIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h = api.WithAPIKeys(h, auth.NewAPIKeys(repo, time.Hour), true)
+	h = api.WithAPIKeys(h, auth.NewAPIKeys(repo), true)
 	request := func(method, path, body, cookie, bearer, csrf string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, "http://127.0.0.1:8080"+path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")

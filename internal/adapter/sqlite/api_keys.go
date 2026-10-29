@@ -10,7 +10,7 @@ import (
 
 // CreateKey vérifie la session dans la même transaction que l'insertion : une
 // déconnexion gagnante interdit toute émission tardive d'un identifiant durable.
-func (r *AuthRepository) CreateKey(ctx context.Context, key auth.APIKey, sessionHash string, idle time.Duration) error {
+func (r *AuthRepository) CreateKey(ctx context.Context, key auth.APIKey, sessionHash string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -29,8 +29,7 @@ func (r *AuthRepository) CreateKey(ctx context.Context, key auth.APIKey, session
      ON o.id = s.owner_id AND o.version = s.owner_version
  WHERE s.token_hash = ?
      AND s.expires_at > ?
-     AND s.last_seen_at > ?
- `, key.ID, key.Name, key.Hash, key.Permission, key.CreatedAt.UnixMilli(), expires, sessionHash, now.UnixMilli(), now.Add(-idle).UnixMilli())
+ `, key.ID, key.Name, key.Hash, key.Permission, key.CreatedAt.UnixMilli(), expires, sessionHash, now.UnixMilli())
 	if err != nil {
 		return err
 	}

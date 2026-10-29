@@ -82,16 +82,31 @@ par `owner recover` en mode local ou par une rotation déclarative avant ouvertu
 | Variable | Défaut | Contrat |
 | --- | --- | --- |
 | `SILLAGE_PUBLIC_URL` | `http://127.0.0.1:PORT` | Origine canonique, sans chemin, query, fragment ou identifiants |
-| `SILLAGE_SESSION_LIFETIME` | `12h` | Durée absolue des nouvelles sessions |
-| `SILLAGE_SESSION_IDLE_TIMEOUT` | `1h` | Délai sans requête privée authentifiée |
+| `SILLAGE_SESSION_LIFETIME` | `720h` | Durée glissante des sessions (30 jours) |
+| `SILLAGE_SESSION_RENEW_INTERVAL` | `24h` | Intervalle minimal entre renouvellements sur une requête privée |
 
-Les durées acceptent la notation Go, entre `1m` et `720h`. Le délai d'inactivité
-ne peut pas dépasser la durée absolue. Douze heures couvrent une journée d'utilisation
-sans rendre la session indéfinie ; une heure d'inactivité ferme les sessions abandonnées.
-La sonde `GET /api/v1/auth/session` ne renouvelle jamais l’activité : un onglet
-visible sans autre requête peut donc expirer. Les autres lectures et pollings privés
-comptent comme activité HTTP, pas comme preuve de présence humaine. Modifier la durée absolue concerne les nouvelles sessions ;
-modifier le délai d'inactivité s'applique aux vérifications suivantes.
+Les durées acceptent la notation Go, entre `1m` et `720h`. L'intervalle de
+renouvellement doit être strictement inférieur à la durée de session. Par défaut,
+une session expire après 30 jours ; la première requête privée admissible au moins
+24 heures après sa création ou son dernier renouvellement repousse son échéance
+à 30 jours après cette requête. Il n'existe aucune limite absolue depuis la connexion.
+Les sondes `GET /api/v1/auth/session` (minuterie, focus, retour dans l'onglet)
+ne renouvellent ni l'échéance persistée ni le cookie. Les requêtes refusées par le
+CSRF ne renouvellent pas non plus. Les autres lectures et pollings privés comptent
+comme activité HTTP, pas comme preuve de présence humaine.
+
+`SILLAGE_SESSION_LIFETIME` désigne désormais la durée glissante, appliquée aux
+nouvelles sessions et aux renouvellements suivants. `SILLAGE_SESSION_IDLE_TIMEOUT`
+est supprimée : le serveur refuse de démarrer si elle est encore définie et indique
+les variables de remplacement. Supprimer cette variable des anciens environnements
+et fichiers `.env` Docker ; Compose utilise désormais `SILLAGE_SESSION_RENEW_INTERVAL`.
+Si une ancienne durée courte (par exemple `12h`) est conservée, définir aussi un
+intervalle inférieur (par exemple `1h`), ou supprimer les deux réglages pour adopter
+les valeurs par défaut de 30 jours et 24 heures.
+Les sessions déjà persistées conservent leur échéance jusqu'au prochain renouvellement
+admissible ; une session déjà expirée ne peut jamais être réactivée. La colonne
+`last_seen_at` sert désormais de date du dernier renouvellement ; aucune migration
+SQL ni rotation de jeton n'est nécessaire.
 
 Compose calcule l'origine locale à partir de `SILLAGE_PORT`. Avec Vite :
 
@@ -120,8 +135,8 @@ l'ID token du fournisseur ne sera pas une session Web.
 
 La connexion remplace la session précédente de ce navigateur. Les sessions survivent au
 redémarrage, tant que leurs échéances restent valides. Chaque nouvelle requête privée
-vérifie la session dans SQLite. Les mises à jour d'activité sont espacées d'au plus une
-minute (ou un quart du délai d'inactivité). Les sessions dépassant la durée absolue sont
+vérifie la session dans SQLite. Le renouvellement et la révocation sont sérialisés
+transactionnellement, sans recréer une session supprimée. Les sessions expirées sont
 supprimées lors des connexions suivantes.
 
 Le menu Navigation > Session propose une déconnexion du navigateur et une révocation de
@@ -132,7 +147,11 @@ ou des octets déjà reçus ne sont pas repris au client.
 Cookies : `HttpOnly`, `SameSite=Lax`, `Path=/`, sans Domain ; `Secure` lorsque l'origine
 configurée est HTTPS. Dans ce cas les noms utilisent le préfixe `__Host-`.
 Le mode HTTP loopback utilise des cookies sans Secure. Le navigateur conserve le cookie
-jusqu'à l'échéance absolue ; le serveur reste l'autorité pour l'expiration et la révocation.
+jusqu'à l'échéance glissante (`Expires` et `Max-Age`). Les réponses privées authentifiées
+renvoient l'échéance persistée, même sans renouvellement, pour réparer une réponse
+`Set-Cookie` perdue. Le jeton et le CSRF restent stables ; le serveur reste l'autorité
+pour l'expiration et la révocation. La reconnexion après expiration conserve les
+brouillons et l'instance CodeMirror grâce au verrouillage Web existant.
 
 ## Routes, CSRF et diagnostics
 

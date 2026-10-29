@@ -134,12 +134,8 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token := cookieValue(r, h.cookieName)
-	// La sonde périodique vérifie les échéances sans constituer une activité privée.
-	check := h.service.Check
-	if r.URL.Path == "/api/v1/auth/session" {
-		check = h.service.Inspect
-	}
-	session, err := check(r.Context(), token)
+	// L'inspection ne renouvelle ni une sonde ni une requête refusée par le CSRF.
+	session, err := h.service.Inspect(r.Context(), token)
 	authenticated := err == nil
 	if err != nil && !errors.Is(err, auth.ErrSession) {
 		authError(w, r, 503, "authentication_unavailable")
@@ -184,6 +180,20 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			authError(w, r, 403, "csrf_invalid")
 			return
 		}
+	}
+	if authenticated {
+		session, err = h.service.Check(r.Context(), token)
+		if err != nil {
+			if errors.Is(err, auth.ErrSession) {
+				authError(w, r, 401, "authentication_required")
+			} else {
+				authError(w, r, 503, "authentication_unavailable")
+			}
+			return
+		}
+		// Renvoyer l'échéance persistée répare aussi un Set-Cookie perdu, sans
+		// changer le jeton, le CSRF ni prolonger l'échéance entre renouvellements.
+		h.setCookie(w, h.cookieName, token, session.ExpiresAt, max(1, int(time.Until(session.ExpiresAt).Seconds())))
 	}
 	if h.keys != nil && (r.URL.Path == "/api/v1/api-keys" || strings.HasPrefix(r.URL.Path, "/api/v1/api-keys/")) {
 		h.serveKeys(w, r, session.Hash)

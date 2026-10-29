@@ -36,7 +36,7 @@ func TestAuthenticatedSDKClientAndRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := auth.NewAPIKeys(repository, time.Hour)
+	keys := auth.NewAPIKeys(repository)
 	key, secret, err := keys.Create(ctx, auth.Digest(token), "sdk", nil)
 	if err != nil {
 		t.Fatal(err)

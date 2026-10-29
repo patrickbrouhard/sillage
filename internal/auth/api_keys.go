@@ -28,7 +28,7 @@ type APIKey struct {
 
 // APIKeyRepository garantit la création sous contrôle transactionnel de la session.
 type APIKeyRepository interface {
-	CreateKey(context.Context, APIKey, string, time.Duration) error
+	CreateKey(context.Context, APIKey, string) error
 	ListKeys(context.Context) ([]APIKey, error)
 	CheckKey(context.Context, string, time.Time) error
 	RevokeKey(context.Context, string, time.Time) error
@@ -39,15 +39,11 @@ type APIKeyRepository interface {
 // APIKeys gère les identifiants de lecture indépendamment des connexions Web.
 type APIKeys struct {
 	repository APIKeyRepository
-	idle       time.Duration
 }
 
-// NewAPIKeys réutilise le délai d'inactivité des sessions administratives.
-func NewAPIKeys(repository APIKeyRepository, idle time.Duration) *APIKeys {
-	if idle <= 0 {
-		idle = time.Hour
-	}
-	return &APIKeys{repository: repository, idle: idle}
+// NewAPIKeys partage la persistance des clés et des sessions administratives.
+func NewAPIKeys(repository APIKeyRepository) *APIKeys {
+	return &APIKeys{repository: repository}
 }
 
 // Create retourne le secret uniquement après validation de la transaction.
@@ -58,7 +54,7 @@ func (s *APIKeys) Create(ctx context.Context, sessionHash, name string, expires 
 	}
 	secret := "sil_" + rand.Text() + rand.Text()
 	key := APIKey{ID: rand.Text(), Name: name, Permission: "mcp:read", CreatedAt: now, ExpiresAt: expires, Hash: Digest(secret)}
-	if err := s.repository.CreateKey(ctx, key, sessionHash, s.idle); err != nil {
+	if err := s.repository.CreateKey(ctx, key, sessionHash); err != nil {
 		return APIKey{}, "", err
 	}
 	return key, secret, nil

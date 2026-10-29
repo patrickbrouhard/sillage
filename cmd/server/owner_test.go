@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/patrickbrouhard/sillage/internal/adapter/sqlite"
 	"github.com/patrickbrouhard/sillage/internal/auth"
@@ -104,13 +105,23 @@ func TestRecoveryCommand(t *testing.T) {
 
 func TestSessionConfig(t *testing.T) {
 	clearConfig(t)
+	cfg, err := loadConfig()
+	if err != nil || cfg.sessionLifetime != 30*24*time.Hour || cfg.sessionRenewInterval != 24*time.Hour {
+		t.Fatal("session defaults", cfg, err)
+	}
+	t.Run("obsolete idle setting", func(t *testing.T) {
+		t.Setenv("SILLAGE_SESSION_IDLE_TIMEOUT", "1h")
+		if _, err := loadConfig(); err == nil || !strings.Contains(err.Error(), "no longer supported") {
+			t.Fatal(err)
+		}
+	})
 	t.Setenv("SILLAGE_SESSION_LIFETIME", "2h")
-	t.Setenv("SILLAGE_SESSION_IDLE_TIMEOUT", "30m")
+	t.Setenv("SILLAGE_SESSION_RENEW_INTERVAL", "30m")
 	if _, err := loadConfig(); err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range []string{"0", "30s", "-1h", "1000h", "oops"} {
-		t.Setenv("SILLAGE_SESSION_IDLE_TIMEOUT", v)
+	for _, v := range []string{"0", "30s", "-1h", "1000h", "oops", "2h", "3h"} {
+		t.Setenv("SILLAGE_SESSION_RENEW_INTERVAL", v)
 		if _, err := loadConfig(); err == nil {
 			t.Fatal(v)
 		}

@@ -148,11 +148,31 @@ func (r *AuthRepository) CreateSession(ctx context.Context, session auth.Session
 	return tx.Commit()
 }
 
-// Session peut vérifier sans renouveler ; elle espace les écritures d'activité et ne ressuscite jamais une session révoquée.
-func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time, idle time.Duration, touch bool) (auth.Session, error) {
+// Session renouvelle au plus une fois par intervalle, sans ressusciter une session révoquée.
+func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time, lifetime, renewInterval time.Duration, touch bool) (auth.Session, error) {
+	// La transaction sérialise renouvellement et révocation ; la lecture restitue
+	// aussi l'échéance gagnante lorsque plusieurs requêtes arrivent ensemble.
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return auth.Session{}, err
+	}
+	defer tx.Rollback()
+	if touch {
+		_, err := tx.ExecContext(ctx, `
+   UPDATE web_sessions
+   SET expires_at = ?, last_seen_at = ?
+   WHERE token_hash = ?
+       AND expires_at > ?
+       AND last_seen_at <= ?
+       AND owner_version = (SELECT version FROM owner WHERE id = 1)
+  `, now.Add(lifetime).UnixMilli(), now.UnixMilli(), hash, now.UnixMilli(), now.Add(-renewInterval).UnixMilli())
+		if err != nil {
+			return auth.Session{}, err
+		}
+	}
 	var session auth.Session
 	var created, expires, seen int64
-	err := r.db.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
   SELECT
       s.token_hash,
       s.owner_version,
@@ -162,8 +182,8 @@ func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time
   FROM web_sessions AS s
   JOIN owner AS o
       ON o.id = s.owner_id AND o.version = s.owner_version
-  WHERE s.token_hash = ? AND s.expires_at > ? AND s.last_seen_at > ?
- `, hash, now.UnixMilli(), now.Add(-idle).UnixMilli()).Scan(&session.Hash, &session.Version, &created, &expires, &seen)
+  WHERE s.token_hash = ? AND s.expires_at > ?
+ `, hash, now.UnixMilli()).Scan(&session.Hash, &session.Version, &created, &expires, &seen)
 	if errors.Is(err, sql.ErrNoRows) {
 		return session, auth.ErrSession
 	}
@@ -171,25 +191,7 @@ func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time
 		return session, err
 	}
 	session.CreatedAt, session.ExpiresAt, session.LastSeenAt = time.UnixMilli(created), time.UnixMilli(expires), time.UnixMilli(seen)
-	// Le renouvellement conditionnel préserve la révocation concurrente et les délais courts.
-	if touch && now.Sub(session.LastSeenAt) >= min(time.Minute, idle/4) {
-		result, err := r.db.ExecContext(ctx, `
-   UPDATE web_sessions
-   SET last_seen_at = MAX(last_seen_at, ?)
-   WHERE token_hash = ? AND expires_at > ? AND last_seen_at > ?
-  `, now.UnixMilli(), hash, now.UnixMilli(), now.Add(-idle).UnixMilli())
-		if err != nil {
-			return session, err
-		}
-		n, err := result.RowsAffected()
-		if err != nil {
-			return session, err
-		}
-		if n == 0 {
-			return session, auth.ErrSession
-		}
-	}
-	return session, nil
+	return session, tx.Commit()
 }
 
 // Revoke retire une seule session de manière idempotente.

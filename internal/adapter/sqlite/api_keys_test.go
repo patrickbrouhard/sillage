@@ -25,7 +25,11 @@ func TestAPIKeyLifecycleAndSessionFence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := auth.NewAPIKeys(repo, time.Hour)
+	// L'ancien délai d'inactivité ne s'applique plus aux clés administratives.
+	if _, err := db.Exec("UPDATE web_sessions SET last_seen_at = 0"); err != nil {
+		t.Fatal(err)
+	}
+	keys := auth.NewAPIKeys(repo)
 	key, secret, err := keys.Create(ctx, auth.Digest(token), "Codex", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -36,6 +40,12 @@ func TestAPIKeyLifecycleAndSessionFence(t *testing.T) {
 	var hash string
 	if err := db.QueryRow("SELECT token_hash FROM api_keys WHERE id = ?", key.ID).Scan(&hash); err != nil || hash == secret {
 		t.Fatal("raw credential stored", err)
+	}
+	if _, err := db.Exec("UPDATE web_sessions SET expires_at = 0"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := keys.Create(ctx, auth.Digest(token), "expired-session", nil); !errors.Is(err, auth.ErrSession) {
+		t.Fatal("expired session issued key", err)
 	}
 	if err := identity.Logout(ctx, token); err != nil {
 		t.Fatal(err)
@@ -80,7 +90,7 @@ func TestConcurrentKeyCreationAndSecurityReset(t *testing.T) {
 	defer db.Close()
 	repo := NewAuthRepository(db)
 	identity := auth.NewService(repo, time.Hour, time.Hour)
-	keys := auth.NewAPIKeys(repo, time.Hour)
+	keys := auth.NewAPIKeys(repo)
 	if err := identity.Initialize(ctx, "owner", "une phrase suffisamment longue"); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +130,7 @@ func TestKeyExpirationAndAdministrativeChanges(t *testing.T) {
 	defer db.Close()
 	repo := NewAuthRepository(db)
 	identity := auth.NewService(repo, time.Hour, time.Hour)
-	keys := auth.NewAPIKeys(repo, time.Hour)
+	keys := auth.NewAPIKeys(repo)
 	if err := identity.Initialize(ctx, "owner", "une phrase suffisamment longue"); err != nil {
 		t.Fatal(err)
 	}

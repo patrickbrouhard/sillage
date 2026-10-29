@@ -31,7 +31,7 @@ func runSecurityReset() error {
 		return errors.New("cannot open owner database")
 	}
 	defer db.Close()
-	if err := auth.NewAPIKeys(sqlite.NewAuthRepository(db), 0).ResetAccess(context.Background()); err != nil {
+	if err := auth.NewAPIKeys(sqlite.NewAuthRepository(db)).ResetAccess(context.Background()); err != nil {
 		return errors.New("security reset failed")
 	}
 	fmt.Fprintln(os.Stdout, "Sessions et clés révoquées. Corrigez les identifiants compromis avant de redémarrer.")
