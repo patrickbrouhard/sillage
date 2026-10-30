@@ -12,6 +12,14 @@ import { VideoDownload } from './VideoDownload'
 import { usePlaybackProgress } from './usePlaybackProgress'
 import { PlayerInformation } from './PlayerInformation'
 
+/** Ajoute les commandes de suppression à la surface commune sans les imposer aux lecteurs concrets. */
+export interface VideoPlayerHandle extends PlayerHandle {
+  /** Suspend les reprises puis décharge le lecteur avant DELETE. */
+  suspendForDeletion(): void
+  /** Réautorise les reprises après refus, sans relancer la lecture. */
+  resumeAfterDeletionRefused(): void
+}
+
 /** Conserve l'en-tête, le focus et les interactions de conservation hors des instances de lecture. */
 export function VideoPlayer({ videoID, source, download, ref, covered = false, onImagesFailure }: {
   onImagesFailure: (message: string) => void
@@ -19,7 +27,7 @@ export function VideoPlayer({ videoID, source, download, ref, covered = false, o
   videoID: number
   source: VideoSource
   download: ReturnType<typeof useVideoDownload>
-  ref: Ref<PlayerHandle>
+  ref: Ref<VideoPlayerHandle>
 }) {
   const progress = usePlaybackProgress(videoID, source.id)
   const player = useRef<PlayerSurfaceHandle>(null)
@@ -83,6 +91,12 @@ export function VideoPlayer({ videoID, source, download, ref, covered = false, o
     },
     navigate: startMs => player.current?.navigate(startMs) ?? 'Navigation non effectuée : lecteur indisponible.',
     stop: () => player.current?.stop(),
+    suspendForDeletion() {
+      progress.suspend(true)
+      player.current?.stop()
+      if (selection?.mode === 'local' && download.file) setUnloaded(download.file.id)
+    },
+    resumeAfterDeletionRefused() { progress.suspend(false) },
     prepareImages: async () => { await player.current?.prepareImages() },
     releaseImages: () => player.current?.releaseImages(),
   }))

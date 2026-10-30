@@ -11,6 +11,7 @@ export function usePlaybackProgress(videoID: number, sourceID: number) {
   const [message, setMessage] = useState('')
   const active = useRef(true)
   const enabledRef = useRef(true)
+  const suspended = useRef(false)
   const policy = useRef(new PlaybackProgress())
   const writer = useRef<PlaybackWrites | null>(null)
   if (!writer.current) writer.current = new PlaybackWrites(
@@ -37,14 +38,14 @@ export function usePlaybackProgress(videoID: number, sourceID: number) {
       () => finish(null, true),
     )
     const access = () => {
-      const allowed = isAuthenticated() && enabledRef.current
+      const allowed = isAuthenticated() && enabledRef.current && !suspended.current
       writer.current!.enable(allowed)
       if (!allowed) policy.current.reset()
     }
     access()
     const unsubscribe = subscribeAuth(access)
     const flush = () => {
-      if (enabledRef.current && isAuthenticated()) {
+      if (enabledRef.current && isAuthenticated() && !suspended.current) {
         writer.current!.submit(policy.current.flush(), true)
         writer.current!.finish()
       }
@@ -66,7 +67,7 @@ export function usePlaybackProgress(videoID: number, sourceID: number) {
   }, [videoID, sourceID])
 
   const observe = useCallback<PlaybackObserver>((sample, reason = 'sample') => {
-    if (!active.current || !enabledRef.current || !isAuthenticated()) return
+    if (suspended.current || !active.current || !enabledRef.current || !isAuthenticated()) return
     if (reason === 'seek' || reason === 'reset') {
       if (reason === 'seek') policy.current.seek()
       else policy.current.reset()
@@ -84,7 +85,7 @@ export function usePlaybackProgress(videoID: number, sourceID: number) {
     const next = !enabledRef.current
     enabledRef.current = next
     policy.current.reset()
-    writer.current!.enable(next && isAuthenticated())
+    writer.current!.enable(next && isAuthenticated() && !suspended.current)
     setEnabled(next)
   }
 
@@ -93,5 +94,12 @@ export function usePlaybackProgress(videoID: number, sourceID: number) {
     policy.current.transfer(position)
   }
 
-  return { initial, enabled, message, observe, toggle, transfer }
+  /** Suspend aussi le flush de démontage ; une requête déjà envoyée reste protégée par SQLite. */
+  function suspend(value: boolean) {
+    suspended.current = value
+    policy.current.reset()
+    writer.current!.enable(!value && enabledRef.current && isAuthenticated())
+  }
+
+  return { initial, enabled, message, observe, toggle, transfer, suspend }
 }
