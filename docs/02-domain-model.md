@@ -76,6 +76,23 @@ De même, un éventuel `updated_at` de vidéo exige une sémantique explicite : 
 
 La recherche globale conserve cette identité : un résultat par `Video`, même si plusieurs sources contribuent. Sa projection textuelle est reconstructible depuis les sources, publishers, tags directs et note ; elle ne crée ni titre principal, ni association héritée, ni nouvelle entité de connaissance. Une citation de transcription copiée dans la note est recherchable comme texte utilisateur ; la transcription d'origine reste hors de cet index.
 
+### 2.3 Suppression définitive
+
+La suppression de `Video` retire ses sources, note principale, transcriptions, assets de tous états,
+médias locaux même sans source d'origine, points de reprise et associations directes.
+Les entités partagées `Tag`, `Publisher`, `Person`, leurs tags et leurs relations propres restent
+intactes. Le document FTS de la vidéo disparaît dans la même transaction.
+
+Le Markdown des autres vidéos n'est pas réécrit : citations copiées, liens temporels et références
+d'images y demeurent, même lorsque leur cible disparaît. Réimporter la même source peut créer une
+nouvelle vidéo avec de nouveaux IDs ; les références anciennes ne lui sont jamais réattribuées.
+
+La suppression métier est irréversible et ne conserve aucun contenu restaurable. Un manifeste
+technique durable identifie les fichiers à effacer après commit ; il reste présent tant que la purge
+n'est pas confirmée. Il ne constitue ni une vidéo masquée ni une corbeille. La portée physique est
+limitée aux références persistées : les anciens snapshots remplacés et les publications orphelines
+dont la provenance n'est plus établie restent conservés.
+
 ## 3. `VideoSource`, `Publisher` et `Person`
 
 ### 3.1 `VideoSource` : provenance et identité
@@ -365,7 +382,7 @@ Une demande valide crée un asset `pending` avant l'extraction. La publication d
 - Un asset `available` ne garantit pas que le fichier soit encore lisible après une suppression ou une corruption extérieure : **identité/état et disponibilité effective sont distincts**.
 - Les références Markdown utilisent l'URL publique `/api/v1/assets/{id}/content`, jamais un nom de fichier comme identifiant métier.
 
-Retirer une image d'une note, annuler son insertion ou supprimer son `MediaFile` d'origine **ne supprime pas l'asset**. Les fichiers publiés et orphelins ne sont pas automatiquement nettoyés au démarrage. Le catalogue de la vidéo retrouve aussi les captures non référencées, toutes sources et tous états confondus. Le tri par timestamp puis identité conserve chaque source sans synchroniser ses positions avec celles des autres. Import, suppression explicite et types supplémentaires restent à cadrer ; aucune hiérarchie d'assets futurs n'est anticipée.
+Retirer une image d'une note, annuler son insertion ou supprimer son `MediaFile` d'origine **ne supprime pas l'asset**. Hors reprise d'un manifeste de suppression vidéo explicitement autorisé, les fichiers publiés et orphelins ne sont pas automatiquement nettoyés au démarrage. Le catalogue de la vidéo retrouve aussi les captures non référencées, toutes sources et tous états confondus. Le tri par timestamp puis identité conserve chaque source sans synchroniser ses positions avec celles des autres. Import, suppression individuelle d’asset et types supplémentaires restent à cadrer ; aucune hiérarchie d'assets futurs n'est anticipée.
 
 ## 8. `MediaFile`
 

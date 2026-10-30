@@ -254,6 +254,34 @@ détachement du lecteur sont des pistes futures, pas des fonctions existantes.
 - Une citation depuis Informations ne révèle Note et ne focalise l'insertion **que si elle est admissible**. Un
   refus laisse l'onglet inchangé et n'envoie aucune commande au lecteur.
 
+### Suppression définitive de la vidéo
+
+La commande « Supprimer la vidéo » figure en bas d'Informations, séparée de « Supprimer le fichier
+local ». Sa confirmation nomme la vidéo et annonce la destruction irréversible de la note, des
+transcriptions, captures, médias locaux et points de reprise, sans corbeille. Tags, publishers et
+personnes sont conservés ; les références des autres notes restent inchangées et peuvent devenir invalides.
+La purge porte sur les fichiers dont l'appartenance est établie par les références persistées, sans
+suppression des orphelins historiques non attribuables.
+
+- Ouvrir puis annuler la confirmation ne modifie ni la note, ni Undo/Redo, ni la lecture.
+- Confirmer autorise aussi l'abandon du brouillon local et d'un éventuel conflit ; aucune sauvegarde
+  préalable ni résolution du conflit n'est imposée. Une sauvegarde déjà envoyée termine son bilan,
+  mais aucun nouveau PUT n'est déclenché pour préparer la suppression.
+- L'autosauvegarde est suspendue, le lecteur arrêté et déchargé, et le flush des reprises désactivé.
+  Un usage incompatible côté serveur provoque un refus temporaire, sans annulation d'opération
+  ni attente longue. Après refus certain, la même session de note reprend ; la lecture ne redémarre pas.
+- Une réponse réseau perdue ou un résultat serveur incertain conserve le brouillon en mémoire, sans
+  reprendre l'autosauvegarde. « Vérifier et réessayer » répète la commande idempotente sur le même ID.
+  Un refus ultérieur ne suffit pas à lever une incertitude antérieure.
+- Après confirmation métier, la fiche termine explicitement sa session sans tentative de sauvegarde
+  ni dialogue de départ supplémentaire, puis remplace son entrée d'historique par la bibliothèque.
+- Un `204` produit une notification discrète pendant cinq secondes. Un `202` affiche « Vidéo supprimée »
+  avec un nettoyage des fichiers encore incomplet et une action pour le réessayer. Cet état reste
+  attaché à l'entrée de bibliothèque, y compris après rechargement ; la reprise serveur au démarrage
+  reste indépendante de la présence du navigateur.
+- La fermeture du navigateur ne garantit toujours pas la conservation du brouillon en mémoire.
+  Une vidéo supprimée depuis un autre onglet ne peut pas être recréée par un PUT tardif.
+
 ## 3. Note Markdown et sauvegarde
 
 ### 3.1 Contenu et modes

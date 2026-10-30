@@ -114,6 +114,7 @@ Les chemins d'écriture actuellement raccordés sont :
 
 | Écriture | Adapter responsable |
 | --- | --- |
+| Suppression définitive d’une vidéo (retrait du document FTS) | [deletion_repository.go](../internal/adapter/sqlite/deletion_repository.go) |
 | Création d'une vidéo et de sa source | [video_repository.go](../internal/adapter/sqlite/video_repository.go) |
 | Sauvegarde effective de la note | [note_repository.go](../internal/adapter/sqlite/note_repository.go) |
 | Ajout ou retrait de tags directs | [tag_repository.go](../internal/adapter/sqlite/tag_repository.go) |
@@ -128,6 +129,10 @@ Les renommages généraux de publishers et les rafraîchissements de sources ne 
 implicitement fournis par ce mécanisme. Lorsqu'on ajoute un chemin d'écriture recherchable,
 il faut identifier toutes les vidéos affectées et reconstruire leurs documents dans sa transaction.
 Une écriture SQL directe contournant les adapters peut désynchroniser l'index.
+La suppression d'une vidéo efface directement `video_search WHERE rowid = video_id` dans la
+même transaction que la suppression métier et la création de son manifeste de purge ; elle n'appelle pas `rebuildSearchVideo`.
+Les références ou citations conservées dans les notes d'autres vidéos restent indexées comme leur
+texte utilisateur. Le marqueur global de projection ne change pas pour une suppression.
 
 ### Initialisation et versions
 

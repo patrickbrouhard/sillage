@@ -1,6 +1,6 @@
 # Roadmap — Sillage
 
-Dernière consolidation : 26 octobre 2026.
+Dernière consolidation : 30 octobre 2026.
 
 Ce document donne **l'état d'avancement et les prochaines directions de développement**. Il ne décrit ni les contrats techniques en vigueur, ni le détail des tests effectués à chaque commit, ni toutes les décisions encore ouvertes.
 
@@ -12,6 +12,10 @@ Ce document donne **l'état d'avancement et les prochaines directions de dévelo
 ## 1. État actuel
 
 **Le socle fonctionnel de Sillage est en place.** Il est possible d'ajouter une vidéo YouTube, de la retrouver dans la bibliothèque, de la consulter, de prendre des notes Markdown, de travailler avec sa transcription et ses références temporelles, de conserver son média localement, de produire des captures et de consulter/réinsérer les images de chaque vidéo.
+
+La suppression définitive d'une vidéo est également disponible depuis Informations, avec conservation
+des entités partagées, refus des usages incompatibles et reprise ciblée des fichiers restant à effacer.
+Elle n'introduit ni corbeille ni nettoyage général des orphelins.
 
 Les dernières tranches ont également apporté la lecture locale, la journalisation structurée et la réorganisation de la fiche vidéo (navigation, en-tête, onglets, panneaux et surfaces de lecture).
 

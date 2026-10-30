@@ -140,7 +140,7 @@ Questions ouvertes :
 
 - Faut-il permettre de réanalyser les anciens fichiers pour compléter leurs métadonnées techniques ?
 - Quelle politique adopter pour la modification ou la correction manuelle de certaines métadonnées, notamment la langue audio ?
-- Comment détecter les fichiers orphelins, les temporaires abandonnés et les suppressions interrompues ?
+- Comment détecter les fichiers orphelins, les temporaires abandonnés et les suppressions individuelles de médias interrompues hors manifeste de suppression vidéo ?
 - Comment proposer leur récupération, leur rattachement ou leur suppression après confirmation ?
 - Comment importer et rattacher des médias déjà présents sur le disque ?
 - Faut-il permettre plusieurs représentations d'une même source : différentes qualités, formats ou pistes audio ?
@@ -181,7 +181,7 @@ Questions techniques :
 
 - Quel degré de fidélité temporelle et visuelle peut être garanti selon les sources, formats et cadences ?
 - Quelle politique de quotas, de reprise et de rétention adopter si des caches de captures sont introduits ?
-- Comment gérer les références Markdown lorsqu'un asset est explicitement supprimé ?
+- Pour une future suppression individuelle d’asset, faut-il proposer des avertissements sur les références Markdown ? La suppression de la vidéo propriétaire laisse déjà les autres notes inchangées.
 
 #### Piste : usages des assets dans les notes (non décidée)
 
