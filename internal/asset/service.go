@@ -32,7 +32,16 @@ type Service struct {
 }
 
 // NewService clôt les intentions interrompues sans toucher aux fichiers conservés.
-func NewService(ctx context.Context, videos Videos, repo Repository, local LocalMedia, extractor Extractor, storage Storage, timeout time.Duration, activities ...*video.Activity) (*Service, error) {
+func NewService(
+	ctx context.Context,
+	videos Videos,
+	repo Repository,
+	local LocalMedia,
+	extractor Extractor,
+	storage Storage,
+	timeout time.Duration,
+	activities ...*video.Activity,
+) (*Service, error) {
 	if timeout <= 0 {
 		return nil, fmt.Errorf("invalid capture timeout")
 	}
@@ -44,7 +53,17 @@ func NewService(ctx context.Context, videos Videos, repo Repository, local Local
 		activity = activities[0]
 	}
 	owned, cancel := context.WithCancel(ctx)
-	return &Service{activity: activity, videos: videos, repo: repo, local: local, extractor: extractor, storage: storage, ctx: owned, cancel: cancel, timeout: timeout}, nil
+	return &Service{
+		activity:  activity,
+		videos:    videos,
+		repo:      repo,
+		local:     local,
+		extractor: extractor,
+		storage:   storage,
+		ctx:       owned,
+		cancel:    cancel,
+		timeout:   timeout,
+	}, nil
 }
 
 // Close attend les processus et les écritures avant fermeture de SQLite.

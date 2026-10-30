@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/patrickbrouhard/sillage/internal/http/requestlog"
 	"github.com/patrickbrouhard/sillage/internal/video"
+	"log/slog"
 	"net/http"
 	"strconv"
 )
@@ -19,11 +20,13 @@ type DeletionService interface {
 // DeleteVideo adapte la commande idempotente sans exposer le manifeste interne.
 func DeleteVideo(service DeletionService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		requestlog.Route(r, "/api/v1/videos/{id}")
 		id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 		if err != nil || id <= 0 {
 			writeError(w, r, 400, "bad_request", "invalid video id")
 			return
 		}
+		requestlog.Fields(r, slog.Int64("video_id", id))
 		pending, err := service.Delete(r.Context(), video.VideoID(id))
 		switch {
 		case errors.Is(err, video.ErrBusy):

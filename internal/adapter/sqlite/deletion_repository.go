@@ -62,8 +62,18 @@ func (r *DeletionRepository) Delete(ctx context.Context, id video.VideoID) error
 	}
 	// Les enfants des sources disparaissent avant les sources, sans cascade implicite.
 	for _, statement := range []string{
-		`DELETE FROM playback_progress WHERE video_source_id IN (SELECT id FROM video_sources WHERE video_id = ?)`,
-		`DELETE FROM transcripts WHERE video_source_id IN (SELECT id FROM video_sources WHERE video_id = ?)`,
+		`
+   DELETE FROM playback_progress
+   WHERE video_source_id IN (
+    SELECT id FROM video_sources WHERE video_id = ?
+   )
+  `,
+		`
+   DELETE FROM transcripts
+   WHERE video_source_id IN (
+    SELECT id FROM video_sources WHERE video_id = ?
+   )
+  `,
 		`DELETE FROM assets WHERE video_id = ?`,
 		`DELETE FROM media_files WHERE video_id = ?`,
 		`DELETE FROM notes WHERE video_id = ?`,

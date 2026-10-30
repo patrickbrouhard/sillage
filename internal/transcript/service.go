@@ -55,12 +55,24 @@ type Service struct {
 }
 
 // NewService assemble les dépendances sans accéder aux systèmes externes.
-func NewService(videos VideoReader, repository Repository, provider Provider, snapshots Snapshots, activities ...*video.Activity) *Service {
+func NewService(
+	videos VideoReader,
+	repository Repository,
+	provider Provider,
+	snapshots Snapshots,
+	activities ...*video.Activity,
+) *Service {
 	var activity *video.Activity
 	if len(activities) > 0 {
 		activity = activities[0]
 	}
-	return &Service{activity: activity, videos: videos, repository: repository, provider: provider, snapshots: snapshots}
+	return &Service{
+		activity:   activity,
+		videos:     videos,
+		repository: repository,
+		provider:   provider,
+		snapshots:  snapshots,
+	}
 }
 
 // Fetch acquiert puis publie une transcription ; un échec préserve la précédente.
