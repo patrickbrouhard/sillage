@@ -28,6 +28,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
 	"github.com/patrickbrouhard/sillage/internal/note"
+	"github.com/patrickbrouhard/sillage/internal/playback"
 	"github.com/patrickbrouhard/sillage/internal/search"
 	"github.com/patrickbrouhard/sillage/internal/transcript"
 	"github.com/patrickbrouhard/sillage/internal/video"
@@ -282,6 +283,7 @@ func run(ctx context.Context, cfg config) (result error) {
 		captures,
 	)
 	handler = api.WithSearch(handler, searches)
+	handler = api.WithPlayback(handler, playback.NewService(sqlite.NewPlaybackRepository(db)))
 	var transport http.Handler
 	if cfg.mcpEnabled {
 		mcp, err := mcpa.New(ctx, mcpa.Readers{Search: searches, Videos: service, Transcripts: transcripts, Notes: notes}, []string{publicURL})

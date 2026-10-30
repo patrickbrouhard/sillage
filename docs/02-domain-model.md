@@ -16,6 +16,7 @@ Documents complémentaires : [Product & UX](01-product-and-ux.md), [Architecture
 Video (id, created_at)
 ├── VideoSource [1:N] (id, video_id, provider, external_id?, ...)
 │   ├── Publisher [0..1] (compte de publication de la même plateforme)
+│   ├── Point de reprise [0..1] (position_ms)
 │   └── Transcript [0:N] (source + langue + provenance)
 ├── MediaFile [0:N] (représentation physique locale)
 │   └── origin_source_id? → VideoSource (obligatoire pour un téléchargement YouTube)
@@ -169,6 +170,22 @@ Indirect : Video → VideoSource → Publisher → Person
 La navigation peut réunir ces chemins en dédupliquant les vidéos par ID, mais **ne matérialise jamais un lien direct à partir d'un lien indirect**. Les associations de personnes et leurs tags ne se propagent pas non plus aux sources, comptes ou vidéos.
 
 La suppression des publishers/personnes, les rôles, les organisations et la modélisation des collaborateurs restent à cadrer ; ils n'appartiennent pas au modèle actuel.
+
+### 3.6 Point de reprise
+
+Une `VideoSource` possède au plus un point de reprise, exprimé en millisecondes entières non négatives.
+Il représente le prochain départ proposé, sans prouver un pourcentage regardé ni un état « visionnée ».
+L'absence de point signifie démarrer au début ; zéro reste une position valide distincte de cette absence.
+
+YouTube et le média conservé de cette source partagent ce point. Il n'appartient ni à `Video`, ni
+à `MediaFile` : supprimer ou réacquérir le média ne le supprime pas. Aucun transfert entre sources
+n'est implicite. Les différences éventuelles entre représentations ne créent pas de conversion de timeline.
+
+Une fin admissible efface uniquement le point. Aucune date de visionnage, durée cumulée, préférence
+de suivi ou histoire des positions n'est conservée. Une lecture de progression ne crée ni ne corrige
+de donnée. Les écritures entre appareils suivent la dernière mutation appliquée, sans révision,
+registre d'émetteurs ou séquences persistantes. La qualification du visionnage appartient à
+l'observation frontend, indépendante des positions admissibles pour les annotations.
 
 ## 4. `Transcript`
 

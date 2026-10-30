@@ -3,17 +3,20 @@ import type { Ref } from 'react'
 import type { VideoSource } from './api'
 import { loadYouTubeAPI } from './youtubeApi'
 import type { YouTubePlayer as Player } from './youtubeApi'
+import type { PlaybackObserver, PlaybackReason } from './playbackProgress'
 import { revealPlayer } from './player'
 import type { PlayerSurfaceHandle, PlayerVisibility } from './player'
 
 /** Présente un lecteur YouTube isolé ; une pause confirmée précède son masquage. */
-export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onImagesFailure }: {
+export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onImagesFailure, onPlayback }: {
+  onPlayback: PlaybackObserver
   onImagesFailure: (message: string) => void
   source: VideoSource
   ref: Ref<PlayerSurfaceHandle>
   onVisibility: (state: PlayerVisibility) => void
   initialStartMs?: number
 }) {
+  const reportPlayback = useRef<(reason?: PlaybackReason) => void>(() => {})
   const initialPosition = useRef(initialStartMs)
   const prepared = useRef(initialStartMs)
   const uncertain = useRef(false)
@@ -142,6 +145,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onIma
         // Une navigation admissible quitte Images : sa pause ne doit pas neutraliser le seek explicite.
         images.current = false
         pauseImages.current?.()
+        reportPlayback.current('seek')
         current.seekTo(seconds, true)
         setNavigation(value => value + 1)
         return ''
@@ -158,11 +162,31 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onIma
     let failed = false
     let instance: Player | null = null
     let readyTimer: number | undefined
+    const report = (reason: PlaybackReason = 'sample') => {
+      if (disposed || failed) return
+      const current = player.current
+      try {
+        const state = current?.getPlayerState()
+        const position = Math.round((current?.getCurrentTime() ?? NaN) * 1000)
+        const duration = current?.getDuration() ?? 0
+        onPlayback({
+          positionMs: prepared.current === undefined && Number.isSafeInteger(position) && position >= 0 ? position : null,
+          durationMs: Number.isFinite(duration) && duration > 0 && (source.duration_ms ?? 0) > 0 ? Math.round(duration * 1000) : null,
+          rate: current?.getPlaybackRate() ?? 1,
+          state: state === 1 ? 'playing' : state === 2 ? 'paused' : state === 0 ? 'ended' : state === 3 ? 'waiting' : 'unavailable',
+        }, reason)
+      } catch {
+        onPlayback({ positionMs: null, durationMs: null, rate: 1, state: 'unavailable' }, 'reset')
+      }
+    }
+    reportPlayback.current = report
+    const timer = window.setInterval(() => report(), 1000)
     setReady(false); setMessage(''); setAutoplayBlocked(false)
 
     /** Une initialisation en échec ne peut pas être réactivée par un événement tardif. */
     function fail(description: string) {
       if (disposed || failed) return
+      report('reset')
       failed = true
       uncertain.current = true
       prepared.current = undefined
@@ -175,6 +199,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onIma
     }
     failPlayer.current = fail
     stopPlayer.current = () => {
+      report('stop')
       failed = true
       window.clearTimeout(readyTimer)
       window.clearTimeout(concealTimer.current)
@@ -206,7 +231,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onIma
           window.clearTimeout(readyTimer)
           player.current = event.target
           setReady(true)
-          // Seule la bascule prépare un départ à l'initialisation ; les timestamps ne sont jamais différés.
+          // La reprise et la bascule préparent un départ à l'initialisation ; les timestamps ne sont jamais différés.
           const startMs = initialPosition.current
           initialPosition.current = undefined
           if (startMs !== undefined) {
@@ -229,6 +254,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onIma
           // Les états admissibles rétablissent la lecture du temps courant, sans
           // chercher un accusé de fin de seek que l'API ne garantit pas.
           if ([0, 1, 2].includes(event.data)) uncertain.current = false
+          report()
           if (images.current && [1, 3].includes(event.data)) {
             if (!pauseImages.current) void prepareImages().catch(error => {
               if (images.current) onImagesFailure(error.message)
@@ -266,7 +292,10 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onIma
     }).catch(error => fail(error instanceof Error ? error.message : 'Impossible de préparer le lecteur YouTube.'))
 
     return () => {
+      report('stop')
       disposed = true
+      window.clearInterval(timer)
+      reportPlayback.current = () => {}
       pauseImages.current?.()
       failPlayer.current = null
       stopPlayer.current = null
@@ -319,7 +348,7 @@ export function YouTubePlayer({ source, ref, onVisibility, initialStartMs, onIma
 
   return <div className="player-surface" hidden={hidden}>
       {message && <div role="alert"><p>{message}</p><button className="button" onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}
-      <div className="youtube-frame" ref={host} />
+      <div className="youtube-frame" inert={!ready} ref={host} />
       {!ready && !message && <p role="status">Chargement du lecteur YouTube…</p>}
       {autoplayBlocked && <p role="status">Le navigateur a bloqué le démarrage. Utilisez le bouton Lecture du lecteur.</p>}
     </div>

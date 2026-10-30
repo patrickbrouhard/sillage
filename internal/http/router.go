@@ -114,3 +114,13 @@ func WithSearch(next http.Handler, service handlers.SearchService) http.Handler 
 	r.Mount("/", next)
 	return r
 }
+
+// WithPlayback ajoute les routes de reprise sous la frontière d'authentification commune.
+func WithPlayback(next http.Handler, service handlers.PlaybackService) http.Handler {
+	r := chi.NewRouter()
+	h := handlers.NewPlaybackHandler(service)
+	r.Get("/api/v1/videos/{video_id}/sources/{source_id}/playback-progress", h.Get)
+	r.Put("/api/v1/videos/{video_id}/sources/{source_id}/playback-progress", h.Put)
+	r.Mount("/", next)
+	return r
+}

@@ -24,7 +24,7 @@ Documents complémentaires :
                     │
                     ▼
           Services applicatifs Go
-       video · note · transcript · media · asset · search
+       video · note · transcript · media · asset · search · playback
                     │
           ports et interfaces ciblés
              ┌──────┴─────────┐
@@ -310,6 +310,24 @@ Les relations directes et indirectes restent distinctes ; `all` déduplique les 
 
 Les chemins internes des fichiers et les diagnostics des processus ne sont pas exposés. Les réponses de statut de téléchargement et les erreurs de consultation sont distinctes ; `failed` dans un `GET 200` n'est pas la même chose qu'un échec HTTP de ce GET.
 
+### 6.6 Progression de lecture
+
+| Méthode | Route | Contrat essentiel |
+| --- | --- | --- |
+| `GET` | `/api/v1/videos/{video_id}/sources/{source_id}/playback-progress` | `200 {"position_ms": entier ou null}` ; absence de point sans erreur |
+| `PUT` | Même route | `{"position_ms": entier ou null}` obligatoire ; `204` sans corps après remplacement ou effacement |
+
+Le corps JSON strict est borné à 1 Kio. Une position doit être un entier entre 0 et
+9007199254740991, afin de rester exacte dans le navigateur. `null` efface ; un champ absent,
+fractionnaire ou inconnu est refusé. Les identifiants invalides donnent `400 bad_request` ;
+une source absente ou n'appartenant pas à la vidéo, y compris une vidéo inconnue, donne
+`404 video_source_not_found`. La session et le CSRF suivent la frontière REST commune.
+
+`playback.Service` valide les entrées ; `PlaybackRepository` vérifie l'appartenance et applique
+le remplacement ou l'effacement sous transaction SQLite immédiate. Une position identique évite
+l'UPDATE. Aucun traitement long ni acquisition distante. La table `playback_progress` contient
+seulement la clé de source et la position ; les décisions de qualification restent côté navigateur.
+
 ## 7. Diffusion locale et gestion des accès fichiers
 
 ### 7.1 Ouverture contrôlée
@@ -422,6 +440,34 @@ Après une commande acceptée, le lecteur peut faire défiler **la page** pour r
 - **Blocage navigateur** : un événement `onAutoplayBlocked` peut informer l'utilisateur, sans détection par délai, deuxième `playVideo` ni relance automatique. L'absence du signal ne prouve pas que le démarrage a réussi.
 
 Les comportements et scénarios sur l'API YouTube réelle sont consignés dans [la recette manuelle](07-local-playback-validation.md). Les tests de navigateur avec un double YouTube ne remplacent pas cette validation.
+
+#### Suivi de reprise
+
+`usePlaybackProgress` possède la session de la fiche/source au niveau de `VideoPlayer`.
+`PlaybackProgress` calcule les qualifications et décisions sans React, DOM ni réseau ;
+les surfaces publient des observations et motifs explicites, sans modifier `getCurrentTimeMs`
+ou les contrats `confirmed`/`prepared`. Le polling et les événements sont nettoyés avec chaque surface ;
+les retours réseau d'une ancienne session ne peuvent agir sur la suivante.
+
+L'initialisation attend le GET de progression, au plus deux secondes, en parallèle du choix du média,
+puis transmet `initialStartMs`. Le timeout ferme définitivement cette décision. Les surfaces restent
+inertes pendant leur préparation initiale ; aucune réponse GET ultérieure ne commande un seek.
+
+Les compteurs utilisent une horloge monotone et une avance média cohérente avec la vitesse.
+Un intervalle supérieur à 2,5 secondes est écarté et invalide la qualification. La détection YouTube
+tolère une avance supplémentaire de `max(1500 ms, 35 % de l'avance attendue)` et une variation
+arrière de 250 ms ; ces tolérances internes ne sont ni une confirmation de seek ni une garantie
+de détection des petits déplacements. La durée YouTube observée ne sert à la marge de fin que si
+la source possède aussi une durée positive ; une durée inconnue ne devient pas une fin anticipée.
+
+`PlaybackWrites` sérialise les écritures normales : une requête en vol, au plus un dernier instantané
+en attente, déduplication des positions identiques et abandon du lot après résultat incertain.
+Une nouvelle observation peut proposer un nouvel instantané, sans boucle de réessai.
+Désactivation, verrouillage et démontage suppriment les envois non partis. Les tentatives de sortie
+(`visibilitychange`, `pagehide`, démontage SPA) utilisent `apiFetch` avec `keepalive` et le CSRF
+habituel, éventuellement en concurrence avec une écriture normale. L'ordre absolu n'est pas garanti :
+aucun registre serveur d'émetteurs, accusé de lecture ou protocole de résolution n'est ajouté.
+La progression ne participe ni aux révisions de note, ni au garde de navigation, ni à la projection FTS.
 
 ### 8.5 Transcription et recherche locale
 

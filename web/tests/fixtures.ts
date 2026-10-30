@@ -15,6 +15,8 @@ interface MockPlayer {
   pauseVideo(): void
   getPlayerState(): number
   getCurrentTime(): number
+  getDuration(): number
+  getPlaybackRate(): number
   destroy(): void
   emitState(state: number): void
 }
@@ -49,6 +51,8 @@ function installYouTubeMock() {
     }
     getPlayerState() { return this.state }
     getCurrentTime() { return this.position }
+    getDuration() { return 120 }
+    getPlaybackRate() { return 1 }
     /** Reproduit le démarrage réel de seekTo hors de l'état paused. */
     seekTo(seconds: number, allowSeekAhead: boolean) {
       this.navigationCalls.push({ command: 'seek', seconds, allowSeekAhead })

@@ -316,6 +316,18 @@ autre tag est refusée sans fusion. La dernière écriture réussie prévaut ; l
 restent réutilisables. La suppression globale retire tous les liens présents dans sa transaction.
 Les tags embarqués dans les vidéos, publishers et personnes gardent leur forme `{id, name}`.
 
+### Reprise de lecture
+
+`GET /api/v1/videos/{video_id}/sources/{source_id}/playback-progress` retourne
+`{"position_ms": 42000}`, ou `{"position_ms": null}` sans point de reprise.
+Le `PUT` sur la même route exige ce champ : un entier non négatif remplace le point,
+`null` le supprime ; succès `204`. Corps JSON limité à 1 Kio, session et CSRF requis
+pour l'écriture. Aucun registre d'émetteurs ni statut « visionnée » n'est conservé.
+
+La reprise automatique sans autoplay et le suivi désactivable sont décrits dans
+[Product & UX](docs/01-product-and-ux.md#68-reprise-de-lecture-entre-sessions) ;
+les bornes et erreurs REST dans [Architecture](docs/03-architecture.md#66-progression-de-lecture).
+
 ### Transcriptions
 
 | Méthode | Route | Comportement |

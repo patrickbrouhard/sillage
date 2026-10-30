@@ -239,10 +239,10 @@ Le workspace dispose actuellement de panneaux Lecteur, Note et Transcription, d'
 - Préférences de disposition du workspace, si un besoin réel apparaît.
 - Système global de notifications temporaires, distinct des messages contextuels existants.
 - Raccourcis clavier supplémentaires et éventuelle personnalisation.
-- Reprise de la position de lecture entre sessions.
-- Suivi de progression ou état de visionnage des vidéos.
+- Paramétrage éventuel des seuils de reprise, selon les besoins réels.
+- État de visionnage des vidéos, historique et statistiques, distincts du point de reprise.
 
-Pour une éventuelle reprise de lecture, déterminer notamment la persistance, la fréquence de sauvegarde, le choix de la source et le comportement à la réouverture.
+La reprise par source entre sessions est définie dans [Product & UX](01-product-and-ux.md#68-reprise-de-lecture-entre-sessions). Les garanties pour les directs et timelines mobiles restent à concevoir.
 
 Les validations manuelles non encore réalisées sur certains environnements constituent des tâches de recette, pas des décisions de conception.
 
@@ -395,7 +395,7 @@ Aucun moteur STT ni modèle de diarisation n'est choisi.
 
 - Collections et playlists.
 - Favoris.
-- États de lecture et suivi de progression.
+- États de visionnage et exploitation éventuelle de la progression dans la bibliothèque.
 - Vues sauvegardées.
 - Tri et classement avancés.
 - Relations supplémentaires entre vidéos, personnes et publishers.

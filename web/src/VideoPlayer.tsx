@@ -9,6 +9,7 @@ import { YouTubePlayer } from './YouTubePlayer'
 import { LocalPlayer } from './LocalPlayer'
 import { IconButton } from './IconButton'
 import { VideoDownload } from './VideoDownload'
+import { usePlaybackProgress } from './usePlaybackProgress'
 import { PlayerInformation } from './PlayerInformation'
 
 /** Conserve l'en-tête, le focus et les interactions de conservation hors des instances de lecture. */
@@ -20,6 +21,7 @@ export function VideoPlayer({ videoID, source, download, ref, covered = false, o
   download: ReturnType<typeof useVideoDownload>
   ref: Ref<PlayerHandle>
 }) {
+  const progress = usePlaybackProgress(videoID, source.id)
   const player = useRef<PlayerSurfaceHandle>(null)
   const [selection, setSelection] = useState<{ mode: 'youtube' | 'local'; startMs?: number } | null>(null)
   const [visibility, setVisibility] = useState<PlayerVisibility>({ hidden: false, hiding: false })
@@ -86,8 +88,8 @@ export function VideoPlayer({ videoID, source, download, ref, covered = false, o
   }))
 
   // Les consultations suivantes ne remplacent jamais le choix de cette session.
-  if (selection === null && (download.state || download.error)) {
-    setSelection({ mode: download.state?.status === 'available' ? 'local' : 'youtube' })
+  if (selection === null && progress.initial && (download.state || download.error)) {
+    setSelection({ mode: download.state?.status === 'available' ? 'local' : 'youtube', startMs: progress.initial.position ?? undefined })
   }
 
   /** Réutilise la même fenêtre depuis les segments, les informations et le panneau vide. */
@@ -119,6 +121,7 @@ export function VideoPlayer({ videoID, source, download, ref, covered = false, o
     const position = player.current?.getTransferPosition() ?? { kind: 'uncertain' }
     const startMs = 'milliseconds' in position ? position.milliseconds : undefined
     player.current?.stop()
+    progress.transfer(startMs)
     setInformation(false)
     setMessage(position.kind === 'uncertain' ? 'Lecteur changé sans transfert de position : le temps précédent était indisponible.' : '')
     setUnloaded(undefined)
@@ -160,6 +163,9 @@ export function VideoPlayer({ videoID, source, download, ref, covered = false, o
           aria-haspopup="dialog" onClick={showDownload} />}
       </div>
       <div className="player-toolbar-actions">
+        <IconButton icon="save" className="playback-tracking" label="Suivre la progression" aria-pressed={progress.enabled}
+          tooltip={progress.enabled ? 'Suivi activé : conserver le point de reprise' : 'Suivi désactivé : explorer sans changer le point de reprise'}
+          onClick={progress.toggle} />
         <IconButton icon="info" label="Informations" ref={informationButton} disabled={!selection}
           aria-expanded={information} aria-controls={popoverID} onClick={() => setInformation(value => !value)} />
         <IconButton icon={visibility.hidden ? 'eye' : 'eye-off'} disabled={!selection || visibility.hiding}
@@ -181,7 +187,7 @@ export function VideoPlayer({ videoID, source, download, ref, covered = false, o
       <button className="button" onClick={showDownload}>Consulter le téléchargement</button></div>}
     {!selection ? <p role="status">Consultation du fichier local…</p> :
       selection.mode === 'youtube' ?
-        <YouTubePlayer onImagesFailure={onImagesFailure} source={source} ref={player} onVisibility={setVisibility} initialStartMs={selection.startMs} /> :
+        <YouTubePlayer onPlayback={progress.observe} onImagesFailure={onImagesFailure} source={source} ref={player} onVisibility={setVisibility} initialStartMs={selection.startMs} /> :
         <>
           {!file && <div className="local-empty"><p>{download.state?.status === 'downloading' ? 'Téléchargement en cours sur le serveur…' :
             download.state?.status === 'not_downloaded' ? 'Aucun fichier local. Téléchargez cette source pour la regarder ici.' :
@@ -189,8 +195,9 @@ export function VideoPlayer({ videoID, source, download, ref, covered = false, o
             <button className="button" onClick={showDownload}>{download.state?.status === 'not_downloaded' ? 'Télécharger le fichier local' : 'Gérer le téléchargement'}</button>
           </div>}
           {file && file.id === unloaded && <button className="button" onClick={() => setUnloaded(undefined)}>Recharger le lecteur local</button>}
-          <LocalPlayer ref={player} onVisibility={setVisibility} url={url} initialStartMs={selection.startMs} />
+          <LocalPlayer onPlayback={progress.observe} ref={player} onVisibility={setVisibility} url={url} initialStartMs={selection.startMs} />
         </>}
+    {progress.message && <p role="status" className="playback-status">{progress.message}</p>}
     <p className="player-switch-status" role="status">{message}</p>
     <VideoDownload download={download} ref={downloadDialog} onDelete={showDelete} onClose={() => {
       // Le retour peut disparaître après un succès pendant que la modale est ouverte.
