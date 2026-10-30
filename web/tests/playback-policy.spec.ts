@@ -233,3 +233,44 @@ test('une vidéo très courte sans point ne crée rien avant qualification', () 
   expect(policy.observe(observation(3000, 'ended', 1, 3000), 3000)).toBeUndefined()
   expect(policy.flush()).toBeUndefined()
 })
+
+for (const state of ['paused', 'ended'] as const) {
+  test('position inconnue puis saut en ' + state + ' exige une nouvelle qualification', () => {
+    const policy = new PlaybackProgress()
+    policy.restore(40000)
+    play(policy, 40000, 6)
+    expect(policy.flush()).toBe(46000)
+    policy.observe({ ...observation(0, 'waiting'), positionMs: null }, 7000)
+    policy.observe({ ...observation(0, 'waiting'), positionMs: null }, 8000)
+    expect(policy.flush()).toBeUndefined()
+    expect(policy.observe(observation(100000, state, 1, state === 'ended' ? 100000 : 200000), 9000)).toBeUndefined()
+    expect(policy.flush()).toBeUndefined()
+    play(policy, 100000, 4, 10000)
+    expect(policy.flush()).toBeUndefined()
+    play(policy, 104000, 1, 14000)
+    expect(policy.flush()).toBe(105000)
+  })
+}
+
+test('buffering sans position puis retour au même temps conserve seulement le crédit acquis', () => {
+  const policy = new PlaybackProgress()
+  play(policy, 40000, 2)
+  for (let at = 3000; at <= 10000; at += 1000) {
+    policy.observe({ ...observation(0, 'waiting'), positionMs: null }, at)
+    expect(policy.flush()).toBeUndefined()
+  }
+  expect(policy.observe(observation(42000, 'paused'), 11000)).toBeUndefined()
+  play(policy, 42000, 2, 12000)
+  expect(policy.flush()).toBeUndefined()
+  play(policy, 44000, 1, 14000)
+  expect(policy.flush()).toBe(45000)
+})
+
+test('un saut après position inconnue invalide aussi l’exception de fin après restauration', () => {
+  const policy = new PlaybackProgress()
+  policy.restore(40000)
+  play(policy, 40000, 2)
+  policy.observe({ ...observation(0, 'waiting'), positionMs: null }, 3000)
+  expect(policy.observe(observation(100000, 'ended', 1, 100000), 4000)).toBeUndefined()
+  expect(policy.flush()).toBeUndefined()
+})

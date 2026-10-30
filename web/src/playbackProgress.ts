@@ -59,6 +59,9 @@ export class PlaybackProgress {
   observe(sample: PlaybackObservation, at: number): number | null | undefined {
     const position = sample.positionMs
     if (position === null || !Number.isSafeInteger(position) || position < 0) {
+      // Garder un repère pour vérifier la continuité au retour, sans créditer l'intervalle
+      // inconnu ni écraser un départ déjà préparé par restauration ou transfert.
+      this.anchor ??= this.previous?.positionMs ?? undefined
       this.previous = undefined
       this.candidate = undefined
       return
