@@ -3,12 +3,15 @@ package playback
 
 import (
 	"context"
+
 	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // Repository vérifie l'appartenance vidéo/source et applique les mutations atomiquement.
 type Repository interface {
+	// Get retourne nil si la source existe sans point de reprise.
 	Get(context.Context, video.VideoID, video.VideoSourceID) (*int64, error)
+	// Save remplace le point ; nil demande son effacement.
 	Save(context.Context, video.VideoID, video.VideoSourceID, *int64) error
 }
 

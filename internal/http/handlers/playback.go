@@ -3,13 +3,16 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"github.com/patrickbrouhard/sillage/internal/video"
 	"net/http"
+
+	"github.com/patrickbrouhard/sillage/internal/video"
 )
 
 // PlaybackService expose la reprise indépendamment du transport.
 type PlaybackService interface {
+	// Get consulte le point sans acquisition ni écriture.
 	Get(context.Context, video.VideoID, video.VideoSourceID) (*int64, error)
+	// Save remplace le point ; nil demande son effacement.
 	Save(context.Context, video.VideoID, video.VideoSourceID, *int64) error
 }
 
