@@ -16,6 +16,7 @@ import (
 
 // Service possède une capture globale indépendante du transport et du téléchargement.
 type Service struct {
+	activity  *video.Activity
 	videos    Videos
 	repo      Repository
 	local     LocalMedia
@@ -31,15 +32,19 @@ type Service struct {
 }
 
 // NewService clôt les intentions interrompues sans toucher aux fichiers conservés.
-func NewService(ctx context.Context, videos Videos, repo Repository, local LocalMedia, extractor Extractor, storage Storage, timeout time.Duration) (*Service, error) {
+func NewService(ctx context.Context, videos Videos, repo Repository, local LocalMedia, extractor Extractor, storage Storage, timeout time.Duration, activities ...*video.Activity) (*Service, error) {
 	if timeout <= 0 {
 		return nil, fmt.Errorf("invalid capture timeout")
 	}
 	if err := repo.Interrupt(ctx); err != nil {
 		return nil, err
 	}
+	var activity *video.Activity
+	if len(activities) > 0 {
+		activity = activities[0]
+	}
 	owned, cancel := context.WithCancel(ctx)
-	return &Service{videos: videos, repo: repo, local: local, extractor: extractor, storage: storage, ctx: owned, cancel: cancel, timeout: timeout}, nil
+	return &Service{activity: activity, videos: videos, repo: repo, local: local, extractor: extractor, storage: storage, ctx: owned, cancel: cancel, timeout: timeout}, nil
 }
 
 // Close attend les processus et les écritures avant fermeture de SQLite.
@@ -75,6 +80,17 @@ var requestPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{16,80}$`)
 
 // Start retrouve la même commande ou réserve une nouvelle capture sans file d'attente.
 func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID video.VideoSourceID, timestamp int64, requestID string) (Asset, error) {
+	release, err := s.activity.Use(videoID)
+	if err != nil {
+		return Asset{}, ErrBusy
+	}
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			release()
+		}
+	}()
+
 	if videoID <= 0 || sourceID <= 0 || timestamp < 0 || timestamp > 9007199254740991 || !requestPattern.MatchString(requestID) {
 		return Asset{}, video.ErrInvalidInput
 	}
@@ -128,7 +144,8 @@ func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID vid
 		logger = logger.With("origin_request_id", origin)
 	}
 	logger.InfoContext(s.ctx, "Capture started", "event", "capture.started")
-	go s.generate(logging.WithLogger(s.ctx, logger), a, *source)
+	handedOff = true
+	go func() { defer release(); s.generate(logging.WithLogger(s.ctx, logger), a, *source) }()
 	return a, nil
 }
 
@@ -152,6 +169,16 @@ func (s *Service) ByRequest(ctx context.Context, key string) (Asset, error) {
 // Open ne lance aucune génération et ne modifie pas l'état historique.
 func (s *Service) Open(ctx context.Context, id int64) (Asset, Content, error) {
 	a, err := s.Get(ctx, id)
+	if err != nil {
+		return a, nil, err
+	}
+	release, err := s.activity.Use(a.VideoID)
+	if err != nil {
+		return a, nil, ErrBusy
+	}
+	defer release()
+	// Relire sous réservation : la première consultation a pu précéder une suppression.
+	a, err = s.Get(ctx, id)
 	if err != nil {
 		return a, nil, err
 	}

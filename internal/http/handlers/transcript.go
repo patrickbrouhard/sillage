@@ -86,6 +86,8 @@ func respondTranscriptError(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 	switch {
+	case errors.Is(err, video.ErrBusy):
+		writeError(w, r, 409, "video_busy", "video is being deleted")
 	case errors.Is(err, video.ErrInvalidInput):
 		writeError(w, r, 400, "bad_request", "invalid request")
 	case errors.Is(err, video.ErrVideoNotFound):

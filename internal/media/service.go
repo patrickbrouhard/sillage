@@ -16,6 +16,7 @@ import (
 
 // Service possède l'opération globale ; la mémoire n'est jamais la vérité de disponibilité.
 type Service struct {
+	activity    *video.Activity
 	videos      VideoReader
 	repo        Repository
 	storage     Storage
@@ -41,6 +42,7 @@ func NewService(
 	storage Storage,
 	provider Provider,
 	timeout time.Duration,
+	activities ...*video.Activity,
 ) (*Service, error) {
 	if timeout <= 0 {
 		return nil, fmt.Errorf("invalid download timeout")
@@ -53,8 +55,13 @@ func NewService(
 	if storageErr != nil {
 		logging.From(ctx).ErrorContext(ctx, "Media storage disabled", "event", "media.storage_disabled", logging.Error(storageErr))
 	}
+	var activity *video.Activity
+	if len(activities) > 0 {
+		activity = activities[0]
+	}
 	owned, cancel := context.WithCancel(ctx)
 	return &Service{
+		activity:   activity,
 		videos:     videos,
 		storageErr: storageErr,
 		repo:       repo,
@@ -136,6 +143,17 @@ func (s *Service) state(ctx context.Context, sourceID video.VideoSourceID) (Stat
 
 // Start accepte une commande idempotente tant qu'un fichier ou une opération existe.
 func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID video.VideoSourceID) (State, error) {
+	release, err := s.activity.Use(videoID)
+	if err != nil {
+		return State{}, ErrBusy
+	}
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			release()
+		}
+	}()
+
 	source, err := s.source(ctx, videoID, sourceID)
 	if err != nil {
 		return State{}, err
@@ -179,7 +197,8 @@ func (s *Service) Start(ctx context.Context, videoID video.VideoID, sourceID vid
 		logger = logger.With("origin_request_id", origin)
 	}
 	logger.InfoContext(s.ctx, "Download started", "event", "download.started")
-	go s.download(logging.WithLogger(s.ctx, logger), source)
+	handedOff = true
+	go func() { defer release(); s.download(logging.WithLogger(s.ctx, logger), source) }()
 	return State{Status: "downloading"}, nil
 }
 
@@ -280,6 +299,12 @@ func (s *Service) acquire(ctx context.Context, source video.VideoSource) error {
 
 // Delete supprime l'identité exacte, sans cascade vers la connaissance.
 func (s *Service) Delete(ctx context.Context, videoID video.VideoID, id int64) error {
+	release, err := s.activity.Use(videoID)
+	if err != nil {
+		return ErrBusy
+	}
+	defer release()
+
 	if videoID <= 0 || id <= 0 {
 		return video.ErrInvalidInput
 	}
@@ -330,6 +355,17 @@ func (s *Service) Delete(ctx context.Context, videoID video.VideoID, id int64) e
 
 // Borrow réserve le fichier complet de cette source contre DELETE, sans bloquer les téléchargements.
 func (s *Service) Borrow(ctx context.Context, videoID video.VideoID, sourceID video.VideoSourceID) (string, func(), error) {
+	releaseVideo, err := s.activity.Use(videoID)
+	if err != nil {
+		return "", nil, ErrBusy
+	}
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			releaseVideo()
+		}
+	}()
+
 	if _, err := s.source(ctx, videoID, sourceID); err != nil {
 		return "", nil, err
 	}
@@ -357,9 +393,11 @@ func (s *Service) Borrow(ctx context.Context, videoID video.VideoID, sourceID vi
 		s.leases = make(map[int64]int)
 	}
 	s.leases[f.ID]++
+	handedOff = true
 	var once sync.Once
 	return path, func() {
 		once.Do(func() {
+			defer releaseVideo()
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			s.leases[f.ID]--
@@ -386,6 +424,17 @@ func (e *finalizationError) LogValue() slog.Value {
 
 // Open réserve une identité exacte pendant son transfert, sans verrou pendant la lecture.
 func (s *Service) Open(ctx context.Context, videoID video.VideoID, id int64) (File, Content, error) {
+	releaseVideo, err := s.activity.Use(videoID)
+	if err != nil {
+		return File{}, nil, ErrBusy
+	}
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			releaseVideo()
+		}
+	}()
+
 	if videoID <= 0 || id <= 0 {
 		return File{}, nil, video.ErrInvalidInput
 	}
@@ -415,7 +464,9 @@ func (s *Service) Open(ctx context.Context, videoID video.VideoID, id int64) (Fi
 		s.leases = make(map[int64]int)
 	}
 	s.leases[f.ID]++
+	handedOff = true
 	return f, &reservedContent{Content: content, release: func() {
+		defer releaseVideo()
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.leases[f.ID]--

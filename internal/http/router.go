@@ -124,3 +124,11 @@ func WithPlayback(next http.Handler, service handlers.PlaybackService) http.Hand
 	r.Mount("/", next)
 	return r
 }
+
+// WithDeletion ajoute la suppression sous la même frontière de session et CSRF que les autres écritures.
+func WithDeletion(next http.Handler, service handlers.DeletionService) http.Handler {
+	r := chi.NewRouter()
+	r.Delete("/api/v1/videos/{id}", handlers.DeleteVideo(service))
+	r.Mount("/", next)
+	return r
+}
