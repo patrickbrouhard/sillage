@@ -295,3 +295,36 @@ test('une déconnexion volontaire ne relance pas le SSO', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Se connecter avec le SSO' })).toBeVisible()
   expect(starts).toBe(0)
 })
+
+test('la reprise suspend les écritures pendant le verrouillage et ne restaure pas après reconnexion', async ({ page, request }) => {
+  const video = await (await request.post('/api/v1/videos', { data: { url: 'https://youtu.be/trauthprog1' } })).json()
+  const path = `/api/v1/videos/${video.id}/sources/${video.sources[0].id}/playback-progress`
+  await request.put(path, { data: { position_ms: 10000 } })
+  await connect(page)
+  await page.clock.install()
+  await page.goto('/videos/' + video.id)
+  await expect.poll(() => page.evaluate(() => window.youtubeTest?.players.at(-1)?.state)).toBe(5)
+  const editor = await page.getByRole('textbox', { name: 'Note Markdown' }).elementHandle()
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
+  for (let i = 0; i < 6; i++) {
+    await page.evaluate(() => { window.youtubeTest.players.at(-1)!.position += 1 })
+    await page.clock.runFor(1000)
+  }
+  await revoke(page)
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(2))
+  await expect(page.getByRole('dialog')).toBeVisible()
+  expect((await (await request.get(path)).json()).position_ms).toBe(10000)
+  await page.clock.runFor(20000)
+  await reconnect(page)
+  expect(await editor!.evaluate(node => node.isConnected)).toBe(true)
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.position)).toBe(16)
+  expect(await page.evaluate(() => window.youtubeTest.players.at(-1)!.navigationCalls)).toHaveLength(1)
+  expect((await (await request.get(path)).json()).position_ms).toBe(10000)
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(1))
+  for (let i = 0; i < 6; i++) {
+    await page.evaluate(() => { window.youtubeTest.players.at(-1)!.position += 1 })
+    await page.clock.runFor(1000)
+  }
+  await page.evaluate(() => window.youtubeTest.players.at(-1)!.emitState(2))
+  await expect.poll(async () => (await (await request.get(path)).json()).position_ms).toBe(22000)
+})

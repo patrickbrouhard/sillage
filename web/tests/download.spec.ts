@@ -203,7 +203,8 @@ test('informations, clavier, consultation partagée et dimensions de barre stabl
     await page.setViewportSize({ width, height: 900 })
     const group = await toolbar.getByRole('group').boundingBox()
     const eye = await toolbar.getByRole('button', { name: 'Masquer la vidéo' }).boundingBox()
-    expect(Math.abs(group!.y - eye!.y)).toBeLessThan(8)
+    if (width > 420) expect(Math.abs(group!.y - eye!.y)).toBeLessThan(8)
+    else expect(eye!.y).toBeGreaterThanOrEqual(group!.y + group!.height)
     expect(eye!.x).toBeGreaterThan(group!.x + group!.width)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await toolbar.screenshot({ path: info.outputPath(`toolbar-${width}.png`) })
@@ -361,6 +362,8 @@ for (const modalOpen of [false, true]) {
     await expect(localButton).toBeFocused()
     expect(await segments.boundingBox()).toEqual(initialBox)
     await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Suivre la progression', exact: true })).toBeFocused()
+    await page.keyboard.press('Tab')
     await expect(page.getByRole('button', { name: 'Informations', exact: true })).toBeFocused()
     await expect(page.getByRole('button', { name: 'YouTube', exact: true })).toHaveAttribute('aria-pressed', 'true')
     expect(posts).toBe(1)
@@ -428,7 +431,14 @@ test('barre stable : thèmes, mobile, transitions et mouvement réduit', async (
         const eye = (await page.getByRole('button', { name: 'Masquer la vidéo' }).boundingBox())!
         const toolbar = (await page.locator('.player-toolbar').boundingBox())!
         expect(eye.x + eye.width).toBeLessThanOrEqual(toolbar.x + toolbar.width)
-        expect(Math.abs(group.y + group.height / 2 - eye.y - eye.height / 2)).toBeLessThan(1)
+        if (width > 420) {
+          expect(Math.abs(group.y + group.height / 2 - eye.y - eye.height / 2)).toBeLessThan(1)
+        } else {
+          expect(eye.y).toBeGreaterThanOrEqual(group.y + group.height)
+          const tracking = (await page.getByRole('button', { name: 'Suivre la progression' }).boundingBox())!
+          expect(tracking.height).toBeGreaterThanOrEqual(40)
+          expect(tracking.x).toBeGreaterThanOrEqual(toolbar.x)
+        }
         if (await command.count()) {
           const button = (await command.boundingBox())!
           expect(button.x).toBeGreaterThan(group.x + group.width)

@@ -2,6 +2,10 @@
 export interface YouTubePlayer {
   /** Lit la position courante en secondes sans agir sur la lecture. */
   getCurrentTime(): number
+  /** Retourne la durée actuellement annoncée ; zéro reste inconnu. */
+  getDuration(): number
+  /** Lit la vitesse réelle pour distinguer avance normale et discontinuité. */
+  getPlaybackRate(): number
   /** Déplace la lecture ; seul l'état paused garantit l'absence de démarrage. */
   seekTo(seconds: number, allowSeekAhead: boolean): void
   /** Prépare un départ sans lancer la vidéo, notamment depuis un état cued ou ended. */

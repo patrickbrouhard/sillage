@@ -1,15 +1,19 @@
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import type { Ref } from 'react'
+import type { PlaybackObserver, PlaybackReason } from './playbackProgress'
 import { revealPlayer } from './player'
 import type { PlayerSurfaceHandle, PlayerVisibility } from './player'
 
-/** Lit une identité média exacte avec les contrôles natifs et sans reprise automatique. */
-export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
+/** Lit une identité média exacte avec les contrôles natifs et sans démarrage automatique. */
+export function LocalPlayer({ url, ref, onVisibility, initialStartMs, onPlayback }: {
+  onPlayback: PlaybackObserver
   url?: string
   ref: Ref<PlayerSurfaceHandle>
   onVisibility: (state: PlayerVisibility) => void
   initialStartMs?: number
 }) {
+  const reportPlayback = useRef<(reason?: PlaybackReason) => void>(() => {})
+  const [initialized, setInitialized] = useState(false)
   const host = useRef<HTMLVideoElement>(null)
   const stopped = useRef(false)
   const initialPosition = useRef(initialStartMs)
@@ -21,6 +25,7 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
 
   /** Retire aussi la source pour interrompre les requêtes HTTP, même en pause. */
   function stop() {
+    reportPlayback.current('stop')
     stopped.current = true
     prepared.current = undefined
     initialPosition.current = undefined
@@ -34,8 +39,36 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
     setMessage('')
     if (!current || !url) return
     let disposed = false
+    let initialSeek = false
+    setInitialized(false)
+    const report = (reason: PlaybackReason = 'sample') => {
+      if (disposed || stopped.current) return
+      const position = Math.round(current.currentTime * 1000)
+      onPlayback({
+        positionMs: current.readyState >= 2 && !current.seeking && !initialSeek && !current.error &&
+          Number.isSafeInteger(position) && position >= 0 ? position : null,
+        durationMs: Number.isFinite(current.duration) && current.duration > 0 ? Math.round(current.duration * 1000) : null,
+        rate: current.playbackRate,
+        state: current.error ? 'unavailable' : current.seeking ? 'waiting' : current.ended ? 'ended' : current.paused ? 'paused' :
+          current.readyState < 3 ? 'waiting' : 'playing',
+      }, reason)
+    }
+    reportPlayback.current = report
+    const seeking = () => {
+      if (!initialSeek) report('seek')
+      else if (prepared.current !== Math.round(current.currentTime * 1000)) {
+        initialSeek = false
+        report('seek')
+      }
+    }
+    const tick = () => report()
+    const events = ['playing', 'pause', 'waiting', 'ended', 'ratechange']
+    for (const event of events) current.addEventListener(event, tick)
+    current.addEventListener('seeking', seeking)
+    const timer = window.setInterval(tick, 1000)
     const fail = () => {
       if (disposed || stopped.current) return
+      report('reset')
       initialPosition.current = undefined
       setMessage('Impossible de lire ce fichier local dans ce navigateur. Vous pouvez réessayer ou sélectionner YouTube.')
       stop()
@@ -49,18 +82,32 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
         try {
           current.pause()
           const seconds = Math.min(position / 1000, Number.isFinite(current.duration) ? current.duration : position / 1000)
+          if (seconds * 1000 !== position) report('reset')
           prepared.current = Math.round(seconds * 1000)
-          current.currentTime = seconds
+          initialSeek = current.currentTime !== seconds
+          if (initialSeek) current.currentTime = seconds
+          else { prepared.current = undefined; setInitialized(true) }
         } catch { fail() }
-      }
+      } else setInitialized(true)
     }
-    const settled = () => { if (!disposed) prepared.current = undefined }
+    const settled = () => {
+      if (disposed) return
+      prepared.current = undefined
+      initialSeek = false
+      setInitialized(true)
+      report()
+    }
     current.addEventListener('seeked', settled)
     current.addEventListener('loadedmetadata', ready)
     current.addEventListener('error', fail)
     current.src = url
     return () => {
+      report('stop')
       disposed = true
+      reportPlayback.current = () => {}
+      window.clearInterval(timer)
+      for (const event of events) current.removeEventListener(event, tick)
+      current.removeEventListener('seeking', seeking)
       current.removeEventListener('seeked', settled)
       current.removeEventListener('loadedmetadata', ready)
       current.removeEventListener('error', fail)
@@ -121,6 +168,7 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
       }
       try {
         // Affecter currentTime ne lance pas la lecture ; un lecteur masqué est déjà en pause.
+        reportPlayback.current('seek')
         current.currentTime = startMs / 1000
         prepared.current = startMs
         setNavigation(value => value + 1)
@@ -132,7 +180,7 @@ export function LocalPlayer({ url, ref, onVisibility, initialStartMs }: {
   return <div className="player-surface" hidden={hidden}>
       {message && <div role="alert"><p>{message}</p><button className="button"
         onClick={() => setAttempt(value => value + 1)}>Réessayer le lecteur</button></div>}
-      {url && <video ref={host} className="local-video" aria-label="Lecteur vidéo local"
+      {url && <video inert={!initialized} ref={host} className="local-video" aria-label="Lecteur vidéo local"
         controls playsInline preload="metadata" onPlay={() => {
           prepared.current = undefined
           // Une reprise native tardive ne doit pas contourner le masquage.

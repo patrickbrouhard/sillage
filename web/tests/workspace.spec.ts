@@ -318,6 +318,8 @@ test('chargement différé de l’éditeur respecte l’onglet choisi', async ({
 })
 
 test('Informations ne crée pas de débordement de page ni de déplacement du workspace', async ({ page }) => {
+  // La fiche synthétique n'existe pas en SQLite ; ce scénario mesure le layout normal.
+  await page.route('**/api/v1/videos/42/sources/1/playback-progress', route => route.fulfill({ json: { position_ms: null } }))
   await page.route('**/api/v1/videos/42', route => route.fulfill({ json: {
     id: 42, created_at: '2026-10-20', person_ids: [], tags: [],
     sources: [{ id: 1, provider: 'youtube', external_id: 'abcdefghijk', canonical_url: 'https://www.youtube.com/watch?v=abcdefghijk', title: 'Informations longues',
