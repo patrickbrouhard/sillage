@@ -64,6 +64,35 @@ Cette recette vérifie les comportements des lecteurs **YouTube réel** et **Loc
 - [ ] **Réponse incertaine** : interrompre la réponse du POST et laisser sa vérification locale se terminer. Même si un contenu est retrouvé, aucune coche ni croix ; l'actualisation reste non confirmée, sans second POST automatique. Vérifier aussi l'absence de contenu retrouvé ou l'échec de cette lecture : diagnostic et reprises explicites restent accessibles.
 - [ ] **Nouvelle action et ancienne fiche** : relancer explicitement pendant les 5 s retire le retour précédent et suit uniquement la nouvelle acquisition. Changer de fiche pendant une opération, puis revenir : aucune réponse tardive ni ancien résultat ne doit apparaître sur la nouvelle fiche. Contrôler recherche, navigation temporelle, citation et défilement selon les usages habituels. Les seuls retours visuels ne commandent pas le lecteur et ne perturbent pas la session Note.
 
+## 6. Reprise entre sessions et appareils — scénarios ciblés
+
+- [ ] **Initialisation** : enregistrer une lecture, fermer puis rouvrir en Local et YouTube ; départ
+  retrouvé sans autoplay. Vérifier le départ préparé YouTube, sans exiger une image arrêtée exacte.
+  Avec GET lent ou en échec, vérifier le repli après deux secondes et l'absence de déplacement tardif.
+- [ ] **Qualification** : regarder moins de cinq secondes puis fermer, recommencer avec six secondes
+  puis pause, et vérifier la sauvegarde. Tester vitesses ×0,5 et ×2, pause et buffering entre deux
+  portions de lecture. Un seek en pause, des seeks répétés ou une pause avant cinq secondes après
+  seek doivent préserver l'ancien point.
+- [ ] **Bascule** : transférer une qualification incomplète entre modes, puis compléter la lecture ;
+  ne pas sauvegarder le seul temps préparé. Tester transfert incertain, fichier plus court, suppression
+  et réacquisition du média. Vérifier note, Undo/Redo, captures et annotations inchangés.
+- [ ] **Interrupteur** : désactiver, explorer et atteindre la fin sans modifier le point ; basculer
+  de mode puis réactiver sans déplacement. Vérifier cinq nouvelles secondes et le défaut activé
+  à la prochaine ouverture, au clavier, en clair/sombre et à 320/375 px.
+- [ ] **Fin** : atteindre naturellement la marge puis la fin ; rouvrir au début. Un seek direct
+  à la fin ne doit pas effacer le point. Une reprise à moins de cinq secondes du terme peut le
+  supprimer après avance réelle et fin naturelle. Tester durée inconnue et vidéo très courte.
+- [ ] **Réseau et accès** : perdre une réponse PUT, retarder les écritures, désactiver avec un PUT
+  en vol, verrouiller puis reconnecter. Pas de réessai aveugle, de déplacement ou de blocage de note.
+  Un envoi déjà parti peut aboutir ; les rares courses de sortie sont acceptées.
+- [ ] **Appareils et cycle de vie** : deux sessions authentifiées retrouvent le même point après
+  réouverture ; une fiche ouverte ne suit pas les écritures distantes. Tester onglet en arrière-plan,
+  suspension/reprise du navigateur, navigation SPA, fermeture mobile et arrêt brutal ; consigner
+  les pertes éventuelles sans annoncer de garantie de sauvegarde finale.
+- [ ] **YouTube réel** : éprouver petits et grands seeks natifs, touches clavier, vitesse et buffering
+  dans Brave Windows ; relever les discontinuités non détectées. Les tests avec double ne valident
+  pas cette détection dans l'iframe réelle.
+
 ## Limites de validation
 
 - Le fonctionnement de `ffprobe`/`ffmpeg` ne prouve pas que Brave sache décoder les mêmes pistes. Une requête HTTP Range réussie ne prouve pas non plus le décodage audio/vidéo.

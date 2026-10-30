@@ -778,9 +778,9 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 - L'absence normale de temps avant première lecture n'est pas une erreur. En revanche, une position
   **incertaine** (erreur, buffering, seek local en cours, masquage en cours) n'autorise pas à reprendre une
   ancienne cible : la bascule se fait sans transfert et peut le signaler.
-- La position préparée est limitée à la session de fiche/source. Aucun suivi de progression ni reprise persistée
-  n'est implémenté. Local borne un transfert initial à la durée du fichier ; une navigation normale hors durée
-  est refusée.
+- La position préparée est limitée à la session de fiche/source ; elle reste distincte du point de reprise
+  persisté décrit en §6.8. Local borne un transfert initial à la durée du fichier ; une navigation normale
+  hors durée est refusée.
 
 ### 6.3 Règles de navigation YouTube et Local
 
@@ -806,7 +806,8 @@ Les détails de reconnaissance et d'implémentation sont décrits dans [Architec
 
 - Le panneau Lecteur reste monté pendant les bascules ; seules les surfaces de lecture propres aux modes
   changent. La barre permanente comprend le sélecteur YouTube/Local, une commande de téléchargement indépendante
-  lorsque nécessaire (voir §6.5), **Informations** et l'œil de masquage.
+  lorsque nécessaire (voir §6.5), **Suivre la progression**, **Informations** et l'œil de masquage.
+  Sur mobile étroit, les commandes occupent deux lignes stables pour conserver leurs cibles tactiles.
 - Le sélecteur segmenté contient uniquement les libellés **YouTube** et **Local**, sans icône ni place réservée
   à un indicateur. Ses boutons natifs exposent le choix actif par `aria-pressed` ; fond commun légèrement
   contrasté, fond distinct pour le segment actif, segment inactif neutre et coins arrondis. Les cibles mesurent
@@ -992,6 +993,52 @@ NoteSession gère révisions, erreurs et protection de départ. En conflit, les 
 et l'autosauvegarde reste suspendue. Un remplacement explicite de session invalide l'ancien emplacement ;
 aucune insertion tardive ni aucun ancrage asynchrone de capture ne sert à la réinsertion.
 
+### 6.8 Reprise de lecture entre sessions
+
+Le point de reprise appartient à la **source de travail**, partagé par YouTube et sa représentation
+locale, et est enregistré sur le serveur. Une ouverture sur un autre appareil authentifié retrouve
+le dernier point enregistré ; une fiche déjà ouverte n'est jamais déplacée par une écriture distante.
+
+- À l'ouverture, la consultation de progression accompagne celle du fichier local. Le départ est
+  décidé avant de rendre la surface interactive, sans autoplay. Après deux secondes sans réponse
+  exploitable, ou en cas d'erreur, le lecteur peut partir du début avec un message discret. Aucun
+  retour tardif ne réapplique une position. YouTube prépare le départ sans garantir une image arrêtée
+  à ce temps ; Local conserve son bornage à la durée réelle, sans modifier le point serveur à l'ouverture.
+- **Suivre la progression** est activé à chaque ouverture. Son bouton expose l'état enfoncé, une
+  apparence distincte et une aide contextuelle. Le choix reste commun aux deux modes, sans préférence
+  persistée. Désactiver interdit toute nouvelle décision de sauvegarde, y compris en pause, en fin
+  ou au départ ; une requête déjà envoyée peut encore aboutir. Réactiver ne déplace pas le lecteur.
+- Les observations périodiques, environ chaque seconde, complètent les événements du lecteur.
+  Une sauvegarde est proposée toutes les dix secondes de lecture active cumulées, ainsi qu'en pause,
+  lors d'une bascule ou d'un départ pertinent. Il faut cinq secondes actives pour qualifier la première
+  position après ouverture, seek ou réactivation. Un seek en pause ne sauvegarde rien.
+- Les compteurs mesurent du temps réel, indépendamment de la vitesse. Pause et buffering suspendent
+  le comptage ; un nouveau seek recommence la qualification. Une bascule fiable préserve les secondes
+  acquises sans transformer son départ préparé en progression confirmée. Une continuité perdue exige
+  une nouvelle qualification. Ces règles n'affectent pas l'admissibilité des annotations et captures.
+- Les seeks demandés par Sillage sont connus, ceux de Local observés par ses événements natifs.
+  Les discontinuités YouTube sont détectées prudemment : ses contrôles natifs restent disponibles,
+  sans garantie de détecter chaque petit déplacement. Les positions incertaines ne sont pas sauvegardées.
+- Une lecture réellement observée en arrière-plan reste suivie. Un gel ou une longue absence
+  d'observations ne crée aucun crédit fictif ; une nouvelle qualification peut être nécessaire.
+  Sous Images, Local continue son suivi s'il joue ; YouTube est normalement en pause.
+  Le verrouillage d'authentification suspend le suivi, sans modifier le choix de l'interrupteur.
+  La reconnexion ne restaure aucune position et ne rejoue aucune écriture incertaine.
+- Une fin naturelle ou l'entrée en lecture qualifiée dans la marge
+  `min(10 secondes, 5 % de la durée)` efface le point. Un seek vers la fin ne contourne pas les cinq
+  secondes. Exception : après une restauration automatique, une fin naturelle peut effacer le point
+  avant cinq nouvelles secondes si une avance réelle a été constatée. Les événements ultérieurs
+  ne recréent pas le point ; une nouvelle lecture depuis un autre temps doit se qualifier.
+- Sans durée exploitable, seule la fin naturelle permet cette décision. Les directs et timelines
+  mobiles ne font pas partie du contrat garanti. Une vidéo très courte sans point existant peut
+  rester sans progression ; l'ouverture suivante repart déjà au début.
+- La fin n'ajoute aucun état « visionnée ». Les erreurs de progression ne bloquent ni le visionnage,
+  ni la note. Entre appareils/onglets, la dernière écriture appliquée gagne, même lorsqu'une ancienne
+  requête arrive tard. Les tentatives de sortie ne garantissent aucune livraison ; une interruption
+  brutale peut perdre les dernières secondes.
+
+Les paramètres configurables, historiques, statistiques et synchronisation en direct restent hors périmètre.
+
 ## 7. Recherche, IA et pistes non livrées
 
 - **Extensions de recherche** : passages de transcription, navigation temporelle, filtres avancés et recherche sémantique restent distincts de la V1 globale décrite en section 1.4 ; voir [Roadmap](05-roadmap.md).
@@ -1000,7 +1047,7 @@ aucune insertion tardive ni aucun ancrage asynchrone de capture ne sert à la r�
 - **IA intégrée** : facultative, postérieure aux primitives métier ; candidates : résumés, tags suggérés,
   chapitrage, questions/réponses et extraction d'informations. Aucun provider n'est choisi.
 - **Autres pistes** : annotations structurées, plages temporelles, sources supplémentaires, STT, sélection de
-  pistes, import d’images, clips durables, redimensionnement des panneaux, reprise de lecture et
+  pistes, import d’images, clips durables, redimensionnement des panneaux et
   export. Elles ne doivent pas être traitées comme des fonctionnalités déjà implémentées.
 
 Pour les objectifs des étapes futures, voir [05-roadmap.md](05-roadmap.md). Pour leurs arbitrages encore ouverts, voir [06-open-questions.md](06-open-questions.md). Ne pas dupliquer ici leurs spécifications tant qu'elles ne sont pas implémentées.

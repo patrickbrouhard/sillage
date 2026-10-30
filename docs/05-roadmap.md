@@ -40,6 +40,7 @@ sans calendrier arrêté.
 | A3.2 — Authentification OIDC | Politiques déclaratives, identité externe exacte, sessions communes et réauthentification secondaire | Réalisé |
 | A1 + A2 — Authentification Web | Propriétaire local, sessions persistantes, protection REST et continuité de l’éditeur | Réalisé |
 | Consolidations postérieures | Journalisation structurée, lecture locale, ergonomie du lecteur et nouvelle disposition du workspace | Réalisé |
+| Reprise de lecture | Point de reprise serveur par source, partagé entre lecteurs et appareils | Réalisé |
 | Catalogue de tags — Première tranche | Consultation et compteurs directs, renommage et suppression globale, REST et page `/tags` | Réalisé |
 
 Ce tableau résume les capacités livrées ; il ne vaut pas une validation exhaustive de chaque navigateur ou scénario réel. Les contrats actuels se trouvent dans les documents 01 à 04. Les commits, PR et anciennes versions Git conservent le détail des implémentations et de leurs validations.
