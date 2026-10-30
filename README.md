@@ -281,6 +281,34 @@ Exemple de représentation (valeurs illustratives) :
 
 La liste est ordonnée par `created_at DESC, id DESC`, les sources et tags suivant des ordres stables par ID. `publisher` peut être `null` ; il remplace l'ancien champ `creator`. `person_ids` représente uniquement les associations **directes** à la vidéo. Une liste vide renvoie `{"videos":[]}`.
 
+### Suppression définitive d'une vidéo
+
+`DELETE /api/v1/videos/{id}` exige la session Web et le jeton CSRF, sans corps.
+
+| Réponse | Signification |
+| --- | --- |
+| `204` | Suppression terminée, ou vidéo absente sans purge en attente |
+| `202` | Données métier supprimées ; corps `{"status":"purge_pending"}`, fichiers restant à effacer |
+| `409 video_busy` | Usage incompatible actif ; aucune suppression engagée par cet appel |
+| `400 bad_request` | Identifiant invalide |
+| `500 internal_error` | Résultat non confirmé ; ne pas en déduire une absence d'effet |
+
+La suppression retire toutes les sources, note, transcriptions, captures, médias locaux, reprises,
+associations directes et document FTS de la vidéo. Tags, publishers et personnes restent conservés.
+Les références et citations dans les autres notes ne sont pas modifiées.
+
+Un manifeste SQLite autorise précisément l'effacement des fichiers encore attribués en base.
+Il est enregistré dans la transaction de suppression métier et repris au démarrage ou par un nouveau
+DELETE sur **le même ID**, même si la vidéo a disparu. Aucun réessai ne restaure les connaissances.
+Les anciens snapshots remplacés et les autres orphelins sans référence attribuable restent conservés :
+ce mécanisme ne constitue ni une collecte des orphelins ni un effacement des sauvegardes externes.
+
+Dans la fiche, la commande est en bas d'Informations. Une réponse perdue maintient le brouillon en
+mémoire et suspend l'autosauvegarde jusqu'à réconciliation par la même commande. Après `202`, la
+bibliothèque affiche un nettoyage incomplet et permet de le réessayer. Ce message est conservé dans
+l'entrée d'historique concernée, y compris au rechargement ; les échecs persistants sont aussi journalisés
+sans chemin de fichier. Un simple GET `404` ne prouve pas la fin de la purge.
+
 ### Notes et tags
 
 | Méthode | Route | Comportement |

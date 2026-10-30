@@ -6,6 +6,8 @@ type Phase = 'loading' | 'ready' | 'saving' | 'error' | 'conflict'
 
 /** État visible d'une session ; remote undefined signifie que la relecture reste nécessaire. */
 export interface NoteSnapshot {
+  /** Suspend les écritures sans remplacer le brouillon pendant une suppression. */
+  deletion: 'idle' | 'pending' | 'deleted'
   loaded: boolean
   content: string
   confirmed: Note | null
@@ -27,7 +29,7 @@ function normalizeLineEndings(content: string): string {
 /** Pilote une seule note en mémoire, sans cache persistant ni synchronisation entre onglets. */
 export class NoteSession {
   private state: NoteSnapshot = {
-    loaded: false, content: '', confirmed: null, phase: 'loading', message: '',
+    deletion: 'idle', loaded: false, content: '', confirmed: null, phase: 'loading', message: '',
     remote: undefined, editorVersion: 0, confirmationCount: 0,
   }
   private listeners = new Set<() => void>()
@@ -63,10 +65,15 @@ export class NoteSession {
   get dirty() { return this.state.content !== normalizeLineEndings(this.state.confirmed?.content_md ?? '') }
 
   /** Une écriture incertaine reste à protéger, même après Undo vers le texte précédent. */
-  get unconfirmed() { return this.dirty || this.uncertain !== null || this.running !== null || this.state.phase === 'saving' || this.state.phase === 'conflict' }
+  get unconfirmed() {
+    if (this.state.deletion === 'deleted') return false
+    return this.state.deletion === 'pending' || this.dirty || this.uncertain !== null ||
+      this.running !== null || this.state.phase === 'saving' || this.state.phase === 'conflict'
+  }
 
   /** Charge la note ; un échec ne crée jamais de document éditable. */
   async start() {
+    if (this.state.deletion === 'deleted') return
     this.unsubscribeAuth?.()
     this.releaseDraft?.()
     this.releaseDraft = protectDraft(() => this.unconfirmed)
@@ -123,7 +130,7 @@ export class NoteSession {
   private schedule() {
     this.clearTimers()
     if (!this.dirty) { this.firstPending = null; return }
-    if (!isAuthenticated() || this.lifetime.signal.aborted || ['error', 'conflict'].includes(this.state.phase)) return
+    if (this.state.deletion !== 'idle' || !isAuthenticated() || this.lifetime.signal.aborted || ['error', 'conflict'].includes(this.state.phase)) return
     this.firstPending ??= Date.now()
     this.idleTimer = window.setTimeout(() => { void this.save() }, 2_000)
     this.maxTimer = window.setTimeout(() => { void this.save() }, Math.max(0, 20_000 - (Date.now() - this.firstPending)))
@@ -131,7 +138,7 @@ export class NoteSession {
 
   /** Sérialise les demandes ; un Ctrl+S pendant une écriture prend ensuite le texte le plus récent. */
   save = async (explicit = false): Promise<void> => {
-    if (!isAuthenticated() || !this.state.loaded || this.lifetime.signal.aborted || this.state.phase === 'conflict') return
+    if (this.state.deletion !== 'idle' || !isAuthenticated() || !this.state.loaded || this.lifetime.signal.aborted || this.state.phase === 'conflict') return
     if (this.running) {
       await this.running
       if (this.state.phase === 'ready' && (this.dirty || this.uncertain)) return this.save()
@@ -177,7 +184,7 @@ export class NoteSession {
   private async write(sent: Sent) {
     const lifetime = this.lifetime
     for (let attempt = 0; attempt < 3; attempt++) {
-      if (lifetime.signal.aborted) return
+      if (lifetime.signal.aborted || this.state.deletion !== 'idle') return
       try {
         if (this.uncertain) {
           const remote = await getNote(this.videoID, this.signal())
@@ -191,6 +198,8 @@ export class NoteSession {
           // La même précondition reste valide ; une ancienne requête tardive ne pourra pas l'écraser.
           this.uncertain = null
         }
+        // Une réconciliation déjà lancée peut finir pendant la confirmation de suppression.
+        if (this.state.deletion !== 'idle') { this.publish({ phase: 'ready' }); return }
         const saved = await putNote(this.videoID, sent.content, sent.revision, this.signal())
         if (lifetime.signal.aborted) return
         this.confirm(saved)
@@ -215,6 +224,10 @@ export class NoteSession {
         }
         // Un échec de transport ou un 5xx ne prouve pas que le PUT n'a pas été commité.
         this.uncertain = sent
+        if (this.state.deletion !== 'idle') {
+          this.publish({ phase: 'error', message: 'Sauvegarde non confirmée. Votre texte est conservé.' })
+          return
+        }
         if (attempt < 2) await this.pause(attempt === 0 ? 1_000 : 3_000)
       }
     }
@@ -257,10 +270,30 @@ export class NoteSession {
 
   /** Attend toutes les modifications courantes, sans quitter sur une simple confirmation partielle. */
   async flush(): Promise<boolean> {
+    if (this.state.deletion !== 'idle') return false
     do {
       await this.save()
-      if (!isAuthenticated() || this.lifetime.signal.aborted || ['error', 'conflict'].includes(this.state.phase)) return false
+      if (this.state.deletion !== 'idle' || !isAuthenticated() || this.lifetime.signal.aborted || ['error', 'conflict'].includes(this.state.phase)) return false
     } while (this.dirty || this.running)
     return !this.unconfirmed
+  }
+
+  /** Suspend les nouveaux PUT et attend le bilan de celui déjà envoyé, sans perdre le texte. */
+  async suspendForDeletion() {
+    this.clearTimers()
+    this.publish({ deletion: 'pending' })
+    if (this.running) await this.running
+  }
+
+  /** Reprend la même session après un refus certain, sans relire ni remplacer CodeMirror. */
+  resumeAfterDeletionRefused() {
+    this.publish({ deletion: 'idle' })
+    this.schedule()
+  }
+
+  /** Termine explicitement le brouillon après confirmation métier, sans flush de départ. */
+  confirmDeletion() {
+    this.stop()
+    this.publish({ deletion: 'deleted' })
   }
 }

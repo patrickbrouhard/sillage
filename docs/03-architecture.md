@@ -24,7 +24,7 @@ Documents complémentaires :
                     │
                     ▼
           Services applicatifs Go
-       video · note · transcript · media · asset · search · playback
+       video · note · transcript · media · asset · search · playback · deletion
                     │
           ports et interfaces ciblés
              ┌──────┴─────────┐
@@ -146,7 +146,44 @@ Il n'existe pas de transaction distribuée SQLite/filesystem. Les protocoles de 
 
 La suppression d'un média est distincte de celle des connaissances : note, vidéo, transcription et captures sont préservées. Les procédures de réparation, d'inventaire et de rétention restent de futures opérations explicites.
 
-### 3.3 Déploiement, sûreté et sauvegardes
+### 3.3 Suppression définitive et reprise ciblée
+
+`deletion.Service` possède le cas d'usage, derrière des ports de persistance et d'effacement.
+`video.Activity`, partagé au point de composition, réserve les vidéos sans attente : les usages sont
+compatibles entre eux, la suppression est exclusive et refuse immédiatement une vidéo occupée.
+La réservation précède la lecture du parent et couvre toute acquisition média, capture ou transcription,
+y compris publication, finalisation et nettoyage. Elle couvre aussi les lectures HTTP de médias,
+les emprunts pour capture et la suppression individuelle d'un média. Les lectures de snapshots sont
+protégées jusqu'à décodage ; une lecture PNG déjà ouverte peut finir sur son descripteur Linux.
+
+Les notes, reprises et associations purement SQL réutilisent les vérifications de parent sous
+transaction immédiate. Elles peuvent précéder la suppression ou être refusées après elle, mais ne
+recréent pas les parents supprimés. Aucun verrou applicatif global ni coordination interprocessus
+n'est ajouté ; le déploiement reste limité à une instance par répertoire de données.
+
+La transaction de suppression enregistre `video_purges` et `video_purge_files`, puis retire les enfants,
+les sources, la vidéo et le document FTS. Le manifeste n'a volontairement aucune clé étrangère vers
+la vidéo disparue. Il contient uniquement les noms relatifs et catégories de stockage encore attribués
+en base, tous états et toutes sources confondus ; aucun contenu métier récupérable.
+
+Après commit, une relecture du manifeste précède tout effacement. Un commit incertain n'autorise
+l'effacement que si cette preuve durable peut être relue avec un budget indépendant de la requête.
+Sans preuve, les octets sont préservés et le résultat reste incertain. Un échec post-commit conserve le
+manifeste et retourne une purge incomplète ; les connaissances ne sont pas restaurées.
+
+L'adapter filesystem refuse les noms étrangers, les liens symboliques et les racines substituées,
+utilise des opérations bornées par `os.Root` et synchronise les répertoires après suppression.
+Un fichier absent est un succès idempotent. Pour un média référencé, son éventuel nom `.deleting`
+fait également partie de l'effacement autorisé. Le manifeste entier reste jusqu'à confirmation de
+tous les effacements ; rejouer une partie déjà terminée est sans effet destructeur supplémentaire.
+
+Le démarrage reprend ces seuls manifestes avant le rapprochement média et l'ouverture HTTP.
+Une erreur sur un fichier conserve son manifeste et n'empêche pas les autres purges. Une nouvelle
+commande DELETE sur l'ID disparu reprend aussi sa purge. Il n'existe ni moteur de jobs ni corbeille.
+Les anciens snapshots remplacés et autres orphelins non référencés restent hors de ce protocole.
+Les sauvegardes cohérentes incluent la base, donc les autorisations de purge encore présentes.
+
+### 3.4 Déploiement, sûreté et sauvegardes
 
 Une instance serveur unique doit utiliser un même répertoire de données. Les données vivent dans un bind mount durable, séparé de l'image. La sauvegarde/restauration cohérente concerne **la base et ses fichiers** ; les sauvegardes à froid sont actuellement la référence de déploiement. L'application ne doit pas écrire ni servir directement des chemins contrôlés par le client.
 

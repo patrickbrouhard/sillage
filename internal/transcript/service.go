@@ -47,6 +47,7 @@ type Snapshots interface {
 
 // Service orchestre acquisition et lecture locale via des ports spécialisés.
 type Service struct {
+	activity   *video.Activity
 	videos     VideoReader
 	repository Repository
 	provider   Provider
@@ -54,12 +55,34 @@ type Service struct {
 }
 
 // NewService assemble les dépendances sans accéder aux systèmes externes.
-func NewService(videos VideoReader, repository Repository, provider Provider, snapshots Snapshots) *Service {
-	return &Service{videos: videos, repository: repository, provider: provider, snapshots: snapshots}
+func NewService(
+	videos VideoReader,
+	repository Repository,
+	provider Provider,
+	snapshots Snapshots,
+	activities ...*video.Activity,
+) *Service {
+	var activity *video.Activity
+	if len(activities) > 0 {
+		activity = activities[0]
+	}
+	return &Service{
+		activity:   activity,
+		videos:     videos,
+		repository: repository,
+		provider:   provider,
+		snapshots:  snapshots,
+	}
 }
 
 // Fetch acquiert puis publie une transcription ; un échec préserve la précédente.
 func (s *Service) Fetch(ctx context.Context, videoID video.VideoID, sourceID video.VideoSourceID) (Result, error) {
+	release, err := s.activity.Use(videoID)
+	if err != nil {
+		return Result{}, err
+	}
+	defer release()
+
 	source, err := s.source(ctx, videoID, sourceID)
 	if err != nil {
 		return Result{}, err
@@ -102,6 +125,12 @@ func (s *Service) Fetch(ctx context.Context, videoID video.VideoID, sourceID vid
 
 // Get restitue la dernière acquisition locale, même si YouTube est indisponible.
 func (s *Service) Get(ctx context.Context, videoID video.VideoID, sourceID video.VideoSourceID) (Result, error) {
+	release, err := s.activity.Use(videoID)
+	if err != nil {
+		return Result{}, err
+	}
+	defer release()
+
 	if _, err := s.source(ctx, videoID, sourceID); err != nil {
 		return Result{}, err
 	}

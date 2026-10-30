@@ -24,6 +24,7 @@ import (
 	"github.com/patrickbrouhard/sillage/internal/adapter/ytdlp"
 	"github.com/patrickbrouhard/sillage/internal/asset"
 	"github.com/patrickbrouhard/sillage/internal/auth"
+	"github.com/patrickbrouhard/sillage/internal/deletion"
 	api "github.com/patrickbrouhard/sillage/internal/http"
 	"github.com/patrickbrouhard/sillage/internal/logging"
 	"github.com/patrickbrouhard/sillage/internal/media"
@@ -245,6 +246,13 @@ func run(ctx context.Context, cfg config) (result error) {
 		return err
 	}
 
+	activity := &video.Activity{}
+	deletions := deletion.NewService(sqlite.NewDeletionRepository(db),
+		filesystem.NewPurge("data/media", "data/assets", "data/transcripts"), activity)
+	phase = "video_purge_recovery"
+	if err := deletions.Recover(ctx); err != nil {
+		return fmt.Errorf("recover video purges: %w", err)
+	}
 	videos := sqlite.NewVideoRepository(db)
 	provider := ytdlp.Client{}
 	service := video.NewService(videos, provider)
@@ -253,18 +261,19 @@ func run(ctx context.Context, cfg config) (result error) {
 		sqlite.NewTranscriptRepository(db),
 		provider,
 		filesystem.NewTranscripts("data/transcripts", ytdlp.ParseJSON3),
+		activity,
 	)
 	phase = "media_recovery"
 	downloads, err := media.NewService(
 		ctx, videos, sqlite.NewMediaRepository(db), filesystem.NewMedia("data/media"),
-		ytdlp.MediaClient{}, cfg.downloadTimeout,
+		ytdlp.MediaClient{}, cfg.downloadTimeout, activity,
 	)
 	if err != nil {
 		return fmt.Errorf("initialize media: %w", err)
 	}
 	defer downloads.Close()
 	phase = "capture_recovery"
-	captures, err := asset.NewService(ctx, videos, sqlite.NewAssetRepository(db), downloads, ytdlp.CaptureClient{}, filesystem.NewAssets("data/assets"), 2*time.Minute)
+	captures, err := asset.NewService(ctx, videos, sqlite.NewAssetRepository(db), downloads, ytdlp.CaptureClient{}, filesystem.NewAssets("data/assets"), 2*time.Minute, activity)
 	if err != nil {
 		return fmt.Errorf("initialize captures: %w", err)
 	}
@@ -282,6 +291,7 @@ func run(ctx context.Context, cfg config) (result error) {
 		cfg.postTimeout,
 		captures,
 	)
+	handler = api.WithDeletion(handler, deletions)
 	handler = api.WithSearch(handler, searches)
 	handler = api.WithPlayback(handler, playback.NewService(sqlite.NewPlaybackRepository(db)))
 	var transport http.Handler

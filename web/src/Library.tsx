@@ -1,3 +1,4 @@
+import { DeletionNotice } from './DeletionNotice'
 import { createPortal } from 'react-dom'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
@@ -68,6 +69,7 @@ export function Library({ actionsHost }: { actionsHost: HTMLDivElement | null })
 
   return (
     <>
+      <DeletionNotice />
       <title>Bibliothèque · Sillage</title>
       <h1 className="sr-only">Bibliothèque</h1>
       {actionsHost && createPortal(<>

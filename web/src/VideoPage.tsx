@@ -14,7 +14,8 @@ import { VideoTranscript } from './VideoTranscript'
 import { useVideoDownload } from './useVideoDownload'
 import { LocalFileDetails } from './LocalFileDetails'
 import { VideoPlayer } from './VideoPlayer'
-import type { PlayerHandle } from './player'
+import type { VideoPlayerHandle } from './VideoPlayer'
+import { DeleteVideo } from './DeleteVideo'
 import type { VideoNoteHandle } from './VideoNote'
 import { transcriptCitation } from './transcriptSelection'
 import { temporalReference } from './temporalReference'
@@ -118,7 +119,7 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
   }
 
   const note = useRef<VideoNoteHandle>(null)
-  const player = useRef<PlayerHandle>(null)
+  const player = useRef<VideoPlayerHandle>(null)
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [tab, setTab] = useState<'note' | 'information'>('note')
@@ -284,6 +285,9 @@ function VideoDetail({ id, titleHost }: { id: string; titleHost: HTMLElement | n
                     working={videoSource.id === source?.id}
                   />
                 ))}
+                <DeleteVideo videoID={state.video.id} title={title} session={noteSession}
+                  onPrepare={() => { closeImages(); player.current?.suspendForDeletion() }}
+                  onRefused={() => player.current?.resumeAfterDeletionRefused()} />
               </section>
             </div>
             {source && <VideoTranscript covered={imagesOpen} key={source.id} videoID={state.video.id} sourceID={source.id}
